@@ -83,7 +83,6 @@ namespace detail {
 struct pending_block_header_state : public detail::block_header_state_legacy_common {
    protocol_feature_activation_set_ptr  prev_activated_protocol_features;
    detail::schedule_info                prev_pending_schedule;
-   std::optional<finalizer_policy>         proposed_finalizer_policy; // set by set_finalizer host function
    bool                                 was_pending_promoted = false;
    block_id_type                        previous;
    account_name                         producer;
@@ -120,31 +119,6 @@ protected:
                                                                       const vector<digest_type>& )>& validator )&&;
 };
 
-/**
- *  @struct block_header_state_core
- *
- *  A data structure holding hotstuff core information
- */
-struct block_header_state_core {
-   // the block height of the last irreversible (final) block.
-   uint32_t last_final_block_height = 0;
-
-   // the block height of the block that would become irreversible (final) if the
-   // associated block header was to achieve a strong QC.
-   std::optional<uint32_t> final_on_strong_qc_block_height;
-
-   // the block height of the block that is referenced as the last QC block
-   std::optional<uint32_t> last_qc_block_height;
-
-   block_header_state_core() = default;
-
-   explicit block_header_state_core( uint32_t last_final_block_height,
-                                     std::optional<uint32_t> final_on_strong_qc_block_height,
-                                     std::optional<uint32_t> last_qc_block_height );
-
-   block_header_state_core next( uint32_t last_qc_block_height,
-                                 bool is_last_qc_strong);
-};
 /**
  *  @struct block_header_state
  *

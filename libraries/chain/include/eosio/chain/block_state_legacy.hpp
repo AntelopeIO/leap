@@ -41,6 +41,7 @@ namespace eosio { namespace chain {
       friend struct fork_database_impl;
       friend class  unapplied_transaction_queue;
       friend struct pending_state;
+      friend struct completed_block;
 
       bool is_valid()const { return validated; }
       bool is_pub_keys_recovered()const { return _pub_keys_recovered; }

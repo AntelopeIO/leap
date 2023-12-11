@@ -116,19 +116,113 @@ class maybe_session {
       std::optional<database::session>     _session;
 };
 
+struct dpos_header_t {
+   pending_block_header_state                 _pending_block_header_state;
+   std::optional<producer_authority_schedule> _new_pending_producer_schedule;
+};
+
+struct if_header_t {
+   block_header_state                         _bhs;
+};
+
+struct header_t {
+   std::variant<dpos_header_t, if_header_t> v;
+
+
+   protocol_feature_activation_set_ptr  get_prev_activated_protocol_features() const {
+      return std::visit(overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.prev_activated_protocol_features; },
+                                   [](const if_header_t& h) { return h._bhs.get_prev_activated_protocol_features(); }},
+                        v);
+   }
+
+   uint32_t block_num() const {
+      return std::visit(overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.block_num; },
+                                   [](const if_header_t& h) { return h._bhs.block_num(); }},
+                        v);
+   }
+
+   block_timestamp_type timestamp() const {
+      return std::visit(overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.timestamp; },
+                                   [](const if_header_t& h) { return h._bhs.timestamp(); }},
+                        v);
+   }
+
+   uint32_t pending_irreversible_blocknum() const {
+      return std::visit(
+         overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.dpos_irreversible_blocknum; },
+                    [](const if_header_t& h) { return h._bhs.pending_irreversible_blocknum(); }},
+         v);
+   }
+
+   uint32_t irreversible_blocknum() const {
+      return std::visit(
+         overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.dpos_irreversible_blocknum; },
+                    [](const if_header_t& h) { return h._bhs.irreversible_blocknum(); }},
+         v);
+   }
+
+   detail::schedule_info prev_pending_schedule() const {
+      return std::visit(
+         overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.prev_pending_schedule; },
+                    [](const if_header_t& h) { return h._bhs.prev_pending_schedule(); }},
+         v);
+   }
+
+   uint32_t active_schedule_version() const {
+      return std::visit(
+         overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.active_schedule_version; },
+                    [](const if_header_t& h) { return h._bhs.active_schedule_version(); }},
+         v);
+   }
+
+   std::optional<producer_authority_schedule>& new_pending_producer_schedule() {
+      return std::visit(overloaded{[](dpos_header_t& h) -> std::optional<producer_authority_schedule>& {
+                                      return h._new_pending_producer_schedule;
+                                   },
+                                   [](if_header_t& h) -> std::optional<producer_authority_schedule>& {
+                                      return h._bhs.new_pending_producer_schedule();
+                                   }},
+                        v);
+   }
+
+   uint32_t increment_finalizer_policy_generation() {
+      return std::visit(overloaded{[](dpos_header_t& h) -> uint32_t { return 0; },
+                                   [](if_header_t& h) { return h._bhs.increment_finalizer_policy_generation(); }},
+                        v);
+   }
+
+   signed_block_header make_block_header(const checksum256_type& transaction_mroot,
+                                         const checksum256_type& action_mroot,
+                                         const std::optional<producer_authority_schedule>& new_producers,
+                                         vector<digest_type>&& new_protocol_feature_activations,
+                                         const protocol_feature_set& pfs) const {
+      return std::visit(
+         overloaded{[&, act = std::move(new_protocol_feature_activations)](const dpos_header_t& h) mutable {
+                       return h._pending_block_header_state.make_block_header(transaction_mroot, action_mroot,
+                                                                              new_producers, std::move(act), pfs);
+                    },
+                    [&, act = std::move(new_protocol_feature_activations)](const if_header_t& h) mutable {
+                       return h._bhs.make_block_header(transaction_mroot, action_mroot, new_producers, std::move(act),
+                                                       pfs);
+                    }},
+         v);
+   }
+};
+
 struct building_block {
    building_block( const block_header_state_legacy& prev,
                    block_timestamp_type when,
                    bool hotstuff_activated,
                    uint16_t num_prev_blocks_to_confirm,
                    const vector<digest_type>& new_protocol_feature_activations )
-   :_pending_block_header_state( prev.next( when, hotstuff_activated, num_prev_blocks_to_confirm ) )
+   : _header(dpos_header_t{prev.next( when, hotstuff_activated, num_prev_blocks_to_confirm ), {}})
    ,_new_protocol_feature_activations( new_protocol_feature_activations )
    ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
 
-   pending_block_header_state                 _pending_block_header_state;
-   std::optional<producer_authority_schedule> _new_pending_producer_schedule;
+   header_t                                   _header;
+   //pending_block_header_state                 _pending_block_header_state;
+   //std::optional<producer_authority_schedule> _new_pending_producer_schedule;
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
    deque<transaction_metadata_ptr>            _pending_trx_metas;
@@ -139,7 +233,8 @@ struct building_block {
 
 struct assembled_block {
    block_id_type                     _id;
-   pending_block_header_state        _pending_block_header_state;
+   header_t                          _header;
+   //pending_block_header_state        _pending_block_header_state;
    deque<transaction_metadata_ptr>   _trx_metas;
    signed_block_ptr                  _unsigned_block;
 
@@ -148,10 +243,51 @@ struct assembled_block {
 };
 
 struct completed_block {
-   block_state_legacy_ptr            _block_state;
+   std::variant<block_state_legacy_ptr, block_state_ptr> _block_state;
+
+   deque<transaction_metadata_ptr> extract_trxs_metas() {
+      return std::visit(overloaded{[](block_state_legacy_ptr& bsp) { return bsp->extract_trxs_metas(); },
+                                   [](block_state_ptr& bsp) { return bsp->extract_trxs_metas(); }},
+                        _block_state);
+   }
+
+   flat_set<digest_type> get_activated_protocol_features() const {
+      return std::visit(
+         overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->activated_protocol_features->protocol_features; },
+                    [](const block_state_ptr& bsp) { return bsp->bhs.get_activated_protocol_features(); }},
+         _block_state);
+   }
+   
+   uint32_t block_num() const {
+      return std::visit(overloaded{[](const block_state_legacy_ptr& h) { return h->block_num; },
+                                   [](const block_state_ptr& h) { return h->bhs.block_num(); }},
+                        _block_state);
+   }
+
+   block_timestamp_type timestamp() const {
+      return std::visit(overloaded{[](const block_state_legacy_ptr& h) { return h->block->timestamp; },
+                                   [](const block_state_ptr& h) { return h->bhs.timestamp(); }},
+                        _block_state);
+   }
 };
 
-using block_stage_type = std::variant<building_block, assembled_block, completed_block>;
+struct block_stage_type : public std::variant<building_block, assembled_block, completed_block> {
+   uint32_t block_num() const {
+      return std::visit(overloaded{[](const building_block& h) { return h._header.block_num(); },
+                                   [](const assembled_block& h) { return h._header.block_num(); },
+                                   [](const completed_block& h) { return h.block_num(); }},
+                        *this);
+   }
+
+   block_timestamp_type timestamp() const {
+      return std::visit(overloaded{[](const building_block& h) { return h._header.timestamp(); },
+                                   [](const assembled_block& h) { return h._header.timestamp(); },
+                                   [](const completed_block& h) { return h.timestamp(); }},
+                        *this);
+   }
+
+   
+};
 
 struct pending_state {
    pending_state( maybe_session&& s, const block_header_state_legacy& prev,
@@ -168,14 +304,7 @@ struct pending_state {
    controller::block_status           _block_status = controller::block_status::ephemeral;
    std::optional<block_id_type>       _producer_block_id;
    controller::block_report           _block_report{};
-
-   /** @pre _block_stage cannot hold completed_block alternative */
-   const pending_block_header_state& get_pending_block_header_state()const {
-      if( std::holds_alternative<building_block>(_block_stage) )
-         return std::get<building_block>(_block_stage)._pending_block_header_state;
-
-      return std::get<assembled_block>(_block_stage)._pending_block_header_state;
-   }
+   assembled_block_input              _assembled_block_input;
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
       if( std::holds_alternative<building_block>(_block_stage) )
@@ -184,13 +313,13 @@ struct pending_state {
       if( std::holds_alternative<assembled_block>(_block_stage) )
          return std::move( std::get<assembled_block>(_block_stage)._trx_metas );
 
-      return std::get<completed_block>(_block_stage)._block_state->extract_trxs_metas();
+      return std::get<completed_block>(_block_stage).extract_trxs_metas();
    }
 
    bool is_protocol_feature_activated( const digest_type& feature_digest )const {
       if( std::holds_alternative<building_block>(_block_stage) ) {
-        auto& bb = std::get<building_block>(_block_stage);
-         const auto& activated_features = bb._pending_block_header_state.prev_activated_protocol_features->protocol_features;
+         auto& bb = std::get<building_block>(_block_stage);
+         const auto& activated_features = bb._header.get_prev_activated_protocol_features()->protocol_features;
 
          if( activated_features.find( feature_digest ) != activated_features.end() ) return true;
 
@@ -209,7 +338,7 @@ struct pending_state {
          // TODO: implement this
       }
 
-      const auto& activated_features = std::get<completed_block>(_block_stage)._block_state->activated_protocol_features->protocol_features;
+      const auto& activated_features = std::get<completed_block>(_block_stage).get_activated_protocol_features();
       return (activated_features.find( feature_digest ) != activated_features.end());
    }
 
@@ -1738,7 +1867,6 @@ struct controller_impl {
       pending->_producer_block_id = producer_block_id;
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      const auto& pbhs = bb._pending_block_header_state;
 
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
       // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
@@ -1784,7 +1912,7 @@ struct controller_impl {
                   trigger_activation_handler( *f.builtin_feature );
                }
 
-               protocol_features.activate_feature( feature_digest, pbhs.block_num );
+               protocol_features.activate_feature( feature_digest, bb._header.block_num() );
 
                ++bb._num_new_protocol_features_that_have_activated;
             }
@@ -1803,28 +1931,28 @@ struct controller_impl {
                ps.preactivated_protocol_features.clear();
 
                for (const auto& digest : new_protocol_feature_activations)
-                  ps.activated_protocol_features.emplace_back(digest, pbhs.block_num);
+                  ps.activated_protocol_features.emplace_back(digest, bb._header.block_num());
             });
          }
 
          const auto& gpo = self.get_global_properties();
 
          if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
-             ( hs_active || *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible or hotstuff activated...
-             pbhs.prev_pending_schedule.schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
+             ( hs_active || *gpo.proposed_schedule_block_num <= bb._header.pending_irreversible_blocknum() ) && // ... that has now become irreversible or hotstuff activated...
+             bb._header.prev_pending_schedule().schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
          )
          {
             // Promote proposed schedule to pending schedule; happens in next block after hotstuff activated
-            EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
+            EOS_ASSERT( gpo.proposed_schedule.version == bb._header.active_schedule_version() + 1,
                         producer_schedule_exception, "wrong producer schedule version specified" );
 
-            std::get<building_block>(pending->_block_stage)._new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+            bb._header.new_pending_producer_schedule() = producer_authority_schedule::from_shared(gpo.proposed_schedule);
 
             if( !replaying ) {
                ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
-                     ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
-                     ("lib", hs_active ? hs_lib : pbhs.dpos_irreversible_blocknum)
-                     ("schedule", std::get<building_block>(pending->_block_stage)._new_pending_producer_schedule ) );
+                     ("proposed_num", *gpo.proposed_schedule_block_num)("n", bb._header.block_num())
+                     ("lib", hs_active ? hs_lib : bb._header.irreversible_blocknum())
+                     ("schedule", bb._header.new_pending_producer_schedule() ) );
             }
 
             db.modify( gpo, [&]( auto& gp ) {
@@ -1879,8 +2007,6 @@ struct controller_impl {
 
       const bool if_active = hs_irreversible_block_num.load() > 0;
 
-      auto& pbhs = pending->get_pending_block_header_state();
-
       auto& bb = std::get<building_block>(pending->_block_stage);
 
       auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
@@ -1904,24 +2030,24 @@ struct controller_impl {
          { CPU_TARGET, chain_config.max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
          {EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct), chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
       );
-      resource_limits.process_block_usage(pbhs.block_num);
+      resource_limits.process_block_usage(bb._header.block_num());
 
       // Create (unsigned) block:
-      auto block_ptr = std::make_shared<signed_block>( pbhs.make_block_header(
+      auto block_ptr = std::make_shared<signed_block>( bb._header.make_block_header(
          calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb._trx_mroot_or_receipt_digests),
          action_merkle_fut.get(),
-         bb._new_pending_producer_schedule,
+         bb._header.new_pending_producer_schedule(),
          std::move( bb._new_protocol_feature_activations ),
          protocol_features.get_protocol_feature_set()
       ) );
 
       block_ptr->transactions = std::move( bb._pending_trx_receipts );
 
-      if (bb._pending_block_header_state.proposed_finalizer_policy) {
+      auto proposed_fin_pol = pending->_assembled_block_input.new_finalizer_policy();
+      if (proposed_fin_pol) {
          // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
-         finalizer_policy& fin_pol = *bb._pending_block_header_state.proposed_finalizer_policy;
-         ++bb._pending_block_header_state.last_proposed_finalizer_policy_generation;
-         fin_pol.generation = bb._pending_block_header_state.last_proposed_finalizer_policy_generation;
+         finalizer_policy fin_pol = std::move(*proposed_fin_pol);
+         fin_pol.generation = bb._header.increment_finalizer_policy_generation();
          emplace_extension(
                  block_ptr->header_extensions,
                  finalizer_policy_extension::extension_id(),
@@ -1953,7 +2079,7 @@ struct controller_impl {
                                  std::move( bb._pending_block_header_state ),
                                  std::move( bb._pending_trx_metas ),
                                  std::move( block_ptr ),
-                                 std::move( bb._new_pending_producer_schedule )
+                                 std::move( bb._header.new_pending_producer_schedule() )
                               };
    } FC_CAPTURE_AND_RETHROW() } /// finalize_block
 
@@ -3151,11 +3277,7 @@ block_id_type controller::fork_db_head_block_id()const {
 
 block_timestamp_type controller::pending_block_timestamp()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
-
-   if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
-      return std::get<completed_block>(my->pending->_block_stage)._block_state->header.timestamp;
-
-   return my->pending->get_pending_block_header_state().timestamp;
+   return my->pending->_block_stage.timestamp();
 }
 
 time_point controller::pending_block_time()const {
@@ -3164,11 +3286,7 @@ time_point controller::pending_block_time()const {
 
 uint32_t controller::pending_block_num()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
-
-   if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
-      return std::get<completed_block>(my->pending->_block_stage)._block_state->header.block_num();
-
-   return my->pending->get_pending_block_header_state().block_num;
+   return my->pending->_block_stage.block_num();
 }
 
 account_name controller::pending_block_producer()const {

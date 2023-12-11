@@ -1,9 +1,20 @@
 //notes : under this pseudo code, the hotstuff information is mapped to Antelope concepts :
 b_leaf (becomes) -> block_header_state.id
+                    (`head->bhs.id`)
+                    
 b_lock (becomes) -> finalizer_safety_information.locked_block_ref
+                    (`block_id_type` of the proposal we voted on and are locked to)
+                    
 b_exec (becomes) -> block proposal refered to by block_header_state_core.last_final_block_height
+                    (`head->bhs.core.last_final_block_height`)
+                    
 v_height (becomes) -> finalizer_safety_information.last_vote_block_ref
+                    (`block_id_type` of the last proposal we voted on)
+                    
 high_qc (becomes) -> block proposal refered to by block_header_state_core.last_qc_block_height
+                    (fork_db.get_block_by_height(head->bhs.id, head->bhs.core.last_qc_block_height).get_best_qc())
+                    maybe add new index in fork_db?
+                    
 proposal_store is now fork_db
 
 //structures
