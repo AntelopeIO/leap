@@ -1941,7 +1941,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    LOG_AND_DROP();
 
    if (chain.is_building_block()) {
-      const auto& pending_block_signing_authority = chain.pending_block_signing_authority();
+      auto pending_block_signing_authority = chain.pending_block_signing_authority();
 
       if (in_producing_mode() && pending_block_signing_authority != scheduled_producer.authority) {
          elog("Unexpected block signing authority, reverting to speculative mode! [expected: \"${expected}\", actual: \"${actual\"",
@@ -2615,7 +2615,7 @@ void producer_plugin_impl::produce_block() {
    EOS_ASSERT(chain.is_building_block(), missing_pending_block_state,
               "pending_block_state does not exist but it should, another plugin may have corrupted it");
 
-   const auto&                                                        auth = chain.pending_block_signing_authority();
+   auto auth = chain.pending_block_signing_authority();
    std::vector<std::reference_wrapper<const signature_provider_type>> relevant_providers;
 
    relevant_providers.reserve(_signature_providers.size());

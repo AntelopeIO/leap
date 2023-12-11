@@ -236,7 +236,7 @@ namespace eosio::chain {
          time_point                     pending_block_time()const;
          block_timestamp_type           pending_block_timestamp()const;
          account_name                   pending_block_producer()const;
-         const block_signing_authority& pending_block_signing_authority()const;
+         block_signing_authority        pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
          uint32_t                       pending_block_num()const;
 

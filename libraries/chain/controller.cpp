@@ -128,6 +128,12 @@ struct if_header_t {
 struct header_t {
    std::variant<dpos_header_t, if_header_t> v;
 
+   template <class R, class F>
+   R apply_dpos(F&& f) { 
+      return std::visit(overloaded{[&](dpos_header_t& h) -> R { return std::forward<F>(f)(h._pending_block_header_state); },
+                                   [&](if_header_t& h) -> R { return {}; }},
+                        v);
+   }
 
    protocol_feature_activation_set_ptr  get_prev_activated_protocol_features() const {
       return std::visit(overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.prev_activated_protocol_features; },
@@ -144,6 +150,12 @@ struct header_t {
    block_timestamp_type timestamp() const {
       return std::visit(overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.timestamp; },
                                    [](const if_header_t& h) { return h._bhs.timestamp(); }},
+                        v);
+   }
+
+   account_name producer() const {
+      return std::visit(overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.producer; },
+                                   [](const if_header_t& h) { return h._bhs._header.producer; }},
                         v);
    }
 
@@ -174,6 +186,8 @@ struct header_t {
                     [](const if_header_t& h) { return h._bhs.active_schedule_version(); }},
          v);
    }
+
+   
 
    std::optional<producer_authority_schedule>& new_pending_producer_schedule() {
       return std::visit(overloaded{[](dpos_header_t& h) -> std::optional<producer_authority_schedule>& {
@@ -269,9 +283,30 @@ struct completed_block {
                                    [](const block_state_ptr& h) { return h->bhs.timestamp(); }},
                         _block_state);
    }
+
+   account_name producer() const {
+      return std::visit(overloaded{[](const block_state_legacy_ptr& h) { return h->block->producer; },
+                                   [](const block_state_ptr& h) { return h->bhs._header.producer; }},
+                        _block_state);
+   }
+#if 0
+   block_signing_authority get_block_signing_authority() const {
+      return std::visit(overloaded{[](const block_state_legacy_ptr& h) { return h->valid_block_signing_authority; },
+               [](const block_state_ptr& h) { return ; }},
+                        _block_state);
+   }
+#endif
 };
 
 struct block_stage_type : public std::variant<building_block, assembled_block, completed_block> {
+   template <class R, class F>
+   R apply_dpos(F&& f) {
+      return std::visit(overloaded{[&](building_block& h) -> R { return h._header.apply_dpos<R>(std::forward<F>(f)); },
+                                   [&](assembled_block& h) -> R { return h._header.apply_dpos<R>(std::forward<F>(f)); } ,
+                                   [&](const completed_block& h) -> R  { return {}; }},
+                        *this);
+   }
+
    uint32_t block_num() const {
       return std::visit(overloaded{[](const building_block& h) { return h._header.block_num(); },
                                    [](const assembled_block& h) { return h._header.block_num(); },
@@ -286,7 +321,20 @@ struct block_stage_type : public std::variant<building_block, assembled_block, c
                         *this);
    }
 
-   
+   account_name producer() const {
+      return std::visit(overloaded{[](const building_block& h) { return h._header.producer(); },
+                                   [](const assembled_block& h) { return h._header.producer(); },
+                                   [](const completed_block& h) { return h.producer(); }},
+                        *this);
+   }
+#if 0
+   const block_signing_authority& get_block_signing_authority() const {
+      return std::visit(overloaded{[](const building_block& h) { return h._header.get_block_signing_authority(); },
+                                   [](const assembled_block& h) { return h._header.get_block_signing_authority(); },
+                                   [](const completed_block& h) { return h.get_block_signing_authority(); }},
+                        *this);
+   }
+#endif
 };
 
 struct pending_state {
@@ -2612,39 +2660,42 @@ struct controller_impl {
    }
 
    void update_producers_authority() {
-      const auto& producers = pending->get_pending_block_header_state().active_schedule.producers;
+      // this is not called when hotstuff is activated
+      pending->_block_stage.apply_dpos<void>([this](pending_block_header_state& pbhs) {
+         const auto& producers = pbhs.active_schedule.producers;
 
-      auto update_permission = [&]( auto& permission, auto threshold ) {
-         auto auth = authority( threshold, {}, {});
-         for( auto& p : producers ) {
-            auth.accounts.push_back({{p.producer_name, config::active_name}, 1});
-         }
+         auto update_permission = [&](auto& permission, auto threshold) {
+            auto auth = authority(threshold, {}, {});
+            for (auto& p : producers) {
+               auth.accounts.push_back({
+                  {p.producer_name, config::active_name},
+                  1
+               });
+            }
 
-         if( permission.auth != auth ) {
-            db.modify(permission, [&]( auto& po ) {
-               po.auth = auth;
-            });
-         }
-      };
+            if (permission.auth != auth) {
+               db.modify(permission, [&](auto& po) { po.auth = auth; });
+            }
+         };
 
-      uint32_t num_producers = producers.size();
-      auto calculate_threshold = [=]( uint32_t numerator, uint32_t denominator ) {
-         return ( (num_producers * numerator) / denominator ) + 1;
-      };
+         uint32_t num_producers       = producers.size();
+         auto     calculate_threshold = [=](uint32_t numerator, uint32_t denominator) {
+            return ((num_producers * numerator) / denominator) + 1;
+         };
 
-      update_permission( authorization.get_permission({config::producers_account_name,
-                                                       config::active_name}),
-                         calculate_threshold( 2, 3 ) /* more than two-thirds */                      );
+         update_permission(authorization.get_permission({config::producers_account_name, config::active_name}),
+                           calculate_threshold(2, 3) /* more than two-thirds */);
 
-      update_permission( authorization.get_permission({config::producers_account_name,
-                                                       config::majority_producers_permission_name}),
-                         calculate_threshold( 1, 2 ) /* more than one-half */                        );
+         update_permission(
+            authorization.get_permission({config::producers_account_name, config::majority_producers_permission_name}),
+            calculate_threshold(1, 2) /* more than one-half */);
 
-      update_permission( authorization.get_permission({config::producers_account_name,
-                                                       config::minority_producers_permission_name}),
-                         calculate_threshold( 1, 3 ) /* more than one-third */                       );
+         update_permission(
+            authorization.get_permission({config::producers_account_name, config::minority_producers_permission_name}),
+            calculate_threshold(1, 3) /* more than one-third */);
 
-      //TODO: Add tests
+         // TODO: Add tests
+      });
    }
 
    void create_block_summary(const block_id_type& id) {
@@ -3291,14 +3342,10 @@ uint32_t controller::pending_block_num()const {
 
 account_name controller::pending_block_producer()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
-
-   if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
-      return std::get<completed_block>(my->pending->_block_stage)._block_state->header.producer;
-
-   return my->pending->get_pending_block_header_state().producer;
+   return my->pending->_block_stage.producer();
 }
 
-const block_signing_authority& controller::pending_block_signing_authority()const {
+block_signing_authority controller::pending_block_signing_authority() const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
 
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )

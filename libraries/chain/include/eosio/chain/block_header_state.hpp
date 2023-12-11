@@ -13,7 +13,15 @@ namespace detail { struct schedule_info; };
 
 // totem for dpos_irreversible_blocknum after hotstuff is activated
 // This value implicitly means that fork_database will prefer hotstuff blocks over dpos blocks
-struct proposer_policy {}; // temporary placeholder
+
+struct proposer_policy {
+   constexpr static uint32_t   current_schema_version = 1;
+   const uint8_t               schema_version = current_schema_version;
+   
+   // TODO: seems useful for light clients, not necessary for nodeos
+   block_timestamp_type        active_time; // block when schedule will become active
+   producer_authority_schedule proposer_schedule;
+};
 using proposer_policy_ptr = std::shared_ptr<proposer_policy>;
 
 struct building_block_input {
