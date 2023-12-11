@@ -223,6 +223,18 @@ struct header_t {
    }
 };
 
+struct assembled_block {
+   block_id_type                     _id;
+   header_t                          _header;
+   //pending_block_header_state        _pending_block_header_state;
+   deque<transaction_metadata_ptr>   _trx_metas;
+   signed_block_ptr                  _unsigned_block;
+
+   // if the _unsigned_block pre-dates block-signing authorities this may be present.
+   std::optional<producer_authority_schedule> _new_producer_authority_cache;
+};
+
+
 struct building_block {
    building_block( const block_header_state_legacy& prev,
                    block_timestamp_type when,
@@ -233,6 +245,13 @@ struct building_block {
    ,_new_protocol_feature_activations( new_protocol_feature_activations )
    ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
+
+   assembled_block assemble_block(block_id_type id, header_t header, deque<transaction_metadata_ptr> trx_metas,
+                                  signed_block_ptr unsigned_block, std::optional<producer_authority_schedule> new_producer_authority,
+                                  assembled_block_input input) {
+
+   }
+   
 
    header_t                                   _header;
    //pending_block_header_state                 _pending_block_header_state;
@@ -245,16 +264,6 @@ struct building_block {
    digests_t                                  _action_receipt_digests;
 };
 
-struct assembled_block {
-   block_id_type                     _id;
-   header_t                          _header;
-   //pending_block_header_state        _pending_block_header_state;
-   deque<transaction_metadata_ptr>   _trx_metas;
-   signed_block_ptr                  _unsigned_block;
-
-   // if the _unsigned_block pre-dates block-signing authorities this may be present.
-   std::optional<producer_authority_schedule> _new_producer_authority_cache;
-};
 
 struct completed_block {
    std::variant<block_state_legacy_ptr, block_state_ptr> _block_state;
@@ -299,6 +308,8 @@ struct completed_block {
 };
 
 struct block_stage_type : public std::variant<building_block, assembled_block, completed_block> {
+   using base = std::variant<building_block, assembled_block, completed_block>;
+   
    template <class R, class F>
    R apply_dpos(F&& f) {
       return std::visit(overloaded{[&](building_block& h) -> R { return h._header.apply_dpos<R>(std::forward<F>(f)); },
@@ -335,6 +346,15 @@ struct block_stage_type : public std::variant<building_block, assembled_block, c
                         *this);
    }
 #endif
+
+   void assemble_block(block_id_type id, header_t header, deque<transaction_metadata_ptr> trx_metas,
+                       signed_block_ptr unsigned_block, std::optional<producer_authority_schedule> new_producer_authority,
+                       assembled_block_input input) {
+      assert(std::holds_alternative<building_block>(*this));
+      *(base*)this = std::get<building_block>(*this).assemble_block(
+         id, std::move(header), std::move(trx_metas), std::move(unsigned_block), std::move(new_producer_authority),
+         std::move(input));
+   }
 };
 
 struct pending_state {
@@ -2122,14 +2142,12 @@ struct controller_impl {
       );
       */
 
-      pending->_block_stage = assembled_block{
-                                 id,
-                                 std::move( bb._pending_block_header_state ),
-                                 std::move( bb._pending_trx_metas ),
-                                 std::move( block_ptr ),
-                                 std::move( bb._header.new_pending_producer_schedule() )
-                              };
-   } FC_CAPTURE_AND_RETHROW() } /// finalize_block
+      pending->_block_stage = pending->_block_stage.assemble_block(
+         id, std::move(bb._header), std::move(bb._pending_trx_metas), std::move(block_ptr),
+         std::move(bb._header.new_pending_producer_schedule()), std::move(pending->_assembled_block_input));
+      }
+      FC_CAPTURE_AND_RETHROW()
+   } /// finalize_block
 
    /**
     * @post regardless of the success of commit block there is no active pending block
