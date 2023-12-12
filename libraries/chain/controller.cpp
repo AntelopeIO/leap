@@ -128,10 +128,21 @@ struct if_header_t {
 struct header_t {
    std::variant<dpos_header_t, if_header_t> v;
 
+   // used for dpos specific code
    template <class R, class F>
-   R apply_dpos(F&& f) { 
-      return std::visit(overloaded{[&](dpos_header_t& h) -> R { return std::forward<F>(f)(h._pending_block_header_state); },
+   R apply_dpos(F&& f) {
+      assert(std::holds_alternative<dpos_header_t>(v));
+      return std::visit(overloaded{[&](dpos_header_t& h) -> R { return std::forward<F>(f)(h); },
                                    [&](if_header_t& h) -> R { return {}; }},
+                        v);
+   }
+   
+   // used for IF specific code
+   template <class R, class F>
+   R apply_hs(F&& f) {
+      assert(std::holds_alternative<if_header_t>(v));
+      return std::visit(overloaded{[&](dpos_header_t& h) -> R { return {}; },
+                                   [&](if_header_t& h) -> R { return std::forward<F>(f)(h); }},
                         v);
    }
 
@@ -159,20 +170,6 @@ struct header_t {
                         v);
    }
 
-   uint32_t pending_irreversible_blocknum() const {
-      return std::visit(
-         overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.dpos_irreversible_blocknum; },
-                    [](const if_header_t& h) { return h._bhs.pending_irreversible_blocknum(); }},
-         v);
-   }
-
-   uint32_t irreversible_blocknum() const {
-      return std::visit(
-         overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.dpos_irreversible_blocknum; },
-                    [](const if_header_t& h) { return h._bhs.irreversible_blocknum(); }},
-         v);
-   }
-
    detail::schedule_info prev_pending_schedule() const {
       return std::visit(
          overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.prev_pending_schedule; },
@@ -180,28 +177,13 @@ struct header_t {
          v);
    }
 
-   uint32_t active_schedule_version() const {
-      return std::visit(
-         overloaded{[](const dpos_header_t& h) { return h._pending_block_header_state.active_schedule_version; },
-                    [](const if_header_t& h) { return h._bhs.active_schedule_version(); }},
-         v);
-   }
-
-   
-
-   std::optional<producer_authority_schedule>& new_pending_producer_schedule() {
+   const std::optional<producer_authority_schedule>& new_pending_producer_schedule() {
       return std::visit(overloaded{[](dpos_header_t& h) -> std::optional<producer_authority_schedule>& {
                                       return h._new_pending_producer_schedule;
                                    },
                                    [](if_header_t& h) -> std::optional<producer_authority_schedule>& {
                                       return h._bhs.new_pending_producer_schedule();
                                    }},
-                        v);
-   }
-
-   uint32_t increment_finalizer_policy_generation() {
-      return std::visit(overloaded{[](dpos_header_t& h) -> uint32_t { return 0; },
-                                   [](if_header_t& h) { return h._bhs.increment_finalizer_policy_generation(); }},
                         v);
    }
 
@@ -246,10 +228,9 @@ struct building_block {
    ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
 
-   assembled_block assemble_block(block_id_type id, header_t header, deque<transaction_metadata_ptr> trx_metas,
-                                  signed_block_ptr unsigned_block, std::optional<producer_authority_schedule> new_producer_authority,
-                                  assembled_block_input input) {
-
+   assembled_block assemble_block(block_id_type id, signed_block_ptr unsigned_block, assembled_block_input input) {
+      return assembled_block{id, std::move(_header), std::move(_pending_trx_metas), std::move(unsigned_block),
+                             _header.new_pending_producer_schedule()};
    }
    
 
@@ -298,13 +279,6 @@ struct completed_block {
                                    [](const block_state_ptr& h) { return h->bhs._header.producer; }},
                         _block_state);
    }
-#if 0
-   block_signing_authority get_block_signing_authority() const {
-      return std::visit(overloaded{[](const block_state_legacy_ptr& h) { return h->valid_block_signing_authority; },
-               [](const block_state_ptr& h) { return ; }},
-                        _block_state);
-   }
-#endif
 };
 
 struct block_stage_type : public std::variant<building_block, assembled_block, completed_block> {
@@ -338,23 +312,7 @@ struct block_stage_type : public std::variant<building_block, assembled_block, c
                                    [](const completed_block& h) { return h.producer(); }},
                         *this);
    }
-#if 0
-   const block_signing_authority& get_block_signing_authority() const {
-      return std::visit(overloaded{[](const building_block& h) { return h._header.get_block_signing_authority(); },
-                                   [](const assembled_block& h) { return h._header.get_block_signing_authority(); },
-                                   [](const completed_block& h) { return h.get_block_signing_authority(); }},
-                        *this);
-   }
-#endif
 
-   void assemble_block(block_id_type id, header_t header, deque<transaction_metadata_ptr> trx_metas,
-                       signed_block_ptr unsigned_block, std::optional<producer_authority_schedule> new_producer_authority,
-                       assembled_block_input input) {
-      assert(std::holds_alternative<building_block>(*this));
-      *(base*)this = std::get<building_block>(*this).assemble_block(
-         id, std::move(header), std::move(trx_metas), std::move(unsigned_block), std::move(new_producer_authority),
-         std::move(input));
-   }
 };
 
 struct pending_state {
@@ -2005,28 +1963,34 @@ struct controller_impl {
 
          const auto& gpo = self.get_global_properties();
 
-         if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
-             ( hs_active || *gpo.proposed_schedule_block_num <= bb._header.pending_irreversible_blocknum() ) && // ... that has now become irreversible or hotstuff activated...
-             bb._header.prev_pending_schedule().schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
-         )
-         {
-            // Promote proposed schedule to pending schedule; happens in next block after hotstuff activated
-            EOS_ASSERT( gpo.proposed_schedule.version == bb._header.active_schedule_version() + 1,
-                        producer_schedule_exception, "wrong producer schedule version specified" );
+         if (!hs_active) {
+            bb._header.apply_dpos<void>([&](dpos_header_t &dpos_header) {
+               pending_block_header_state& pbhs = dpos_header._pending_block_header_state;
+               
+               if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
+                   ( hs_active || *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible or hotstuff activated...
+                   pbhs.prev_pending_schedule.schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
+                  )
+               {
+                  // Promote proposed schedule to pending schedule; happens in next block after hotstuff activated
+                  EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
+                              producer_schedule_exception, "wrong producer schedule version specified" );
 
-            bb._header.new_pending_producer_schedule() = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+                  dpos_header._new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
 
-            if( !replaying ) {
-               ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
-                     ("proposed_num", *gpo.proposed_schedule_block_num)("n", bb._header.block_num())
-                     ("lib", hs_active ? hs_lib : bb._header.irreversible_blocknum())
-                     ("schedule", bb._header.new_pending_producer_schedule() ) );
-            }
+                  if( !replaying ) {
+                     ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
+                           ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
+                           ("lib", hs_active ? hs_lib : pbhs.dpos_irreversible_blocknum)
+                           ("schedule", dpos_header._new_pending_producer_schedule ) );
+                  }
 
-            db.modify( gpo, [&]( auto& gp ) {
-               gp.proposed_schedule_block_num = std::optional<block_num_type>();
-               gp.proposed_schedule.version=0;
-               gp.proposed_schedule.producers.clear();
+                  db.modify( gpo, [&]( auto& gp ) {
+                     gp.proposed_schedule_block_num = std::optional<block_num_type>();
+                     gp.proposed_schedule.version=0;
+                     gp.proposed_schedule.producers.clear();
+                  });
+               }
             });
          }
 
@@ -2115,7 +2079,8 @@ struct controller_impl {
       if (proposed_fin_pol) {
          // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
          finalizer_policy fin_pol = std::move(*proposed_fin_pol);
-         fin_pol.generation = bb._header.increment_finalizer_policy_generation();
+         fin_pol.generation = bb._header.apply_hs<uint32_t>([&](if_header_t& h) {
+            return h._bhs.increment_finalizer_policy_generation(); });
          emplace_extension(
                  block_ptr->header_extensions,
                  finalizer_policy_extension::extension_id(),
@@ -2142,9 +2107,8 @@ struct controller_impl {
       );
       */
 
-      pending->_block_stage = pending->_block_stage.assemble_block(
-         id, std::move(bb._header), std::move(bb._pending_trx_metas), std::move(block_ptr),
-         std::move(bb._header.new_pending_producer_schedule()), std::move(pending->_assembled_block_input));
+      (block_stage_type::base&)(pending->_block_stage) = 
+         bb.assemble_block(id, std::move(block_ptr), std::move(pending->_assembled_block_input));
       }
       FC_CAPTURE_AND_RETHROW()
    } /// finalize_block
@@ -2679,7 +2643,8 @@ struct controller_impl {
 
    void update_producers_authority() {
       // this is not called when hotstuff is activated
-      pending->_block_stage.apply_dpos<void>([this](pending_block_header_state& pbhs) {
+      pending->_block_stage.apply_dpos<void>([this](dpos_header_t &dpos_header) {
+         pending_block_header_state& pbhs = dpos_header._pending_block_header_state;
          const auto& producers = pbhs.active_schedule.producers;
 
          auto update_permission = [&](auto& permission, auto threshold) {
@@ -3578,9 +3543,9 @@ const producer_authority_schedule& controller::pending_producers()const {
    }
 
    const auto& bb = std::get<building_block>(my->pending->_block_stage);
-
-   if( bb._new_pending_producer_schedule )
-      return *bb._new_pending_producer_schedule;
+   const auto& npps = bb._header.new_pending_producer_schedule();
+   if( npps )
+      return *npps;
 
    return bb._pending_block_header_state.prev_pending_schedule.schedule;
 }
