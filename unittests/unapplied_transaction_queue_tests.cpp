@@ -58,7 +58,7 @@ auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
          result.emplace_back(k.sign(d));
       return result;
    };
-   pending_block_header_state pbhs;
+   pending_block_header_state_legacy pbhs;
    pbhs.producer = block->producer;
    producer_authority_schedule schedule = { 0, { producer_authority{block->producer, block_signing_authority_v0{ 1, {{pub_key, 1}} } } } };
    pbhs.active_schedule = schedule;
