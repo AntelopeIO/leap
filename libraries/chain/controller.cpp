@@ -122,11 +122,7 @@ struct building_block {
                    bool hotstuff_activated,
                    uint16_t num_prev_blocks_to_confirm,
                    const vector<digest_type>& new_protocol_feature_activations )
-<<<<<<< HEAD
-   :_pending_block_header_state( prev.next( when, hotstuff_activated, num_prev_blocks_to_confirm ) )
-=======
-   :_pending_block_header_state_legacy( prev.next( when, num_prev_blocks_to_confirm ) )
->>>>>>> origin/main
+   :_pending_block_header_state_legacy( prev.next( when, hotstuff_activated, num_prev_blocks_to_confirm ) )
    ,_new_protocol_feature_activations( new_protocol_feature_activations )
    ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
@@ -1881,13 +1877,9 @@ struct controller_impl {
 
       try {
 
-<<<<<<< HEAD
       const bool if_active = hs_irreversible_block_num.load() > 0;
 
-      auto& pbhs = pending->get_pending_block_header_state();
-=======
       auto& pbhs = pending->get_pending_block_header_state_legacy();
->>>>>>> origin/main
 
       auto& bb = std::get<building_block>(pending->_block_stage);
 
@@ -1925,11 +1917,11 @@ struct controller_impl {
 
       block_ptr->transactions = std::move( bb._pending_trx_receipts );
 
-      if (bb._pending_block_header_state.proposed_finalizer_policy) {
+      if (bb._pending_block_header_state_legacy.proposed_finalizer_policy) {
          // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
-         finalizer_policy& fin_pol = *bb._pending_block_header_state.proposed_finalizer_policy;
-         ++bb._pending_block_header_state.last_proposed_finalizer_policy_generation;
-         fin_pol.generation = bb._pending_block_header_state.last_proposed_finalizer_policy_generation;
+         finalizer_policy& fin_pol = *bb._pending_block_header_state_legacy.proposed_finalizer_policy;
+         ++bb._pending_block_header_state_legacy.last_proposed_finalizer_policy_generation;
+         fin_pol.generation = bb._pending_block_header_state_legacy.last_proposed_finalizer_policy_generation;
          emplace_extension(
                  block_ptr->header_extensions,
                  finalizer_policy_extension::extension_id(),
@@ -2015,7 +2007,7 @@ struct controller_impl {
       assert(pending); // has to exist and be building_block since called from host function
       auto& bb = std::get<building_block>(pending->_block_stage);
 
-      bb._pending_block_header_state.proposed_finalizer_policy.emplace(fin_pol);
+      bb._pending_block_header_state_legacy.proposed_finalizer_policy.emplace(fin_pol);
    }
 
    /**

@@ -91,17 +91,12 @@ namespace eosio { namespace chain {
       return blocknums[ index ];
    }
 
-<<<<<<< HEAD
    // create pending_block_header_state from this for `when`
    // If hotstuff_activated then use new consensus values and simpler active schedule update.
    // If notstuff is not activated then use previous pre-hotstuff consensus logic.
-   pending_block_header_state  block_header_state_legacy::next( block_timestamp_type when,
-                                                         bool hotstuff_activated,
-                                                         uint16_t num_prev_blocks_to_confirm )const
-=======
    pending_block_header_state_legacy  block_header_state_legacy::next( block_timestamp_type when,
-                                                                uint16_t num_prev_blocks_to_confirm )const
->>>>>>> origin/main
+                                                                       bool hotstuff_activated,
+                                                                       uint16_t num_prev_blocks_to_confirm )const
    {
       pending_block_header_state_legacy result;
 
