@@ -27,7 +27,7 @@ namespace eosio { namespace chain { namespace webassembly {
       [&]() {
 			std::ostringstream oss;
 			oss << val;
-			context.console_append( oss.str() );
+			context.console_append( oss.view() );
       });
    }
 
@@ -36,7 +36,7 @@ namespace eosio { namespace chain { namespace webassembly {
       [&]() {
 			std::ostringstream oss;
 			oss << val;
-			context.console_append( oss.str() );
+			context.console_append( oss.view() );
       });
    }
 
@@ -80,7 +80,7 @@ namespace eosio { namespace chain { namespace webassembly {
 			oss.setf( std::ios::scientific, std::ios::floatfield );
 			oss.precision( std::numeric_limits<float>::digits10 );
 			oss << ::from_softfloat32(val);
-			context.console_append( oss.str() );
+			context.console_append( oss.view() );
       });
    }
 
@@ -92,7 +92,7 @@ namespace eosio { namespace chain { namespace webassembly {
 			oss.setf( std::ios::scientific, std::ios::floatfield );
 			oss.precision( std::numeric_limits<double>::digits10 );
 			oss << ::from_softfloat64(val);
-			context.console_append( oss.str() );
+			context.console_append( oss.view() );
       });
    }
 
@@ -126,7 +126,7 @@ namespace eosio { namespace chain { namespace webassembly {
 			double val_approx = from_softfloat64( f128M_to_f64(val.get()) );
 			oss << val_approx;
 #endif
-			context.console_append( oss.str() );
+			context.console_append( oss.view() );
       });
    }
 
