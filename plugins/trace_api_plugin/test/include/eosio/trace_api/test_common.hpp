@@ -85,7 +85,7 @@ namespace eosio::trace_api {
                result.emplace_back( k.sign( d ));
             return result;
          };
-         chain::pending_block_header_state pbhs;
+         chain::pending_block_header_state_legacy pbhs;
          pbhs.producer = block->producer;
          pbhs.timestamp = block->timestamp;
          chain::producer_authority_schedule schedule = {0, {chain::producer_authority{block->producer,

@@ -71,7 +71,7 @@ namespace detail {
                               builtin_protocol_feature_t feature_codename );
 }
 
-struct pending_block_header_state : public detail::block_header_state_legacy_common {
+struct pending_block_header_state_legacy : public detail::block_header_state_legacy_common {
    protocol_feature_activation_set_ptr  prev_activated_protocol_features;
    detail::schedule_info                prev_pending_schedule;
    bool                                 was_pending_promoted = false;
@@ -133,7 +133,7 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
    explicit block_header_state_legacy( legacy::snapshot_block_header_state_v2&& snapshot );
 
-   pending_block_header_state  next( block_timestamp_type when, uint16_t num_prev_blocks_to_confirm )const;
+   pending_block_header_state_legacy next( block_timestamp_type when, uint16_t num_prev_blocks_to_confirm )const;
 
    block_header_state_legacy  next( const signed_block_header& h,
                                     vector<signature_type>&& additional_signatures,

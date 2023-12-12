@@ -117,12 +117,12 @@ struct building_block {
                    block_timestamp_type when,
                    uint16_t num_prev_blocks_to_confirm,
                    const vector<digest_type>& new_protocol_feature_activations )
-   :_pending_block_header_state( prev.next( when, num_prev_blocks_to_confirm ) )
+   :_pending_block_header_state_legacy( prev.next( when, num_prev_blocks_to_confirm ) )
    ,_new_protocol_feature_activations( new_protocol_feature_activations )
    ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
 
-   pending_block_header_state                 _pending_block_header_state;
+   pending_block_header_state_legacy          _pending_block_header_state_legacy;
    std::optional<producer_authority_schedule> _new_pending_producer_schedule;
    vector<digest_type>                        _new_protocol_feature_activations;
    size_t                                     _num_new_protocol_features_that_have_activated = 0;
@@ -134,7 +134,7 @@ struct building_block {
 
 struct assembled_block {
    block_id_type                     _id;
-   pending_block_header_state        _pending_block_header_state;
+   pending_block_header_state_legacy _pending_block_header_state_legacy;
    deque<transaction_metadata_ptr>   _trx_metas;
    signed_block_ptr                  _unsigned_block;
 
@@ -164,11 +164,11 @@ struct pending_state {
    controller::block_report           _block_report{};
 
    /** @pre _block_stage cannot hold completed_block alternative */
-   const pending_block_header_state& get_pending_block_header_state()const {
+   const pending_block_header_state_legacy& get_pending_block_header_state_legacy()const {
       if( std::holds_alternative<building_block>(_block_stage) )
-         return std::get<building_block>(_block_stage)._pending_block_header_state;
+         return std::get<building_block>(_block_stage)._pending_block_header_state_legacy;
 
-      return std::get<assembled_block>(_block_stage)._pending_block_header_state;
+      return std::get<assembled_block>(_block_stage)._pending_block_header_state_legacy;
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -184,7 +184,7 @@ struct pending_state {
    bool is_protocol_feature_activated( const digest_type& feature_digest )const {
       if( std::holds_alternative<building_block>(_block_stage) ) {
         auto& bb = std::get<building_block>(_block_stage);
-         const auto& activated_features = bb._pending_block_header_state.prev_activated_protocol_features->protocol_features;
+         const auto& activated_features = bb._pending_block_header_state_legacy.prev_activated_protocol_features->protocol_features;
 
          if( activated_features.find( feature_digest ) != activated_features.end() ) return true;
 
@@ -1729,7 +1729,7 @@ struct controller_impl {
       pending->_producer_block_id = producer_block_id;
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      const auto& pbhs = bb._pending_block_header_state;
+      const auto& pbhs = bb._pending_block_header_state_legacy;
 
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
       // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
@@ -1867,7 +1867,7 @@ struct controller_impl {
 
       try {
 
-      auto& pbhs = pending->get_pending_block_header_state();
+      auto& pbhs = pending->get_pending_block_header_state_legacy();
 
       auto& bb = std::get<building_block>(pending->_block_stage);
 
@@ -1926,7 +1926,7 @@ struct controller_impl {
 
       pending->_block_stage = assembled_block{
                                  id,
-                                 std::move( bb._pending_block_header_state ),
+                                 std::move( bb._pending_block_header_state_legacy ),
                                  std::move( bb._pending_trx_metas ),
                                  std::move( block_ptr ),
                                  std::move( bb._new_pending_producer_schedule )
@@ -2437,7 +2437,7 @@ struct controller_impl {
    }
 
    void update_producers_authority() {
-      const auto& producers = pending->get_pending_block_header_state().active_schedule.producers;
+      const auto& producers = pending->get_pending_block_header_state_legacy().active_schedule.producers;
 
       auto update_permission = [&]( auto& permission, auto threshold ) {
          auto auth = authority( threshold, {}, {});
@@ -2949,7 +2949,7 @@ block_state_legacy_ptr controller::finalize_block( block_report& br, const signe
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
 
    auto bsp = std::make_shared<block_state_legacy>(
-                  std::move( ab._pending_block_header_state ),
+                  std::move( ab._pending_block_header_state_legacy ),
                   std::move( ab._unsigned_block ),
                   std::move( ab._trx_metas ),
                   my->protocol_features.get_protocol_feature_set(),
@@ -3106,7 +3106,7 @@ block_timestamp_type controller::pending_block_timestamp()const {
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->header.timestamp;
 
-   return my->pending->get_pending_block_header_state().timestamp;
+   return my->pending->get_pending_block_header_state_legacy().timestamp;
 }
 
 time_point controller::pending_block_time()const {
@@ -3119,7 +3119,7 @@ uint32_t controller::pending_block_num()const {
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->header.block_num();
 
-   return my->pending->get_pending_block_header_state().block_num;
+   return my->pending->get_pending_block_header_state_legacy().block_num;
 }
 
 account_name controller::pending_block_producer()const {
@@ -3128,7 +3128,7 @@ account_name controller::pending_block_producer()const {
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->header.producer;
 
-   return my->pending->get_pending_block_header_state().producer;
+   return my->pending->get_pending_block_header_state_legacy().producer;
 }
 
 const block_signing_authority& controller::pending_block_signing_authority()const {
@@ -3137,7 +3137,7 @@ const block_signing_authority& controller::pending_block_signing_authority()cons
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->valid_block_signing_authority;
 
-   return my->pending->get_pending_block_header_state().valid_block_signing_authority;
+   return my->pending->get_pending_block_header_state_legacy().valid_block_signing_authority;
 }
 
 std::optional<block_id_type> controller::pending_producer_block_id()const {
@@ -3293,7 +3293,7 @@ const producer_authority_schedule&    controller::active_producers()const {
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->active_schedule;
 
-   return my->pending->get_pending_block_header_state().active_schedule;
+   return my->pending->get_pending_block_header_state_legacy().active_schedule;
 }
 
 const producer_authority_schedule& controller::pending_producers()const {
@@ -3315,7 +3315,7 @@ const producer_authority_schedule& controller::pending_producers()const {
    if( bb._new_pending_producer_schedule )
       return *bb._new_pending_producer_schedule;
 
-   return bb._pending_block_header_state.prev_pending_schedule.schedule;
+   return bb._pending_block_header_state_legacy.prev_pending_schedule.schedule;
 }
 
 std::optional<producer_authority_schedule> controller::proposed_producers()const {
