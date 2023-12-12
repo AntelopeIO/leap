@@ -18,7 +18,7 @@ namespace eosio { namespace chain {
                           bool skip_validate_signee
                  );
 
-      block_state_legacy( pending_block_header_state&& cur,
+      block_state_legacy( pending_block_header_state_legacy&& cur,
                           signed_block_ptr&& b, // unsigned block
                           deque<transaction_metadata_ptr>&& trx_metas,
                           const protocol_feature_set& pfs,

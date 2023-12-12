@@ -166,7 +166,7 @@ auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction
          result.emplace_back( k.sign( d ));
       return result;
    };
-   chain::pending_block_header_state pbhs;
+   chain::pending_block_header_state_legacy pbhs;
    pbhs.producer = block->producer;
    pbhs.timestamp = block->timestamp;
    pbhs.previous = block->previous;
