@@ -25,21 +25,21 @@ struct proposer_policy {
 using proposer_policy_ptr = std::shared_ptr<proposer_policy>;
 
 struct building_block_input {
-   block_id_type                     previous;
+   block_id_type                     parent_id;
    block_timestamp_type              timestamp;
    account_name                      producer;
    vector<digest_type>               new_protocol_feature_activations;
 };
       
 // this struct can be extracted from a building block
-struct assembled_block_input : public building_block_input {
-   digest_type                       _transaction_mroot;
-   digest_type                       _action_mroot;
-   std::optional<proposer_policy>    _new_proposer_policy;
-   std::optional<finalizer_policy>   _new_finalizer_policy; // set by set_finalizer host function??
-   std::optional<quorum_certificate> _qc;                   // assert(qc.block_height <= num_from_id(previous));
-
-   std::optional<finalizer_policy> new_finalizer_policy() const { return _new_finalizer_policy; }
+struct block_header_state_input : public building_block_input {
+   digest_type                       transaction_mroot;    // Comes from std::get<checksum256_type>(building_block::trx_mroot_or_receipt_digests)
+   digest_type                       action_mroot;         // Compute root from  building_block::action_receipt_digests
+   std::optional<proposer_policy>    new_proposer_policy;  // Comes from building_block::new_proposer_policy
+   std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
+   std::optional<quorum_certificate> qc;                   // Comes from traversing branch from parent and calling get_best_qc()
+                                                           // assert(qc->block_num <= num_from_id(previous));
+   // ... ?
 };
 
 struct block_header_state_core {
@@ -72,7 +72,7 @@ struct block_header_state {
    block_id_type         previous() const;
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
    
-   block_header_state next(const assembled_block_input& data) const;
+   block_header_state next(const block_header_state_input& data) const;
    
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {

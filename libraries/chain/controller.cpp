@@ -205,89 +205,270 @@ struct header_t {
    }
 };
 
-struct assembled_block {
-   block_id_type                     _id;
-   header_t                          _header;
-   //pending_block_header_state        _pending_block_header_state;
-   deque<transaction_metadata_ptr>   _trx_metas;
-   signed_block_ptr                  _unsigned_block;
-
-   // if the _unsigned_block pre-dates block-signing authorities this may be present.
-   std::optional<producer_authority_schedule> _new_producer_authority_cache;
-};
-
-
-struct building_block {
-   building_block( const block_header_state_legacy& prev,
-                   block_timestamp_type when,
-                   bool hotstuff_activated,
-                   uint16_t num_prev_blocks_to_confirm,
-                   const vector<digest_type>& new_protocol_feature_activations )
-   : _header(dpos_header_t{prev.next( when, hotstuff_activated, num_prev_blocks_to_confirm ), {}})
-   ,_new_protocol_feature_activations( new_protocol_feature_activations )
-   ,_trx_mroot_or_receipt_digests( digests_t{} )
-   {}
-
-   assembled_block assemble_block(block_id_type id, signed_block_ptr unsigned_block, assembled_block_input input) {
-      return assembled_block{id, std::move(_header), std::move(_pending_trx_metas), std::move(unsigned_block),
-                             _header.new_pending_producer_schedule()};
-   }
-   
-
-   header_t                                   _header;
-   //pending_block_header_state                 _pending_block_header_state;
-   //std::optional<producer_authority_schedule> _new_pending_producer_schedule;
-   vector<digest_type>                        _new_protocol_feature_activations;
-   size_t                                     _num_new_protocol_features_that_have_activated = 0;
-   deque<transaction_metadata_ptr>            _pending_trx_metas;
-   deque<transaction_receipt>                 _pending_trx_receipts; // boost deque in 1.71 with 1024 elements performs better
-   std::variant<checksum256_type, digests_t>  _trx_mroot_or_receipt_digests;
-   digests_t                                  _action_receipt_digests;
-};
-
-
 struct completed_block {
-   std::variant<block_state_legacy_ptr, block_state_ptr> _block_state;
+   std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
 
-   deque<transaction_metadata_ptr> extract_trxs_metas() {
+   deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit(overloaded{[](block_state_legacy_ptr& bsp) { return bsp->extract_trxs_metas(); },
-                                   [](block_state_ptr& bsp) { return bsp->extract_trxs_metas(); }},
-                        _block_state);
+                                   [](block_state_ptr& bsp)        { return bsp->extract_trxs_metas(); }},
+                        bsp);
    }
 
    flat_set<digest_type> get_activated_protocol_features() const {
       return std::visit(
          overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->activated_protocol_features->protocol_features; },
-                    [](const block_state_ptr& bsp) { return bsp->bhs.get_activated_protocol_features(); }},
-         _block_state);
+                    [](const block_state_ptr& bsp)        { return bsp->bhs.get_activated_protocol_features(); }},
+         bsp);
    }
    
    uint32_t block_num() const {
-      return std::visit(overloaded{[](const block_state_legacy_ptr& h) { return h->block_num; },
-                                   [](const block_state_ptr& h) { return h->bhs.block_num(); }},
-                        _block_state);
+      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->block_num; },
+                                   [](const block_state_ptr& bsp)        { return bsp->bhs.block_num(); }},
+                        bsp);
    }
 
    block_timestamp_type timestamp() const {
-      return std::visit(overloaded{[](const block_state_legacy_ptr& h) { return h->block->timestamp; },
-                                   [](const block_state_ptr& h) { return h->bhs.timestamp(); }},
-                        _block_state);
+      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->block->timestamp; },
+                                   [](const block_state_ptr& bsp)        { return bsp->bhs.timestamp(); }},
+                        bsp);
    }
 
    account_name producer() const {
-      return std::visit(overloaded{[](const block_state_legacy_ptr& h) { return h->block->producer; },
-                                   [](const block_state_ptr& h) { return h->bhs._header.producer; }},
-                        _block_state);
+      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->block->producer; },
+                                   [](const block_state_ptr& bsp)        { return bsp->bhs._header.producer; }},
+                        bsp);
+   }
+
+   bool is_protocol_feature_activated(const digest_type& digest) const {
+      const auto& activated_features = get_activated_protocol_features();
+      return (activated_features.find(digest) != activated_features.end());
    }
 };
 
-struct block_stage_type : public std::variant<building_block, assembled_block, completed_block> {
-   using base = std::variant<building_block, assembled_block, completed_block>;
+struct assembled_block {
+   // --------------------------------------------------------------------------------
+   struct assembled_block_dpos {
+      block_id_type                     _id;
+      pending_block_header_state        _pending_block_header_state;
+      deque<transaction_metadata_ptr>   _trx_metas;
+      signed_block_ptr                  _unsigned_block;
+
+      // if the _unsigned_block pre-dates block-signing authorities this may be present.
+      std::optional<producer_authority_schedule> _new_producer_authority_cache;
+
+   };
+
+   // --------------------------------------------------------------------------------
+   struct assembled_block_if {
+      block_header_state                new_block_header_state;
+      deque<transaction_metadata_ptr>   trx_metas;                 // Comes from building_block::pending_trx_metas
+                                                                   // Carried over to put into block_state (optimization for fork reorgs)
+      deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
+      std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
+   };
+
+   std::variant<assembled_block_dpos, assembled_block_if> v;
+
    
+   deque<transaction_metadata_ptr> extract_trx_metas() {
+      return std::visit(overloaded{[](assembled_block_dpos& ab) { return std::move(ab._trx_metas); },
+                                   [](assembled_block_if& ab)   { return std::move(ab.trx_metas); }},
+                        v);
+   }
+
+   bool is_protocol_feature_activated(const digest_type& digest) const {
+      // Calling is_protocol_feature_activated during the assembled_block stage is not efficient.
+      // We should avoid doing it.
+      // In fact for now it isn't even implemented.
+      EOS_THROW( misc_exception,
+                 "checking if protocol feature is activated in the assembled_block stage is not yet supported" );
+      // TODO: implement this
+   }
+};
+
+struct building_block {
+   // --------------------------------------------------------------------------------
+   struct building_block_common {
+      using checksum_or_digests = std::variant<checksum256_type, digests_t>;
+      const vector<digest_type>           new_protocol_feature_activations;
+      size_t                              num_new_protocol_features_that_have_activated = 0;
+      deque<transaction_metadata_ptr>     pending_trx_metas;
+      deque<transaction_receipt>          pending_trx_receipts;
+      checksum_or_digests                 trx_mroot_or_receipt_digests {digests_t{}};
+      digests_t                           action_receipt_digests;
+
+      building_block_common(const vector<digest_type>& new_protocol_feature_activations) :
+         new_protocol_feature_activations(new_protocol_feature_activations)
+      {}
+      
+      bool is_protocol_feature_activated(const digest_type& digest, const flat_set<digest_type>& activated_features) const {
+         if (activated_features.find(digest) != activated_features.end())
+            return true;
+         if (num_new_protocol_features_that_have_activated == 0)
+            return false;
+         auto end = new_protocol_feature_activations.begin() + num_new_protocol_features_that_have_activated;
+         return (std::find(new_protocol_feature_activations.begin(), end, digest) != end);
+      }
+
+      std::function<void()> make_block_restore_point() {
+         auto orig_trx_receipts_size           = pending_trx_receipts.size();
+         auto orig_trx_metas_size              = pending_trx_metas.size();
+         auto orig_trx_receipt_digests_size    = std::holds_alternative<digests_t>(trx_mroot_or_receipt_digests) ?
+                                                 std::get<digests_t>(trx_mroot_or_receipt_digests).size() : 0;
+         auto orig_action_receipt_digests_size = action_receipt_digests.size();
+         return [this,
+                 orig_trx_receipts_size,
+                 orig_trx_metas_size,
+                 orig_trx_receipt_digests_size,
+                 orig_action_receipt_digests_size]()
+         {
+            pending_trx_receipts.resize(orig_trx_receipts_size);
+            pending_trx_metas.resize(orig_trx_metas_size);
+            if (std::holds_alternative<digests_t>(trx_mroot_or_receipt_digests))
+               std::get<digests_t>(trx_mroot_or_receipt_digests).resize(orig_trx_receipt_digests_size);
+            action_receipt_digests.resize(orig_action_receipt_digests_size);
+         };
+      }
+   };
+   
+   // --------------------------------------------------------------------------------
+   struct building_block_dpos : public building_block_common {
+      pending_block_header_state                 _pending_block_header_state;
+      std::optional<producer_authority_schedule> _new_pending_producer_schedule;
+
+      building_block_dpos( const block_header_state_legacy& prev,
+                           block_timestamp_type when,
+                           uint16_t num_prev_blocks_to_confirm,
+                           const vector<digest_type>& new_protocol_feature_activations)
+         : building_block_common(new_protocol_feature_activations),
+           _pending_block_header_state(prev.next(when, num_prev_blocks_to_confirm))
+      {}
+
+      bool is_protocol_feature_activated(const digest_type& digest) const {
+         return building_block_common::is_protocol_feature_activated(
+            digest, _pending_block_header_state.prev_activated_protocol_features->protocol_features);
+      }
+
+      uint32_t get_block_num() const { return _pending_block_header_state.block_num; }
+      
+#if 0
+      assembled_block assemble_block(block_id_type id, signed_block_ptr unsigned_block, assembled_block_input input) {
+      
+         return assembled_block{id, std::move(_header), std::move(_pending_trx_metas), std::move(unsigned_block),
+                                _header.new_pending_producer_schedule()};
+      }
+#endif
+   };
+
+   // --------------------------------------------------------------------------------
+   struct building_block_if : public building_block_common {
+      const block_id_type                        parent_id;                        // Comes from building_block_input::parent_id
+      const block_timestamp_type                 timestamp;                        // Comes from building_block_input::timestamp
+      const account_name                         producer;                         // Comes from building_block_input::producer
+      const vector<digest_type>                  new_protocol_feature_activations; // Comes from building_block_input::new_protocol_feature_activations
+      const protocol_feature_activation_set_ptr  prev_activated_protocol_features; // Cached: parent.bhs.activated_protocol_features
+      const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.bhs.get_next_active_proposer_policy(timestamp)
+      const uint32_t                             block_num;                        // Cached: parent.bhs.block_num() + 1
+
+      // Members below (as well as non-const members of building_block_common) start from initial state and are mutated as the block is built.
+      std::optional<proposer_policy>             new_proposer_policy;
+      std::optional<finalizer_policy>            new_finalizer_policy;
+
+      building_block_if(const block_header_state& prev_bhs, const building_block_input& input) :
+         building_block_common(input.new_protocol_feature_activations),
+         parent_id(input.parent_id),
+         timestamp(input.timestamp),
+         producer(input.producer),
+         prev_activated_protocol_features(prev_bhs._activated_protocol_features),
+         active_proposer_policy(prev_bhs._proposer_policy),
+         block_num(prev_bhs.block_num() + 1)
+      {}
+
+      bool is_protocol_feature_activated(const digest_type& digest) const {
+         return building_block_common::is_protocol_feature_activated(digest, prev_activated_protocol_features->protocol_features);
+      }
+
+      uint32_t get_block_num() const { return block_num; }
+
+#if 0
+      assembled_block assemble_block(block_id_type id, signed_block_ptr unsigned_block, assembled_block_input input) {
+      
+         return assembled_block{id, std::move(_header), std::move(_pending_trx_metas), std::move(unsigned_block),
+                                _header.new_pending_producer_schedule()};
+      }
+#endif
+
+
+   };
+
+   std::variant<building_block_dpos, building_block_if> v;
+
+   // dpos constructor
+   building_block(const block_header_state_legacy& prev, block_timestamp_type when, uint16_t num_prev_blocks_to_confirm,
+                  const vector<digest_type>& new_protocol_feature_activations) :
+      v(building_block_dpos(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
+   {}
+
+   // if constructor
+   building_block(const block_header_state& prev, building_block_input bbi) :
+      v(building_block_if(prev, std::move(bbi)))
+   {}
+
    template <class R, class F>
    R apply_dpos(F&& f) {
-      return std::visit(overloaded{[&](building_block& h) -> R { return h._header.apply_dpos<R>(std::forward<F>(f)); },
-                                   [&](assembled_block& h) -> R { return h._header.apply_dpos<R>(std::forward<F>(f)); } ,
+      assert(std::holds_alternative<building_block_dpos>(v));
+      return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return std::forward<F>(f)(bb); },
+                                   [&](building_block_if& bb) -> R { return {}; }},
+                        *this);
+   }
+
+   deque<transaction_metadata_ptr> extract_trx_metas() {
+      return std::visit([](auto& bb) { return std::move(bb.pending_trx_metas); }, v);
+   }
+
+   bool is_protocol_feature_activated(const digest_type& digest) const {
+      return std::visit([&digest](const auto& bb) { return bb.is_protocol_feature_activated(digest); }, v);
+   }
+
+   std::function<void()> make_block_restore_point() {
+      return std::visit([](auto& bb) { return bb.make_block_restore_point(); }, v);
+   }
+
+   uint32_t block_num() const {
+      return std::visit([](const auto& bb) { return bb.get_block_num(); }, v);
+   }
+
+   size_t& num_new_protocol_features_activated() {
+      return std::visit([](auto& bb) -> size_t& { return bb.num_new_protocol_features_that_have_activated; }, v);
+   }
+
+   deque<transaction_metadata_ptr>& pending_trx_metas() {
+      return std::visit([](auto& bb) -> deque<transaction_metadata_ptr>& { return bb.pending_trx_metas; }, v);
+   }
+
+   deque<transaction_receipt>& pending_trx_receipts() {
+      return std::visit([](auto& bb) -> deque<transaction_receipt>& { return bb.pending_trx_receipts; }, v);
+   }
+
+   building_block_common::checksum_or_digests& trx_mroot_or_receipt_digests() {
+      return std::visit(
+         [](auto& bb) -> building_block_common::checksum_or_digests& { return bb.trx_mroot_or_receipt_digests; }, v);
+   }
+
+   digests_t& action_receipt_digests() {
+      return std::visit([](auto& bb) -> digests_t& { return bb.action_receipt_digests; }, v);
+   }
+};
+
+
+struct block_stage_type : public std::variant<building_block, assembled_block, completed_block> {
+   using base = std::variant<building_block, assembled_block, completed_block>;
+
+#if 0
+   template <class R, class F>
+   R apply_dpos(F&& f) {
+      return std::visit(overloaded{[&](building_block& h) -> R { return h.apply_dpos<R>(std::forward<F>(f)); },
+                                   [&](assembled_block& h) -> R { return h.apply_dpos<R>(std::forward<F>(f)); } ,
                                    [&](const completed_block& h) -> R  { return {}; }},
                         *this);
    }
@@ -312,60 +493,45 @@ struct block_stage_type : public std::variant<building_block, assembled_block, c
                                    [](const completed_block& h) { return h.producer(); }},
                         *this);
    }
+#endif
+   
+   deque<transaction_metadata_ptr> extract_trx_metas() {
+      return std::visit(overloaded{[](building_block& bb)  { return bb.extract_trx_metas(); },
+                                   [](assembled_block& ab) { return ab.extract_trx_metas(); },
+                                   [](completed_block& cb) { return cb.extract_trx_metas(); }},
+                        *this);
+   }
 
+   bool is_protocol_feature_activated( const digest_type& digest ) const {
+      return std::visit(overloaded{[&](const building_block& bb)  { return bb.is_protocol_feature_activated(digest); },
+                                   [&](const assembled_block& ab) { return ab.is_protocol_feature_activated(digest); },
+                                   [&](const completed_block& cb) { return cb.is_protocol_feature_activated(digest); }},
+                        *this);
+   }
 };
 
 struct pending_state {
-   pending_state( maybe_session&& s, const block_header_state_legacy& prev,
+   pending_state( maybe_session&& s,
+                  const block_header_state_legacy& prev,
                   block_timestamp_type when,
-                  bool hotstuff_activated,
                   uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations )
    :_db_session( std::move(s) )
-   ,_block_stage( building_block( prev, when, hotstuff_activated, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
+   ,_block_stage( building_block( prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
    {}
 
-   maybe_session                      _db_session;
-   block_stage_type                   _block_stage;
-   controller::block_status           _block_status = controller::block_status::ephemeral;
-   std::optional<block_id_type>       _producer_block_id;
-   controller::block_report           _block_report{};
-   assembled_block_input              _assembled_block_input;
+   maybe_session                  _db_session;
+   block_stage_type               _block_stage;
+   controller::block_status       _block_status = controller::block_status::ephemeral;
+   std::optional<block_id_type>   _producer_block_id;
+   controller::block_report       _block_report{};
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
-      if( std::holds_alternative<building_block>(_block_stage) )
-         return std::move( std::get<building_block>(_block_stage)._pending_trx_metas );
-
-      if( std::holds_alternative<assembled_block>(_block_stage) )
-         return std::move( std::get<assembled_block>(_block_stage)._trx_metas );
-
-      return std::get<completed_block>(_block_stage).extract_trxs_metas();
+      return _block_stage.extract_trx_metas();
    }
 
-   bool is_protocol_feature_activated( const digest_type& feature_digest )const {
-      if( std::holds_alternative<building_block>(_block_stage) ) {
-         auto& bb = std::get<building_block>(_block_stage);
-         const auto& activated_features = bb._header.get_prev_activated_protocol_features()->protocol_features;
-
-         if( activated_features.find( feature_digest ) != activated_features.end() ) return true;
-
-         if( bb._num_new_protocol_features_that_have_activated == 0 ) return false;
-
-         auto end = bb._new_protocol_feature_activations.begin() + bb._num_new_protocol_features_that_have_activated;
-         return (std::find( bb._new_protocol_feature_activations.begin(), end, feature_digest ) != end);
-      }
-
-      if( std::holds_alternative<assembled_block>(_block_stage) ) {
-         // Calling is_protocol_feature_activated during the assembled_block stage is not efficient.
-         // We should avoid doing it.
-         // In fact for now it isn't even implemented.
-         EOS_THROW( misc_exception,
-                    "checking if protocol feature is activated in the assembled_block stage is not yet supported" );
-         // TODO: implement this
-      }
-
-      const auto& activated_features = std::get<completed_block>(_block_stage).get_activated_protocol_features();
-      return (activated_features.find( feature_digest ) != activated_features.end());
+   bool is_protocol_feature_activated(const digest_type& feature_digest) const {
+      return _block_stage.is_protocol_feature_activated(feature_digest);
    }
 
    void push() {
@@ -1293,26 +1459,7 @@ struct controller_impl {
       }
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      auto orig_trx_receipts_size           = bb._pending_trx_receipts.size();
-      auto orig_trx_metas_size              = bb._pending_trx_metas.size();
-      auto orig_trx_receipt_digests_size    = std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) ?
-                                              std::get<digests_t>(bb._trx_mroot_or_receipt_digests).size() : 0;
-      auto orig_action_receipt_digests_size = bb._action_receipt_digests.size();
-      std::function<void()> callback = [this,
-            orig_trx_receipts_size,
-            orig_trx_metas_size,
-            orig_trx_receipt_digests_size,
-            orig_action_receipt_digests_size]()
-      {
-         auto& bb = std::get<building_block>(pending->_block_stage);
-         bb._pending_trx_receipts.resize(orig_trx_receipts_size);
-         bb._pending_trx_metas.resize(orig_trx_metas_size);
-         if( std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) )
-            std::get<digests_t>(bb._trx_mroot_or_receipt_digests).resize(orig_trx_receipt_digests_size);
-         bb._action_receipt_digests.resize(orig_action_receipt_digests_size);
-      };
-
-      return fc::make_scoped_exit( std::move(callback) );
+      return fc::make_scoped_exit(bb.make_block_restore_point());
    }
 
    transaction_trace_ptr apply_onerror( const generated_transaction& gtrx,
@@ -1370,8 +1517,8 @@ struct controller_impl {
          auto restore = make_block_restore_point();
          trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::soft_fail,
                                         trx_context.billed_cpu_time_us, trace->net_usage );
-         fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
-                          std::move(trx_context.executed_action_receipt_digests) );
+         auto& bb = std::get<building_block>(pending->_block_stage);
+         fc::move_append( bb.action_receipt_digests(), std::move(trx_context.executed_action_receipt_digests) );
 
          trx_context.squash();
          restore.cancel();
@@ -1557,7 +1704,7 @@ struct controller_impl {
                                         trx_context.billed_cpu_time_us,
                                         trace->net_usage );
 
-         fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
+         fc::move_append( std::get<building_block>(pending->_block_stage).action_receipt_digests(),
                           std::move(trx_context.executed_action_receipt_digests) );
 
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
@@ -1681,15 +1828,16 @@ struct controller_impl {
                                             uint64_t cpu_usage_us, uint64_t net_usage ) {
       uint64_t net_usage_words = net_usage / 8;
       EOS_ASSERT( net_usage_words*8 == net_usage, transaction_exception, "net_usage is not divisible by 8" );
-      auto& receipts = std::get<building_block>(pending->_block_stage)._pending_trx_receipts;
+      auto& bb = std::get<building_block>(pending->_block_stage);
+      auto& receipts = bb.pending_trx_receipts();
       receipts.emplace_back( trx );
       transaction_receipt& r = receipts.back();
       r.cpu_usage_us         = cpu_usage_us;
       r.net_usage_words      = net_usage_words;
       r.status               = status;
-      auto& bb = std::get<building_block>(pending->_block_stage);
-      if( std::holds_alternative<digests_t>(bb._trx_mroot_or_receipt_digests) )
-         std::get<digests_t>(bb._trx_mroot_or_receipt_digests).emplace_back( r.digest() );
+      auto& mroot_or_digests = bb.trx_mroot_or_receipt_digests();
+      if( std::holds_alternative<digests_t>(mroot_or_digests) )
+         std::get<digests_t>(mroot_or_digests).emplace_back( r.digest() );
       return r;
    }
 
@@ -1771,13 +1919,14 @@ struct controller_impl {
 
             auto restore = make_block_restore_point( trx->is_read_only() );
 
+            auto& bb = std::get<building_block>(pending->_block_stage);
             trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
             if (!trx->implicit() && !trx->is_read_only()) {
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
                                                     ? transaction_receipt::executed
                                                     : transaction_receipt::delayed;
                trace->receipt = push_receipt(*trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
-               std::get<building_block>(pending->_block_stage)._pending_trx_metas.emplace_back(trx);
+               bb.pending_trx_metas().emplace_back(trx);
             } else {
                transaction_receipt_header r;
                r.status = transaction_receipt::executed;
@@ -1787,7 +1936,7 @@ struct controller_impl {
             }
 
             if ( !trx->is_read_only() ) {
-               fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
+               fc::move_append( bb.action_receipt_digests(),
                                 std::move(trx_context.executed_action_receipt_digests) );
                 if ( !trx->is_dry_run() ) {
                    // call the accept signal but only once for this transaction
@@ -1880,13 +2029,14 @@ struct controller_impl {
          pending.reset();
       });
 
+      //building_block_input bbi{ head->id, when, head->get_scheduled_producer(when), std::move(new_protocol_feature_activations) };
       if (!self.skip_db_sessions(s)) {
          EOS_ASSERT( db.revision() == head->block_num, database_exception, "db revision is not on par with head block",
                      ("db.revision()", db.revision())("controller_head_block", head->block_num)("fork_db_head_block", fork_db.head()->block_num) );
 
-         pending.emplace( maybe_session(db), *head, when, hs_active, confirm_block_count, new_protocol_feature_activations );
+         pending.emplace( maybe_session(db), *head, when, confirm_block_count, new_protocol_feature_activations );
       } else {
-         pending.emplace( maybe_session(), *head, when, hs_active, confirm_block_count, new_protocol_feature_activations );
+         pending.emplace( maybe_session(), *head, when, confirm_block_count, new_protocol_feature_activations );
       }
 
       pending->_block_status = s;
@@ -1938,9 +2088,9 @@ struct controller_impl {
                   trigger_activation_handler( *f.builtin_feature );
                }
 
-               protocol_features.activate_feature( feature_digest, bb._header.block_num() );
+               protocol_features.activate_feature( feature_digest, bb.block_num() );
 
-               ++bb._num_new_protocol_features_that_have_activated;
+               ++bb.num_new_protocol_features_activated();
             }
 
             if( num_preactivated_features_that_have_activated == num_preactivated_protocol_features ) {
@@ -1957,15 +2107,15 @@ struct controller_impl {
                ps.preactivated_protocol_features.clear();
 
                for (const auto& digest : new_protocol_feature_activations)
-                  ps.activated_protocol_features.emplace_back(digest, bb._header.block_num());
+                  ps.activated_protocol_features.emplace_back(digest, bb.block_num());
             });
          }
 
          const auto& gpo = self.get_global_properties();
 
          if (!hs_active) {
-            bb._header.apply_dpos<void>([&](dpos_header_t &dpos_header) {
-               pending_block_header_state& pbhs = dpos_header._pending_block_header_state;
+            bb.apply_dpos<void>([&](building_block::building_block_dpos &bb_dpos) {
+               pending_block_header_state& pbhs = bb_dpos._pending_block_header_state;
                
                if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
                    ( hs_active || *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible or hotstuff activated...
@@ -1976,13 +2126,13 @@ struct controller_impl {
                   EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
                               producer_schedule_exception, "wrong producer schedule version specified" );
 
-                  dpos_header._new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+                  bb_dpos._new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
 
                   if( !replaying ) {
                      ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
                            ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
                            ("lib", hs_active ? hs_lib : pbhs.dpos_irreversible_blocknum)
-                           ("schedule", dpos_header._new_pending_producer_schedule ) );
+                           ("schedule", bb_dpos._new_pending_producer_schedule ) );
                   }
 
                   db.modify( gpo, [&]( auto& gp ) {

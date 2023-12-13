@@ -55,7 +55,7 @@ block_header_state_core block_header_state_core::next(uint32_t last_qc_block_hei
 }
 
 
-block_header_state block_header_state::next(const assembled_block_input& data) const {
+block_header_state block_header_state::next(const block_header_state_input& data) const {
    block_header_state result;
 
 #if 0

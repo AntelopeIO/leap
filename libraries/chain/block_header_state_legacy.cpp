@@ -47,8 +47,7 @@ namespace eosio { namespace chain {
    // If hotstuff_activated then use new consensus values and simpler active schedule update.
    // If notstuff is not activated then use previous pre-hotstuff consensus logic.
    pending_block_header_state  block_header_state_legacy::next( block_timestamp_type when,
-                                                         bool hotstuff_activated,
-                                                         uint16_t num_prev_blocks_to_confirm )const
+                                                                uint16_t num_prev_blocks_to_confirm )const
    {
       pending_block_header_state result;
 
@@ -74,7 +73,7 @@ namespace eosio { namespace chain {
       result.blockroot_merkle.append( id );
 
       result.prev_pending_schedule                  = pending_schedule;
-
+#if 0
       if (hotstuff_activated) {
          result.confirmed                           = hs_block_confirmed;
          result.dpos_proposed_irreversible_blocknum = 0;
@@ -90,7 +89,9 @@ namespace eosio { namespace chain {
             result.active_schedule = active_schedule;
          }
 
-      } else {
+      } else
+#endif
+      {
          auto itr = producer_to_last_produced.find( proauth.producer_name );
          if( itr != producer_to_last_produced.end() ) {
             EOS_ASSERT( itr->second < (block_num+1) - num_prev_blocks_to_confirm, producer_double_confirm,
@@ -419,7 +420,7 @@ namespace eosio { namespace chain {
                                                   const vector<digest_type>& )>& validator,
                         bool skip_validate_signee )const
    {
-      return next( h.timestamp, hotstuff_activated, h.confirmed ).finish_next( h, std::move(_additional_signatures), pfs, validator, skip_validate_signee );
+      return next( h.timestamp, h.confirmed ).finish_next( h, std::move(_additional_signatures), pfs, validator, skip_validate_signee );
    }
 
    digest_type   block_header_state_legacy::sig_digest()const {

@@ -170,7 +170,7 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
    explicit block_header_state_legacy( legacy::snapshot_block_header_state_v2&& snapshot );
 
-   pending_block_header_state  next( block_timestamp_type when, bool hotstuff_activated, uint16_t num_prev_blocks_to_confirm )const;
+   pending_block_header_state  next( block_timestamp_type when, uint16_t num_prev_blocks_to_confirm )const;
 
    block_header_state_legacy  next( const signed_block_header& h,
                                     vector<signature_type>&& additional_signatures,
