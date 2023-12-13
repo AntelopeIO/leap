@@ -349,8 +349,8 @@ def stepSetSystemContract():
     retry(args.cleos + 'push action eosio activate \'["35c2186cc36f7bb4aeaf4487b36e57039ccf45a9136aa856a5d569ecca55ef2b"]\' -p eosio@active')
     # CRYPTO_PRIMITIVES
     retry(args.cleos + 'push action eosio activate \'["6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc"]\' -p eosio@active')
-    # BLS_PRIMITIVES
-    retry(args.cleos + 'push action eosio activate \'["98c4175db53ed27e7911a1b5adf0e7db0fc96c2cae172cf594dfa9a742ca9e88"]\' -p eosio@active')
+    # BLS_PRIMITIVES2
+    retry(args.cleos + 'push action eosio activate \'["63320dd4a58212e4d32d1f58926b73ca33a247326c2a5e9fd39268d2384e011a"]\' -p eosio@active')
     # DISABLE_DEFERRED_TRXS_STAGE_1 - DISALLOW NEW DEFERRED TRANSACTIONS
     retry(args.cleos + 'push action eosio activate \'["fce57d2331667353a0eac6b4209b67b843a7262a848af0a49a6e2fa9f6584eb4"]\' -p eosio@active')
     # DISABLE_DEFERRED_TRXS_STAGE_2 - PREVENT PREVIOUSLY SCHEDULED DEFERRED TRANSACTIONS FROM REACHING OTHER NODE
