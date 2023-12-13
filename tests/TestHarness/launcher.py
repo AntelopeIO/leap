@@ -30,6 +30,9 @@ class EnhancedEncoder(json.JSONEncoder):
 class KeyStrings(object):
     pubkey: str
     privkey: str
+    blspubkey: str = None
+    blsprivkey: str = None
+    blspop: str = None
 
 @dataclass
 class nodeDefinition:
@@ -291,7 +294,7 @@ class cluster_generator:
                                             '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
                 node.producers.append('eosio')
             else:
-                node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey))
+                node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey, account.blsFinalizerPublicKey, account.blsFinalizerPrivateKey, account.blsFinalizerPOP))
                 if i < non_bios:
                     count = per_node
                     if extra:
@@ -479,7 +482,10 @@ class cluster_generator:
                 node = topo['nodes'][nodeName]
                 self.network.nodes[nodeName].dont_start = node['dont_start']
                 for keyObj in node['keys']:
-                    self.network.nodes[nodeName].keys.append(KeyStrings(keyObj['pubkey'], keyObj['privkey']))
+                    if keyObj.count('blspubkey') > 0:
+                        self.network.nodes[nodeName].keys.append(KeyStrings(keyObj['pubkey'], keyObj['privkey'], keyObj['blspubkey'], keyObj['blsprivkey'], keyObj['blspop']))
+                    else:
+                        self.network.nodes[nodeName].keys.append(KeyStrings(keyObj['pubkey'], keyObj['privkey']))
                 for peer in node['peers']:
                     self.network.nodes[nodeName].peers.append(peer)
                 for producer in node['producers']:
@@ -508,6 +514,8 @@ class cluster_generator:
             a(a(eosdcmd, '--plugin'), 'eosio::producer_plugin')
             producer_keys = list(sum([('--signature-provider', f'{key.pubkey}=KEY:{key.privkey}') for key in instance.keys], ()))
             eosdcmd.extend(producer_keys)
+            finalizer_keys = list(sum([('--signature-provider', f'{key.blspubkey}=KEY:{key.blsprivkey}') for key in instance.keys], ()))
+            eosdcmd.extend(finalizer_keys)
             producer_names = list(sum([('--producer-name', p) for p in instance.producers], ()))
             eosdcmd.extend(producer_names)
         else:
