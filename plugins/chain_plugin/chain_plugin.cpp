@@ -1033,8 +1033,8 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       });
 
       accepted_block_header_connection = chain->accepted_block_header.connect(
-            [this]( const block_state_legacy_ptr& blk ) {
-               accepted_block_header_channel.publish( priority::medium, blk );
+            [this]( std::tuple<const signed_block_ptr&, const block_id_type&, const account_name&> t ) {
+               accepted_block_header_channel.publish( priority::medium, t );
             } );
 
       accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_legacy_ptr& blk ) {

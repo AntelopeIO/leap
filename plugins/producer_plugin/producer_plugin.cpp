@@ -630,9 +630,9 @@ public:
       }
    }
 
-   void on_block_header(const block_state_legacy_ptr& bsp) {
-      if (_producers.contains(bsp->header.producer))
-         _producer_watermarks.consider_new_watermark(bsp->header.producer, bsp->block_num, bsp->block->timestamp);
+   void on_block_header(chain::account_name producer, uint32_t block_num, chain::block_timestamp_type timestamp) {
+      if (_producers.contains(producer))
+         _producer_watermarks.consider_new_watermark(producer, block_num, timestamp);
    }
 
    void on_irreversible_block(const signed_block_ptr& lib) {
@@ -1330,7 +1330,12 @@ void producer_plugin_impl::plugin_startup() {
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
-         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
+         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const account_name&> t) {
+            const auto& block = std::get<0>(t);
+            const auto& id = std::get<1>(t);
+            const auto& producer = std::get<2>(t);
+            on_block_header(producer, block_header::num_from_id(id), block->timestamp);
+         }));
          _irreversible_block_connection.emplace(
             chain.irreversible_block.connect([this](const auto& bsp) { on_irreversible_block(bsp->block); }));
 

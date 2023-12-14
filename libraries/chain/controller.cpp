@@ -1950,7 +1950,7 @@ struct controller_impl {
          if( s == controller::block_status::incomplete ) {
             fork_db.add( bsp );
             fork_db.mark_valid( bsp );
-            emit( self.accepted_block_header, bsp );
+            emit( self.accepted_block_header, std::tie(bsp->block, bsp->id, bsp->header.producer) );
             EOS_ASSERT( bsp == fork_db.head(), fork_database_exception, "committed block did not become the new head in fork database");
          } else if (s != controller::block_status::irreversible) {
             fork_db.mark_valid( bsp );
@@ -2266,7 +2266,7 @@ struct controller_impl {
             trusted_producer_light_validation = true;
          };
 
-         emit( self.accepted_block_header, bsp );
+         emit( self.accepted_block_header, std::tie(bsp->block, bsp->id, bsp->header.producer) );
 
          if( read_mode != db_read_mode::IRREVERSIBLE ) {
             maybe_switch_forks( br, fork_db.pending_head(), s, forked_branch_cb, trx_lookup );
@@ -2311,7 +2311,7 @@ struct controller_impl {
             fork_db.add( bsp, true );
          }
 
-         emit( self.accepted_block_header, bsp );
+         emit( self.accepted_block_header, std::tie(bsp->block, bsp->id, bsp->header.producer) );
 
          controller::block_report br;
          if( s == controller::block_status::irreversible ) {

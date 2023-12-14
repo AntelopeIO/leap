@@ -328,7 +328,7 @@ namespace eosio { namespace chain {
 
          signal<void(uint32_t)>                        block_start; // block_num
          signal<void(const signed_block_ptr&)>         pre_accepted_block;
-         signal<void(const block_state_legacy_ptr&)>   accepted_block_header;
+         signal<void(std::tuple<const signed_block_ptr&, const block_id_type&, const account_name&>)> accepted_block_header;
          signal<void(const block_state_legacy_ptr&)>   accepted_block;
          signal<void(const block_state_legacy_ptr&)>   irreversible_block;
          signal<void(const transaction_metadata_ptr&)> accepted_transaction;
