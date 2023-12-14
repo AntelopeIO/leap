@@ -14,12 +14,10 @@ namespace eosio::chain::plugin_interface {
    struct chain_plugin_interface;
 
    namespace channels {
-      using pre_accepted_block     = channel_decl<struct pre_accepted_block_tag,    signed_block_ptr>;
       using rejected_block         = channel_decl<struct rejected_block_tag,        signed_block_ptr>;
       using accepted_block_header  = channel_decl<struct accepted_block_header_tag, std::tuple<signed_block_ptr, block_id_type, account_name>>;
       using accepted_block         = channel_decl<struct accepted_block_tag,        block_state_legacy_ptr>;
       using irreversible_block     = channel_decl<struct irreversible_block_tag,    block_state_legacy_ptr>;
-      using accepted_transaction   = channel_decl<struct accepted_transaction_tag,  transaction_metadata_ptr>;
       using applied_transaction    = channel_decl<struct applied_transaction_tag,   transaction_trace_ptr>;
    }
 

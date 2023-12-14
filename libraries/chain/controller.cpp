@@ -2258,8 +2258,6 @@ struct controller_impl {
             return;
          }
 
-         emit( self.pre_accepted_block, b );
-
          fork_db.add( bsp );
 
          if (self.is_trusted_producer(b->producer)) {
@@ -2293,7 +2291,6 @@ struct controller_impl {
             return;
          }
 
-         emit( self.pre_accepted_block, b );
          const bool skip_validate_signee = !conf.force_all_checks;
 
          auto bsp = std::make_shared<block_state_legacy>(
