@@ -179,21 +179,25 @@
                     "type": "string"
                 },
                 {
-                    "name": "fweight",
+                    "name": "weight",
                     "type": "uint64"
                 },
                 {
-                    "name": "public_key_g1_affine_le",
-                    "type": "bytes"
+                    "name": "public_key",
+                    "type": "string"
+                },
+                {
+                    "name": "pop",
+                    "type": "string"
                 }
             ]
         },
         {
-            "name": "finalizer_set",
+            "name": "finalizer_policy",
             "base": "",
             "fields": [
                 {
-                    "name": "fthreshold",
+                    "name": "threshold",
                     "type": "uint64"
                 },
                 {
@@ -395,12 +399,12 @@
             ]
         },
         {
-            "name": "setfinset",
+            "name": "setfinalizer",
             "base": "",
             "fields": [
                 {
-                    "name": "fin_set",
-                    "type": "finalizer_set"
+                    "name": "finalizer_policy",
+                    "type": "finalizer_policy"
                 }
             ]
         },
@@ -550,8 +554,8 @@
             "ricardian_contract": ""
         },
         {
-            "name": "setfinset",
-            "type": "setfinset",
+            "name": "setfinalizer",
+            "type": "setfinalizer",
             "ricardian_contract": ""
         },
         {
