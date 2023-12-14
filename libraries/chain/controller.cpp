@@ -2411,7 +2411,18 @@ struct controller_impl {
             } // end if exception
          } /// end for each block in branch
 
-         ilog("successfully switched fork to new head ${new_head_id}", ("new_head_id", new_head->id));
+         if (fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::info)) {
+            auto get_ids = [&](auto& container)->std::string {
+               std::string ids;
+               for(auto ritr = container.rbegin(), e = container.rend(); ritr != e; ++ritr) {
+                  ids += std::to_string((*ritr)->block_num) + ":" + (*ritr)->id.str() + ",";
+               }
+               if (!ids.empty()) ids.resize(ids.size()-1);
+               return ids;
+            };
+            ilog("successfully switched fork to new head ${new_head_id}, removed {${rm_ids}}, applied {${new_ids}}",
+                ("new_head_id", new_head->id)("rm_ids", get_ids(branches.second))("new_ids", get_ids(branches.first)));
+         }
       } else {
          head_changed = false;
       }
