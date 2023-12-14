@@ -269,7 +269,19 @@ struct assembled_block {
 
    std::variant<assembled_block_dpos, assembled_block_if> v;
 
-   
+   template <class R, class F>
+   R apply_dpos(F&& f) {
+      return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return std::forward<F>(f)(ab); },
+                                   [&](assembled_block_if& ab)   -> R { return {}; }},
+                        v);
+   }
+
+   template <class R, class F>
+   R apply_hs(F&& f) {
+      return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return {}; },
+                                   [&](assembled_block_if& ab)   -> R { return std::forward<F>(f)(ab); }},
+                        v);
+   }   
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit(overloaded{[](assembled_block_dpos& ab) { return std::move(ab._trx_metas); },
                                    [](assembled_block_if& ab)   { return std::move(ab.trx_metas); }},
@@ -283,6 +295,13 @@ struct assembled_block {
       EOS_THROW( misc_exception,
                  "checking if protocol feature is activated in the assembled_block stage is not yet supported" );
       // TODO: implement this
+   }
+
+   const block_id_type& id() const {
+      return std::visit(
+         overloaded{[](const assembled_block_dpos& ab) -> const block_id_type& { return ab._id; },
+                    [](const assembled_block_if& ab) -> const block_id_type& { return ab.new_block_header_state._id; }},
+         v);
    }
 };
 
@@ -409,6 +428,8 @@ struct building_block {
       v(building_block_dpos(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
    {}
 
+   bool is_dpos() const { return std::holds_alternative<building_block_dpos>(v); }
+
    // if constructor
    building_block(const block_header_state& prev, building_block_input bbi) :
       v(building_block_if(prev, std::move(bbi)))
@@ -416,9 +437,17 @@ struct building_block {
 
    template <class R, class F>
    R apply_dpos(F&& f) {
-      assert(std::holds_alternative<building_block_dpos>(v));
+      // assert(std::holds_alternative<building_block_dpos>(v));
       return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return std::forward<F>(f)(bb); },
-                                   [&](building_block_if& bb) -> R { return {}; }},
+                                   [&](building_block_if& bb)   -> R { return {}; }},
+                        *this);
+   }
+
+   template <class R, class F>
+   R apply_hs(F&& f) {
+      // assert(std::holds_alternative<building_block_if>(v));
+      return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return {}; },
+                                   [&](building_block_if& bb)   -> R { return std::forward<F>(f)(bb); }},
                         *this);
    }
 
@@ -436,6 +465,10 @@ struct building_block {
 
    uint32_t block_num() const {
       return std::visit([](const auto& bb) { return bb.get_block_num(); }, v);
+   }
+
+   const vector<digest_type>& new_protocol_feature_activations() {
+      return std::visit([](auto& bb) ->  const vector<digest_type>& { return bb.new_protocol_feature_activations; }, v);
    }
 
    size_t& num_new_protocol_features_activated() {
@@ -461,10 +494,12 @@ struct building_block {
 };
 
 
+using block_stage_type = std::variant<building_block, assembled_block, completed_block>;
+      
+#if 0
 struct block_stage_type : public std::variant<building_block, assembled_block, completed_block> {
    using base = std::variant<building_block, assembled_block, completed_block>;
 
-#if 0
    template <class R, class F>
    R apply_dpos(F&& f) {
       return std::visit(overloaded{[&](building_block& h) -> R { return h.apply_dpos<R>(std::forward<F>(f)); },
@@ -493,7 +528,6 @@ struct block_stage_type : public std::variant<building_block, assembled_block, c
                                    [](const completed_block& h) { return h.producer(); }},
                         *this);
    }
-#endif
    
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit(overloaded{[](building_block& bb)  { return bb.extract_trx_metas(); },
@@ -509,6 +543,7 @@ struct block_stage_type : public std::variant<building_block, assembled_block, c
                         *this);
    }
 };
+#endif
 
 struct pending_state {
    pending_state( maybe_session&& s,
@@ -527,11 +562,17 @@ struct pending_state {
    controller::block_report       _block_report{};
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
-      return _block_stage.extract_trx_metas();
+      return std::visit(overloaded{[](building_block& bb)  { return bb.extract_trx_metas(); },
+                                   [](assembled_block& ab) { return ab.extract_trx_metas(); },
+                                   [](completed_block& cb) { return cb.extract_trx_metas(); }},
+                        _block_stage);
    }
 
-   bool is_protocol_feature_activated(const digest_type& feature_digest) const {
-      return _block_stage.is_protocol_feature_activated(feature_digest);
+   bool is_protocol_feature_activated(const digest_type& digest) const {
+      return std::visit(overloaded{[&](const building_block& bb)  { return bb.is_protocol_feature_activated(digest); },
+                                   [&](const assembled_block& ab) { return ab.is_protocol_feature_activated(digest); },
+                                   [&](const completed_block& cb) { return cb.is_protocol_feature_activated(digest); }},
+                        _block_stage);
    }
 
    void push() {
@@ -2192,14 +2233,14 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
 
       auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
-                                                [ids{std::move( bb._action_receipt_digests )}, if_active]() mutable {
+                                                [ids{std::move( bb.action_receipt_digests() )}, if_active]() mutable {
                                                    return calc_merkle(std::move(ids), if_active);
                                                 } );
-      const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb._trx_mroot_or_receipt_digests);
+      const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb.trx_mroot_or_receipt_digests());
       std::future<checksum256_type> trx_merkle_fut;
       if( calc_trx_merkle ) {
          trx_merkle_fut = post_async_task( thread_pool.get_executor(),
-                                           [ids{std::move( std::get<digests_t>(bb._trx_mroot_or_receipt_digests) )}, if_active]() mutable {
+                                           [ids{std::move( std::get<digests_t>(bb.trx_mroot_or_receipt_digests()) )}, if_active]() mutable {
                                               return calc_merkle(std::move(ids), if_active);
                                            } );
       }
@@ -2212,24 +2253,15 @@ struct controller_impl {
          { CPU_TARGET, chain_config.max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
          {EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct), chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
       );
-      resource_limits.process_block_usage(bb._header.block_num());
+      resource_limits.process_block_usage(bb.block_num());
 
-      // Create (unsigned) block:
-      auto block_ptr = std::make_shared<signed_block>( bb._header.make_block_header(
-         calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb._trx_mroot_or_receipt_digests),
-         action_merkle_fut.get(),
-         bb._header.new_pending_producer_schedule(),
-         std::move( bb._new_protocol_feature_activations ),
-         protocol_features.get_protocol_feature_set()
-      ) );
-
-      block_ptr->transactions = std::move( bb._pending_trx_receipts );
-
+#if 0
+      [greg todo]
       auto proposed_fin_pol = pending->_assembled_block_input.new_finalizer_policy();
       if (proposed_fin_pol) {
          // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
          finalizer_policy fin_pol = std::move(*proposed_fin_pol);
-         fin_pol.generation = bb._header.apply_hs<uint32_t>([&](if_header_t& h) {
+         fin_pol.generation = bb.apply_hs<uint32_t>([&](building_block_if& h) {
             return h._bhs.increment_finalizer_policy_generation(); });
          emplace_extension(
                  block_ptr->header_extensions,
@@ -2237,28 +2269,47 @@ struct controller_impl {
                  fc::raw::pack( finalizer_policy_extension{ std::move(fin_pol) } )
          );
       }
+#endif
+      
+      // Create (unsigned) block in dpos mode.    [greg todo] do it in IF mode later when we are ready to sign it
+      bb.apply_dpos<void>([&](building_block::building_block_dpos& bb) {
+         auto block_ptr = std::make_shared<signed_block>(
+            bb._pending_block_header_state.make_block_header(
+               calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb.trx_mroot_or_receipt_digests),
+               action_merkle_fut.get(),
+               bb._new_pending_producer_schedule,
+               vector<digest_type>(bb.new_protocol_feature_activations), // have to copy as member declared `const`
+               protocol_features.get_protocol_feature_set()));
 
-      auto id = block_ptr->calculate_id();
+         block_ptr->transactions = std::move(bb.pending_trx_receipts);
 
-      // Update TaPoS table:
-      create_block_summary( id );
+         auto id = block_ptr->calculate_id();
 
-      /*
-      ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
-            ("n",pbhs.block_num)
-            ("id",id)
-            ("t",pbhs.timestamp)
-            ("p",pbhs.producer)
-            ("signing_key", pbhs.block_signing_key)
-            ("v",pbhs.active_schedule_version)
-            ("lib",pbhs.dpos_irreversible_blocknum)
-            ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
-            ("np",block_ptr->new_producers)
-      );
-      */
+         // Update TaPoS table:
+         create_block_summary( id );
 
-      (block_stage_type::base&)(pending->_block_stage) = 
-         bb.assemble_block(id, std::move(block_ptr), std::move(pending->_assembled_block_input));
+         /*
+           ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
+           ("n",pbhs.block_num)
+           ("id",id)
+           ("t",pbhs.timestamp)
+           ("p",pbhs.producer)
+           ("signing_key", pbhs.block_signing_key)
+           ("v",pbhs.active_schedule_version)
+           ("lib",pbhs.dpos_irreversible_blocknum)
+           ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
+           ("np",block_ptr->new_producers)
+           );
+         */
+
+         pending->_block_stage = assembled_block{assembled_block::assembled_block_dpos{
+            id,
+            std::move( bb._pending_block_header_state ),
+            std::move( bb.pending_trx_metas ),
+            std::move( block_ptr ),
+            std::move( bb._new_pending_producer_schedule )
+            }};
+      });
       }
       FC_CAPTURE_AND_RETHROW()
    } /// finalize_block
@@ -2275,8 +2326,10 @@ struct controller_impl {
          EOS_ASSERT( std::holds_alternative<completed_block>(pending->_block_stage), block_validate_exception,
                      "cannot call commit_block until pending block is completed" );
 
-         const auto& bsp = std::get<completed_block>(pending->_block_stage)._block_state;
+         const auto& cb = std::get<completed_block>(pending->_block_stage);
+         const auto& bsp = std::get<block_state_legacy_ptr>(cb.bsp); // [greg todo] if version which has block_state_ptr
 
+         // [greg todo] fork_db version with block_state_ptr
          if( s == controller::block_status::incomplete ) {
             fork_db.add( bsp );
             fork_db.mark_valid( bsp );
@@ -2293,7 +2346,7 @@ struct controller_impl {
          }
 
          emit( self.accepted_block, bsp );
-
+         
          if( s == controller::block_status::incomplete ) {
             log_irreversible();
             pacemaker->beat();
@@ -2312,8 +2365,7 @@ struct controller_impl {
    void set_proposed_finalizers(const finalizer_policy& fin_pol) {
       assert(pending); // has to exist and be building_block since called from host function
       auto& bb = std::get<building_block>(pending->_block_stage);
-
-      bb._pending_block_header_state.proposed_finalizer_policy.emplace(fin_pol);
+      bb.apply_hs<void>([&](building_block::building_block_if& bb) { bb.new_finalizer_policy.emplace(fin_pol); });
    }
 
    /**
@@ -2446,7 +2498,7 @@ struct controller_impl {
          transaction_trace_ptr trace;
 
          size_t packed_idx = 0;
-         const auto& trx_receipts = std::get<building_block>(pending->_block_stage)._pending_trx_receipts;
+         const auto& trx_receipts = std::get<building_block>(pending->_block_stage).pending_trx_receipts();
          for( const auto& receipt : b->transactions ) {
             auto num_pending_receipts = trx_receipts.size();
             if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
@@ -2487,16 +2539,19 @@ struct controller_impl {
 
          auto& ab = std::get<assembled_block>(pending->_block_stage);
 
-         if( producer_block_id != ab._id ) {
+         if( producer_block_id != ab.id() ) {
             elog( "Validation block id does not match producer block id" );
-            report_block_header_diff( *b, *ab._unsigned_block );
+
+            // [greg todo] also call `report_block_header_diff in IF mode once we have a signed_block
+            ab.apply_dpos<void>([&](assembled_block::assembled_block_dpos& ab) { report_block_header_diff( *b, *ab._unsigned_block ); });
+            
             // this implicitly asserts that all header fields (less the signature) are identical
-            EOS_ASSERT( producer_block_id == ab._id, block_validate_exception, "Block ID does not match",
-                        ("producer_block_id", producer_block_id)("validator_block_id", ab._id) );
+            EOS_ASSERT( producer_block_id == ab.id(), block_validate_exception, "Block ID does not match",
+                        ("producer_block_id", producer_block_id)("validator_block_id", ab.id()) );
          }
 
          if( !use_bsp_cached ) {
-            bsp->set_trxs_metas( std::move( ab._trx_metas ), !skip_auth_checks );
+            bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
          }
          // create completed_block with the existing block_state as we just verified it is the same as assembled_block
          pending->_block_stage = completed_block{ bsp };
