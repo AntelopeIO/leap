@@ -167,7 +167,8 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=21, topo="mesh", delay=2, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, activateIF=False,
+               nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count
@@ -519,7 +520,7 @@ class Cluster(object):
             return True
 
         Utils.Print("Bootstrap cluster.")
-        if not self.bootstrap(self.biosNode, self.startedNodesCount, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract):
+        if not self.bootstrap(launcher, self.biosNode, self.startedNodesCount, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract, activateIF):
             Utils.Print("ERROR: Bootstrap failed.")
             return False
 
@@ -991,7 +992,7 @@ class Cluster(object):
         Utils.Print(f'Found {len(producerKeys)} producer keys')
         return producerKeys
 
-    def bootstrap(self, biosNode, totalNodes, prodCount, totalProducers, pfSetupPolicy, onlyBios=False, onlySetProds=False, loadSystemContract=True):
+    def bootstrap(self, launcher,  biosNode, totalNodes, prodCount, totalProducers, pfSetupPolicy, onlyBios=False, onlySetProds=False, loadSystemContract=True, activateIF=False):
         """Create 'prodCount' init accounts and deposits 10000000000 SYS in each. If prodCount is -1 will initialize all possible producers.
         Ensure nodes are inter-connected prior to this call. One way to validate this will be to check if every node has block 1."""
 
@@ -1152,6 +1153,36 @@ class Cluster(object):
         if trans is None:
             Utils.Print("ERROR: Failed to publish contract %s." % (contract))
             return None
+
+        # enable instant finality
+        if activateIF:
+            numFins = len(launcher.network.nodes.values())
+            setFinStr =  f'{{"finalizer_policy": {{'
+            setFinStr += f'  "threshold": {int(numFins * 2 / 3 + 1)}, '
+            setFinStr += f'  "finalizers": ['
+            finNum = 1
+            for n in launcher.network.nodes.values():
+                if n.keys[0].blspubkey is None:
+                    continue
+                if len(n.producers) == 0:
+                    continue
+                setFinStr += f'    {{"description": "finalizer #{finNum}", '
+                setFinStr += f'     "fweight":1, '
+                setFinStr += f'     "public_key": "{n.keys[0].blspubkey}", '
+                setFinStr += f'     "pop": "{n.keys[0].blspop}"'
+                setFinStr += f'    }}'
+                if finNum != numFins:
+                    setFinStr += f', '
+                finNum = finNum + 1
+            setFinStr +=  f'  ]'
+            setFinStr +=  f'}}}}'
+            if Utils.Debug: Utils.Print("setfinalizers: %s" % (setFinStr))
+            Utils.Print("Setting finalizers")
+            opts = "--permission eosio@active"
+            trans = biosNode.pushMessage("eosio", "setfinalizer", setFinStr, opts)
+            if trans is None or not trans[0]:
+                Utils.Print("ERROR: Failed to set finalizers")
+                return None
 
         # Create currency0000, followed by issue currency0000
         contract=eosioTokenAccount.name
