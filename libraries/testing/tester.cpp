@@ -276,6 +276,7 @@ namespace eosio { namespace testing {
                builtin_protocol_feature_t::ram_restrictions,
                builtin_protocol_feature_t::webauthn_key,
                builtin_protocol_feature_t::wtmsig_block_signatures,
+               builtin_protocol_feature_t::bls_primitives,
                builtin_protocol_feature_t::instant_finality
             });
             produce_block();
