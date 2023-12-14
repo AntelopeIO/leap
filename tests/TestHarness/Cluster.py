@@ -1156,6 +1156,19 @@ class Cluster(object):
 
         # enable instant finality
         if activateIF:
+            # publish bios contract with setfinalizer
+            contract = "eosio.bios"
+            contractDir = str(self.libTestingContractsPath / contract)
+            wasmFile = "%s.wasm" % (contract)
+            abiFile = "%s.abi" % (contract)
+            Utils.Print("Publish %s contract" % (contract))
+            trans = biosNode.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+            if trans is None:
+                Utils.Print("ERROR: Failed to publish contract %s." % (contract))
+                return None
+            Node.validateTransaction(trans)
+
+            # call setfinalizer
             numFins = len(launcher.network.nodes.values())
             setFinStr =  f'{{"finalizer_policy": {{'
             setFinStr += f'  "threshold": {int(numFins * 2 / 3 + 1)}, '
@@ -1167,7 +1180,7 @@ class Cluster(object):
                 if len(n.producers) == 0:
                     continue
                 setFinStr += f'    {{"description": "finalizer #{finNum}", '
-                setFinStr += f'     "fweight":1, '
+                setFinStr += f'     "weight":1, '
                 setFinStr += f'     "public_key": "{n.keys[0].blspubkey}", '
                 setFinStr += f'     "pop": "{n.keys[0].blspop}"'
                 setFinStr += f'    }}'
