@@ -56,7 +56,7 @@ namespace eosio::chain {
       const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
 
       for (size_t i = 0; i < finalizers.size();i++) {
-         if (finalizers[i].public_key == finalizer_key) {
+         if (finalizers[i].public_key.equal(finalizer_key)) {
             b.set(i);
 
             fc_tlog(_logger, " === finalizer found ${finalizer} new value : ${value}",
@@ -358,7 +358,7 @@ namespace eosio::chain {
          const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
          digest_type digest = p->get_proposal_digest();
          for (size_t i=0; i<finalizers.size(); ++i) {
-            if (finalizers[i].public_key == vote.finalizer_key) {
+            if (finalizers[i].public_key.equal(vote.finalizer_key)) {
                if (_current_qc.add_vote(vote.strong, std::vector<uint8_t>(digest.data(), digest.data() + 32),
                                         i, vote.finalizer_key, vote.sig)) {
                   // fc_tlog(_logger, " === update bitset ${value} ${finalizer_key}",

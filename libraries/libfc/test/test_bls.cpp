@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(bls_binary_keys_encoding_check) try {
 
   bls_public_key pk = sk.get_public_key();
 
-  bool ok3 = bls_public_key(pk.to_string()) == pk;
+  bool ok3 = bls_public_key(pk.to_string()).equal(pk);
 
   std::string pub_str = pk.to_string();
 
@@ -257,7 +257,7 @@ BOOST_AUTO_TEST_CASE(bls_binary_keys_encoding_check) try {
 
   bls_signature sig = sk.sign(message_1);
 
-  bool ok5 = bls_signature(sig.to_string()) == sig;
+  bool ok5 = bls_signature(sig.to_string()).equal(sig);
 
   std::string sig_str = sig.to_string();
 

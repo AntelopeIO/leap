@@ -31,7 +31,7 @@ namespace fc::crypto::blslib {
          // affine non-montgomery base64 with bls_signature_prefix
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
-         friend bool operator == ( const bls_signature& p1, const bls_signature& p2);
+         bool equal( const bls_signature& sig ) const;
 
          bls12_381::g2 _sig;
 
