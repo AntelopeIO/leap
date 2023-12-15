@@ -11,7 +11,7 @@
 #include <fc/io/datastream.hpp>
 
 #include <vector>
-#include <set>
+#include <unordered_set>
 
 namespace eosio { namespace chain { namespace webassembly {
 
@@ -162,6 +162,14 @@ namespace eosio { namespace chain { namespace webassembly {
       uint64_t                             fthreshold = 0;
       std::vector<abi_finalizer_authority> finalizers;
    };
+   size_t fp_hash(const bls12_381::fp& fp) {
+      size_t hash = 0;
+      for (const auto& e: fp.d) {
+         // 0x9e3779b9 is a magic number commonly used in hash functions
+         hash ^= std::hash<uint64_t>{}(e) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+      }
+      return hash;
+   };
 
    void interface::set_finalizers(span<const char> packed_finalizer_policy) {
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_finalizers not allowed in a readonly transaction");
@@ -171,10 +179,25 @@ namespace eosio { namespace chain { namespace webassembly {
 
       std::vector<abi_finalizer_authority>& finalizers = abi_finpol.finalizers;
 
-      EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
-      EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
+      EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer policy exceeds the maximum finalizer count for this chain" );
+      EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizers cannot be empty" );
 
-      std::set<bls12_381::g1> unique_finalizer_keys;
+      struct g1_hash {
+         size_t operator()(const bls12_381::g1& g1) const {
+            size_t hash = 0;
+            hash ^= fp_hash(g1.x) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            hash ^= fp_hash(g1.y) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            hash ^= fp_hash(g1.z) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            return hash;
+         }
+      };
+      struct g1_equal {
+         bool operator()(const bls12_381::g1& lhs, const bls12_381::g1& rhs) const {
+            return lhs.equal(rhs);
+         }
+      };
+      std::unordered_set<bls12_381::g1, g1_hash, g1_equal> unique_finalizer_keys;
+
       uint64_t f_weight_sum = 0;
 
       finalizer_policy finpol;
@@ -189,15 +212,13 @@ namespace eosio { namespace chain { namespace webassembly {
          EOS_ASSERT(f.public_key_g1_affine_le.size() == 96, wasm_execution_error, "Invalid bls public key length");
          std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t,96>(f.public_key_g1_affine_le.data(), 96), check, raw);
          EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
+         EOS_ASSERT( unique_finalizer_keys.insert(*pk).second, wasm_execution_error, "Duplicate finalizer bls key in finalizer policy" );
          finpol.finalizers.push_back(finalizer_authority{.description = std::move(f.description),
                                                          .fweight = f.fweight,
                                                          .public_key{fc::crypto::blslib::bls_public_key{*pk}}});
-         unique_finalizer_keys.insert(*pk);
       }
 
-      // system contract should perform a duplicate check and fthreshold check before calling
-      EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
-      EOS_ASSERT( finpol.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer set threshold cannot be met by finalizer weights" );
+      EOS_ASSERT( finpol.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer policy threshold cannot be met by finalizer weights" );
 
       context.control.set_proposed_finalizers( finpol );
    }
