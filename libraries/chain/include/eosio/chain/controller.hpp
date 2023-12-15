@@ -53,7 +53,9 @@ namespace eosio::chain {
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
-   class fork_database;
+   template<class bsp, class bhsp> class fork_database;
+   
+   using fork_database_legacy = fork_database<block_state_legacy_ptr, block_header_state_legacy_ptr>;
 
    enum class db_read_mode {
       HEAD,
@@ -194,7 +196,7 @@ namespace eosio::chain {
 
          const chainbase::database& db()const;
 
-         const fork_database& fork_db()const;
+         const fork_database_legacy& fork_db()const;
 
          const account_object&                 get_account( account_name n )const;
          const global_property_object&         get_global_properties()const;

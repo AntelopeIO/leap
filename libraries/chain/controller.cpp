@@ -653,7 +653,7 @@ struct controller_impl {
    block_log                       blog;
    std::optional<pending_state>    pending;
    block_state_legacy_ptr          head;
-   fork_database                   fork_db;
+   fork_database_legacy            fork_db;
    std::optional<chain_pacemaker>  pacemaker;
    std::atomic<uint32_t>           hs_irreversible_block_num{0};
    resource_limits_manager         resource_limits;
@@ -3270,7 +3270,7 @@ const chainbase::database& controller::db()const { return my->db; }
 
 chainbase::database& controller::mutable_db()const { return my->db; }
 
-const fork_database& controller::fork_db()const { return my->fork_db; }
+const fork_database_legacy& controller::fork_db()const { return my->fork_db; }
 
 void controller::preactivate_feature( const digest_type& feature_digest, bool is_trx_transient ) {
    const auto& pfs = my->protocol_features.get_protocol_feature_set();

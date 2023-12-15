@@ -37,8 +37,8 @@ namespace eosio { namespace chain {
       friend struct fc::reflector<block_state_legacy>;
       friend bool block_state_is_valid( const block_state_legacy& ); // work-around for multi-index access
       friend struct controller_impl;
-      friend class  fork_database;
-      friend struct fork_database_impl;
+      template<class bsp, class bhsp> friend class  fork_database;
+      template<class bsp, class bhsp> friend struct fork_database_impl;
       friend class  unapplied_transaction_queue;
       friend struct pending_state;
       friend struct completed_block;

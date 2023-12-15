@@ -270,7 +270,7 @@ int blocklog_actions::read_log() {
 
    if(std::filesystem::exists(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name / config::forkdb_filename)) {
       ilog("opening fork_db");
-      fork_database fork_db(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name);
+      fork_database_legacy fork_db(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name);
 
       fork_db.open([](block_timestamp_type timestamp,
                       const flat_set<digest_type>& cur_features,
