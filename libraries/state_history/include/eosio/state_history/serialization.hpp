@@ -120,6 +120,13 @@ datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::big_v
 }
 
 template <typename ST>
+datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::row_pair& rp) {
+   fc::raw::pack(ds, rp.first);
+   history_pack_big_bytes(ds, rp.second);
+   return ds;
+}
+
+template <typename ST>
 inline void history_pack_varuint64(datastream<ST>& ds, uint64_t val) {
    do {
       uint8_t b = uint8_t(val) & 0x7f;
@@ -134,6 +141,12 @@ void history_pack_big_bytes(datastream<ST>& ds, const eosio::chain::bytes& v) {
    history_pack_varuint64(ds, v.size());
    if (v.size())
       ds.write(&v.front(), v.size());
+}
+
+template <typename ST>
+void history_pack_big_bytes(datastream<ST>& ds, const eosio::chain::shared_blob& b) {
+   fc::raw::pack(ds, unsigned_int((uint32_t)b.size()));
+   ds.write(b.data(), b.size());
 }
 
 template <typename ST>
@@ -223,7 +236,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
    fc::raw::pack(ds, as_type<uint64_t>(obj.context.table.to_uint64_t()));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.primary_key));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.payer.to_uint64_t()));
-   fc::raw::pack(ds, as_type<eosio::chain::shared_string>(obj.obj.value));
+   history_pack_big_bytes(ds, obj.obj.value);
    return ds;
 }
 

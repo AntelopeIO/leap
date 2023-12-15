@@ -196,7 +196,7 @@ struct assembled_block {
    // --------------------------------------------------------------------------------
    struct assembled_block_dpos {
       block_id_type                     id;
-      pending_block_header_state        pending_block_header_state;
+      pending_block_header_state_legacy pending_block_header_state;
       deque<transaction_metadata_ptr>   trx_metas;
       signed_block_ptr                  unsigned_block;
 
@@ -368,7 +368,7 @@ struct building_block {
    
    // --------------------------------------------------------------------------------
    struct building_block_dpos : public building_block_common {
-      pending_block_header_state                 pending_block_header_state;
+      pending_block_header_state_legacy          pending_block_header_state;
       std::optional<producer_authority_schedule> new_pending_producer_schedule;
 
       building_block_dpos( const block_header_state_legacy& prev,

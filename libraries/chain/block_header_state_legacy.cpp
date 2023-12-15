@@ -46,10 +46,10 @@ namespace eosio { namespace chain {
    // create pending_block_header_state from this for `when`
    // If hotstuff_activated then use new consensus values and simpler active schedule update.
    // If notstuff is not activated then use previous pre-hotstuff consensus logic.
-   pending_block_header_state  block_header_state_legacy::next( block_timestamp_type when,
-                                                                uint16_t num_prev_blocks_to_confirm )const
+   pending_block_header_state_legacy  block_header_state_legacy::next( block_timestamp_type when,
+                                                                       uint16_t num_prev_blocks_to_confirm )const
    {
-      pending_block_header_state result;
+      pending_block_header_state_legacy result;
 
       if( when != block_timestamp_type() ) {
         EOS_ASSERT( when > header.timestamp, block_validate_exception, "next block must be in the future" );
@@ -202,7 +202,7 @@ namespace eosio { namespace chain {
       return result;
    }
 
-   signed_block_header pending_block_header_state::make_block_header(
+   signed_block_header pending_block_header_state_legacy::make_block_header(
                                                       const checksum256_type& transaction_mroot,
                                                       const checksum256_type& action_mroot,
                                                       const std::optional<producer_authority_schedule>& new_producers,
@@ -253,7 +253,7 @@ namespace eosio { namespace chain {
       return h;
    }
 
-   block_header_state_legacy pending_block_header_state::_finish_next(
+   block_header_state_legacy pending_block_header_state_legacy::_finish_next(
                                  const signed_block_header& h,
                                  const protocol_feature_set& pfs,
                                  validator_t& validator
@@ -347,7 +347,7 @@ namespace eosio { namespace chain {
       return result;
    }
 
-   block_header_state_legacy pending_block_header_state::finish_next(
+   block_header_state_legacy pending_block_header_state_legacy::finish_next(
                                  const signed_block_header& h,
                                  vector<signature_type>&& additional_signatures,
                                  const protocol_feature_set& pfs,
@@ -375,7 +375,7 @@ namespace eosio { namespace chain {
       return result;
    }
 
-   block_header_state_legacy pending_block_header_state::finish_next(
+   block_header_state_legacy pending_block_header_state_legacy::finish_next(
                                  signed_block_header& h,
                                  const protocol_feature_set& pfs,
                                  validator_t& validator,

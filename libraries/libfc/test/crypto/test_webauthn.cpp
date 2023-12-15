@@ -38,7 +38,7 @@ static fc::crypto::webauthn::signature make_webauthn_sig(const fc::crypto::r1::p
 //used for many below
 static const r1::private_key priv = fc::crypto::r1::private_key::generate();
 static const r1::public_key pub = priv.get_public_key();
-static const fc::sha256 d = fc::sha256::hash("sup"s);
+static const fc::sha256 d = fc::sha256::hash("monkeys"s);
 static const fc::sha256 origin_hash = fc::sha256::hash("fctesting.invalid"s);
 
 BOOST_AUTO_TEST_SUITE(webauthn_suite)
@@ -163,6 +163,82 @@ BOOST_AUTO_TEST_CASE(challenge_non_base64) try {
 
    BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception, [](const fc::exception& e) {
       return e.to_detail_string().find("encountered non-base64 character") != std::string::npos;
+   });
+} FC_LOG_AND_RETHROW();
+
+//valid signature but replace url-safe base64 characters with the non-url safe characters
+BOOST_AUTO_TEST_CASE(challenge_wrong_base64_chars) try {
+   webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
+   std::string b64 = fc::base64url_encode(d.data(), d.data_size());
+
+   BOOST_REQUIRE(b64[1] == '_');
+   BOOST_REQUIRE(b64[18] == '_');
+   BOOST_REQUIRE(b64[36] == '-');
+
+   b64[1] = b64[18] = '/';
+   b64[36] = '+';
+
+   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + b64 + "\"}";
+
+   std::vector<uint8_t> auth_data(37);
+   memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
+
+   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception, [](const fc::exception& e) {
+      return e.to_detail_string().find("encountered non-base64 character") != std::string::npos;
+   });
+} FC_LOG_AND_RETHROW();
+
+//valid signature but replace the padding '=' with '.'
+BOOST_AUTO_TEST_CASE(challenge_base64_dot_padding) try {
+   webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
+   std::string b64 = fc::base64url_encode(d.data(), d.data_size());
+   char& end = b64.back();
+
+   BOOST_REQUIRE(end == '=');
+   end = '.';
+
+   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + b64 + "\"}";
+
+   std::vector<uint8_t> auth_data(37);
+   memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
+
+   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception, [](const fc::exception& e) {
+      return e.to_detail_string().find("encountered non-base64 character") != std::string::npos;
+   });
+} FC_LOG_AND_RETHROW();
+
+//valid signature but remove padding
+BOOST_AUTO_TEST_CASE(challenge_no_padding) try {
+   webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
+   std::string b64 = fc::base64url_encode(d.data(), d.data_size());
+
+   BOOST_REQUIRE(b64.back() == '=');
+   b64.resize(b64.size() - 1);
+
+   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + b64 + "\"}";
+
+   std::vector<uint8_t> auth_data(37);
+   memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
+
+   BOOST_CHECK_EQUAL(wa_pub, make_webauthn_sig(priv, auth_data, json).recover(d, true));
+} FC_LOG_AND_RETHROW();
+
+//valid signature but tack extra bytes in the challenge
+BOOST_AUTO_TEST_CASE(challenge_extra_bytes) try {
+   webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
+   std::string b64 = fc::base64url_encode(d.data(), d.data_size());
+
+   BOOST_REQUIRE(b64.back() == '=');
+   b64.resize(b64.size() - 1);
+   b64.append("abcd");
+
+   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + b64 + "\"}";
+
+   std::vector<uint8_t> auth_data(37);
+   memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
+
+   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception, [](const fc::exception& e) {
+      return e.to_detail_string().find("size mismatch") != std::string::npos;
    });
 } FC_LOG_AND_RETHROW();
 

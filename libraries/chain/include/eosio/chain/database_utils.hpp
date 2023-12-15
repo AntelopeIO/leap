@@ -79,6 +79,42 @@ namespace eosio::chain {
          index_set<RemainingIndices...>::walk_indices(function);
       }
    };
+
+namespace detail {
+   struct snapshot_key_value_object {
+      template<typename Stream>
+      friend Stream& operator>>(Stream& ds, snapshot_key_value_object& o) {
+         fc::raw::unpack(ds, o.primary_key);
+         fc::raw::unpack(ds, o.payer);
+
+         fc::unsigned_int sz;
+         fc::raw::unpack(ds, sz);
+         if(sz) {
+            o.value.resize(sz);
+            ds.read(o.value.data(), sz);
+         }
+
+         return ds;
+      }
+
+      template<typename Stream>
+      friend Stream& operator<<(Stream& ds, const snapshot_key_value_object& o) {
+         fc::raw::pack(ds, o.primary_key);
+         fc::raw::pack(ds, o.payer);
+
+         fc::raw::pack(ds, fc::unsigned_int(o.value.size()));
+         if(o.value.size())
+            ds.write(o.value.data(), o.value.size());
+
+         return ds;
+      }
+
+      uint64_t          primary_key;
+      account_name      payer;
+      std::vector<char> value;
+   };
+}
+
 }
 
 namespace fc {
@@ -184,6 +220,20 @@ namespace fc {
       std::vector<T> _v;
       from_variant(v, _v);
       sv = v;
+   }
+
+   inline
+   void to_variant(const eosio::chain::detail::snapshot_key_value_object& a, fc::variant& v) {
+      v = fc::mutable_variant_object("primary_key", a.primary_key)
+                                    ("payer", a.payer)
+                                    ("value", base64_encode(a.value.data(), a.value.size()));
+   }
+
+   inline
+   void from_variant(const fc::variant& v, eosio::chain::detail::snapshot_key_value_object& a) {
+      from_variant(v["primary_key"], a.primary_key);
+      from_variant(v["payer"], a.payer);
+      a.value = base64_decode(v["value"].as_string());
    }
 }
 

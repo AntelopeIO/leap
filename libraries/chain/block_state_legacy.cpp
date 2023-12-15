@@ -47,7 +47,7 @@ namespace eosio { namespace chain {
        */
 
       template<typename ...Extras>
-      block_header_state_legacy inject_additional_signatures( pending_block_header_state&& cur,
+      block_header_state_legacy inject_additional_signatures( pending_block_header_state_legacy&& cur,
                                                               signed_block& b,
                                                               const protocol_feature_set& pfs,
                                                               Extras&& ... extras )
@@ -87,7 +87,7 @@ namespace eosio { namespace chain {
    ,block( std::move(b) )
    {}
 
-   block_state_legacy::block_state_legacy( pending_block_header_state&& cur,
+   block_state_legacy::block_state_legacy( pending_block_header_state_legacy&& cur,
                                            signed_block_ptr&& b,
                                            deque<transaction_metadata_ptr>&& trx_metas,
                                            const protocol_feature_set& pfs,
