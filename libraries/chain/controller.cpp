@@ -207,7 +207,7 @@ struct assembled_block {
 
    // --------------------------------------------------------------------------------
    struct assembled_block_if {
-      producer_authority                producer_authority; 
+      producer_authority                active_producer_authority; 
       block_header_state                new_block_header_state;
       deque<transaction_metadata_ptr>   trx_metas;                 // Comes from building_block::pending_trx_metas
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
@@ -222,7 +222,7 @@ struct assembled_block {
    template <class R, class F>
    R apply_dpos(F&& f) {
       return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return std::forward<F>(f)(ab); },
-                                   [&](assembled_block_if& ab)   -> R { return {}; }},
+               [&](assembled_block_if& ab)   -> R { if constexpr (std::is_same<R, void>::value) return; else  return {}; }},
                         v);
    }
 
@@ -269,7 +269,7 @@ struct assembled_block {
    account_name producer() const {
       return std::visit(
          overloaded{[](const assembled_block_dpos& ab) { return ab.pending_block_header_state.producer; },
-                    [](const assembled_block_if& ab)   { return ab.producer_authority.producer_name; }},
+                    [](const assembled_block_if& ab)   { return ab.active_producer_authority.producer_name; }},
          v);
    }
 
@@ -300,7 +300,7 @@ struct assembled_block {
                                       return ab.pending_block_header_state.valid_block_signing_authority;
                                    },
                                    [](const assembled_block_if& ab) -> const block_signing_authority& {
-                                      return ab.producer_authority.authority;
+                                      return ab.active_producer_authority.authority;
                                    }},
                         v);
    }
@@ -447,13 +447,12 @@ struct building_block {
       return std::visit(overloaded{
                            [&](building_block_dpos& bb) -> R {
                               if constexpr (std::is_same<R, void>::value)
-                                 return;
-                              return std::forward<F>(f)(bb);
+                                 std::forward<F>(f)(bb);
+                              else
+                                 return std::forward<F>(f)(bb);
                            },
                            [&](building_block_if& bb) -> R {
-                              if constexpr (std::is_same<R, void>::value)
-                                 return;
-                              return {};
+                              if constexpr (std::is_same<R, void>::value) return; else  return {};
                            }},
                         v);
    }
@@ -463,14 +462,13 @@ struct building_block {
       // assert(std::holds_alternative<building_block_if>(v));
       return std::visit(overloaded{
                            [&](building_block_dpos& bb) -> R {
-                              if constexpr (std::is_same<R, void>::value)
-                                 return;
-                              return {};
+                              if constexpr (std::is_same<R, void>::value) return; else  return {};
                            },
                            [&](building_block_if& bb) -> R {
                               if constexpr (std::is_same<R, void>::value)
-                                 return;
-                              return std::forward<F>(f)(bb);
+                                 std::forward<F>(f)(bb);
+                              else
+                                 return std::forward<F>(f)(bb);
                            }},
                         v);
    }
@@ -622,6 +620,7 @@ struct pending_state {
    }
    
 #if 0
+   // [greg todo] maybe we don't need this and we can have the implementation in controller::pending_producers()
    const producer_authority_schedule& pending_producers() const {
       return std::visit(
          overloaded{
@@ -2318,19 +2317,19 @@ struct controller_impl {
       resource_limits.process_block_usage(bb.block_num());
 
 #if 0
-      [greg todo]
-      auto proposed_fin_pol = pending->_assembled_block_input.new_finalizer_policy();
-      if (proposed_fin_pol) {
-         // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
-         finalizer_policy fin_pol = std::move(*proposed_fin_pol);
-         fin_pol.generation = bb.apply_hs<uint32_t>([&](building_block_if& h) {
-            return h._bhs.increment_finalizer_policy_generation(); });
-         emplace_extension(
-                 block_ptr->header_extensions,
-                 finalizer_policy_extension::extension_id(),
-                 fc::raw::pack( finalizer_policy_extension{ std::move(fin_pol) } )
-         );
-      }
+      bb.apply_dpos<void>([&](building_block::building_block_dpos& bb) {
+         auto proposed_fin_pol = pending->assembled_block_input.new_finalizer_policy();
+         if (proposed_fin_pol) {
+            // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
+            finalizer_policy fin_pol = std::move(*proposed_fin_pol);
+            fin_pol.generation = bb.apply_hs<uint32_t>([&](building_block_if& h) {
+               return h._bhs.increment_finalizer_policy_generation(); });
+            emplace_extension(
+               block_ptr->header_extensions,
+               finalizer_policy_extension::extension_id(),
+               fc::raw::pack( finalizer_policy_extension{ std::move(fin_pol) } )
+               );
+         }});
 #endif
       
       // Create (unsigned) block in dpos mode.    [greg todo] do it in IF mode later when we are ready to sign it
