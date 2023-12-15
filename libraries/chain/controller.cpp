@@ -119,6 +119,8 @@ class maybe_session {
 struct completed_block {
    std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
 
+   bool is_dpos() const { return std::holds_alternative<block_state_legacy_ptr>(bsp); }
+
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit(overloaded{[](block_state_legacy_ptr& bsp) { return bsp->extract_trxs_metas(); },
                                    [](block_state_ptr& bsp)        { return bsp->extract_trxs_metas(); }},
@@ -168,7 +170,7 @@ struct completed_block {
                                       const auto& sch = bsp->bhs.new_pending_producer_schedule();
                                       if (sch)
                                          return *sch;
-                                      return active_producers();  // [greg todo: Is this correct?]
+                                      return active_producers();  // [greg todo: Is this correct?] probably not
                                    }},
                         bsp);
    }
@@ -214,6 +216,8 @@ struct assembled_block {
    };
 
    std::variant<assembled_block_dpos, assembled_block_if> v;
+
+   bool is_dpos() const { return std::holds_alternative<assembled_block_dpos>(v); }
 
    template <class R, class F>
    R apply_dpos(F&& f) {
@@ -270,21 +274,33 @@ struct assembled_block {
    }
 
    const producer_authority_schedule& active_producers() const {
-      return std::visit(overloaded{[](const assembled_block_dpos& bb) -> const producer_authority_schedule& {
-                                      return bb.pending_block_header_state.active_schedule;
+      return std::visit(overloaded{[](const assembled_block_dpos& ab) -> const producer_authority_schedule& {
+                                      return ab.pending_block_header_state.active_schedule;
                                    },
-                                   [](const assembled_block_if& bb) -> const producer_authority_schedule& {
+                                   [](const assembled_block_if& ab) -> const producer_authority_schedule& {
                                       static producer_authority_schedule pas; return pas; // [greg todo]
                                    }},
                         v);
    }
 
+   using opt_pas = const std::optional<producer_authority_schedule>;
+
+   opt_pas& pending_producers() const {
+      return std::visit(
+         overloaded{[](const assembled_block_dpos& ab) -> opt_pas& { return ab.new_producer_authority_cache; },
+                    [](const assembled_block_if& ab) -> opt_pas& {
+                       static opt_pas empty;
+                       return empty; // [greg todo]
+                    }},
+         v);
+   }
+
    const block_signing_authority& pending_block_signing_authority() const {
-      return std::visit(overloaded{[](const assembled_block_dpos& bb) -> const block_signing_authority& {
-                                      return bb.pending_block_header_state.valid_block_signing_authority;
+      return std::visit(overloaded{[](const assembled_block_dpos& ab) -> const block_signing_authority& {
+                                      return ab.pending_block_header_state.valid_block_signing_authority;
                                    },
-                                   [](const assembled_block_if& bb) -> const block_signing_authority& {
-                                      return bb.producer_authority.authority;
+                                   [](const assembled_block_if& ab) -> const block_signing_authority& {
+                                      return ab.producer_authority.authority;
                                    }},
                         v);
    }
@@ -516,6 +532,18 @@ struct building_block {
                         v);
    }
 
+   const producer_authority_schedule& pending_producers() const {
+      return std::visit(overloaded{[](const building_block_dpos& bb) -> const producer_authority_schedule& {
+                                      if (bb.new_pending_producer_schedule)
+                                         return *bb.new_pending_producer_schedule;
+                                      return bb.pending_block_header_state.prev_pending_schedule.schedule;
+                                   },
+                                   [](const building_block_if& bb) -> const producer_authority_schedule& {
+                                      static producer_authority_schedule empty;
+                                      return empty; // [greg todo]
+                                   }},
+                        v);
+   }
 };
 
 
@@ -538,47 +566,50 @@ struct pending_state {
    controller::block_report       _block_report{};
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
-      return std::visit([](auto& bb) { return bb.extract_trx_metas(); }, _block_stage);
+      return std::visit([](auto& stage) { return stage.extract_trx_metas(); }, _block_stage);
    }
 
    bool is_protocol_feature_activated(const digest_type& digest) const {
-      return std::visit([&](const auto& bb) { return bb.is_protocol_feature_activated(digest); }, _block_stage);
+      return std::visit([&](const auto& stage) { return stage.is_protocol_feature_activated(digest); }, _block_stage);
    }
 
    block_timestamp_type timestamp() const {
-      return std::visit([](const auto& bb) { return bb.timestamp(); }, _block_stage);
+      return std::visit([](const auto& stage) { return stage.timestamp(); }, _block_stage);
    }
 
    uint32_t block_num() const {
-      return std::visit([](const auto& bb) { return bb.block_num(); }, _block_stage);
+      return std::visit([](const auto& stage) { return stage.block_num(); }, _block_stage);
    }
 
    account_name producer() const {
-      return std::visit([](const auto& bb) { return bb.producer(); }, _block_stage);
+      return std::visit([](const auto& stage) { return stage.producer(); }, _block_stage);
    }
 
    void push() {
       _db_session.push();
    }
 
+   bool is_dpos() const { return std::visit([](const auto& stage) { return stage.is_dpos(); }, _block_stage); }
+   
    const block_signing_authority& pending_block_signing_authority() const {
       return std::visit(
-         [](const auto& bb) -> const block_signing_authority& { return bb.pending_block_signing_authority(); },
+         [](const auto& stage) -> const block_signing_authority& { return stage.pending_block_signing_authority(); },
          _block_stage);
    }
 
    const producer_authority_schedule& active_producers() const {
       return std::visit(
-         [](const auto& bb) -> const producer_authority_schedule& { return bb.active_producers(); },
+         [](const auto& stage) -> const producer_authority_schedule& { return stage.active_producers(); },
          _block_stage);
    }
+   
 #if 0
    const producer_authority_schedule& pending_producers() const {
       return std::visit(
          overloaded{
             [](const building_block& bb) -> const producer_authority_schedule& { return bb.pending_producers(); },
-            [](const assembled_block& bb) -> const producer_authority_schedule& { return bb.pending_producers(); },
-            [](const completed_block& bb) -> const producer_authority_schedule& { return bb.pending_producers(); }},
+            [](const assembled_block& ab) -> const producer_authority_schedule& { return ab.pending_producers(); },
+            [](const completed_block& cb) -> const producer_authority_schedule& { return cb.pending_producers(); }},
          _block_stage);
    }
 #endif
@@ -3721,25 +3752,21 @@ const producer_authority_schedule& controller::active_producers()const {
 }
 
 const producer_authority_schedule& controller::pending_producers()const {
-   if( !(my->pending) )
-      return  my->head->pending_schedule.schedule;
+   if( !(my->pending) ) 
+      return  my->head->pending_schedule.schedule;    // [greg todo] implement pending_producers for IF mode
 
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
-      return std::get<completed_block>(my->pending->_block_stage)._block_state->pending_schedule.schedule;
+      return std::get<completed_block>(my->pending->_block_stage).pending_producers();
 
    if( std::holds_alternative<assembled_block>(my->pending->_block_stage) ) {
-      const auto& new_prods_cache = std::get<assembled_block>(my->pending->_block_stage)._new_producer_authority_cache;
-      if( new_prods_cache ) {
-         return *new_prods_cache;
+      const auto& pp = std::get<assembled_block>(my->pending->_block_stage).pending_producers();
+      if( pp ) {
+         return *pp;
       }
    }
 
    const auto& bb = std::get<building_block>(my->pending->_block_stage);
-   const auto& npps = bb._header.new_pending_producer_schedule();
-   if( npps )
-      return *npps;
-
-   return bb._pending_block_header_state.prev_pending_schedule.schedule;
+   return bb.pending_producers();
 }
 
 std::optional<producer_authority_schedule> controller::proposed_producers()const {

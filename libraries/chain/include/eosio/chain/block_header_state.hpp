@@ -67,9 +67,9 @@ struct block_header_state {
    flat_map<uint32_t, finalizer_policy_ptr> _finalizer_policies;
 
    digest_type           compute_finalizer_digest() const;
-   block_timestamp_type  timestamp() const;
-   account_name          producer() const;
-   block_id_type         previous() const;
+   block_timestamp_type  timestamp() const { return _header.timestamp; }
+   account_name          producer() const { return _header.producer; }
+   block_id_type         previous() const { return _header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
    
    block_header_state next(const block_header_state_input& data) const;
@@ -79,13 +79,11 @@ struct block_header_state {
       return !_core.last_qc_block_height || qc.block_height > *_core.last_qc_block_height;
    }
 
-   protocol_feature_activation_set_ptr  get_prev_activated_protocol_features() const;
+   protocol_feature_activation_set_ptr  get_prev_activated_protocol_features() const { return {}; } //  [greg todo] 
    flat_set<digest_type> get_activated_protocol_features() const { return _activated_protocol_features->protocol_features; }
-   uint32_t pending_irreversible_blocknum() const;
-   uint32_t irreversible_blocknum() const;
    detail::schedule_info prev_pending_schedule() const;
    uint32_t active_schedule_version() const;
-   std::optional<producer_authority_schedule>& new_pending_producer_schedule();
+   std::optional<producer_authority_schedule>& new_pending_producer_schedule() { static std::optional<producer_authority_schedule> x; return x; } //  [greg todo] 
    signed_block_header make_block_header(const checksum256_type& transaction_mroot,
                                          const checksum256_type& action_mroot,
                                          const std::optional<producer_authority_schedule>& new_producers,
