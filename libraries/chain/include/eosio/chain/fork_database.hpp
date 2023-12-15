@@ -24,7 +24,9 @@ namespace eosio::chain {
    template<class bsp, class bhsp>  // either [block_state_legacy_ptr, block_state_ptr], same with block_header_state_ptr
    class fork_database {
    public:
-
+      using branch_type = deque<bsp>;
+      using branch_type_pair = pair<branch_type, branch_type>;
+      
       explicit fork_database( const std::filesystem::path& data_dir );
       ~fork_database();
 
@@ -85,9 +87,7 @@ namespace eosio::chain {
        *  Given two head blocks, return two branches of the fork graph that
        *  end with a common ancestor (same prior block)
        */
-      pair< branch_type, branch_type >  fetch_branch_from( const block_id_type& first,
-                                                           const block_id_type& second ) const;
-
+      branch_type_pair fetch_branch_from(const block_id_type& first, const block_id_type& second) const;
 
       void mark_valid( const bsp& h );
 

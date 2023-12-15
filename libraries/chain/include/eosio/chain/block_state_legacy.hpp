@@ -67,7 +67,6 @@ namespace eosio { namespace chain {
    };
 
    using block_state_legacy_ptr = std::shared_ptr<block_state_legacy>;
-   using branch_type = deque<block_state_legacy_ptr>;
 
 } } /// namespace eosio::chain
 

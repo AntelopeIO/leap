@@ -38,7 +38,8 @@ namespace eosio::chain {
    struct by_lib_block_num;
    struct by_prev;
 
-   template<class bs, class bhs, class bhs_common = detail::block_header_state_legacy_common>  // either [block_state_legacy, block_state], same with block_header_state
+   // [greg todo] We'll need a different version of `fork_multi_index_type` for the IF version
+   template<class bs, class bhs, class bhs_common = detail::block_header_state_legacy_common> 
    using fork_multi_index_type = multi_index_container<
       std::shared_ptr<bs>,
       indexed_by<
@@ -77,6 +78,8 @@ namespace eosio::chain {
       using bhs = bhsp::element_type;
       
       using fork_database_t = fork_database<bsp, bhsp>;
+      using branch_type = fork_database_t::branch_type;
+      using branch_type_pair = fork_database_t::branch_type_pair;
       
       explicit fork_database_impl( const std::filesystem::path& data_dir )
       :datadir(data_dir)
@@ -101,7 +104,7 @@ namespace eosio::chain {
       branch_type fetch_branch_impl( const block_id_type& h, uint32_t trim_after_block_num )const;
       bsp         search_on_branch_impl( const block_id_type& h, uint32_t block_num )const;
       void        mark_valid_impl( const bsp& h );
-      pair<branch_type, branch_type> fetch_branch_from_impl( const block_id_type& first, const block_id_type& second )const;
+      branch_type_pair fetch_branch_from_impl( const block_id_type& first, const block_id_type& second )const;
 
    };
 
@@ -432,18 +435,21 @@ namespace eosio::chain {
       return my->head;
    }
 
-   template<class bsp, class bhsp>
-   branch_type fork_database<bsp, bhsp>::fetch_branch( const block_id_type& h, uint32_t trim_after_block_num )const {
-      std::shared_lock g( my->mtx );
-      return my->fetch_branch_impl( h, trim_after_block_num );
+   template <class bsp, class bhsp>
+   fork_database<bsp, bhsp>::branch_type
+   fork_database<bsp, bhsp>::fetch_branch(const block_id_type& h,
+                                          uint32_t trim_after_block_num) const {
+      std::shared_lock g(my->mtx);
+      return my->fetch_branch_impl(h, trim_after_block_num);
    }
 
-   template<class bsp, class bhsp>
-   branch_type fork_database_impl<bsp, bhsp>::fetch_branch_impl( const block_id_type& h, uint32_t trim_after_block_num )const {
+   template <class bsp, class bhsp>
+   fork_database<bsp, bhsp>::branch_type
+   fork_database_impl<bsp, bhsp>::fetch_branch_impl(const block_id_type& h, uint32_t trim_after_block_num) const {
       branch_type result;
-      for( auto s = get_block_impl(h); s; s = get_block_impl( s->header.previous ) ) {
-         if( s->block_num <= trim_after_block_num )
-             result.push_back( s );
+      for (auto s = get_block_impl(h); s; s = get_block_impl(s->header.previous)) {
+         if (s->block_num <= trim_after_block_num)
+            result.push_back(s);
       }
 
       return result;
@@ -470,16 +476,15 @@ namespace eosio::chain {
     *  end with a common ancestor (same prior block)
     */
    template <class bsp, class bhsp>
-   pair<branch_type, branch_type> fork_database<bsp, bhsp>::fetch_branch_from(const block_id_type& first,
-                                                                              const block_id_type& second) const {
+   fork_database<bsp, bhsp>::branch_type_pair
+   fork_database<bsp, bhsp>::fetch_branch_from(const block_id_type& first, const block_id_type& second) const {
       std::shared_lock g(my->mtx);
       return my->fetch_branch_from_impl(first, second);
    }
 
    template <class bsp, class bhsp>
-   pair<branch_type, branch_type>
-   fork_database_impl<bsp, bhsp>::fetch_branch_from_impl(const block_id_type& first,
-                                                         const block_id_type& second) const {
+   fork_database<bsp, bhsp>::branch_type_pair
+   fork_database_impl<bsp, bhsp>::fetch_branch_from_impl(const block_id_type& first, const block_id_type& second) const {
       pair<branch_type, branch_type> result;
       auto first_branch = (first == root->id) ? root : get_block_impl(first);
       auto second_branch = (second == root->id) ? root : get_block_impl(second);

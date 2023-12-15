@@ -5,6 +5,7 @@
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 
@@ -49,13 +50,14 @@ namespace eosio::chain {
    class subjective_billing;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
+
+   using fork_database_legacy = fork_database<block_state_legacy_ptr, block_header_state_legacy_ptr>;   
+   using branch_type = typename fork_database_legacy::branch_type;
+   
    using forked_branch_callback = std::function<void(const branch_type&)>;
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
-   template<class bsp, class bhsp> class fork_database;
-   
-   using fork_database_legacy = fork_database<block_state_legacy_ptr, block_header_state_legacy_ptr>;
 
    enum class db_read_mode {
       HEAD,
