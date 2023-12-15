@@ -2263,20 +2263,27 @@ struct controller_impl {
 
       try {
 
-      const bool if_active = hs_irreversible_block_num.load() > 0;
-
       auto& bb = std::get<building_block>(pending->_block_stage);
+      const bool if_active = !bb.is_dpos();
 
       auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
                                                 [ids{std::move( bb.action_receipt_digests() )}, if_active]() mutable {
-                                                   return calc_merkle(std::move(ids), if_active);
-                                                } );
+                                                   if (if_active) {
+                                                      return calculate_merkle( std::move( ids ) );
+                                                   } else {
+                                                      return canonical_merkle( std::move( ids ) );
+                                                   }
+                                                });
       const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb.trx_mroot_or_receipt_digests());
       std::future<checksum256_type> trx_merkle_fut;
       if( calc_trx_merkle ) {
          trx_merkle_fut = post_async_task( thread_pool.get_executor(),
                                            [ids{std::move( std::get<digests_t>(bb.trx_mroot_or_receipt_digests()) )}, if_active]() mutable {
-                                              return calc_merkle(std::move(ids), if_active);
+                                              if (if_active) {
+                                                 return calculate_merkle( std::move( ids ) );
+                                              } else {
+                                                 return canonical_merkle( std::move( ids ) );
+                                              }
                                            } );
       }
 
