@@ -446,8 +446,10 @@ struct building_block {
       // assert(std::holds_alternative<building_block_dpos>(v));
       return std::visit(overloaded{
                            [&](building_block_dpos& bb) -> R {
-                              if constexpr (std::is_same<R, void>::value)
+                              if constexpr (std::is_same<R, void>::value) {
+                                 std::forward<F>(f)(bb);
                                  return;
+                              }
                               return std::forward<F>(f)(bb);
                            },
                            [&](building_block_if& bb) -> R {
@@ -468,8 +470,10 @@ struct building_block {
                               return {};
                            },
                            [&](building_block_if& bb) -> R {
-                              if constexpr (std::is_same<R, void>::value)
+                              if constexpr (std::is_same<R, void>::value) {
+                                 std::forward<F>(f)(bb);
                                  return;
+                              }
                               return std::forward<F>(f)(bb);
                            }},
                         v);
