@@ -130,13 +130,21 @@
         "stderr"
       ]
     },{
-    "name": "state_history",
-    "level": "info",
-    "enabled": true,
-    "additivity": false,
-    "appenders": [
-      "stderr"
-      ]
+       "name": "state_history",
+       "level": "info",
+       "enabled": true,
+       "additivity": false,
+       "appenders": [
+         "stderr"
+        ]
+    },{
+       "name": "hotstuff",
+       "level": "all",
+       "enabled": true,
+       "additivity": false,
+       "appenders": [
+         "stderr"
+       ]
     },{
       "name": "transaction",
       "level": "info",
