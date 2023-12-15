@@ -2106,6 +2106,8 @@ struct controller_impl {
       });
 
       //building_block_input bbi{ head->id, when, head->get_scheduled_producer(when), std::move(new_protocol_feature_activations) };
+      // [greg todo] build IF `building_block` below if not in dpos mode.
+      //             we'll need a different `building_block` constructor for IF mode
       if (!self.skip_db_sessions(s)) {
          EOS_ASSERT( db.revision() == head->block_num, database_exception, "db revision is not on par with head block",
                      ("db.revision()", db.revision())("controller_head_block", head->block_num)("fork_db_head_block", fork_db.head()->block_num) );
@@ -2388,7 +2390,7 @@ struct controller_impl {
          }
 
          emit( self.accepted_block, bsp );
-         
+
          if( s == controller::block_status::incomplete ) {
             log_irreversible();
             pacemaker->beat();
