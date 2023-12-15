@@ -2317,8 +2317,9 @@ struct controller_impl {
       resource_limits.process_block_usage(bb.block_num());
 
 #if 0
-      bb.apply_dpos<void>([&](building_block::building_block_dpos& bb) {
-         auto proposed_fin_pol = pending->assembled_block_input.new_finalizer_policy();
+      // [greg todo] see https://github.com/AntelopeIO/leap/issues/1911
+      bb.apply_hs<void>([&](building_block::building_block_if& bb) {
+         auto proposed_fin_pol = bb.new_finalizer_policy;
          if (proposed_fin_pol) {
             // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
             finalizer_policy fin_pol = std::move(*proposed_fin_pol);
