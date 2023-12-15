@@ -55,8 +55,8 @@ void bios::setfinalizer( const finalizer_policy& finalizer_policy ) {
       check(f.description.size() <= max_finalizer_description_size, "Finalizer description greater than max allowed size");
 
       // basic key format checks
-      check(f.public_key.substr(0, pk_prefix.length()) == pk_prefix, "public key not started with PUB_BLS");
-      check(f.pop.substr(0, sig_prefix.length()) == sig_prefix, "proof of possession signature not started with SIG_BLS");
+      check(f.public_key.substr(0, pk_prefix.length()) == pk_prefix, "public key shoud start with PUB_BLS");
+      check(f.pop.substr(0, sig_prefix.length()) == sig_prefix, "proof of possession signature should start with SIG_BLS");
 
       // check overflow
       check(std::numeric_limits<uint64_t>::max() - weight_sum >= f.weight, "sum of weights causes uint64_t overflow");
@@ -77,7 +77,7 @@ void bios::setfinalizer( const finalizer_policy& finalizer_policy ) {
       abi_finalizer_policy.finalizers.emplace_back(eosio::abi_finalizer_authority{f.description, f.weight, std::move(pk_vector)});
    }
 
-   check(finalizer_policy.threshold > weight_sum / 2, "finalizer policy threshold cannot be met by finalizer weights");
+   check(finalizer_policy.threshold > weight_sum / 2, "finalizer policy threshold must be greater than half of the sum of the weights");
 
    set_finalizers(std::move(abi_finalizer_policy));
 }
