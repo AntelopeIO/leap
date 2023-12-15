@@ -20,6 +20,9 @@ inline account_name get_expected_producer(const vector<producer_authority>& sche
 };
 
 } // anonymous namespace
+#if 0
+
+[Enable test when https://github.com/AntelopeIO/leap/issues/1980 is worked
 
 BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, validating_tester ) try {
 
@@ -106,6 +109,8 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, val
    confirm_schedule_correctness(third_prod_schd, 3);
 
 } FC_LOG_AND_RETHROW()
+
+#endif
 
 /** TODO: Enable tests after hotstuff LIB is working
 
