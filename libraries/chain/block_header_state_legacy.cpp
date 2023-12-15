@@ -256,9 +256,7 @@ namespace eosio { namespace chain {
    block_header_state_legacy pending_block_header_state::_finish_next(
                                  const signed_block_header& h,
                                  const protocol_feature_set& pfs,
-                                 const std::function<void( block_timestamp_type,
-                                                           const flat_set<digest_type>&,
-                                                           const vector<digest_type>& )>& validator
+                                 validator_t& validator
 
    )&&
    {
@@ -353,9 +351,7 @@ namespace eosio { namespace chain {
                                  const signed_block_header& h,
                                  vector<signature_type>&& additional_signatures,
                                  const protocol_feature_set& pfs,
-                                 const std::function<void( block_timestamp_type,
-                                                           const flat_set<digest_type>&,
-                                                           const vector<digest_type>& )>& validator,
+                                 validator_t& validator,
                                  bool skip_validate_signee
    )&&
    {
@@ -382,9 +378,7 @@ namespace eosio { namespace chain {
    block_header_state_legacy pending_block_header_state::finish_next(
                                  signed_block_header& h,
                                  const protocol_feature_set& pfs,
-                                 const std::function<void( block_timestamp_type,
-                                                           const flat_set<digest_type>&,
-                                                           const vector<digest_type>& )>& validator,
+                                 validator_t& validator,
                                  const signer_callback_type& signer
    )&&
    {
@@ -415,9 +409,7 @@ namespace eosio { namespace chain {
                         vector<signature_type>&& _additional_signatures,
                         const protocol_feature_set& pfs,
                         bool hotstuff_activated,
-                        const std::function<void( block_timestamp_type,
-                                                  const flat_set<digest_type>&,
-                                                  const vector<digest_type>& )>& validator,
+                        validator_t& validator,
                         bool skip_validate_signee )const
    {
       return next( h.timestamp, h.confirmed ).finish_next( h, std::move(_additional_signatures), pfs, validator, skip_validate_signee );
