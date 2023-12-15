@@ -391,7 +391,7 @@ struct building_block {
    struct building_block_if : public building_block_common {
       const block_id_type                        parent_id;                        // Comes from building_block_input::parent_id
       const block_timestamp_type                 timestamp;                        // Comes from building_block_input::timestamp
-      const producer_authority                   producer_authority;               // Comes from parent.get_scheduled_producer(timestamp)
+      const producer_authority                   active_producer_authority;        // Comes from parent.get_scheduled_producer(timestamp)
       const vector<digest_type>                  new_protocol_feature_activations; // Comes from building_block_input::new_protocol_feature_activations
       const protocol_feature_activation_set_ptr  prev_activated_protocol_features; // Cached: parent.bhs.activated_protocol_features
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.bhs.get_next_active_proposer_policy(timestamp)
@@ -405,7 +405,7 @@ struct building_block {
          : building_block_common(input.new_protocol_feature_activations)
          , parent_id(input.parent_id)
          , timestamp(input.timestamp)
-         , producer_authority{input.producer,
+         , active_producer_authority{input.producer,
                               [&]() -> block_signing_authority {
                                  const auto& pas = parent._proposer_policy->proposer_schedule;
                                  for (const auto& pa : pas.producers)
@@ -444,16 +444,34 @@ struct building_block {
    template <class R, class F>
    R apply_dpos(F&& f) {
       // assert(std::holds_alternative<building_block_dpos>(v));
-      return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return std::forward<F>(f)(bb); },
-                                   [&](building_block_if& bb)   -> R { return {}; }},
+      return std::visit(overloaded{
+                           [&](building_block_dpos& bb) -> R {
+                              if constexpr (std::is_same<R, void>::value)
+                                 return;
+                              return std::forward<F>(f)(bb);
+                           },
+                           [&](building_block_if& bb) -> R {
+                              if constexpr (std::is_same<R, void>::value)
+                                 return;
+                              return {};
+                           }},
                         v);
    }
 
    template <class R, class F>
    R apply_hs(F&& f) {
       // assert(std::holds_alternative<building_block_if>(v));
-      return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return {}; },
-                                   [&](building_block_if& bb)   -> R { return std::forward<F>(f)(bb); }},
+      return std::visit(overloaded{
+                           [&](building_block_dpos& bb) -> R {
+                              if constexpr (std::is_same<R, void>::value)
+                                 return;
+                              return {};
+                           },
+                           [&](building_block_if& bb) -> R {
+                              if constexpr (std::is_same<R, void>::value)
+                                 return;
+                              return std::forward<F>(f)(bb);
+                           }},
                         v);
    }
 
@@ -483,7 +501,7 @@ struct building_block {
    account_name producer() const {
       return std::visit(
          overloaded{[](const building_block_dpos& bb)  { return bb.pending_block_header_state.producer; },
-                    [](const building_block_if& bb)    { return bb.producer_authority.producer_name; }},
+                    [](const building_block_if& bb)    { return bb.active_producer_authority.producer_name; }},
          v);
    }
 
@@ -496,7 +514,7 @@ struct building_block {
                                       return bb.pending_block_header_state.valid_block_signing_authority;
                                    },
                                    [](const building_block_if& bb) -> const block_signing_authority& {
-                                      return bb.producer_authority.authority;
+                                      return bb.active_producer_authority.authority;
                                    }},
                         v);
    }
