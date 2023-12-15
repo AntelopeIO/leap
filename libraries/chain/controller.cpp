@@ -2191,7 +2191,7 @@ struct controller_impl {
 
          if (!hs_active) {
             bb.apply_dpos<void>([&](building_block::building_block_dpos &bb_dpos) {
-               pending_block_header_state& pbhs = bb_dpos.pending_block_header_state;
+               pending_block_header_state_legacy& pbhs = bb_dpos.pending_block_header_state;
                
                if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
                    ( hs_active || *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible or hotstuff activated...
@@ -2885,7 +2885,7 @@ struct controller_impl {
       // this is not called when hotstuff is activated
       auto& bb = std::get<building_block>(pending->_block_stage);
       bb.apply_dpos<void>([this](building_block::building_block_dpos& dpos_header) {
-         pending_block_header_state& pbhs = dpos_header.pending_block_header_state;
+         pending_block_header_state_legacy& pbhs = dpos_header.pending_block_header_state;
          const auto& producers = pbhs.active_schedule.producers;
 
          auto update_permission = [&](auto& permission, auto threshold) {
