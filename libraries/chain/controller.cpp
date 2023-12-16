@@ -448,8 +448,6 @@ struct controller_impl {
                apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
             }
 
-            emit( self.irreversible_block, *bitr );
-
             // blog.append could fail due to failures like running out of space.
             // Do it before commit so that in case it throws, DB can be rolled back.
             blog.append( (*bitr)->block, (*bitr)->id, it->get() );
@@ -461,6 +459,11 @@ struct controller_impl {
       } catch( std::exception& ) {
          if( root_id != fork_db.root()->id ) {
             fork_db.advance_root( root_id );
+            for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr) {
+               emit( self.irreversible_block, *bitr );
+               if ((*bitr)->id == root_id)
+                  break;
+            }
          }
          throw;
       }
@@ -470,6 +473,10 @@ struct controller_impl {
       if( root_id != fork_db.root()->id ) {
          branch.emplace_back(fork_db.root());
          fork_db.advance_root( root_id );
+         // signal after fork_db is updated
+         for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr) {
+            emit( self.irreversible_block, *bitr );
+         }
       }
 
       // delete branch in thread pool
