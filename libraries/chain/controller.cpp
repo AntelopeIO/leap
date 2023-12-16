@@ -471,12 +471,13 @@ struct controller_impl {
       //db.commit( fork_head->dpos_irreversible_blocknum ); // redundant
 
       if( root_id != fork_db.root()->id ) {
-         branch.emplace_back(fork_db.root());
+         auto old_root = fork_db.root();
          fork_db.advance_root( root_id );
          // signal after fork_db is updated
          for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr) {
             emit( self.irreversible_block, *bitr );
          }
+         branch.emplace_back(std::move(old_root));
       }
 
       // delete branch in thread pool
