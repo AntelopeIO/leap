@@ -6,7 +6,6 @@
 namespace eosio {
 namespace state_history {
 
-using chain::block_state_legacy_ptr;
 using chain::transaction_id_type;
 
 struct trace_converter {

@@ -1,6 +1,5 @@
 #pragma once
 #include <eosio/chain/types.hpp>
-#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/trace.hpp>
 
 namespace eosio::chain_apis {
