@@ -1035,8 +1035,8 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          accepted_block_channel.publish( priority::high, t );
       } );
 
-      irreversible_block_connection = chain->irreversible_block.connect( [this]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
-         const auto& [ block, id, header, block_num ] = t;
+      irreversible_block_connection = chain->irreversible_block.connect( [this]( std::tuple<const signed_block_ptr&, const block_id_type&, uint32_t> t ) {
+         const auto& [ block, id, block_num ] = t;
 
          if (_trx_retry_db) {
             _trx_retry_db->on_irreversible_block(block, block_num);

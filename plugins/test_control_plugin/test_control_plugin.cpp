@@ -32,8 +32,8 @@ private:
 
 void test_control_plugin_impl::connect() {
    _irreversible_block_connection.emplace(
-         _chain.irreversible_block.connect( [&]( std::tuple<const chain::signed_block_ptr&, const chain::block_id_type&, const chain::signed_block_header&, uint32_t> t ) {
-            const auto& [ block, id, header, block_num ] = t;
+         _chain.irreversible_block.connect( [&]( std::tuple<const chain::signed_block_ptr&, const chain::block_id_type&, uint32_t> t ) {
+            const auto& [ block, id, block_num ] = t;
             applied_irreversible_block( id );
          } ));
    _accepted_block_connection =

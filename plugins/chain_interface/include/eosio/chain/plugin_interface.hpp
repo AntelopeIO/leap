@@ -17,7 +17,7 @@ namespace eosio::chain::plugin_interface {
       using rejected_block         = channel_decl<struct rejected_block_tag,        signed_block_ptr>;
       using accepted_block_header  = channel_decl<struct accepted_block_header_tag, std::tuple<signed_block_ptr, block_id_type, signed_block_header, uint32_t>>;
       using accepted_block         = channel_decl<struct accepted_block_tag, std::tuple<signed_block_ptr, block_id_type, signed_block_header, uint32_t>>;
-      using irreversible_block     = channel_decl<struct irreversible_block_tag, std::tuple<signed_block_ptr, block_id_type, signed_block_header, uint32_t>>;
+      using irreversible_block     = channel_decl<struct irreversible_block_tag, std::tuple<signed_block_ptr, block_id_type, uint32_t>>;
       using applied_transaction    = channel_decl<struct applied_transaction_tag,   transaction_trace_ptr>;
    }
 

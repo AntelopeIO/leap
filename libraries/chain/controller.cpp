@@ -342,8 +342,8 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
       set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
 
-      self.irreversible_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-         const auto& [ block, id, header, block_num ] = t;
+      self.irreversible_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, uint32_t> t) {
+         const auto& [ block, id, block_num ] = t;
          wasmif.current_lib(block_num);
       });
 
@@ -449,7 +449,7 @@ struct controller_impl {
                apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
             }
 
-            emit( self.irreversible_block, std::tie((*bitr)->block, (*bitr)->id, (*bitr)->header, (*bitr)->block_num) );
+            emit( self.irreversible_block, std::tie((*bitr)->block, (*bitr)->id, (*bitr)->block_num) );
 
             // blog.append could fail due to failures like running out of space.
             // Do it before commit so that in case it throws, DB can be rolled back.
@@ -2317,7 +2317,7 @@ struct controller_impl {
 
             // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
             // So emit it explicitly here.
-            emit( self.irreversible_block, std::tie(bsp->block, bsp->id, bsp->header, bsp->block_num) );
+            emit( self.irreversible_block, std::tie(bsp->block, bsp->id, bsp->block_num) );
 
             if (!self.skip_db_sessions(s)) {
                db.commit(bsp->block_num);

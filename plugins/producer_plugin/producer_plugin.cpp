@@ -1337,8 +1337,8 @@ void producer_plugin_impl::plugin_startup() {
             const auto& [ block, id, header, block_num ] = t;
             on_block_header(header.producer, block_num, block->timestamp);
          }));
-         _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-            const auto& [ block, id, header, block_num ] = t;
+         _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, uint32_t> t) {
+            const auto& [ block, id, block_num ] = t;
             on_irreversible_block(block);
          }));
 
