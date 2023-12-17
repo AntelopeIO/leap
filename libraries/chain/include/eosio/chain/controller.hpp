@@ -327,7 +327,7 @@ namespace eosio { namespace chain {
          static std::optional<uint64_t> convert_exception_to_error_code( const fc::exception& e );
 
          signal<void(uint32_t)>                        block_start;
-         signal<void(std::tuple<const signed_block_ptr&, const block_id_type&, const account_name&>)> accepted_block_header;
+         signal<void(std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t>)> accepted_block_header;
          signal<void(std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t>)> accepted_block;
          signal<void(std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t>)> irreversible_block;
          signal<void(const transaction_metadata_ptr&)> accepted_transaction;

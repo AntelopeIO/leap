@@ -1014,7 +1014,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
       // relay signals to channels
       accepted_block_header_connection = chain->accepted_block_header.connect(
-            [this]( std::tuple<const signed_block_ptr&, const block_id_type&, const account_name&> t ) {
+            [this]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
                accepted_block_header_channel.publish( priority::medium, t );
             } );
 
