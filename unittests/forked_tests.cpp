@@ -352,11 +352,13 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
    auto id = n1.control->head_block_id();
 
    signed_block_ptr first_block;
+   block_id_type first_id;
    signed_block_header first_header;
 
    auto c = n2.control->accepted_block.connect( [&]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
       const auto& [ block, id, header, block_num ] = t;
       first_block = block;
+      first_id = id;
       first_header = header;
    } );
 
@@ -365,7 +367,8 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
    BOOST_CHECK_EQUAL( n2.control->head_block_id(), id );
 
    BOOST_REQUIRE( first_block );
-   // WARNING first_block->verify_signee();
+   const auto& first_bsp = n2.control->fetch_block_state_by_id(first_id);
+   first_bsp->verify_signee();
    BOOST_CHECK_EQUAL( first_header.calculate_id(), first_block->calculate_id() );
    BOOST_CHECK( first_header.producer_signature == first_block->producer_signature );
 
