@@ -217,11 +217,13 @@ BOOST_AUTO_TEST_CASE(broadcasted_block_test)
   signed_block_ptr bcasted_blk_by_prod_node;
   signed_block_ptr bcasted_blk_by_recv_node;
 
-  producer_node.control->accepted_block.connect( [&](const block_state_legacy_ptr& bs) {
-    bcasted_blk_by_prod_node = bs->block;
+  producer_node.control->accepted_block.connect( [&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
+    const auto& [ block, id, header, block_num ] = t;
+    bcasted_blk_by_prod_node = block;
   });
-  receiving_node.control->accepted_block.connect( [&](const block_state_legacy_ptr& bs) {
-    bcasted_blk_by_recv_node = bs->block;
+  receiving_node.control->accepted_block.connect( [&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
+    const auto& [ block, id, header, block_num ] = t;
+    bcasted_blk_by_recv_node = block;
   });
 
   auto b = producer_node.produce_block();

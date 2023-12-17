@@ -149,41 +149,51 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
    tester chain;
    tester validator;
 
-   block_state_legacy_ptr accepted_bsp;
-   auto c = chain.control->accepted_block.connect([&](const block_state_legacy_ptr& b) {
-      BOOST_CHECK(b);
-      BOOST_CHECK(chain.control->fetch_block_state_by_id(b->id) == b);
-      BOOST_CHECK(chain.control->fetch_block_state_by_number(b->block_num) == b);  // verify it can be found (has to be validated)
-      BOOST_CHECK(chain.control->fetch_block_by_id(b->id) == b->block);
-      BOOST_CHECK(chain.control->fetch_block_by_number(b->block_num) == b->block);
-      BOOST_REQUIRE(chain.control->fetch_block_header_by_number(b->block_num));
-      BOOST_CHECK(chain.control->fetch_block_header_by_number(b->block_num)->calculate_id() == b->id);
-      BOOST_REQUIRE(chain.control->fetch_block_header_by_id(b->id));
-      BOOST_CHECK(chain.control->fetch_block_header_by_id(b->id)->calculate_id() == b->id);
-      accepted_bsp = b;
+   signed_block_ptr accepted_block;
+   block_id_type accepted_id;
+   auto c = chain.control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
+      const auto& [ block, id, header, block_num ] = t;
+      BOOST_CHECK(block);
+      const auto& bsp_by_id = chain.control->fetch_block_state_by_id(id);
+      BOOST_CHECK(bsp_by_id->block_num == block_num);
+      const auto& bsp_by_number = chain.control->fetch_block_state_by_number(block_num);  // verify it can be found (has to be validated)
+      BOOST_CHECK(bsp_by_number->id == id);
+      BOOST_CHECK(chain.control->fetch_block_by_id(id) == block);
+      BOOST_CHECK(chain.control->fetch_block_by_number(block_num) == block);
+      BOOST_REQUIRE(chain.control->fetch_block_header_by_number(block_num));
+      BOOST_CHECK(chain.control->fetch_block_header_by_number(block_num)->calculate_id() == id);
+      BOOST_REQUIRE(chain.control->fetch_block_header_by_id(id));
+      BOOST_CHECK(chain.control->fetch_block_header_by_id(id)->calculate_id() == id);
+      accepted_block = block;
+      accepted_id = id;
    });
-   block_state_legacy_ptr validated_bsp;
-   auto c2 = validator.control->accepted_block.connect([&](const block_state_legacy_ptr& b) {
-      BOOST_CHECK(b);
-      BOOST_CHECK(validator.control->fetch_block_state_by_id(b->id) == b);
-      BOOST_CHECK(validator.control->fetch_block_state_by_number(b->block_num) == b);  // verify it can be found (has to be validated)
-      BOOST_CHECK(validator.control->fetch_block_by_id(b->id) == b->block);
-      BOOST_CHECK(validator.control->fetch_block_by_number(b->block_num) == b->block);
-      BOOST_REQUIRE(validator.control->fetch_block_header_by_number(b->block_num));
-      BOOST_CHECK(validator.control->fetch_block_header_by_number(b->block_num)->calculate_id() == b->id);
-      BOOST_REQUIRE(validator.control->fetch_block_header_by_id(b->id));
-      BOOST_CHECK(validator.control->fetch_block_header_by_id(b->id)->calculate_id() == b->id);
-      validated_bsp = b;
+   signed_block_ptr validated_block;
+   block_id_type validated_id;
+   auto c2 = validator.control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
+      const auto& [ block, id, header, block_num ] = t;
+      BOOST_CHECK(block);
+      const auto& bsp_by_id = validator.control->fetch_block_state_by_id(id);
+      BOOST_CHECK(bsp_by_id->block_num == block_num);
+      const auto& bsp_by_number = validator.control->fetch_block_state_by_number(block_num);  // verify it can be found (has to be validated)
+      BOOST_CHECK(bsp_by_number->id == id);
+      BOOST_CHECK(validator.control->fetch_block_by_id(id) == block);
+      BOOST_CHECK(validator.control->fetch_block_by_number(block_num) == block);
+      BOOST_REQUIRE(validator.control->fetch_block_header_by_number(block_num));
+      BOOST_CHECK(validator.control->fetch_block_header_by_number(block_num)->calculate_id() == id);
+      BOOST_REQUIRE(validator.control->fetch_block_header_by_id(id));
+      BOOST_CHECK(validator.control->fetch_block_header_by_id(id)->calculate_id() == id);
+      validated_block = block;
+      validated_id = id;
    });
 
    chain.produce_blocks(1);
-   validator.push_block(accepted_bsp->block);
+   validator.push_block(accepted_block);
 
    chain.create_account("hello"_n);
    auto produced_block = chain.produce_block();
-   validator.push_block(accepted_bsp->block);
-   BOOST_CHECK(produced_block->calculate_id() == accepted_bsp->id);
-   BOOST_CHECK(accepted_bsp->id == validated_bsp->id);
+   validator.push_block(accepted_block);
+   BOOST_CHECK(produced_block->calculate_id() == accepted_id);
+   BOOST_CHECK(accepted_id == validated_id);
 
 } FC_LOG_AND_RETHROW()
 

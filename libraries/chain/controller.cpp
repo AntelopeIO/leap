@@ -1962,7 +1962,7 @@ struct controller_impl {
             dm_logger->on_accepted_block(bsp);
          }
 
-         emit( self.accepted_block, bsp );
+         emit( self.accepted_block, std::tie(bsp->block, bsp->id, bsp->header, bsp->block_num) );
 
          if( s == controller::block_status::incomplete ) {
             log_irreversible();

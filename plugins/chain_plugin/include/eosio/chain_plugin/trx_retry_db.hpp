@@ -64,7 +64,7 @@ public:
    /**
     * Attach to chain accepted_block signal
     */
-   void on_accepted_block(const chain::block_state_legacy_ptr& block );
+   void on_accepted_block( uint32_t block_num );
 
    /**
     * Attach to chain irreversible_block signal

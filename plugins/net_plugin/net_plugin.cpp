@@ -529,7 +529,7 @@ namespace eosio {
       uint32_t get_chain_head_num() const;
 
       void on_accepted_block_header( const signed_block_ptr& block, const block_id_type& id );
-      void on_accepted_block( const block_state_legacy_ptr& bs );
+      void on_accepted_block();
 
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_legacy_ptr& block );
@@ -3891,7 +3891,7 @@ namespace eosio {
       });
    }
 
-   void net_plugin_impl::on_accepted_block(const block_state_legacy_ptr& ) {
+   void net_plugin_impl::on_accepted_block() {
       on_pending_schedule(chain_plug->chain().pending_producers());
       on_active_schedule(chain_plug->chain().active_producers());
    }
@@ -4288,8 +4288,8 @@ namespace eosio {
             my->on_accepted_block_header( std::get<0>(t), std::get<1>(t) );
          } );
 
-         cc.accepted_block.connect( [my = shared_from_this()]( const block_state_legacy_ptr& s ) {
-            my->on_accepted_block( s );
+         cc.accepted_block.connect( [my = shared_from_this()]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
+            my->on_accepted_block();
          } );
          cc.irreversible_block.connect( [my = shared_from_this()]( const block_state_legacy_ptr& s ) {
             my->on_irreversible_block( s );

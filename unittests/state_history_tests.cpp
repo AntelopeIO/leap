@@ -631,16 +631,17 @@ struct state_history_tester : state_history_tester_logs, tester {
           trace_converter.add_transaction(std::get<0>(t), std::get<1>(t));
        });
 
-      control.accepted_block.connect([&](const block_state_legacy_ptr& block_state) {
+      control.accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
+         const auto& [ block, id, block_header, block_num ] = t;
          eosio::state_history_log_header header{.magic        = eosio::ship_magic(eosio::ship_current_version, 0),
-                                      .block_id     = block_state->id,
+                                      .block_id     = id,
                                       .payload_size = 0};
 
-         traces_log.pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
-            trace_converter.pack(buf, false, block_state);
+         traces_log.pack_and_write_entry(header, block->previous, [this, &block](auto&& buf) {
+            trace_converter.pack(buf, false, block);
          });
 
-         chain_state_log.pack_and_write_entry(header, block_state->header.previous, [&control](auto&& buf) {
+         chain_state_log.pack_and_write_entry(header, block_header.previous, [&control](auto&& buf) {
             eosio::state_history::pack_deltas(buf, control.db(), true);
          });
       });

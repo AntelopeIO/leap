@@ -124,7 +124,8 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
 
    // clear applied
    q.add_aborted( { trx1, trx2, trx3 } );
-   q.clear_applied( create_test_block_state( { trx1, trx3, trx4 } ) );
+   auto bs0 = create_test_block_state( { trx1, trx3, trx4 } );
+   q.clear_applied( bs0->block );
    BOOST_CHECK( q.size() == 1u );
    BOOST_REQUIRE( next( q ) == trx2 );
    BOOST_CHECK( q.size() == 0u );

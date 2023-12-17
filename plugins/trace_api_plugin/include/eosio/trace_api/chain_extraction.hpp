@@ -31,8 +31,8 @@ public:
    }
 
    /// connect to chain controller accepted_block signal
-   void signal_accepted_block( const chain::block_state_legacy_ptr& bsp ) {
-      on_accepted_block( bsp );
+   void signal_accepted_block( const chain::signed_block_ptr& block, const chain::block_id_type& id, uint32_t block_num ) {
+      on_accepted_block( block, id, block_num );
    }
 
    /// connect to chain controller irreversible_block signal
@@ -63,8 +63,8 @@ private:
       }
    }
 
-   void on_accepted_block(const chain::block_state_legacy_ptr& block_state) {
-      store_block_trace( block_state );
+   void on_accepted_block(const chain::signed_block_ptr& block, const chain::block_id_type& id, uint32_t block_num) {
+      store_block_trace( block, id, block_num );
    }
 
    void on_irreversible_block( const chain::block_state_legacy_ptr& block_state ) {
@@ -80,18 +80,18 @@ private:
       onblock_trace.reset();
    }
 
-   void store_block_trace( const chain::block_state_legacy_ptr& block_state ) {
+   void store_block_trace( const chain::signed_block_ptr& block, const chain::block_id_type& id, uint32_t block_num) {
       try {
          using transaction_trace_t = transaction_trace_v3;
-         auto bt = create_block_trace( block_state );
+         auto bt = create_block_trace( block, id, block_num );
 
          std::vector<transaction_trace_t> traces;
-         traces.reserve( block_state->block->transactions.size() + 1 );
+         traces.reserve( block->transactions.size() + 1 );
          block_trxs_entry tt;
-         tt.ids.reserve(block_state->block->transactions.size() + 1);
+         tt.ids.reserve(block->transactions.size() + 1);
          if( onblock_trace )
             traces.emplace_back( to_transaction_trace<transaction_trace_t>( *onblock_trace ));
-         for( const auto& r : block_state->block->transactions ) {
+         for( const auto& r : block->transactions ) {
             transaction_id_type id;
             if( std::holds_alternative<transaction_id_type>(r.trx)) {
                id = std::get<transaction_id_type>(r.trx);

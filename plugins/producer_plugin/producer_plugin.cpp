@@ -620,11 +620,11 @@ public:
                                ((_produce_block_cpu_effort.count() / 1000) * config::producer_repetitions) );
    }
 
-   void on_block(const block_state_legacy_ptr& bsp) {
+   void on_block(const signed_block_ptr& block) {
       auto& chain  = chain_plug->chain();
       auto  before = _unapplied_transactions.size();
-      _unapplied_transactions.clear_applied(bsp);
-      chain.get_mutable_subjective_billing().on_block(_log, bsp, fc::time_point::now());
+      _unapplied_transactions.clear_applied(block);
+      chain.get_mutable_subjective_billing().on_block(_log, block, fc::time_point::now());
       if (before > 0) {
          fc_dlog(_log, "Removed applied transactions before: ${before}, after: ${after}", ("before", before)("after", _unapplied_transactions.size()));
       }
@@ -1329,7 +1329,10 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
-         _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
+         _accepted_block_connection.emplace(chain.accepted_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) { 
+            const auto& [ block, id, header, block_num ] = t;
+            on_block(block);
+           }));
          _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const account_name&> t) {
             const auto& block = std::get<0>(t);
             const auto& id = std::get<1>(t);

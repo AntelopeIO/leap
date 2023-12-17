@@ -1018,20 +1018,21 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
                accepted_block_header_channel.publish( priority::medium, t );
             } );
 
-      accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_legacy_ptr& blk ) {
+      accepted_block_connection = chain->accepted_block.connect( [this]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
+         const auto& [ block, id, header, block_num ] = t;
          if (_account_query_db) {
-            _account_query_db->commit_block(blk);
+            _account_query_db->commit_block(block, header, block_num);
          }
 
          if (_trx_retry_db) {
-            _trx_retry_db->on_accepted_block(blk);
+            _trx_retry_db->on_accepted_block(block_num);
          }
 
          if (_trx_finality_status_processing) {
-            _trx_finality_status_processing->signal_accepted_block(blk);
+            _trx_finality_status_processing->signal_accepted_block(block, id);
          }
 
-         accepted_block_channel.publish( priority::high, blk );
+         accepted_block_channel.publish( priority::high, t );
       } );
 
       irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_legacy_ptr& blk ) {

@@ -377,9 +377,10 @@ struct trace_api_plugin_impl {
             }));
 
       accepted_block_connection.emplace(
-         chain.accepted_block.connect([this](const chain::block_state_legacy_ptr& p) {
+         chain.accepted_block.connect([this](std::tuple<const chain::signed_block_ptr&, const chain::block_id_type&, const chain::signed_block_header&, uint32_t> t) {
             emit_killer([&](){
-               extraction->signal_accepted_block(p);
+               const auto& [ block, id, header, block_num ] = t;
+               extraction->signal_accepted_block(block, id, block_num);
             });
          }));
 

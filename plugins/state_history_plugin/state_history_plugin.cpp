@@ -88,11 +88,11 @@ public:
    boost::asio::io_context& get_ship_executor() { return thread_pool.get_executor(); }
 
    // thread-safe
-   signed_block_ptr get_block(uint32_t block_num, const block_state_legacy_ptr& block_state) const {
+   signed_block_ptr get_block(uint32_t block_num, uint32_t block_state_block_num, const signed_block_ptr& block) const {
       chain::signed_block_ptr p;
       try {
-         if (block_state && block_num == block_state->block_num) {
-            p = block_state->block;
+         if (block_num == block_state_block_num) {
+            p = block;
          } else {
             p = chain_plug->chain().fetch_block_by_number(block_num);
          }
@@ -107,8 +107,8 @@ public:
    }
 
    // thread-safe
-   void get_block(uint32_t block_num, const block_state_legacy_ptr& block_state, std::optional<bytes>& result) const {
-      auto p = get_block(block_num, block_state);
+   void get_block(uint32_t block_num, uint32_t block_state_block_num, const signed_block_ptr& block, std::optional<bytes>& result) const {
+      auto p = get_block(block_num, block_state_block_num, block);
       if (p)
          result = fc::raw::pack(*p);
    }
@@ -201,12 +201,12 @@ public:
    }
 
    // called from main thread
-   void on_accepted_block(const block_state_legacy_ptr& block_state) {
+   void on_accepted_block(const signed_block_ptr& block, const block_id_type& id, const signed_block_header& block_header, uint32_t block_num) {
       update_current();
 
       try {
-         store_traces(block_state);
-         store_chain_state(block_state);
+         store_traces(block, id);
+         store_chain_state(id, block_header, block_num);
       } catch (const fc::exception& e) {
          fc_elog(_log, "fc::exception: ${details}", ("details", e.to_detail_string()));
          // Both app().quit() and exception throwing are required. Without app().quit(),
@@ -224,8 +224,8 @@ public:
       // this is safe as there are no clients connected until after replay is complete
       // this method is called from the main thread and "plugin_started" is set on the main thread as well when plugin is started 
       if (plugin_started) {
-         boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
-            self->get_session_manager().send_update(block_state);
+         boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block, id, block_num]() {
+            self->get_session_manager().send_update(block, id, block_num);
          });
       }
 
@@ -243,29 +243,29 @@ public:
    }
 
    // called from main thread
-   void store_traces(const block_state_legacy_ptr& block_state) {
+   void store_traces(const signed_block_ptr& block, const block_id_type& id) {
       if (!trace_log)
          return;
 
       state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
-                                      .block_id     = block_state->id,
+                                      .block_id     = id,
                                       .payload_size = 0};
-      trace_log->pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
-         trace_converter.pack(buf, trace_debug_mode, block_state);
+      trace_log->pack_and_write_entry(header, block->previous, [this, &block](auto&& buf) {
+         trace_converter.pack(buf, trace_debug_mode, block);
       });
    }
 
    // called from main thread
-   void store_chain_state(const block_state_legacy_ptr& block_state) {
+   void store_chain_state(const block_id_type& id, const signed_block_header& block_header, uint32_t block_num) {
       if (!chain_state_log)
          return;
       bool fresh = chain_state_log->empty();
       if (fresh)
-         fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block_num));
+         fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_num));
 
       state_history_log_header header{
-          .magic = ship_magic(ship_current_version, 0), .block_id = block_state->id, .payload_size = 0};
-      chain_state_log->pack_and_write_entry(header, block_state->header.previous, [this, fresh](auto&& buf) {
+          .magic = ship_magic(ship_current_version, 0), .block_id = id, .payload_size = 0};
+      chain_state_log->pack_and_write_entry(header, block_header.previous, [this, fresh](auto&& buf) {
          pack_deltas(buf, chain_plug->chain().db(), fresh);
       });
    } // store_chain_state
@@ -329,7 +329,10 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
              on_applied_transaction(std::get<0>(t), std::get<1>(t));
           }));
       accepted_block_connection.emplace(
-          chain.accepted_block.connect([&](const block_state_legacy_ptr& p) { on_accepted_block(p); }));
+          chain.accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
+             const auto& [ block, id, header, block_num ] = t;
+             on_accepted_block(block, id, header, block_num);
+          }));
       block_start_connection.emplace(
           chain.block_start.connect([&](uint32_t block_num) { on_block_start(block_num); }));
 
@@ -406,7 +409,7 @@ void state_history_plugin_impl::plugin_startup() {
       auto bsp = chain.head_block_state();
       if( bsp && chain_state_log && chain_state_log->empty() ) {
          fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
-         store_chain_state( bsp );
+         store_chain_state( bsp->id, bsp->header, bsp->block_num );
          fc_ilog( _log, "Done storing initial state on startup" );
       }
       first_available_block = chain.earliest_available_block_num();

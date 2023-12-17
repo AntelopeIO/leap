@@ -15,9 +15,9 @@ public:
    void kill_on_head(account_name prod, uint32_t where_in_seq);
 
 private:
-   void accepted_block(const chain::block_state_legacy_ptr& bsp);
+   void accepted_block(const chain::block_id_type& id);
    void applied_irreversible_block(const chain::block_state_legacy_ptr& bsp);
-   void process_next_block_state_legacy(const chain::block_state_legacy_ptr& bsp);
+   void process_next_block_state_legacy(const chain::block_id_type& id);
 
    std::optional<boost::signals2::scoped_connection> _accepted_block_connection;
    std::optional<boost::signals2::scoped_connection> _irreversible_block_connection;
@@ -36,8 +36,9 @@ void test_control_plugin_impl::connect() {
             applied_irreversible_block( bs );
          } ));
    _accepted_block_connection =
-         _chain.accepted_block.connect( [&]( const chain::block_state_legacy_ptr& bs ) {
-            accepted_block( bs );
+         _chain.accepted_block.connect( [&]( std::tuple<const chain::signed_block_ptr&, const chain::block_id_type&, const chain::signed_block_header&, uint32_t> t ) {
+            const auto& [ block, id, header, block_num ] = t;
+            accepted_block( id );
          } );
 }
 
@@ -48,17 +49,19 @@ void test_control_plugin_impl::disconnect() {
 
 void test_control_plugin_impl::applied_irreversible_block(const chain::block_state_legacy_ptr& bsp) {
    if (_track_lib)
-      process_next_block_state_legacy(bsp);
+      process_next_block_state_legacy(bsp->id);
 }
 
-void test_control_plugin_impl::accepted_block(const chain::block_state_legacy_ptr& bsp) {
+void test_control_plugin_impl::accepted_block(const chain::block_id_type& id) {
    if (_track_head)
-      process_next_block_state_legacy(bsp);
+      process_next_block_state_legacy(id);
 }
 
-void test_control_plugin_impl::process_next_block_state_legacy(const chain::block_state_legacy_ptr& bsp) {
+void test_control_plugin_impl::process_next_block_state_legacy(const chain::block_id_type& id) {
    // Tests expect the shutdown only after signaling a producer shutdown and seeing a full production cycle
    const auto block_time = _chain.head_block_time() + fc::microseconds(chain::config::block_interval_us);
+   // have to fetch bsp due to get_scheduled_producer call
+   const auto& bsp = _chain.fetch_block_state_by_id(id);
    const auto& producer_authority = bsp->get_scheduled_producer(block_time);
    const auto producer_name = producer_authority.producer_name;
    const auto slot = bsp->block->timestamp.slot % chain::config::producer_repetitions;

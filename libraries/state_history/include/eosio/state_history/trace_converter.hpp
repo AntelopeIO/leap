@@ -1,6 +1,5 @@
 #pragma once
 
-#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/state_history/types.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
 
@@ -15,7 +14,7 @@ struct trace_converter {
    std::optional<augmented_transaction_trace>                 onblock_trace;
 
    void add_transaction(const transaction_trace_ptr& trace, const chain::packed_transaction_ptr& transaction);
-   void pack(boost::iostreams::filtering_ostreambuf& ds, bool trace_debug_mode, const block_state_legacy_ptr& block_state_legacy);
+   void pack(boost::iostreams::filtering_ostreambuf& ds, bool trace_debug_mode, const chain::signed_block_ptr& block);
 };
 
 } // namespace state_history
