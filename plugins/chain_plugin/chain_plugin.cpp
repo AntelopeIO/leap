@@ -1051,19 +1051,20 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       
       applied_transaction_connection = chain->applied_transaction.connect(
             [this]( std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t ) {
+               const auto& [ trace, ptrx ] = t;
                if (_account_query_db) {
-                  _account_query_db->cache_transaction_trace(std::get<0>(t));
+                  _account_query_db->cache_transaction_trace(trace);
                }
 
                if (_trx_retry_db) {
-                  _trx_retry_db->on_applied_transaction(std::get<0>(t), std::get<1>(t));
+                  _trx_retry_db->on_applied_transaction(trace, ptrx);
                }
 
                if (_trx_finality_status_processing) {
-                  _trx_finality_status_processing->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
+                  _trx_finality_status_processing->signal_applied_transaction(trace, ptrx);
                }
 
-               applied_transaction_channel.publish( priority::low, std::get<0>(t) );
+               applied_transaction_channel.publish( priority::low, trace );
             } );
 
       if (_trx_finality_status_processing || _trx_retry_db) {
