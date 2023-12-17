@@ -231,7 +231,9 @@ namespace eosio::chain_apis {
        *
        * For each removed entry, this will create a new entry if there exists an equivalent {owner, name} permission
        * at the HEAD state of the chain.
-       * @param bsp - the block to rollback before
+       * @param block - the block to rollback before
+       * @param header - the block header
+       * @param block_num - the block number
        */
       void rollback_to_before( const chain::signed_block_ptr block, const chain::signed_block_header& header, uint32_t block_num ) {
          const auto bnum = block->block_num();
@@ -303,7 +305,7 @@ namespace eosio::chain_apis {
       /**
        * Pre-Commit step with const qualifier to guarantee it does not mutate
        * the thread-safe data set
-       * @param bsp
+       * @param block
        */
       auto commit_block_prelock( const chain::signed_block_ptr block ) const {
          permission_set_t updated;
@@ -358,7 +360,9 @@ namespace eosio::chain_apis {
       /**
        * Commit a block of transactions to the account query DB
        * transaction traces need to be in the cache prior to this call
-       * @param bsp
+       * @param block
+       * @param header
+       * @param block_num
        */
       void commit_block(const chain::signed_block_ptr& block, const chain::signed_block_header& header, uint32_t block_num ) {
          permission_set_t updated;
