@@ -532,7 +532,7 @@ namespace eosio {
       void on_accepted_block();
 
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
-      void on_irreversible_block( const block_state_legacy_ptr& block );
+      void on_irreversible_block( const block_id_type& id, uint32_t block_num );
 
       void start_expire_timer();
       void start_monitors();
@@ -3897,8 +3897,8 @@ namespace eosio {
    }
 
    // called from application thread
-   void net_plugin_impl::on_irreversible_block( const block_state_legacy_ptr& block) {
-      fc_dlog( logger, "on_irreversible_block, blk num = ${num}, id = ${id}", ("num", block->block_num)("id", block->id) );
+   void net_plugin_impl::on_irreversible_block( const block_id_type& id, uint32_t block_num) {
+      fc_dlog( logger, "on_irreversible_block, blk num = ${num}, id = ${id}", ("num", block_num)("id", id) );
       update_chain_info();
    }
 
@@ -4291,8 +4291,9 @@ namespace eosio {
          cc.accepted_block.connect( [my = shared_from_this()]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
             my->on_accepted_block();
          } );
-         cc.irreversible_block.connect( [my = shared_from_this()]( const block_state_legacy_ptr& s ) {
-            my->on_irreversible_block( s );
+         cc.irreversible_block.connect( [my = shared_from_this()]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
+            const auto& [ block, id, header, block_num ] = t;
+            my->on_irreversible_block( id, block_num );
          } );
       }
 

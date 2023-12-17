@@ -36,8 +36,8 @@ public:
    }
 
    /// connect to chain controller irreversible_block signal
-   void signal_irreversible_block( const chain::block_state_legacy_ptr& bsp ) {
-      on_irreversible_block( bsp );
+   void signal_irreversible_block( uint32_t block_num ) {
+      on_irreversible_block( block_num );
    }
 
    /// connect to chain controller block_start signal
@@ -67,8 +67,8 @@ private:
       store_block_trace( block, id, block_num );
    }
 
-   void on_irreversible_block( const chain::block_state_legacy_ptr& block_state ) {
-      store_lib( block_state );
+   void on_irreversible_block( uint32_t block_num ) {
+      store_lib( block_num );
    }
 
    void on_block_start( uint32_t block_num ) {
@@ -117,9 +117,9 @@ private:
       }
    }
 
-   void store_lib( const chain::block_state_legacy_ptr& bsp ) {
+   void store_lib( uint32_t block_num ) {
       try {
-         store.append_lib( bsp->block_num );
+         store.append_lib( block_num );
       } catch( ... ) {
          except_handler( MAKE_EXCEPTION_WITH_CONTEXT( std::current_exception() ) );
       }

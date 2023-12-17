@@ -385,9 +385,10 @@ struct trace_api_plugin_impl {
          }));
 
       irreversible_block_connection.emplace(
-         chain.irreversible_block.connect([this](const chain::block_state_legacy_ptr& p) {
+         chain.irreversible_block.connect([this](std::tuple<const chain::signed_block_ptr&, const chain::block_id_type&, const chain::signed_block_header&, uint32_t> t) {
+            const auto& [ block, id, header, block_num ] = t;
             emit_killer([&](){
-               extraction->signal_irreversible_block(p);
+               extraction->signal_irreversible_block(block_num);
             });
          }));
 

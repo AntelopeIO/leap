@@ -1,6 +1,5 @@
 #pragma once
 #include <eosio/chain/types.hpp>
-#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/trace.hpp>
 
 #include <fc/container/tracked_storage.hpp>
@@ -44,7 +43,7 @@ namespace eosio::chain_apis {
 
       void signal_accepted_block( const chain::signed_block_ptr& block, const chain::block_id_type& id );
 
-      void signal_irreversible_block( const chain::block_state_legacy_ptr& bsp );
+      void signal_irreversible_block( const chain::signed_block_ptr& block, const chain::block_id_type& id );
 
       void signal_block_start( uint32_t block_num );
 

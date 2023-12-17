@@ -1,6 +1,5 @@
 #pragma once
 #include <eosio/chain/types.hpp>
-#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/trace.hpp>
 
 namespace eosio::chain_apis {
@@ -69,7 +68,7 @@ public:
    /**
     * Attach to chain irreversible_block signal
     */
-   void on_irreversible_block(const chain::block_state_legacy_ptr& block );
+   void on_irreversible_block( const chain::signed_block_ptr& block, uint32_t block_num );
 
 private:
    std::unique_ptr<struct trx_retry_db_impl> _impl;

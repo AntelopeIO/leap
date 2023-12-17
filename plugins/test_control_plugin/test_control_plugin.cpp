@@ -16,7 +16,7 @@ public:
 
 private:
    void accepted_block(const chain::block_id_type& id);
-   void applied_irreversible_block(const chain::block_state_legacy_ptr& bsp);
+   void applied_irreversible_block(const chain::block_id_type& id);
    void process_next_block_state_legacy(const chain::block_id_type& id);
 
    std::optional<boost::signals2::scoped_connection> _accepted_block_connection;
@@ -32,8 +32,9 @@ private:
 
 void test_control_plugin_impl::connect() {
    _irreversible_block_connection.emplace(
-         _chain.irreversible_block.connect( [&]( const chain::block_state_legacy_ptr& bs ) {
-            applied_irreversible_block( bs );
+         _chain.irreversible_block.connect( [&]( std::tuple<const chain::signed_block_ptr&, const chain::block_id_type&, const chain::signed_block_header&, uint32_t> t ) {
+            const auto& [ block, id, header, block_num ] = t;
+            applied_irreversible_block( id );
          } ));
    _accepted_block_connection =
          _chain.accepted_block.connect( [&]( std::tuple<const chain::signed_block_ptr&, const chain::block_id_type&, const chain::signed_block_header&, uint32_t> t ) {
@@ -47,9 +48,9 @@ void test_control_plugin_impl::disconnect() {
    _irreversible_block_connection.reset();
 }
 
-void test_control_plugin_impl::applied_irreversible_block(const chain::block_state_legacy_ptr& bsp) {
+void test_control_plugin_impl::applied_irreversible_block(const chain::block_id_type& id) {
    if (_track_lib)
-      process_next_block_state_legacy(bsp->id);
+      process_next_block_state_legacy(id);
 }
 
 void test_control_plugin_impl::accepted_block(const chain::block_id_type& id) {

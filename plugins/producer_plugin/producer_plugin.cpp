@@ -1332,15 +1332,17 @@ void producer_plugin_impl::plugin_startup() {
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) { 
             const auto& [ block, id, header, block_num ] = t;
             on_block(block);
-           }));
+          }));
          _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const account_name&> t) {
             const auto& block = std::get<0>(t);
             const auto& id = std::get<1>(t);
             const auto& producer = std::get<2>(t);
             on_block_header(producer, block_header::num_from_id(id), block->timestamp);
          }));
-         _irreversible_block_connection.emplace(
-            chain.irreversible_block.connect([this](const auto& bsp) { on_irreversible_block(bsp->block); }));
+         _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
+            const auto& [ block, id, header, block_num ] = t;
+            on_irreversible_block(block);
+         }));
 
          _block_start_connection.emplace(chain.block_start.connect([this, &chain](uint32_t bs) {
             try {

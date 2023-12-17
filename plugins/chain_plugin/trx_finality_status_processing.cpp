@@ -47,10 +47,10 @@ namespace eosio::chain_apis {
 
    trx_finality_status_processing::~trx_finality_status_processing() = default;
 
-   void trx_finality_status_processing::signal_irreversible_block( const chain::block_state_legacy_ptr& bsp ) {
+   void trx_finality_status_processing::signal_irreversible_block( const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
       try {
-         _my->_irr_block_id = bsp->id;
-         _my->_irr_block_timestamp = bsp->block->timestamp;
+         _my->_irr_block_id = id;
+         _my->_irr_block_timestamp = block->timestamp;
       } FC_LOG_AND_DROP(("Failed to signal irreversible block for finality status"));
    }
 

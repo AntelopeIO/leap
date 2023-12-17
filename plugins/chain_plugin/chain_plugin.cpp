@@ -1035,16 +1035,18 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          accepted_block_channel.publish( priority::high, t );
       } );
 
-      irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_legacy_ptr& blk ) {
+      irreversible_block_connection = chain->irreversible_block.connect( [this]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
+         const auto& [ block, id, header, block_num ] = t;
+
          if (_trx_retry_db) {
-            _trx_retry_db->on_irreversible_block(blk);
+            _trx_retry_db->on_irreversible_block(block, block_num);
          }
 
          if (_trx_finality_status_processing) {
-            _trx_finality_status_processing->signal_irreversible_block(blk);
+            _trx_finality_status_processing->signal_irreversible_block(block, id);
          }
 
-         irreversible_block_channel.publish( priority::low, blk );
+         irreversible_block_channel.publish( priority::low, t );
       } );
       
       applied_transaction_connection = chain->applied_transaction.connect(
