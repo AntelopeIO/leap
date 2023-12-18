@@ -26,7 +26,7 @@ namespace fc::crypto::blslib {
          // affine non-montgomery base64 with bls_public_key_prefix
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
-         friend bool operator==(const bls_public_key& p1, const bls_public_key& p2);
+         bool equal(const bls_public_key& pkey) const;
          auto operator<=>(const bls_public_key&) const = default;
 
          bls12_381::g1 _pkey;

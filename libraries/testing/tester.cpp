@@ -32,8 +32,9 @@ namespace eosio { namespace testing {
       return crypto::blslib::bls_private_key(seed);
    }
 
-   inline auto get_bls_public_key( name keyname ) {
-      return get_bls_private_key(keyname).get_public_key();
+   inline std::pair<crypto::blslib::bls_public_key, crypto::blslib::bls_signature> get_bls_public_key_and_pop( name keyname ) {
+      const auto private_key = get_bls_private_key(keyname);
+      return { private_key.get_public_key(), private_key.proof_of_possession() };
    }
 
    // required by boost::unit_test::data
@@ -275,6 +276,7 @@ namespace eosio { namespace testing {
                builtin_protocol_feature_t::ram_restrictions,
                builtin_protocol_feature_t::webauthn_key,
                builtin_protocol_feature_t::wtmsig_block_signatures,
+               builtin_protocol_feature_t::bls_primitives,
                builtin_protocol_feature_t::instant_finality
             });
             produce_block();
@@ -1186,28 +1188,26 @@ namespace eosio { namespace testing {
    }
 
    transaction_trace_ptr base_tester::set_finalizers(const vector<account_name>& finalizer_names) {
-      uint64_t fthreshold = finalizer_names.size() * 2 / 3 + 1;
+      uint64_t threshold = finalizer_names.size() * 2 / 3 + 1;
 
       fc::variants finalizer_auths;
       for (const auto& n: finalizer_names) {
-         crypto::blslib::bls_public_key pk = get_bls_public_key( n );
-         std::vector<char> v(96);
-         pk._pkey.toAffineBytesLE(std::span<uint8_t,96>((uint8_t*)v.data(), 96));
+         auto [pk, pop] = get_bls_public_key_and_pop( n );
 
          finalizer_auths.emplace_back(
             fc::mutable_variant_object()
                ("description", n.to_string() + " description")
-               ("fweight", (uint64_t)1)
-               ("public_key_g1_affine_le", std::move(v)) );
+               ("weight", (uint64_t)1)
+               ("public_key", pk.to_string({}))
+               ("pop", pop.to_string({})));
       }
 
+      fc::mutable_variant_object fin_policy_variant;
+      fin_policy_variant("threshold", threshold);
+      fin_policy_variant("finalizers", std::move(finalizer_auths));
 
-      fc::mutable_variant_object fin_set_variant;
-      fin_set_variant("fthreshold", fthreshold);
-      fin_set_variant("finalizers", std::move(finalizer_auths));
-
-      return push_action( config::system_account_name, "setfinset"_n, config::system_account_name,
-                          fc::mutable_variant_object()("fin_set", std::move(fin_set_variant)));
+      return push_action( config::system_account_name, "setfinalizer"_n, config::system_account_name,
+                          fc::mutable_variant_object()("finalizer_policy", std::move(fin_policy_variant)));
    }
 
    const table_id_object* base_tester::find_table( name code, name scope, name table ) {

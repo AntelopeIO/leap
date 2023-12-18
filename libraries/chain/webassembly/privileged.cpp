@@ -171,10 +171,11 @@ namespace eosio { namespace chain { namespace webassembly {
 
       std::vector<abi_finalizer_authority>& finalizers = abi_finpol.finalizers;
 
-      EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
-      EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
+      EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer policy exceeds the maximum finalizer count for this chain" );
+      EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizers cannot be empty" );
 
       std::set<bls12_381::g1> unique_finalizer_keys;
+
       uint64_t f_weight_sum = 0;
 
       finalizer_policy finpol;
@@ -182,21 +183,20 @@ namespace eosio { namespace chain { namespace webassembly {
       for (auto& f: finalizers) {
          EOS_ASSERT( f.description.size() <= config::max_finalizer_description_size, wasm_execution_error,
                      "Finalizer description greater than ${s}", ("s", config::max_finalizer_description_size) );
+         EOS_ASSERT(std::numeric_limits<uint64_t>::max() - f_weight_sum >= f.fweight, wasm_execution_error, "sum of weights causes uint64_t overflow");
          f_weight_sum += f.fweight;
-         constexpr bool check = false; // system contract does proof of possession check which is a stronger check
+         constexpr bool check = true; // always validate key
          constexpr bool raw = false; // non-montgomery
          EOS_ASSERT(f.public_key_g1_affine_le.size() == 96, wasm_execution_error, "Invalid bls public key length");
          std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t,96>(f.public_key_g1_affine_le.data(), 96), check, raw);
          EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
+         EOS_ASSERT( unique_finalizer_keys.insert(*pk).second, wasm_execution_error, "Duplicate public key: ${pk}", ("pk", fc::crypto::blslib::bls_public_key{*pk}.to_string()) );
          finpol.finalizers.push_back(finalizer_authority{.description = std::move(f.description),
                                                          .fweight = f.fweight,
                                                          .public_key{fc::crypto::blslib::bls_public_key{*pk}}});
-         unique_finalizer_keys.insert(*pk);
       }
 
-      // system contract should perform a duplicate check and fthreshold check before calling
-      EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
-      EOS_ASSERT( finpol.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer set threshold cannot be met by finalizer weights" );
+      EOS_ASSERT( finpol.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer policy threshold cannot be met by finalizer weights" );
 
       context.control.set_proposed_finalizers( finpol );
    }

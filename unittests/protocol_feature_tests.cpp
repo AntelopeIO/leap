@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE( activate_preactivate_feature ) try {
 
    // Cannot set latest bios contract since it requires intrinsics that have not yet been whitelisted.
    BOOST_CHECK_EXCEPTION( c.set_code( config::system_account_name, contracts::eosio_bios_wasm() ),
-                          wasm_exception, fc_exception_message_is("env.set_proposed_producers_ex unresolveable")
+                          wasm_exception, fc_exception_message_is("env.bls_fp_mod unresolveable")
    );
 
    // But the old bios contract can still be set.
