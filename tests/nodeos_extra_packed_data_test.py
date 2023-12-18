@@ -69,7 +69,6 @@ try:
         if cluster.launch(totalNodes=totalNodes, 
                           pnodes=pnodes,
                           dontBootstrap=dontBootstrap,
-                          pfSetupPolicy=PFSetupPolicy.PREACTIVATE_FEATURE_ONLY,
                           specificExtraNodeosArgs=specificExtraNodeosArgs,
                           associatedNodeLabels=associatedNodeLabels) is False:
             cmdError("launcher")
