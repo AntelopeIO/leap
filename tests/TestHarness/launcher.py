@@ -482,7 +482,7 @@ class cluster_generator:
                 node = topo['nodes'][nodeName]
                 self.network.nodes[nodeName].dont_start = node['dont_start']
                 for keyObj in node['keys']:
-                    if keyObj.count('blspubkey') > 0:
+                    if 'blspubkey' in keyObj:
                         self.network.nodes[nodeName].keys.append(KeyStrings(keyObj['pubkey'], keyObj['privkey'], keyObj['blspubkey'], keyObj['blsprivkey'], keyObj['blspop']))
                     else:
                         self.network.nodes[nodeName].keys.append(KeyStrings(keyObj['pubkey'], keyObj['privkey']))
