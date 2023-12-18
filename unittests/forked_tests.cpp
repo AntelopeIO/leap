@@ -355,11 +355,11 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
    block_id_type first_id;
    signed_block_header first_header;
 
-   auto c = n2.control->accepted_block.connect( [&]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
-      const auto& [ block, id, header, block_num ] = t;
+   auto c = n2.control->accepted_block.connect( [&]( block_signal_params t ) {
+      const auto& [ block, id ] = t;
       first_block = block;
       first_id = id;
-      first_header = header;
+      first_header = static_cast<signed_block_header>(*block);
    } );
 
    push_blocks( n1, n2 );
@@ -703,8 +703,8 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
 
    // test forked blocks signal accepted_block in order, required by trace_api_plugin
    std::vector<signed_block_ptr> accepted_blocks;
-   auto conn = c.control->accepted_block.connect( [&]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
-      const auto& [ block, id, header, block_num ] = t;
+   auto conn = c.control->accepted_block.connect( [&]( block_signal_params t ) {
+      const auto& [ block, id ] = t;
       accepted_blocks.emplace_back( block );
    } );
 

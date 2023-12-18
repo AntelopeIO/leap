@@ -1329,16 +1329,16 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
-         _accepted_block_connection.emplace(chain.accepted_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) { 
-            const auto& [ block, id, header, block_num ] = t;
+         _accepted_block_connection.emplace(chain.accepted_block.connect([this](block_signal_params t) { 
+            const auto& [ block, id ] = t;
             on_block(block);
           }));
-         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-            const auto& [ block, id, header, block_num ] = t;
-            on_block_header(header.producer, block_num, block->timestamp);
+         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](block_signal_params t) {
+            const auto& [ block, id ] = t;
+            on_block_header(static_cast<signed_block_header>(*block).producer, block->block_num(), block->timestamp);
          }));
-         _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, uint32_t> t) {
-            const auto& [ block, id, block_num ] = t;
+         _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](block_signal_params t) {
+            const auto& [ block, id ] = t;
             on_irreversible_block(block);
          }));
 

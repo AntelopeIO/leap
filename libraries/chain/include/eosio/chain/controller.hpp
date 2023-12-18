@@ -44,6 +44,8 @@ namespace eosio { namespace chain {
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
+   using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
+
    class fork_database;
 
    enum class db_read_mode {
@@ -326,10 +328,10 @@ namespace eosio { namespace chain {
 
          static std::optional<uint64_t> convert_exception_to_error_code( const fc::exception& e );
 
-         signal<void(uint32_t)>                        block_start;
-         signal<void(std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t>)> accepted_block_header;
-         signal<void(std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t>)> accepted_block;
-         signal<void(std::tuple<const signed_block_ptr&, const block_id_type&, uint32_t>)> irreversible_block;
+         signal<void(uint32_t)>             block_start;
+         signal<void(block_signal_params)>  accepted_block_header;
+         signal<void(block_signal_params)>  accepted_block;
+         signal<void(block_signal_params)>  irreversible_block;
          signal<void(const transaction_metadata_ptr&)> accepted_transaction;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
 

@@ -342,9 +342,9 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
       set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
 
-      self.irreversible_block.connect([this](std::tuple<const signed_block_ptr&, const block_id_type&, uint32_t> t) {
-         const auto& [ block, id, block_num ] = t;
-         wasmif.current_lib(block_num);
+      self.irreversible_block.connect([this](block_signal_params t) {
+         const auto& [ block, id] = t;
+         wasmif.current_lib(block->block_num());
       });
 
 
@@ -449,7 +449,7 @@ struct controller_impl {
                apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
             }
 
-            emit( self.irreversible_block, std::tie((*bitr)->block, (*bitr)->id, (*bitr)->block_num) );
+            emit( self.irreversible_block, std::tie((*bitr)->block, (*bitr)->id) );
 
             // blog.append could fail due to failures like running out of space.
             // Do it before commit so that in case it throws, DB can be rolled back.
@@ -1951,7 +1951,7 @@ struct controller_impl {
          if( s == controller::block_status::incomplete ) {
             fork_db.add( bsp );
             fork_db.mark_valid( bsp );
-            emit( self.accepted_block_header, std::tie(bsp->block, bsp->id, bsp->header, bsp->block_num) );
+            emit( self.accepted_block_header, std::tie(bsp->block, bsp->id) );
             EOS_ASSERT( bsp == fork_db.head(), fork_database_exception, "committed block did not become the new head in fork database");
          } else if (s != controller::block_status::irreversible) {
             fork_db.mark_valid( bsp );
@@ -1963,7 +1963,7 @@ struct controller_impl {
             dm_logger->on_accepted_block(bsp);
          }
 
-         emit( self.accepted_block, std::tie(bsp->block, bsp->id, bsp->header, bsp->block_num) );
+         emit( self.accepted_block, std::tie(bsp->block, bsp->id) );
 
          if( s == controller::block_status::incomplete ) {
             log_irreversible();
@@ -2265,7 +2265,7 @@ struct controller_impl {
             trusted_producer_light_validation = true;
          };
 
-         emit( self.accepted_block_header, std::tie(bsp->block, bsp->id, bsp->header, bsp->block_num) );
+         emit( self.accepted_block_header, std::tie(bsp->block, bsp->id) );
 
          if( read_mode != db_read_mode::IRREVERSIBLE ) {
             maybe_switch_forks( br, fork_db.pending_head(), s, forked_branch_cb, trx_lookup );
@@ -2309,7 +2309,7 @@ struct controller_impl {
             fork_db.add( bsp, true );
          }
 
-         emit( self.accepted_block_header, std::tie(bsp->block, bsp->id, bsp->header, bsp->block_num) );
+         emit( self.accepted_block_header, std::tie(bsp->block, bsp->id) );
 
          controller::block_report br;
          if( s == controller::block_status::irreversible ) {
@@ -2317,7 +2317,7 @@ struct controller_impl {
 
             // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
             // So emit it explicitly here.
-            emit( self.irreversible_block, std::tie(bsp->block, bsp->id, bsp->block_num) );
+            emit( self.irreversible_block, std::tie(bsp->block, bsp->id) );
 
             if (!self.skip_db_sessions(s)) {
                db.commit(bsp->block_num);

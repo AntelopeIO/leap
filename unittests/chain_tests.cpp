@@ -151,8 +151,9 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
 
    signed_block_ptr accepted_block;
    block_id_type accepted_id;
-   auto c = chain.control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-      const auto& [ block, id, header, block_num ] = t;
+   auto c = chain.control->accepted_block.connect([&](block_signal_params t) {
+      const auto& [ block, id ] = t;
+      auto block_num = block->block_num();
       BOOST_CHECK(block);
       const auto& bsp_by_id = chain.control->fetch_block_state_by_id(id);
       BOOST_CHECK(bsp_by_id->block_num == block_num);
@@ -169,8 +170,9 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
    });
    signed_block_ptr validated_block;
    block_id_type validated_id;
-   auto c2 = validator.control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-      const auto& [ block, id, header, block_num ] = t;
+   auto c2 = validator.control->accepted_block.connect([&](block_signal_params t) {
+      const auto& [ block, id ] = t;
+      auto block_num = block->block_num();
       BOOST_CHECK(block);
       const auto& bsp_by_id = validator.control->fetch_block_state_by_id(id);
       BOOST_CHECK(bsp_by_id->block_num == block_num);

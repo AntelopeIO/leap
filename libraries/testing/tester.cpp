@@ -321,8 +321,8 @@ namespace eosio { namespace testing {
       control->add_indices();
       if (lambda) lambda();
       chain_transactions.clear();
-      control->accepted_block.connect([this]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ){
-        const auto& [ block, id, header, block_num ] = t;
+      control->accepted_block.connect([this]( block_signal_params t ){
+        const auto& [ block, id ] = t;
         FC_ASSERT( block );
           for( auto receipt : block->transactions ) {
               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {

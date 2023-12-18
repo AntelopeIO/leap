@@ -329,9 +329,9 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
              on_applied_transaction(std::get<0>(t), std::get<1>(t));
           }));
       accepted_block_connection.emplace(
-          chain.accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-             const auto& [ block, id, header, block_num ] = t;
-             on_accepted_block(block, id, header, block_num);
+          chain.accepted_block.connect([&](block_signal_params t) {
+             const auto& [ block, id ] = t;
+             on_accepted_block(block, id, static_cast<signed_block_header>(*block), block->block_num());
           }));
       block_start_connection.emplace(
           chain.block_start.connect([&](uint32_t block_num) { on_block_start(block_num); }));

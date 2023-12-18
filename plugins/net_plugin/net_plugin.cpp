@@ -4284,17 +4284,17 @@ namespace eosio {
 
       {
          chain::controller& cc = chain_plug->chain();
-         cc.accepted_block_header.connect( [my = shared_from_this()]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
-            const auto& [ block, id, header, block_num ] = t;
-            my->on_accepted_block_header( block, id, block_num );
+         cc.accepted_block_header.connect( [my = shared_from_this()]( block_signal_params t ) {
+            const auto& [ block, id ] = t;
+            my->on_accepted_block_header( block, id, block->block_num() );
          } );
 
-         cc.accepted_block.connect( [my = shared_from_this()]( std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t ) {
+         cc.accepted_block.connect( [my = shared_from_this()]( block_signal_params t ) {
             my->on_accepted_block();
          } );
-         cc.irreversible_block.connect( [my = shared_from_this()]( std::tuple<const signed_block_ptr&, const block_id_type&, uint32_t> t ) {
-            const auto& [ block, id, block_num ] = t;
-            my->on_irreversible_block( id, block_num );
+         cc.irreversible_block.connect( [my = shared_from_this()]( block_signal_params t ) {
+            const auto& [ block, id ] = t;
+            my->on_irreversible_block( id, block->block_num() );
          } );
       }
 

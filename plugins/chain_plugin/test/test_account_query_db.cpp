@@ -37,9 +37,9 @@ BOOST_FIXTURE_TEST_CASE(newaccount_test, validating_tester) { try {
    auto aq_db = account_query_db(*control);
 
     //link aq_db to the `accepted_block` signal on the controller
-   auto c2 = control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-        const auto& [ block, id, header, block_num ] = t;
-        aq_db.commit_block( block, header, block_num );
+   auto c2 = control->accepted_block.connect([&](block_signal_params t) {
+        const auto& [ block, id ] = t;
+        aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
    });
 
    produce_blocks(10);
@@ -63,9 +63,9 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test, validating_tester) { try {
     auto aq_db = account_query_db(*control);
 
     //link aq_db to the `accepted_block` signal on the controller
-    auto c = control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-        const auto& [ block, id, header, block_num ] = t;
-        aq_db.commit_block( block, header, block_num );
+    auto c = control->accepted_block.connect([&](block_signal_params t) {
+        const auto& [ block, id ] = t;
+        aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
     });
 
     produce_blocks(10);
@@ -98,9 +98,9 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, validating_tester) { try
    auto aq_db = account_query_db(*control);
 
    //link aq_db to the `accepted_block` signal on the controller
-   auto c = control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-      const auto& [ block, id, header, block_num ] = t;
-      aq_db.commit_block( block, header, block_num );
+   auto c = control->accepted_block.connect([&](block_signal_params t) {
+      const auto& [ block, id ] = t;
+      aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
    });
 
    produce_blocks(10);
@@ -151,9 +151,9 @@ BOOST_AUTO_TEST_CASE(future_fork_test) { try {
    auto aq_db = account_query_db(*node_a.control);
 
    //link aq_db to the `accepted_block` signal on the controller
-   auto c = node_a.control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-      const auto& [ block, id, header, block_num ] = t;
-      aq_db.commit_block( block, header, block_num );
+   auto c = node_a.control->accepted_block.connect([&](block_signal_params t) {
+      const auto& [ block, id ] = t;
+      aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
    });
 
    // create 10 blocks synced
@@ -199,9 +199,9 @@ BOOST_AUTO_TEST_CASE(fork_test) { try {
       auto aq_db = account_query_db(*node_a.control);
 
       //link aq_db to the `accepted_block` signal on the controller
-      auto c = node_a.control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-         const auto& [ block, id, header, block_num ] = t;
-         aq_db.commit_block( block, header, block_num );
+      auto c = node_a.control->accepted_block.connect([&](block_signal_params t) {
+         const auto& [ block, id ] = t;
+         aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
       });
 
       // create 10 blocks synced

@@ -1471,8 +1471,8 @@ void transaction_tests(T& chain) {
             if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
          } );
          signed_block_ptr block;
-         auto c2 = chain.control->accepted_block.connect([&](std::tuple<const signed_block_ptr&, const block_id_type&, const signed_block_header&, uint32_t> t) {
-            const auto& [ b, id, header, block_num ] = t;
+         auto c2 = chain.control->accepted_block.connect([&](block_signal_params t) {
+            const auto& [ b, id ] = t;
             block = b; });
 
          // test error handling on deferred transaction failure
