@@ -194,7 +194,7 @@ namespace eosio::chain_apis {
          key_bimap.right.erase(key_range.first, key_range.second);
       }
 
-      bool is_rollback_required( const chain::signed_block_ptr block ) const {
+      bool is_rollback_required( const chain::signed_block_ptr& block ) const {
          std::shared_lock read_lock(rw_mutex);
          const auto bnum = block->block_num();
          const auto& index = permission_info_index.get<by_last_updated_height>();
@@ -232,10 +232,8 @@ namespace eosio::chain_apis {
        * For each removed entry, this will create a new entry if there exists an equivalent {owner, name} permission
        * at the HEAD state of the chain.
        * @param block - the block to rollback before
-       * @param header - the block header
-       * @param block_num - the block number
        */
-      void rollback_to_before( const chain::signed_block_ptr block, const chain::signed_block_header& header, uint32_t block_num ) {
+      void rollback_to_before( const chain::signed_block_ptr& block ) {
          const auto bnum = block->block_num();
          auto& index = permission_info_index.get<by_last_updated_height>();
          const auto& permission_by_owner = controller.db().get_index<chain::permission_index>().indices().get<chain::by_owner>();
@@ -267,8 +265,8 @@ namespace eosio::chain_apis {
             } else {
                const auto& po = *itr;
 
-               uint32_t last_updated_height = chain::block_timestamp_type(po.last_updated) == header.timestamp ?
-                  block_num : last_updated_time_to_height(po.last_updated);
+               uint32_t last_updated_height = chain::block_timestamp_type(po.last_updated) == static_cast<chain::signed_block_header>(*block).timestamp ?
+                  bnum : last_updated_time_to_height(po.last_updated);
 
                index.modify(index.iterator_to(pi), [&po, last_updated_height](auto& mutable_pi) {
                   mutable_pi.last_updated_height = last_updated_height;
@@ -307,7 +305,7 @@ namespace eosio::chain_apis {
        * the thread-safe data set
        * @param block
        */
-      auto commit_block_prelock( const chain::signed_block_ptr block ) const {
+      auto commit_block_prelock( const chain::signed_block_ptr& block ) const {
          permission_set_t updated;
          permission_set_t deleted;
 
@@ -361,10 +359,8 @@ namespace eosio::chain_apis {
        * Commit a block of transactions to the account query DB
        * transaction traces need to be in the cache prior to this call
        * @param block
-       * @param header
-       * @param block_num
        */
-      void commit_block(const chain::signed_block_ptr& block, const chain::signed_block_header& header, uint32_t block_num ) {
+      void commit_block(const chain::signed_block_ptr& block) {
          permission_set_t updated;
          permission_set_t deleted;
          bool rollback_required = false;
@@ -374,11 +370,12 @@ namespace eosio::chain_apis {
          // optimistic skip of locking section if there is nothing to do
          if (!updated.empty() || !deleted.empty() || rollback_required) {
             std::unique_lock write_lock(rw_mutex);
+            auto block_num = block->block_num();
 
-            rollback_to_before(block, header, block_num);
+            rollback_to_before(block);
 
             // insert this blocks time into the time map
-            time_to_block_num.emplace(header.timestamp, block_num);
+            time_to_block_num.emplace(static_cast<chain::signed_block_header>(*block).timestamp, block_num);
 
             const auto bnum = block_num;
             auto& index = permission_info_index.get<by_owner_name>();
@@ -524,9 +521,9 @@ namespace eosio::chain_apis {
       } FC_LOG_AND_DROP(("ACCOUNT DB cache_transaction_trace ERROR"));
    }
 
-   void account_query_db::commit_block( const chain::signed_block_ptr& block, const chain::signed_block_header& header, uint32_t block_num ) {
+   void account_query_db::commit_block( const chain::signed_block_ptr& block ) {
       try {
-         _impl->commit_block(block, header, block_num);
+         _impl->commit_block(block);
       } FC_LOG_AND_DROP(("ACCOUNT DB commit_block ERROR"));
    }
 

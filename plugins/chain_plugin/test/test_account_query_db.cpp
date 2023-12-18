@@ -39,7 +39,7 @@ BOOST_FIXTURE_TEST_CASE(newaccount_test, validating_tester) { try {
     //link aq_db to the `accepted_block` signal on the controller
    auto c2 = control->accepted_block.connect([&](const block_signal_params& t) {
         const auto& [ block, id ] = t;
-        aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
+        aq_db.commit_block( block );
    });
 
    produce_blocks(10);
@@ -65,7 +65,7 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test, validating_tester) { try {
     //link aq_db to the `accepted_block` signal on the controller
     auto c = control->accepted_block.connect([&](const block_signal_params& t) {
         const auto& [ block, id ] = t;
-        aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
+        aq_db.commit_block( block );
     });
 
     produce_blocks(10);
@@ -100,7 +100,7 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, validating_tester) { try
    //link aq_db to the `accepted_block` signal on the controller
    auto c = control->accepted_block.connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
-      aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
+      aq_db.commit_block( block );
    });
 
    produce_blocks(10);
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE(future_fork_test) { try {
    //link aq_db to the `accepted_block` signal on the controller
    auto c = node_a.control->accepted_block.connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
-      aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
+      aq_db.commit_block( block );
    });
 
    // create 10 blocks synced
@@ -201,7 +201,7 @@ BOOST_AUTO_TEST_CASE(fork_test) { try {
       //link aq_db to the `accepted_block` signal on the controller
       auto c = node_a.control->accepted_block.connect([&](const block_signal_params& t) {
          const auto& [ block, id ] = t;
-         aq_db.commit_block( block, static_cast<signed_block_header>(*block), block->block_num() );
+         aq_db.commit_block( block );
       });
 
       // create 10 blocks synced

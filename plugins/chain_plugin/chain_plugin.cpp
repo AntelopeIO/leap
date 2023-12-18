@@ -1021,7 +1021,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       accepted_block_connection = chain->accepted_block.connect( [this]( const block_signal_params& t ) {
          const auto& [ block, id ] = t;
          if (_account_query_db) {
-            _account_query_db->commit_block(block, static_cast<signed_block_header>(*block), block->block_num());
+            _account_query_db->commit_block(block);
          }
 
          if (_trx_retry_db) {
