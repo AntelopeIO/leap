@@ -541,9 +541,10 @@ private:
          fc_ilog(plugin.get_logger(),
                  "pushing result "
                  "{\"head\":{\"block_num\":${head}},\"last_irreversible\":{\"block_num\":${last_irr}},\"this_block\":{"
-                 "\"block_num\":${this_block}}} to send queue",
-                 ("head", result.head.block_num)("last_irr", result.last_irreversible.block_num)(
-                     "this_block", result.this_block ? result.this_block->block_num : fc::variant()));
+                 "\"block_num\":${this_block}, \"block_id\":${this_id}}} to send queue",
+                 ("head", result.head.block_num)("last_irr", result.last_irreversible.block_num)
+                 ("this_block", result.this_block ? result.this_block->block_num : fc::variant())
+                 ("this_id", result.this_block ? fc::variant{result.this_block->block_id} : fc::variant{}));
       }
 
       --current_request->max_messages_in_flight;
