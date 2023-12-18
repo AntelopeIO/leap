@@ -129,7 +129,7 @@ BOOST_AUTO_TEST_CASE(producer) {
       std::deque<signed_block_ptr> all_blocks;
       std::promise<void> empty_blocks_promise;
       std::future<void> empty_blocks_fut = empty_blocks_promise.get_future();
-      auto ab = chain_plug->chain().accepted_block.connect( [&](chain::block_signal_params t) {
+      auto ab = chain_plug->chain().accepted_block.connect( [&](const chain::block_signal_params& t) {
          const auto& [ block, id ] = t;
          static int num_empty = std::numeric_limits<int>::max();
          all_blocks.push_back( block );

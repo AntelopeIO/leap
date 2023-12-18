@@ -377,7 +377,7 @@ struct trace_api_plugin_impl {
             }));
 
       accepted_block_connection.emplace(
-         chain.accepted_block.connect([this](chain::block_signal_params t) {
+         chain.accepted_block.connect([this](const chain::block_signal_params& t) {
             emit_killer([&](){
                const auto& [ block, id ] = t;
                extraction->signal_accepted_block(block, id, block->block_num());
@@ -385,7 +385,7 @@ struct trace_api_plugin_impl {
          }));
 
       irreversible_block_connection.emplace(
-         chain.irreversible_block.connect([this](chain::block_signal_params t) {
+         chain.irreversible_block.connect([this](const chain::block_signal_params& t) {
             const auto& [ block, id ] = t;
             emit_killer([&](){
                extraction->signal_irreversible_block(block->block_num());

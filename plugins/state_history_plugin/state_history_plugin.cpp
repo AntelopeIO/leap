@@ -329,7 +329,7 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
              on_applied_transaction(std::get<0>(t), std::get<1>(t));
           }));
       accepted_block_connection.emplace(
-          chain.accepted_block.connect([&](block_signal_params t) {
+          chain.accepted_block.connect([&](const block_signal_params& t) {
              const auto& [ block, id ] = t;
              on_accepted_block(block, id, static_cast<signed_block_header>(*block), block->block_num());
           }));

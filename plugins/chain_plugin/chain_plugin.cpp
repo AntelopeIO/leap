@@ -1014,11 +1014,11 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
       // relay signals to channels
       accepted_block_header_connection = chain->accepted_block_header.connect(
-            [this]( block_signal_params t ) {
+            [this]( const block_signal_params& t ) {
                accepted_block_header_channel.publish( priority::medium, t );
             } );
 
-      accepted_block_connection = chain->accepted_block.connect( [this]( block_signal_params t ) {
+      accepted_block_connection = chain->accepted_block.connect( [this]( const block_signal_params& t ) {
          const auto& [ block, id ] = t;
          if (_account_query_db) {
             _account_query_db->commit_block(block, static_cast<signed_block_header>(*block), block->block_num());
@@ -1035,7 +1035,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          accepted_block_channel.publish( priority::high, t );
       } );
 
-      irreversible_block_connection = chain->irreversible_block.connect( [this]( block_signal_params t ) {
+      irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_signal_params& t ) {
          const auto& [ block, id ] = t;
 
          if (_trx_retry_db) {
