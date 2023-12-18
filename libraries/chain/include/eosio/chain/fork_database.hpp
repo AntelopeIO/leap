@@ -24,6 +24,8 @@ namespace eosio::chain {
    template<class bsp, class bhsp>  // either [block_state_legacy_ptr, block_state_ptr], same with block_header_state_ptr
    class fork_database {
    public:
+      using bs = bsp::element_type;
+      using bhs = bhsp::element_type;
       using branch_type = deque<bsp>;
       using branch_type_pair = pair<branch_type, branch_type>;
       
@@ -35,14 +37,14 @@ namespace eosio::chain {
                                            const vector<digest_type>& )>& validator );
       void close();
 
-      bhsp get_block_header( const block_id_type& id ) const;
+      const bhs* get_block_header( const block_id_type& id ) const;
       bsp  get_block( const block_id_type& id ) const;
 
       /**
        *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
        *  The head will also be reset to point to the root.
        */
-      void reset( const block_header_state_legacy& root_bhs );
+      void reset( const bs& root_bhs );
 
       /**
        *  Removes validated flag from all blocks in fork database and resets head to point to the root.

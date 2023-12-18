@@ -636,7 +636,7 @@ namespace impl {
          out(name, std::move(mvo));
       }
 
-      static void add_block_header_finalizer_policy_extension( mutable_variant_object& mvo, const flat_multimap<uint16_t, block_header_extension>& header_exts );
+      static void add_block_header_finalizer_policy_extension( mutable_variant_object& mvo, const header_extension_multimap& header_exts );
 
       /**
        * overload of to_variant_object for signed_block

@@ -52,7 +52,8 @@ struct block_header_state_core {
 };
 
 struct block_header_state {
-   block_id_type                       _id;
+   // ------ data members ------------------------------------------------------------
+   block_id_type                       id;
    block_header                        _header;
    protocol_feature_activation_set_ptr _activated_protocol_features;
 
@@ -66,10 +67,11 @@ struct block_header_state {
    flat_map<uint32_t, proposer_policy_ptr>  _proposer_policies;
    flat_map<uint32_t, finalizer_policy_ptr> _finalizer_policies;
 
+   // ------ functions -----------------------------------------------------------------
    digest_type           compute_finalizer_digest() const;
    block_timestamp_type  timestamp() const { return _header.timestamp; }
    account_name          producer() const { return _header.producer; }
-   block_id_type         previous() const { return _header.previous; }
+   const block_id_type&  previous() const { return _header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
    
    block_header_state next(const block_header_state_input& data) const;
@@ -95,3 +97,7 @@ struct block_header_state {
 using block_header_state_ptr = std::shared_ptr<block_header_state>;
 
 }
+
+// [greg todo] which members need to be serialized to disk when saving fork_db
+// obviously many are missing below.
+FC_REFLECT( eosio::chain::block_header_state,  (id))

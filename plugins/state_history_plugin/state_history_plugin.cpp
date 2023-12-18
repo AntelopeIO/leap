@@ -91,7 +91,7 @@ public:
    signed_block_ptr get_block(uint32_t block_num, const block_state_legacy_ptr& block_state) const {
       chain::signed_block_ptr p;
       try {
-         if (block_state && block_num == block_state->block_num) {
+         if (block_state && block_num == block_state->block_num()) {
             p = block_state->block;
          } else {
             p = chain_plug->chain().fetch_block_by_number(block_num);
@@ -261,7 +261,7 @@ public:
          return;
       bool fresh = chain_state_log->empty();
       if (fresh)
-         fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block_num));
+         fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block_num()));
 
       state_history_log_header header{
           .magic = ship_magic(ship_current_version, 0), .block_id = block_state->id, .payload_size = 0};

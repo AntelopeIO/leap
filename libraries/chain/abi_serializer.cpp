@@ -634,7 +634,7 @@ namespace eosio { namespace chain {
       _variant_to_binary(type, var, ds, ctx);
    }
 
-   void impl::abi_to_variant::add_block_header_finalizer_policy_extension( mutable_variant_object& mvo, const flat_multimap<uint16_t, block_header_extension>& header_exts ) {
+   void impl::abi_to_variant::add_block_header_finalizer_policy_extension( mutable_variant_object& mvo, const header_extension_multimap& header_exts ) {
       if (header_exts.count(finalizer_policy_extension::extension_id())) {
          const auto& finalizer_policy =
                  std::get<finalizer_policy_extension>(header_exts.lower_bound(finalizer_policy_extension::extension_id())->second);

@@ -156,7 +156,7 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
    /// this data is redundant with the data stored in header, but it acts as a cache that avoids
    /// duplication of work
-   flat_multimap<uint16_t, block_header_extension> header_exts;
+   header_extension_multimap            header_exts;
 
    block_header_state_legacy() = default;
 

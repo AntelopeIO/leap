@@ -267,7 +267,7 @@ int blocklog_actions::read_log() {
       opt->first_block = block_logger.first_block_num();
    }
 
-   using fork_database_t = fork_database_legacy;
+   using fork_database_t = fork_database_legacy; // [greg todo] what is it is not a legacy fork_db?
    fork_database_legacy::branch_type fork_db_branch;
 
    if(std::filesystem::exists(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name / config::forkdb_filename)) {
@@ -285,8 +285,8 @@ int blocklog_actions::read_log() {
          auto first = fork_db_branch.rbegin();
          auto last = fork_db_branch.rend() - 1;
          ilog("existing reversible fork_db block num ${first} through block num ${last} ",
-              ("first", (*first)->block_num)("last", (*last)->block_num));
-         EOS_ASSERT(end->block_num() + 1 == (*first)->block_num, block_log_exception,
+              ("first", (*first)->block_num())("last", (*last)->block_num()));
+         EOS_ASSERT(end->block_num() + 1 == (*first)->block_num(), block_log_exception,
                     "fork_db does not start at end of block log");
       }
    }

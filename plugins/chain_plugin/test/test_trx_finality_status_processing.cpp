@@ -147,7 +147,7 @@ auto make_block_state( uint32_t block_num ) {
          signer
    );
    bsp->id = block_id;
-   bsp->block_num = block_num;
+   ((block_header_state_legacy *)bsp.get())->block_num = block_num; // [greg todo]
 
    return bsp;
 }

@@ -185,7 +185,7 @@ auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction
              const std::vector<chain::digest_type>& new_features ) {},
          signer
    );
-   bsp->block_num = block_num;
+   ((block_header_state_legacy *)bsp.get())->block_num = block_num; // [greg todo]
 
    return bsp;
 }

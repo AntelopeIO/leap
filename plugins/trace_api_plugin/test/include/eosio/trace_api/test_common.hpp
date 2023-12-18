@@ -102,7 +102,7 @@ namespace eosio::trace_api {
                 const std::vector<chain::digest_type>& new_features ) {},
             signer
          );
-         bsp->block_num = height;
+         ((chain::block_header_state_legacy *)bsp.get())->block_num = height; // [greg todo] 
 
          return bsp;
       }

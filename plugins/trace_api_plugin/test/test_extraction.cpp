@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
       BOOST_REQUIRE(data_log.size() == 1u);
       BOOST_REQUIRE(std::holds_alternative<block_trace_v2>(data_log.at(0)));
       BOOST_REQUIRE_EQUAL(std::get<block_trace_v2>(data_log.at(0)), expected_block_trace);
-      BOOST_REQUIRE_EQUAL(id_log.at(bsp1->block_num).size(),  bsp1->block->transactions.size());
+      BOOST_REQUIRE_EQUAL(id_log.at(bsp1->block_num()).size(),  bsp1->block->transactions.size());
    }
 
    BOOST_FIXTURE_TEST_CASE(basic_multi_transaction_block, extraction_test_fixture) {

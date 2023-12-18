@@ -163,12 +163,12 @@ struct trx_retry_db_impl {
 
    void on_accepted_block(const chain::block_state_legacy_ptr& bsp ) {
       // good time to perform processing
-      ack_ready_trxs_by_block_num( bsp->block_num );
+      ack_ready_trxs_by_block_num( bsp->block_num() );
       retry_trxs();
    }
 
    void on_irreversible_block(const chain::block_state_legacy_ptr& bsp ) {
-      ack_ready_trxs_by_lib( bsp->block_num );
+      ack_ready_trxs_by_lib( bsp->block_num() );
       clear_expired( bsp->block->timestamp );
    }
 

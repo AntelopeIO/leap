@@ -171,7 +171,7 @@ namespace eosio::chain {
             if (_active_finalizer_policy.generation == 0) {
                // switching from dpos to hotstuff, all nodes will switch at same block height
                // block header extension is set in finalize_block to value set by host function set_finalizers
-               _chain->set_hs_irreversible_block_num(blk->block_num); // can be any value <= dpos lib
+               _chain->set_hs_irreversible_block_num(blk->block_num()); // can be any value <= dpos lib
             }
             _active_finalizer_policy = std::move(std::get<finalizer_policy_extension>(*ext));
          }

@@ -636,7 +636,7 @@ public:
 
    void on_block_header(const block_state_legacy_ptr& bsp) {
       if (_producers.contains(bsp->header.producer))
-         _producer_watermarks.consider_new_watermark(bsp->header.producer, bsp->block_num, bsp->block->timestamp);
+         _producer_watermarks.consider_new_watermark(bsp->header.producer, bsp->block_num(), bsp->block->timestamp);
    }
 
    void on_irreversible_block(const signed_block_ptr& lib) {
@@ -750,7 +750,7 @@ public:
          if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hbs->id != id && hbs->block != nullptr) { // not applied to head
             ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
                  "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
-                 ("p", hbs->block->producer)("id", hbs->id.str().substr(8, 16))("n", hbs->block_num)("t", hbs->block->timestamp)
+                 ("p", hbs->block->producer)("id", hbs->id.str().substr(8, 16))("n", hbs->block_num())("t", hbs->block->timestamp)
                  ("count", hbs->block->transactions.size())("lib", chain.last_irreversible_block_num())
                  ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)
                  ("latency", (now - hbs->block->timestamp).count() / 1000));
@@ -1778,7 +1778,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    const fc::time_point       now               = fc::time_point::now();
    const block_timestamp_type block_time        = calculate_pending_block_time();
-   const uint32_t             pending_block_num = hbs->block_num + 1;
+   const uint32_t             pending_block_num = hbs->block_num() + 1;
 
    _pending_block_mode = pending_block_mode::producing;
 
@@ -1819,10 +1819,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       // determine if our watermark excludes us from producing at this point
       if (current_watermark) {
          const block_timestamp_type block_timestamp{block_time};
-         if (current_watermark->first > hbs->block_num) {
+         if (current_watermark->first > hbs->block_num()) {
             elog("Not producing block because \"${producer}\" signed a block at a higher block number (${watermark}) than the current "
                  "fork's head (${head_block_num})",
-                 ("producer", scheduled_producer.producer_name)("watermark", current_watermark->first)("head_block_num", hbs->block_num));
+                 ("producer", scheduled_producer.producer_name)("watermark", current_watermark->first)("head_block_num", hbs->block_num()));
             _pending_block_mode = pending_block_mode::speculating;
          } else if (current_watermark->second >= block_timestamp) {
             elog("Not producing block because \"${producer}\" signed a block at the next block time or later (${watermark}) than the pending "
@@ -1882,13 +1882,13 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          // 4) the producer on this node's last watermark is higher (meaning on a different fork)
          if (current_watermark) {
             auto watermark_bn = current_watermark->first;
-            if (watermark_bn < hbs->block_num) {
-               blocks_to_confirm = (uint16_t)(std::min<uint32_t>(std::numeric_limits<uint16_t>::max(), (uint32_t)(hbs->block_num - watermark_bn)));
+            if (watermark_bn < hbs->block_num()) {
+               blocks_to_confirm = (uint16_t)(std::min<uint32_t>(std::numeric_limits<uint16_t>::max(), (uint32_t)(hbs->block_num() - watermark_bn)));
             }
          }
 
          // can not confirm irreversible blocks
-         blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (uint32_t)(hbs->block_num - hbs->dpos_irreversible_blocknum)));
+         blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (uint32_t)(hbs->block_num() - hbs->dpos_irreversible_blocknum)));
       }
 
       abort_block();
@@ -1951,7 +1951,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
       try {
          chain::subjective_billing& subjective_bill = chain.get_mutable_subjective_billing();
-         _account_fails.report_and_clear(hbs->block_num, subjective_bill);
+         _account_fails.report_and_clear(hbs->block_num(), subjective_bill);
 
          if (!remove_expired_trxs(preprocess_deadline))
             return start_block_result::exhausted;
@@ -2658,12 +2658,12 @@ void producer_plugin_impl::produce_block() {
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
-        ("p", new_bs->header.producer)("id", new_bs->id.str().substr(8, 16))("n", new_bs->block_num)("t", new_bs->header.timestamp)
+        ("p", new_bs->header.producer)("id", new_bs->id.str().substr(8, 16))("n", new_bs->block_num())("t", new_bs->header.timestamp)
         ("count", new_bs->block->transactions.size())("lib", chain.last_irreversible_block_num())("net", br.total_net_usage)
         ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_bs->header.confirmed));
 
    _time_tracker.add_other_time();
-   _time_tracker.report(new_bs->block_num, new_bs->block->producer, metrics);
+   _time_tracker.report(new_bs->block_num(), new_bs->block->producer, metrics);
    _time_tracker.clear();
 
    if (_update_produced_block_metrics) {

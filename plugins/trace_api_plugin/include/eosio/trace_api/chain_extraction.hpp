@@ -119,7 +119,7 @@ private:
 
    void store_lib( const chain::block_state_legacy_ptr& bsp ) {
       try {
-         store.append_lib( bsp->block_num );
+         store.append_lib( bsp->block_num() );
       } catch( ... ) {
          except_handler( MAKE_EXCEPTION_WITH_CONTEXT( std::current_exception() ) );
       }
