@@ -369,7 +369,7 @@ struct controller_impl {
    }
 
    /**
-    *  Plugins / observers listening to signals emited (such as accepted_transaction) might trigger
+    *  Plugins / observers listening to signals emited might trigger
     *  errors and throw exceptions. Unless those exceptions are caught it could impact consensus and/or
     *  cause a node to fork.
     *
@@ -1337,7 +1337,6 @@ struct controller_impl {
          pending->_block_report.total_cpu_usage_us += billed_cpu_time_us;
          pending->_block_report.total_elapsed_time += trace->elapsed;
          pending->_block_report.total_time += trace->elapsed;
-         emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
          undo_session.squash();
@@ -1403,7 +1402,6 @@ struct controller_impl {
 
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
-         emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
 
@@ -1448,7 +1446,6 @@ struct controller_impl {
          if( !trace->except_ptr ) {
             trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
             trace->elapsed = fc::time_point::now() - start;
-            emit( self.accepted_transaction, trx );
             dmlog_applied_transaction(trace);
             emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
             undo_session.squash();
@@ -1494,13 +1491,11 @@ struct controller_impl {
          trace->receipt = push_receipt(gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
-         emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
 
          undo_session.squash();
       } else {
-         emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
       }
@@ -1634,7 +1629,6 @@ struct controller_impl {
                    // call the accept signal but only once for this transaction
                    if (!trx->accepted) {
                        trx->accepted = true;
-                       emit(self.accepted_transaction, trx);
                    }
 
                    dmlog_applied_transaction(trace, &trn);
@@ -1681,7 +1675,6 @@ struct controller_impl {
          }
 
          if (!trx->is_transient()) {
-            emit(self.accepted_transaction, trx);
             dmlog_applied_transaction(trace);
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
 

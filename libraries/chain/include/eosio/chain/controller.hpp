@@ -332,7 +332,6 @@ namespace eosio { namespace chain {
          signal<void(block_signal_params)>  accepted_block_header;
          signal<void(block_signal_params)>  accepted_block;
          signal<void(block_signal_params)>  irreversible_block;
-         signal<void(const transaction_metadata_ptr&)> accepted_transaction;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
