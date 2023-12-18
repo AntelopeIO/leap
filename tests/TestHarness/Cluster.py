@@ -993,20 +993,6 @@ class Cluster(object):
         return producerKeys
 
     def activateInstantFinality(self, launcher):
-        # publish bios contract with setfinalizer
-        contract = "eosio.bios"
-        contractDir = str(self.libTestingContractsPath / contract)
-        wasmFile = "%s.wasm" % (contract)
-        abiFile = "%s.abi" % (contract)
-        Utils.Print("Publish %s contract" % (contract))
-        # assumes eosio already in wallet
-        eosioAccount=Account("eosio")
-        trans = self.biosNode.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
-        if trans is None:
-            Utils.Print("ERROR: Failed to publish contract %s." % (contract))
-            return None
-        Node.validateTransaction(trans)
-
         # call setfinalizer
         numFins = len(launcher.network.nodes.values())
         setFinStr =  f'{{"finalizer_policy": {{'
@@ -1077,15 +1063,8 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to import %s account keys into ignition wallet." % (eosioName))
             return None
 
-        if activateIF:
-            self.activateInstantFinality(launcher)
-
-        contract="eosio.bios"
-        contractDir= str(self.libTestingContractsPath / contract)
-        if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
-            contractDir=str(self.libTestingContractsPath / "old_versions" / "v1.7.0-develop-preactivate_feature" / contract)
-        else:
-            contractDir=str(self.libTestingContractsPath / "old_versions" / "v1.6.0-rc3" / contract)
+        contract="eosio.boot"
+        contractDir= str(self.unittestsContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
@@ -1096,8 +1075,20 @@ class Cluster(object):
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
             biosNode.preactivateAllBuiltinProtocolFeature()
-
         Node.validateTransaction(trans)
+
+        contract="eosio.bios"
+        contractDir= str(self.libTestingContractsPath / contract)
+        wasmFile="%s.wasm" % (contract)
+        abiFile="%s.abi" % (contract)
+        Utils.Print("Publish %s contract" % (contract))
+        trans=biosNode.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+        if trans is None:
+            Utils.Print("ERROR: Failed to publish contract %s." % (contract))
+            return None
+
+        if activateIF:
+            self.activateInstantFinality(launcher)
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(eosioName)
@@ -1145,7 +1136,7 @@ class Cluster(object):
                     if counts[keys["node"]] >= prodCount:
                         Utils.Print(f'Count for this node exceeded: {counts[keys["node"]]}')
                         continue
-                    prodStanzas.append({ 'producer_name': keys['name'], 'block_signing_key': keys['public'] })
+                    prodStanzas.append({ 'producer_name': keys['name'], 'authority': ["block_signing_authority_v0", { 'threshold': 1, 'keys': [{ 'key': keys['public'], 'weight': 1 }]}]})
                     prodNames.append(keys["name"])
                     counts[keys["node"]] += 1
                 setProdsStr += json.dumps(prodStanzas)

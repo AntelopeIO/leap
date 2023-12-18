@@ -40,7 +40,7 @@ def setProds(sharedProdKey):
         key = cluster.defProducerAccounts[name].activePublicKey
         if name == "shrproducera":
             key = sharedProdKey
-        setProdsStr += ' { "producer_name": "%s", "block_signing_key": "%s" }' % (name, key)
+        setProdsStr += '{"producer_name":' + name + ',"authority": ["block_signing_authority_v0", {"threshold":1, "keys":[{"key":' + key + ', "weight":1}]}]}'
 
     setProdsStr += ' ] }'
     Utils.Print("setprods: %s" % (setProdsStr))
