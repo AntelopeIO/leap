@@ -624,19 +624,19 @@ public:
                                ((_produce_block_cpu_effort.count() / 1000) * config::producer_repetitions) );
    }
 
-   void on_block(const block_state_legacy_ptr& bsp) {
+   void on_block(const signed_block_ptr& block) {
       auto& chain  = chain_plug->chain();
       auto  before = _unapplied_transactions.size();
-      _unapplied_transactions.clear_applied(bsp);
-      chain.get_mutable_subjective_billing().on_block(_log, bsp, fc::time_point::now());
+      _unapplied_transactions.clear_applied(block);
+      chain.get_mutable_subjective_billing().on_block(_log, block, fc::time_point::now());
       if (before > 0) {
          fc_dlog(_log, "Removed applied transactions before: ${before}, after: ${after}", ("before", before)("after", _unapplied_transactions.size()));
       }
    }
 
-   void on_block_header(const block_state_legacy_ptr& bsp) {
-      if (_producers.contains(bsp->header.producer))
-         _producer_watermarks.consider_new_watermark(bsp->header.producer, bsp->block_num, bsp->block->timestamp);
+   void on_block_header(chain::account_name producer, uint32_t block_num, chain::block_timestamp_type timestamp) {
+      if (_producers.contains(producer))
+         _producer_watermarks.consider_new_watermark(producer, block_num, timestamp);
    }
 
    void on_irreversible_block(const signed_block_ptr& lib) {
@@ -1343,10 +1343,18 @@ void producer_plugin_impl::plugin_startup() {
          chain.create_pacemaker(_producers, std::move(_finalizer_keys), hotstuff_logger);
          _finalizer_keys.clear();
 
-         _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
-         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
-         _irreversible_block_connection.emplace(
-            chain.irreversible_block.connect([this](const auto& bsp) { on_irreversible_block(bsp->block); }));
+         _accepted_block_connection.emplace(chain.accepted_block.connect([this](const block_signal_params& t) {
+            const auto& [ block, id ] = t;
+            on_block(block);
+          }));
+         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const block_signal_params& t) {
+            const auto& [ block, id ] = t;
+            on_block_header(block->producer, block->block_num(), block->timestamp);
+         }));
+         _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](const block_signal_params& t) {
+            const auto& [ block, id ] = t;
+            on_irreversible_block(block);
+         }));
 
          _block_start_connection.emplace(chain.block_start.connect([this, &chain](uint32_t bs) {
             try {

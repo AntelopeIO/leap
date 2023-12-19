@@ -47,8 +47,8 @@ namespace eosio::chain {
       void send_hs_message_warning(uint32_t sender_peer, hs_message_warning code) final;
 
    private:
-      void on_accepted_block( const block_state_legacy_ptr& blk );
-      void on_irreversible_block( const block_state_legacy_ptr& blk );
+      void on_accepted_block( const signed_block_ptr& block );
+      void on_irreversible_block( const signed_block_ptr& block );
 
       void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg); //consensus msg event handler
       void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg); //confirmation msg event handler
