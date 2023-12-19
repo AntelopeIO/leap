@@ -32,9 +32,7 @@ namespace eosio::chain {
       explicit fork_database( const std::filesystem::path& data_dir );
       ~fork_database();
 
-      void open( const std::function<void( block_timestamp_type,
-                                           const flat_set<digest_type>&,
-                                           const vector<digest_type>& )>& validator );
+      void open( validator_t& validator );
       void close();
 
       const bhs* get_block_header( const block_id_type& id ) const;
@@ -44,7 +42,7 @@ namespace eosio::chain {
        *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
        *  The head will also be reset to point to the root.
        */
-      void reset( const bs& root_bhs );
+      void reset( const bhs& root_bhs );
 
       /**
        *  Removes validated flag from all blocks in fork database and resets head to point to the root.

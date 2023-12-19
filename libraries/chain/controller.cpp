@@ -122,33 +122,27 @@ struct completed_block {
    bool is_dpos() const { return std::holds_alternative<block_state_legacy_ptr>(bsp); }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
-      return std::visit(overloaded{[](block_state_legacy_ptr& bsp) { return bsp->extract_trxs_metas(); },
-                                   [](block_state_ptr& bsp)        { return bsp->extract_trxs_metas(); }},
-                        bsp);
+      return std::visit([](auto& bsp) { return bsp->extract_trxs_metas(); }, bsp);
    }
 
    flat_set<digest_type> get_activated_protocol_features() const {
       return std::visit(
          overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->activated_protocol_features->protocol_features; },
-                    [](const block_state_ptr& bsp)        { return bsp->bhs.get_activated_protocol_features(); }},
+                    [](const block_state_ptr& bsp)        { return bsp->get_activated_protocol_features()->protocol_features; }},
          bsp);
    }
    
-   uint32_t block_num() const {
-      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->block_num(); },
-                                   [](const block_state_ptr& bsp)        { return bsp->bhs.block_num(); }},
-                        bsp);
-   }
+   uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
 
    block_timestamp_type timestamp() const {
-      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->timestamp(); },
-                                   [](const block_state_ptr& bsp)        { return bsp->bhs.timestamp(); }},
+      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->block->timestamp; },
+                                   [](const block_state_ptr& bsp) { return bsp->timestamp(); }},
                         bsp);
    }
 
    account_name producer() const {
       return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->block->producer; },
-                                   [](const block_state_ptr& bsp)        { return bsp->bhs._header.producer; }},
+                                   [](const block_state_ptr& bsp)        { return bsp->_header.producer; }},
                         bsp);
    }
 
@@ -167,7 +161,7 @@ struct completed_block {
                                       return bsp->pending_schedule.schedule;
                                    },
                                    [this](const block_state_ptr& bsp) -> const producer_authority_schedule& {
-                                      const auto& sch = bsp->bhs.new_pending_producer_schedule();
+                                      const auto& sch = bsp->new_pending_producer_schedule();
                                       if (sch)
                                          return *sch;
                                       return active_producers();  // [greg todo: Is this correct?] probably not
@@ -186,7 +180,7 @@ struct completed_block {
                                       return bsp->valid_block_signing_authority;
                                    },
                                    [](const block_state_ptr& bsp) -> const block_signing_authority& {
-                                      static block_signing_authority bsa; return bsa; //return bsp->bhs._header.producer; [greg todo]
+                                      static block_signing_authority bsa; return bsa; //return bsp->_header.producer; [greg todo]
                                    }},
                         bsp);
    }
@@ -393,9 +387,9 @@ struct building_block {
       const block_timestamp_type                 timestamp;                        // Comes from building_block_input::timestamp
       const producer_authority                   active_producer_authority;        // Comes from parent.get_scheduled_producer(timestamp)
       const vector<digest_type>                  new_protocol_feature_activations; // Comes from building_block_input::new_protocol_feature_activations
-      const protocol_feature_activation_set_ptr  prev_activated_protocol_features; // Cached: parent.bhs.activated_protocol_features
-      const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.bhs.get_next_active_proposer_policy(timestamp)
-      const uint32_t                             block_num;                        // Cached: parent.bhs.block_num() + 1
+      const protocol_feature_activation_set_ptr  prev_activated_protocol_features; // Cached: parent.activated_protocol_features()
+      const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
+      const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
       // Members below (as well as non-const members of building_block_common) start from initial state and are mutated as the block is built.
       std::optional<proposer_policy>             new_proposer_policy;

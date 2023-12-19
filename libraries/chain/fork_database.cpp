@@ -42,7 +42,7 @@ namespace eosio::chain {
       std::shared_ptr<block_state_legacy>,
       indexed_by<
          hashed_unique< tag<by_block_id>, member<block_header_state_legacy, block_id_type, &block_header_state_legacy::id>, std::hash<block_id_type>>,
-         ordered_non_unique< tag<by_prev>, const_mem_fun<block_header_state_legacy, const block_id_type&, &block_header_state_legacy::prev> >,
+         ordered_non_unique< tag<by_prev>, const_mem_fun<block_state_legacy, const block_id_type&, &block_state_legacy::previous> >,
          ordered_unique< tag<by_lib_block_num>,
             composite_key< block_state_legacy,
                global_fun<const block_state_legacy&, bool, &block_state_is_valid>,
@@ -116,7 +116,7 @@ namespace eosio::chain {
       void             close_impl();
 
       bsp              get_block_impl( const block_id_type& id )const;
-      void             reset_impl( const bs& root_bhs );
+      void             reset_impl( const bhs& root_bhs );
       void             rollback_head_to_root_impl();
       void             advance_root_impl( const block_id_type& id );
       void             remove_impl( const block_id_type& id );
@@ -175,7 +175,7 @@ namespace eosio::chain {
                        ("max", fork_database_t::max_supported_version)
             );
 
-            bs state;
+            bhs state;
             fc::raw::unpack( ds, state );
             reset_impl( state );
 
@@ -236,8 +236,7 @@ namespace eosio::chain {
       std::ofstream out( fork_db_dat.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
       fc::raw::pack( out, fork_database_t::magic_number );
       fc::raw::pack( out, fork_database_t::max_supported_version ); // write out current version which is always max_supported_version
-      fc::raw::pack( out, *static_cast<bs*>(&*root) );
-      
+      fc::raw::pack( out, *static_cast<bhs*>(&*root) );             // [greg todo] enought to write only bhs?
       uint32_t num_blocks_in_fork_db = index.size();
       fc::raw::pack( out, unsigned_int{num_blocks_in_fork_db} );
 
@@ -292,16 +291,16 @@ namespace eosio::chain {
    }
 
    template<class bsp, class bhsp>
-   void fork_database<bsp, bhsp>::reset( const bs& root_bhs ) {
+   void fork_database<bsp, bhsp>::reset( const bhs& root_bhs ) {
       std::lock_guard g( my->mtx );
       my->reset_impl(root_bhs);
    }
 
    template<class bsp, class bhsp>
-   void fork_database_impl<bsp, bhsp>::reset_impl( const bs& root_bhs ) {
+   void fork_database_impl<bsp, bhsp>::reset_impl( const bhs& root_bhs ) {
       index.clear();
       root = std::make_shared<bs>();
-      static_cast<bs&>(*root) = root_bhs;
+      static_cast<bhs&>(*root) = root_bhs;
       root->validated = true;
       head = root;
    }

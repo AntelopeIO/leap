@@ -82,9 +82,7 @@ namespace eosio::chain {
                                   signed_block_ptr b,
                                   const protocol_feature_set& pfs,
                                   bool hotstuff_activated,
-                                  const std::function<void( block_timestamp_type,
-                                                            const flat_set<digest_type>&,
-                                                            const vector<digest_type>& )>& validator,
+                                  const validator_t& validator,
                                   bool skip_validate_signee
                            )
    :block_header_state( prev.next( *b, extract_additional_signatures(b, pfs, prev.activated_protocol_features), pfs, hotstuff_activated, validator, skip_validate_signee ) )
@@ -95,9 +93,7 @@ namespace eosio::chain {
                             signed_block_ptr&& b,
                             deque<transaction_metadata_ptr>&& trx_metas,
                             const protocol_feature_set& pfs,
-                            const std::function<void( block_timestamp_type,
-                                                      const flat_set<digest_type>&,
-                                                      const vector<digest_type>& )>& validator,
+                            const validator_t& validator,
                             const signer_callback_type& signer
       )
    :block_header_state( inject_additional_signatures( std::move(cur), *b, pfs, validator, signer ) )

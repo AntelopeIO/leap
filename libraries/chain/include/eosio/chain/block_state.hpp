@@ -7,9 +7,8 @@
 
 namespace eosio::chain {
 
-struct block_state {
+   struct block_state : public block_header_state {  // block_header_state provides parent link
    // ------ data members -------------------------------------------------------------
-   block_header_state         bhs;                   // provides parent link
    signed_block_ptr           block;
    bool                       validated;             // We have executed the block's trxs and verified that action merkle root (block id) matches.
    digest_type                finalizer_digest;
@@ -18,18 +17,18 @@ struct block_state {
 
    
    // ------ data members caching information available elsewhere ----------------------
-   block_id_type              id;          // cache of bhs.header.calculate_id() (indexed on this field)
+   block_id_type              id;          // cache of block_header_state::header.calculate_id() (indexed on this field)
    header_extension_multimap  header_exts; // redundant with the data stored in header
 
    // ------ functions -----------------------------------------------------------------
-   deque<transaction_metadata_ptr>      extract_trxs_metas() const { return {}; }; //  [greg todo] see impl in block_state_legacy.hpp
+   deque<transaction_metadata_ptr>      extract_trxs_metas() { return {}; }; //  [greg todo] see impl in block_state_legacy.hpp
    
-   const block_id_type&  previous() const { return bhs.previous(); }
-   uint32_t              block_num() const { return bhs.block_num(); }
-   block_header_state*   get_bhs() { return &bhs; }
-   block_timestamp_type  timestamp() const { return bhs.timestamp(); }
-   extensions_type       header_extensions() { return bhs._header.header_extensions; }
-   protocol_feature_activation_set_ptr get_activated_protocol_features() { return bhs._activated_protocol_features; }
+   const block_id_type&  previous()  const { return block_header_state::previous(); }
+   uint32_t              block_num() const { return block_header_state::block_num(); }
+      block_header_state*   get_bhs()         { return static_cast<block_header_state*>(this); }
+   block_timestamp_type  timestamp() const { return block_header_state::timestamp(); }
+   extensions_type       header_extensions() { return block_header_state::_header.header_extensions; }
+   protocol_feature_activation_set_ptr get_activated_protocol_features() { return block_header_state::_activated_protocol_features; }
     // [greg todo] equivalent of block_state_legacy_common::dpos_irreversible_blocknum - ref in fork_database.cpp
    uint32_t              irreversible_blocknum() const { return 0; }
 
@@ -43,4 +42,4 @@ using block_state_ptr = std::shared_ptr<block_state>;
 } // namespace eosio::chain
 
 // [greg todo] which members need to be serialized to disk when saving fork_db
-FC_REFLECT( eosio::chain::block_state, (bhs)(block)(validated) )
+FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(validated) )
