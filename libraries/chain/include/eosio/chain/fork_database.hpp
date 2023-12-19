@@ -35,7 +35,7 @@ namespace eosio::chain {
       void open( validator_t& validator );
       void close();
 
-      const bhs* get_block_header( const block_id_type& id ) const;
+      bhsp get_block_header( const block_id_type& id ) const;
       bsp  get_block( const block_id_type& id ) const;
 
       /**
