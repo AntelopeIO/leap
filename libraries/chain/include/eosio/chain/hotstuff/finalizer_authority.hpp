@@ -8,7 +8,7 @@ namespace eosio::chain {
    struct finalizer_authority {
 
       std::string  description;
-      uint64_t     fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
+      uint64_t     weight = 0; // weight that this finalizer's vote has for meeting fthreshold
       fc::crypto::blslib::bls_public_key  public_key;
 
       auto operator<=>(const finalizer_authority&) const = default;
@@ -16,4 +16,4 @@ namespace eosio::chain {
 
 } /// eosio::chain
 
-FC_REFLECT( eosio::chain::finalizer_authority, (description)(fweight)(public_key) )
+FC_REFLECT( eosio::chain::finalizer_authority, (description)(weight)(public_key) )
