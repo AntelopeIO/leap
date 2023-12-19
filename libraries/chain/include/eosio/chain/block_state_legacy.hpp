@@ -37,16 +37,14 @@ namespace eosio { namespace chain {
       block_timestamp_type   timestamp()             const { return header.timestamp; }
       const extensions_type& header_extensions()     const { return header.header_extensions; }
       bool                   is_valid()              const { return validated; }
-      protocol_feature_activation_set_ptr get_activated_protocol_features() const { return activated_protocol_features; }
+      void                   set_valid(bool b)             { validated = b; }
+      protocol_feature_activation_set_ptr    get_activated_protocol_features() const { return activated_protocol_features; }
+      const deque<transaction_metadata_ptr>& trxs_metas() const { return _cached_trxs; }
+
       
    private: // internal use only, not thread safe
       friend struct fc::reflector<block_state_legacy>;
-      friend bool block_state_is_valid( const block_state_legacy& ); // work-around for multi-index access
       friend struct controller_impl;
-      template<class bsp, class bhsp> friend class  fork_database;
-      template<class bsp, class bhsp> friend struct fork_database_impl;
-      friend class  unapplied_transaction_queue;
-      friend struct pending_state;
       friend struct completed_block;
 
       bool is_pub_keys_recovered()const { return _pub_keys_recovered; }
@@ -61,7 +59,6 @@ namespace eosio { namespace chain {
          _pub_keys_recovered = keys_recovered;
          _cached_trxs = std::move( trxs_metas );
       }
-      const deque<transaction_metadata_ptr>& trxs_metas()const { return _cached_trxs; }
 
       bool                                                validated = false;
 

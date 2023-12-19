@@ -75,7 +75,7 @@ class maybe_session {
    public:
       maybe_session() = default;
 
-      maybe_session( maybe_session&& other)
+      maybe_session( maybe_session&& other) noexcept
          :_session(std::move(other._session))
       {
       }

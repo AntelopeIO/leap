@@ -23,11 +23,6 @@ namespace eosio::chain {
    template<class bsp, class bhsp>
    const uint32_t fork_database<bsp, bhsp>::max_supported_version = 2;
 
-   // work around block_state_legacy::is_valid being private
-   inline bool block_state_is_valid( const block_state_legacy& bs ) {
-      return bs.is_valid();
-   }
-
    /**
     * History:
     * Version 1: initial version of the new refactored fork database portable format
@@ -269,7 +264,7 @@ namespace eosio::chain {
       index.clear();
       root = std::make_shared<bs>();
       static_cast<bhs&>(*root) = root_bhs;
-      root->validated = true;
+      root->set_valid(true);
       head = root;
    }
 
@@ -285,7 +280,7 @@ namespace eosio::chain {
       auto itr = by_id_idx.begin();
       while (itr != by_id_idx.end()) {
          by_id_idx.modify( itr, [&]( bsp& _bsp ) {
-            _bsp->validated = false;
+            _bsp->set_valid(false);
          } );
          ++itr;
       }
@@ -565,7 +560,7 @@ namespace eosio::chain {
 
    template<class bsp, class bhsp>
    void fork_database_impl<bsp, bhsp>::mark_valid_impl( const bsp& h ) {
-      if( h->validated ) return;
+      if( h->is_valid() ) return;
 
       auto& by_id_idx = index.template get<by_block_id>();
 
@@ -575,7 +570,7 @@ namespace eosio::chain {
                   ("id", h->id()) );
 
       by_id_idx.modify( itr, []( bsp& _bsp ) {
-         _bsp->validated = true;
+         _bsp->set_valid(true);
       } );
 
       auto candidate = index.template get<by_lib_block_num>().begin();

@@ -26,16 +26,12 @@ namespace eosio::chain {
       uint32_t               block_num()         const { return block_header_state::block_num(); }
       block_timestamp_type   timestamp()         const { return block_header_state::timestamp(); }
       const extensions_type& header_extensions() const { return block_header_state::header.header_extensions; }
+      bool                   is_valid()          const { return validated; } 
+      void                   set_valid(bool b)         { validated = b; }
+      uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
       
       protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
       deque<transaction_metadata_ptr>     extract_trxs_metas() { return {}; }; //  [greg todo] see impl in block_state_legacy.hpp
-      
-      // [greg todo] equivalent of block_state_legacy_common::dpos_irreversible_blocknum - ref in fork_database.cpp
-      uint32_t              irreversible_blocknum() const { return 0; }
-
-      // [greg todo] equivalent of block_state_legacy::validated - ref in fork_database.cpp
-      bool                  is_valid() const { return validated; } 
-   
    };
 
 using block_state_ptr = std::shared_ptr<block_state>;
