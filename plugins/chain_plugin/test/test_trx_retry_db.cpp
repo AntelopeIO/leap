@@ -276,8 +276,8 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // signal block, nothing should be expired as now has not changed
       auto bsp1 = make_block_state(1, {});
       trx_retry.on_block_start(1);
-      trx_retry.on_accepted_block(bsp1);
-      trx_retry.on_irreversible_block(bsp1);
+      trx_retry.on_accepted_block(bsp1->block_num);
+      trx_retry.on_irreversible_block(bsp1->block);
       BOOST_CHECK(!trx_1_expired);
       BOOST_CHECK(!trx_2_expired);
       // increase time by 3 seconds to expire first
@@ -286,8 +286,8 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // signal block, first transaction should expire
       auto bsp2 = make_block_state(2, {});
       trx_retry.on_block_start(2);
-      trx_retry.on_accepted_block(bsp2);
-      trx_retry.on_irreversible_block(bsp2);
+      trx_retry.on_accepted_block(bsp2->block_num);
+      trx_retry.on_irreversible_block(bsp2->block);
       BOOST_CHECK(trx_1_expired);
       BOOST_CHECK(!trx_2_expired);
       // increase time by 2 seconds to expire second
@@ -296,8 +296,8 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // signal block, second transaction should expire
       auto bsp3 = make_block_state(3, {});
       trx_retry.on_block_start(3);
-      trx_retry.on_accepted_block(bsp3);
-      trx_retry.on_irreversible_block(bsp3);
+      trx_retry.on_accepted_block(bsp3->block_num);
+      trx_retry.on_irreversible_block(bsp3->block);
       BOOST_CHECK(trx_1_expired);
       BOOST_CHECK(trx_2_expired);
       BOOST_CHECK_EQUAL(0u, trx_retry.size());
@@ -328,7 +328,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // signal block, transaction 3 should be sent
       auto bsp4 = make_block_state(4, {});
       trx_retry.on_block_start(4);
-      trx_retry.on_accepted_block(bsp4);
+      trx_retry.on_accepted_block(bsp4->block_num);
       BOOST_CHECK( get_id(transactions_acked.pop().second) == 3 );
       BOOST_CHECK_EQUAL( 0u, transactions_acked.size() );
       // increase time by 1 seconds, so trx_4 is sent
@@ -337,7 +337,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // signal block, transaction 4 should be sent
       auto bsp5 = make_block_state(5, {});
       trx_retry.on_block_start(5);
-      trx_retry.on_accepted_block(bsp5);
+      trx_retry.on_accepted_block(bsp5->block_num);
       BOOST_CHECK( get_id(transactions_acked.pop().second) == 4 );
       BOOST_CHECK_EQUAL( 0u, transactions_acked.size() );
       BOOST_CHECK(!trx_3_expired);
@@ -347,10 +347,10 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp6 = make_block_state(6, {});
       trx_retry.on_block_start(6);
-      trx_retry.on_accepted_block(bsp6);
-      trx_retry.on_irreversible_block(bsp4);
-      trx_retry.on_irreversible_block(bsp5);
-      trx_retry.on_irreversible_block(bsp6);
+      trx_retry.on_accepted_block(bsp6->block_num);
+      trx_retry.on_irreversible_block(bsp4->block);
+      trx_retry.on_irreversible_block(bsp5->block);
+      trx_retry.on_irreversible_block(bsp6->block);
       BOOST_CHECK(trx_3_expired);
       BOOST_CHECK(trx_4_expired);
       BOOST_CHECK_EQUAL(0u, trx_retry.size());
@@ -378,7 +378,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // not in block 7, so not returned to user
       auto bsp7 = make_block_state(7, {});
       trx_retry.on_block_start(7);
-      trx_retry.on_accepted_block(bsp7);
+      trx_retry.on_accepted_block(bsp7->block_num);
       BOOST_CHECK(!trx_5_variant);
       BOOST_CHECK(!trx_6_variant);
       // 5,6 in block 8
@@ -390,7 +390,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_applied_transaction(trace_5, trx_5);
       trx_retry.on_applied_transaction(trace_6, trx_6);
       auto bsp8 = make_block_state(8, {trx_5, trx_6});
-      trx_retry.on_accepted_block(bsp8);
+      trx_retry.on_accepted_block(bsp8->block_num);
       BOOST_CHECK(!trx_5_variant);
       BOOST_CHECK(!trx_6_variant);
       // need 2 blocks before 6 returned to user
@@ -398,14 +398,14 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp9 = make_block_state(9, {});
       trx_retry.on_block_start(9);
-      trx_retry.on_accepted_block(bsp9);
+      trx_retry.on_accepted_block(bsp9->block_num);
       BOOST_CHECK(!trx_5_variant);
       BOOST_CHECK(!trx_6_variant);
       pnow += boost::posix_time::seconds(1); // new block, new time
       fc::mock_time_traits::set_now(pnow);
       auto bsp10 = make_block_state(10, {});
       trx_retry.on_block_start(10);
-      trx_retry.on_accepted_block(bsp10);
+      trx_retry.on_accepted_block(bsp10->block_num);
       BOOST_CHECK(!trx_5_variant);
       BOOST_CHECK(trx_6_variant);
       // now signal lib for trx_6
@@ -413,13 +413,13 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp11 = make_block_state(11, {});
       trx_retry.on_block_start(11);
-      trx_retry.on_accepted_block(bsp11);
+      trx_retry.on_accepted_block(bsp11->block_num);
       BOOST_CHECK(!trx_5_variant);
       BOOST_CHECK(trx_6_variant);
-      trx_retry.on_irreversible_block(bsp7);
+      trx_retry.on_irreversible_block(bsp7->block);
       BOOST_CHECK(!trx_5_variant);
       BOOST_CHECK(trx_6_variant);
-      trx_retry.on_irreversible_block(bsp8);
+      trx_retry.on_irreversible_block(bsp8->block);
       BOOST_CHECK(trx_5_variant);
       BOOST_CHECK(trx_6_variant);
       BOOST_CHECK_EQUAL(0u, trx_retry.size());
@@ -456,7 +456,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // not in block 12
       auto bsp12 = make_block_state(12, {});
       trx_retry.on_block_start(12);
-      trx_retry.on_accepted_block(bsp12);
+      trx_retry.on_accepted_block(bsp12->block_num);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(!trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -471,7 +471,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_applied_transaction(trace_8, trx_8);
       trx_retry.on_applied_transaction(trace_9, trx_9);
       auto bsp13 = make_block_state(13, {trx_7, trx_8, trx_9});
-      trx_retry.on_accepted_block(bsp13);
+      trx_retry.on_accepted_block(bsp13->block_num);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(!trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -480,7 +480,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp14 = make_block_state(14, {});
       trx_retry.on_block_start(14);
-      trx_retry.on_accepted_block(bsp14);
+      trx_retry.on_accepted_block(bsp14->block_num);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(!trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -488,7 +488,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp15 = make_block_state(15, {});
       trx_retry.on_block_start(15);
-      trx_retry.on_accepted_block(bsp15);
+      trx_retry.on_accepted_block(bsp15->block_num);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(!trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -500,14 +500,14 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       BOOST_CHECK_EQUAL(3u, trx_retry.size());
       // now produce an empty 13
       auto bsp13b = make_block_state(13, {}); // now 13 has no traces
-      trx_retry.on_accepted_block(bsp13b);
+      trx_retry.on_accepted_block(bsp13b->block_num);
       // produced another empty block
       pnow += boost::posix_time::seconds(1); // new block, new time
       fc::mock_time_traits::set_now(pnow);
       trx_retry.on_block_start(14);
       // now produce an empty 14
       auto bsp14b = make_block_state(14, {}); // empty
-      trx_retry.on_accepted_block(bsp14b);
+      trx_retry.on_accepted_block(bsp14b->block_num);
       // produce block with 7,8
       trx_retry.on_block_start(15);
       auto trace_7b = make_transaction_trace( trx_7, 15);
@@ -515,13 +515,13 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_applied_transaction(trace_7b, trx_7);
       trx_retry.on_applied_transaction(trace_8b, trx_8);
       auto bsp15b = make_block_state(15, {trx_7, trx_8});
-      trx_retry.on_accepted_block(bsp15b);
+      trx_retry.on_accepted_block(bsp15b->block_num);
       // need 3 blocks before 8 returned to user
       pnow += boost::posix_time::seconds(1); // new block, new time
       fc::mock_time_traits::set_now(pnow);
       auto bsp16 = make_block_state(16, {});
       trx_retry.on_block_start(16);
-      trx_retry.on_accepted_block(bsp16);
+      trx_retry.on_accepted_block(bsp16->block_num);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(!trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -529,7 +529,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp17 = make_block_state(17, {});
       trx_retry.on_block_start(17);
-      trx_retry.on_accepted_block(bsp17);
+      trx_retry.on_accepted_block(bsp17->block_num);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(!trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -537,20 +537,20 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp18 = make_block_state(18, {});
       trx_retry.on_block_start(18);
-      trx_retry.on_accepted_block(bsp18);
+      trx_retry.on_accepted_block(bsp18->block_num);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
-      trx_retry.on_irreversible_block(bsp9);
-      trx_retry.on_irreversible_block(bsp10);
-      trx_retry.on_irreversible_block(bsp11);
-      trx_retry.on_irreversible_block(bsp12);
-      trx_retry.on_irreversible_block(bsp13b);
-      trx_retry.on_irreversible_block(bsp14b);
+      trx_retry.on_irreversible_block(bsp9->block);
+      trx_retry.on_irreversible_block(bsp10->block);
+      trx_retry.on_irreversible_block(bsp11->block);
+      trx_retry.on_irreversible_block(bsp12->block);
+      trx_retry.on_irreversible_block(bsp13b->block);
+      trx_retry.on_irreversible_block(bsp14b->block);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
-      trx_retry.on_irreversible_block(bsp15b);
+      trx_retry.on_irreversible_block(bsp15b->block);
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -559,12 +559,12 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp19 = make_block_state(19, {});
       trx_retry.on_block_start(19);
-      trx_retry.on_accepted_block(bsp19);
-      trx_retry.on_irreversible_block(bsp15);
-      trx_retry.on_irreversible_block(bsp16);
-      trx_retry.on_irreversible_block(bsp17);
-      trx_retry.on_irreversible_block(bsp18);
-      trx_retry.on_irreversible_block(bsp19);
+      trx_retry.on_accepted_block(bsp19->block_num);
+      trx_retry.on_irreversible_block(bsp15->block);
+      trx_retry.on_irreversible_block(bsp16->block);
+      trx_retry.on_irreversible_block(bsp17->block);
+      trx_retry.on_irreversible_block(bsp18->block);
+      trx_retry.on_irreversible_block(bsp19->block);
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -572,12 +572,12 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto bsp20 = make_block_state(20, {});
       trx_retry.on_block_start(20);
-      trx_retry.on_accepted_block(bsp20);
+      trx_retry.on_accepted_block(bsp20->block_num);
       // waits for LIB
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
-      trx_retry.on_irreversible_block(bsp20);
+      trx_retry.on_irreversible_block(bsp20->block);
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(trx_9_expired);
@@ -607,14 +607,14 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_applied_transaction(trace_10, trx_10);
       trx_retry.on_applied_transaction(trace_11, trx_11);
       auto bsp21 = make_block_state(21, {trx_10, trx_11});
-      trx_retry.on_accepted_block(bsp21);
+      trx_retry.on_accepted_block(bsp21->block_num);
       BOOST_CHECK(trx_10_variant);
       BOOST_CHECK(!trx_11_variant);
       pnow += boost::posix_time::seconds(1); // new block, new time
       fc::mock_time_traits::set_now(pnow);
       auto bsp22 = make_block_state(22, {});
       trx_retry.on_block_start(22);
-      trx_retry.on_accepted_block(bsp22);
+      trx_retry.on_accepted_block(bsp22->block_num);
       BOOST_CHECK(trx_10_variant);
       BOOST_CHECK(trx_11_variant);
       BOOST_CHECK_EQUAL(0u, trx_retry.size());

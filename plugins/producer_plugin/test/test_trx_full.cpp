@@ -68,15 +68,15 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
 }
 
 // verify all trxs are in blocks only once
-bool verify_equal( const std::deque<packed_transaction_ptr>& trxs, const std::deque<block_state_legacy_ptr>& all_blocks) {
+bool verify_equal( const std::deque<packed_transaction_ptr>& trxs, const std::deque<signed_block_ptr>& all_blocks) {
    std::set<transaction_id_type> trxs_ids; // trx can appear more than once if they were aborted
    std::set<transaction_id_type> blk_trxs_ids;
 
    for( const auto& trx : trxs ) {
       trxs_ids.emplace( trx->id() );
    }
-   for( const auto& bs : all_blocks ) {
-      for( const auto& trx_receipt : bs->block->transactions ) {
+   for( const auto& block : all_blocks ) {
+      for( const auto& trx_receipt : block->transactions ) {
          const auto& trx = std::get<packed_transaction>( trx_receipt.trx ).get_transaction();
          blk_trxs_ids.emplace( trx.id() );
       }
@@ -126,13 +126,14 @@ BOOST_AUTO_TEST_CASE(producer) {
       auto[prod_plug, chain_plug] = plugin_fut.get();
       auto chain_id = chain_plug->get_chain_id();
 
-      std::deque<block_state_legacy_ptr> all_blocks;
+      std::deque<signed_block_ptr> all_blocks;
       std::promise<void> empty_blocks_promise;
       std::future<void> empty_blocks_fut = empty_blocks_promise.get_future();
-      auto ab = chain_plug->chain().accepted_block.connect( [&](const block_state_legacy_ptr& bsp) {
+      auto ab = chain_plug->chain().accepted_block.connect( [&](const chain::block_signal_params& t) {
+         const auto& [ block, id ] = t;
          static int num_empty = std::numeric_limits<int>::max();
-         all_blocks.push_back( bsp );
-         if( bsp->block->transactions.empty() ) {
+         all_blocks.push_back( block );
+         if( block->transactions.empty() ) {
             --num_empty;
             if( num_empty == 0 ) empty_blocks_promise.set_value();
          } else { // we want a few empty blocks after we have some non-empty blocks

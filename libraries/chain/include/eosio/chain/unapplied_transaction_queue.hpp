@@ -114,10 +114,10 @@ public:
       return true;
    }
 
-   void clear_applied( const block_state_legacy_ptr& bs ) {
+   void clear_applied( const signed_block_ptr& block ) {
       if( empty() ) return;
       auto& idx = queue.get<by_trx_id>();
-      for( const auto& receipt : bs->block->transactions ) {
+      for( const auto& receipt : block->transactions ) {
          if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
             const auto& pt = std::get<packed_transaction>(receipt.trx);
             auto itr = idx.find( pt.id() );

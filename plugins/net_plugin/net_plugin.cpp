@@ -532,11 +532,11 @@ namespace eosio {
       uint32_t get_chain_lib_num() const;
       uint32_t get_chain_head_num() const;
 
-      void on_accepted_block_header( const block_state_legacy_ptr& bs );
-      void on_accepted_block( const block_state_legacy_ptr& bs );
+      void on_accepted_block_header( const signed_block_ptr& block, const block_id_type& id );
+      void on_accepted_block();
 
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
-      void on_irreversible_block( const block_state_legacy_ptr& block );
+      void on_irreversible_block( const block_id_type& id, uint32_t block_num );
 
       void bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const chain::hs_message& msg );
       void warn_hs_message( uint32_t sender_peer, const chain::hs_message_warning& code );
@@ -3912,16 +3912,16 @@ namespace eosio {
    }
 
    // called from application thread
-   void net_plugin_impl::on_accepted_block_header(const block_state_legacy_ptr& bs) {
+   void net_plugin_impl::on_accepted_block_header(const signed_block_ptr& block, const block_id_type& id) {
       update_chain_info();
 
-      dispatcher->strand.post([bs]() {
-         fc_dlog(logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", bs->block_num)("id", bs->id));
-         my_impl->dispatcher->bcast_block(bs->block, bs->id);
+      dispatcher->strand.post([block, id]() {
+         fc_dlog(logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", block->block_num())("id", id));
+         my_impl->dispatcher->bcast_block(block, id);
       });
    }
 
-   void net_plugin_impl::on_accepted_block(const block_state_legacy_ptr& ) {
+   void net_plugin_impl::on_accepted_block() {
       on_pending_schedule(chain_plug->chain().pending_producers());
       on_active_schedule(chain_plug->chain().active_producers());
    }
@@ -3942,8 +3942,8 @@ namespace eosio {
    }
 
    // called from application thread
-   void net_plugin_impl::on_irreversible_block( const block_state_legacy_ptr& block) {
-      fc_dlog( logger, "on_irreversible_block, blk num = ${num}, id = ${id}", ("num", block->block_num)("id", block->id) );
+   void net_plugin_impl::on_irreversible_block( const block_id_type& id, uint32_t block_num) {
+      fc_dlog( logger, "on_irreversible_block, blk num = ${num}, id = ${id}", ("num", block_num)("id", id) );
       update_chain_info();
    }
 
@@ -4339,15 +4339,17 @@ namespace eosio {
 
       {
          chain::controller& cc = chain_plug->chain();
-         cc.accepted_block_header.connect( [my = shared_from_this()]( const block_state_legacy_ptr& s ) {
-            my->on_accepted_block_header( s );
+         cc.accepted_block_header.connect( [my = shared_from_this()]( const block_signal_params& t ) {
+            const auto& [ block, id ] = t;
+            my->on_accepted_block_header( block, id );
          } );
 
-         cc.accepted_block.connect( [my = shared_from_this()]( const block_state_legacy_ptr& s ) {
-            my->on_accepted_block( s );
+         cc.accepted_block.connect( [my = shared_from_this()]( const block_signal_params& t ) {
+            my->on_accepted_block();
          } );
-         cc.irreversible_block.connect( [my = shared_from_this()]( const block_state_legacy_ptr& s ) {
-            my->on_irreversible_block( s );
+         cc.irreversible_block.connect( [my = shared_from_this()]( const block_signal_params& t ) {
+            const auto& [ block, id ] = t;
+            my->on_irreversible_block( id, block->block_num() );
          } );
 
       }

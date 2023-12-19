@@ -350,8 +350,9 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
       set_activation_handler<builtin_protocol_feature_t::instant_finality>();
 
-      self.irreversible_block.connect([this](const block_state_legacy_ptr& bsp) {
-         wasmif.current_lib(bsp->block_num);
+      self.irreversible_block.connect([this](const block_signal_params& t) {
+         const auto& [ block, id] = t;
+         wasmif.current_lib(block->block_num());
       });
 
 
@@ -371,7 +372,7 @@ struct controller_impl {
    }
 
    /**
-    *  Plugins / observers listening to signals emited (such as accepted_transaction) might trigger
+    *  Plugins / observers listening to signals emited might trigger
     *  errors and throw exceptions. Unless those exceptions are caught it could impact consensus and/or
     *  cause a node to fork.
     *
@@ -453,7 +454,7 @@ struct controller_impl {
                apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
             }
 
-            emit( self.irreversible_block, *bitr );
+            emit( self.irreversible_block, std::tie((*bitr)->block, (*bitr)->id) );
 
             // blog.append could fail due to failures like running out of space.
             // Do it before commit so that in case it throws, DB can be rolled back.
@@ -1341,7 +1342,6 @@ struct controller_impl {
          pending->_block_report.total_cpu_usage_us += billed_cpu_time_us;
          pending->_block_report.total_elapsed_time += trace->elapsed;
          pending->_block_report.total_time += trace->elapsed;
-         emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
          undo_session.squash();
@@ -1407,7 +1407,6 @@ struct controller_impl {
 
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
-         emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
 
@@ -1452,7 +1451,6 @@ struct controller_impl {
          if( !trace->except_ptr ) {
             trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
             trace->elapsed = fc::time_point::now() - start;
-            emit( self.accepted_transaction, trx );
             dmlog_applied_transaction(trace);
             emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
             undo_session.squash();
@@ -1498,13 +1496,11 @@ struct controller_impl {
          trace->receipt = push_receipt(gtrx.trx_id, transaction_receipt::hard_fail, cpu_time_to_bill_us, 0);
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
-         emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
 
          undo_session.squash();
       } else {
-         emit( self.accepted_transaction, trx );
          dmlog_applied_transaction(trace);
          emit( self.applied_transaction, std::tie(trace, trx->packed_trx()) );
       }
@@ -1638,7 +1634,6 @@ struct controller_impl {
                    // call the accept signal but only once for this transaction
                    if (!trx->accepted) {
                        trx->accepted = true;
-                       emit(self.accepted_transaction, trx);
                    }
 
                    dmlog_applied_transaction(trace, &trn);
@@ -1685,7 +1680,6 @@ struct controller_impl {
          }
 
          if (!trx->is_transient()) {
-            emit(self.accepted_transaction, trx);
             dmlog_applied_transaction(trace);
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
 
@@ -1974,7 +1968,7 @@ struct controller_impl {
          if( s == controller::block_status::incomplete ) {
             fork_db.add( bsp );
             fork_db.mark_valid( bsp );
-            emit( self.accepted_block_header, bsp );
+            emit( self.accepted_block_header, std::tie(bsp->block, bsp->id) );
             EOS_ASSERT( bsp == fork_db.head(), fork_database_exception, "committed block did not become the new head in fork database");
          } else if (s != controller::block_status::irreversible) {
             fork_db.mark_valid( bsp );
@@ -1986,7 +1980,7 @@ struct controller_impl {
             dm_logger->on_accepted_block(bsp);
          }
 
-         emit( self.accepted_block, bsp );
+         emit( self.accepted_block, std::tie(bsp->block, bsp->id) );
 
          if( s == controller::block_status::incomplete ) {
             log_irreversible();
@@ -2297,15 +2291,13 @@ struct controller_impl {
             return;
          }
 
-         emit( self.pre_accepted_block, b );
-
          fork_db.add( bsp );
 
          if (self.is_trusted_producer(b->producer)) {
             trusted_producer_light_validation = true;
          };
 
-         emit( self.accepted_block_header, bsp );
+         emit( self.accepted_block_header, std::tie(bsp->block, bsp->id) );
 
          if( read_mode != db_read_mode::IRREVERSIBLE ) {
             maybe_switch_forks( br, fork_db.pending_head(), s, forked_branch_cb, trx_lookup );
@@ -2332,7 +2324,6 @@ struct controller_impl {
             return;
          }
 
-         emit( self.pre_accepted_block, b );
          const bool skip_validate_signee = !conf.force_all_checks;
 
          auto bsp = std::make_shared<block_state_legacy>(
@@ -2351,7 +2342,7 @@ struct controller_impl {
             fork_db.add( bsp, true );
          }
 
-         emit( self.accepted_block_header, bsp );
+         emit( self.accepted_block_header, std::tie(bsp->block, bsp->id) );
 
          controller::block_report br;
          if( s == controller::block_status::irreversible ) {
@@ -2359,7 +2350,7 @@ struct controller_impl {
 
             // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
             // So emit it explicitly here.
-            emit( self.irreversible_block, bsp );
+            emit( self.irreversible_block, std::tie(bsp->block, bsp->id) );
 
             if (!self.skip_db_sessions(s)) {
                db.commit(bsp->block_num);

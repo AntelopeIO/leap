@@ -154,11 +154,9 @@ using boost::signals2::scoped_connection;
 class chain_plugin_impl {
 public:
    chain_plugin_impl()
-   :pre_accepted_block_channel(app().get_channel<channels::pre_accepted_block>())
-   ,accepted_block_header_channel(app().get_channel<channels::accepted_block_header>())
+   :accepted_block_header_channel(app().get_channel<channels::accepted_block_header>())
    ,accepted_block_channel(app().get_channel<channels::accepted_block>())
    ,irreversible_block_channel(app().get_channel<channels::irreversible_block>())
-   ,accepted_transaction_channel(app().get_channel<channels::accepted_transaction>())
    ,applied_transaction_channel(app().get_channel<channels::applied_transaction>())
    ,incoming_block_sync_method(app().get_method<incoming::methods::block_sync>())
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
@@ -181,11 +179,9 @@ public:
 
 
    // retained references to channels for easy publication
-   channels::pre_accepted_block::channel_type&     pre_accepted_block_channel;
    channels::accepted_block_header::channel_type&  accepted_block_header_channel;
    channels::accepted_block::channel_type&         accepted_block_channel;
    channels::irreversible_block::channel_type&     irreversible_block_channel;
-   channels::accepted_transaction::channel_type&   accepted_transaction_channel;
    channels::applied_transaction::channel_type&    applied_transaction_channel;
 
    // retained references to methods for easy calling
@@ -199,11 +195,9 @@ public:
    methods::get_last_irreversible_block_number::method_type::handle  get_last_irreversible_block_number_provider;
 
    // scoped connections for chain controller
-   std::optional<scoped_connection>                                   pre_accepted_block_connection;
    std::optional<scoped_connection>                                   accepted_block_header_connection;
    std::optional<scoped_connection>                                   accepted_block_connection;
    std::optional<scoped_connection>                                   irreversible_block_connection;
-   std::optional<scoped_connection>                                   accepted_transaction_connection;
    std::optional<scoped_connection>                                   applied_transaction_connection;
    std::optional<scoped_connection>                                   block_start_connection;
 
@@ -1018,72 +1012,58 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
             } );
 
       // relay signals to channels
-      pre_accepted_block_connection = chain->pre_accepted_block.connect([this](const signed_block_ptr& blk) {
-         auto itr = loaded_checkpoints.find( blk->block_num() );
-         if( itr != loaded_checkpoints.end() ) {
-            auto id = blk->calculate_id();
-            EOS_ASSERT( itr->second == id, checkpoint_exception,
-                        "Checkpoint does not match for block number ${num}: expected: ${expected} actual: ${actual}",
-                        ("num", blk->block_num())("expected", itr->second)("actual", id)
-            );
-         }
-
-         pre_accepted_block_channel.publish(priority::medium, blk);
-      });
-
       accepted_block_header_connection = chain->accepted_block_header.connect(
-            [this]( const block_state_legacy_ptr& blk ) {
-               accepted_block_header_channel.publish( priority::medium, blk );
+            [this]( const block_signal_params& t ) {
+               accepted_block_header_channel.publish( priority::medium, t );
             } );
 
-      accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_legacy_ptr& blk ) {
+      accepted_block_connection = chain->accepted_block.connect( [this]( const block_signal_params& t ) {
+         const auto& [ block, id ] = t;
          if (_account_query_db) {
-            _account_query_db->commit_block(blk);
+            _account_query_db->commit_block(block);
          }
 
          if (_trx_retry_db) {
-            _trx_retry_db->on_accepted_block(blk);
+            _trx_retry_db->on_accepted_block(block->block_num());
          }
 
          if (_trx_finality_status_processing) {
-            _trx_finality_status_processing->signal_accepted_block(blk);
+            _trx_finality_status_processing->signal_accepted_block(block, id);
          }
 
-         accepted_block_channel.publish( priority::high, blk );
+         accepted_block_channel.publish( priority::high, t );
       } );
 
-      irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_legacy_ptr& blk ) {
+      irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_signal_params& t ) {
+         const auto& [ block, id ] = t;
+
          if (_trx_retry_db) {
-            _trx_retry_db->on_irreversible_block(blk);
+            _trx_retry_db->on_irreversible_block(block);
          }
 
          if (_trx_finality_status_processing) {
-            _trx_finality_status_processing->signal_irreversible_block(blk);
+            _trx_finality_status_processing->signal_irreversible_block(block, id);
          }
 
-         irreversible_block_channel.publish( priority::low, blk );
+         irreversible_block_channel.publish( priority::low, t );
       } );
-
-      accepted_transaction_connection = chain->accepted_transaction.connect(
-            [this]( const transaction_metadata_ptr& meta ) {
-               accepted_transaction_channel.publish( priority::low, meta );
-            } );
-
+      
       applied_transaction_connection = chain->applied_transaction.connect(
             [this]( std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t ) {
+               const auto& [ trace, ptrx ] = t;
                if (_account_query_db) {
-                  _account_query_db->cache_transaction_trace(std::get<0>(t));
+                  _account_query_db->cache_transaction_trace(trace);
                }
 
                if (_trx_retry_db) {
-                  _trx_retry_db->on_applied_transaction(std::get<0>(t), std::get<1>(t));
+                  _trx_retry_db->on_applied_transaction(trace, ptrx);
                }
 
                if (_trx_finality_status_processing) {
-                  _trx_finality_status_processing->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
+                  _trx_finality_status_processing->signal_applied_transaction(trace, ptrx);
                }
 
-               applied_transaction_channel.publish( priority::low, std::get<0>(t) );
+               applied_transaction_channel.publish( priority::low, trace );
             } );
 
       if (_trx_finality_status_processing || _trx_retry_db) {
@@ -1160,11 +1140,9 @@ void chain_plugin::plugin_startup() {
 }
 
 void chain_plugin_impl::plugin_shutdown() {
-   pre_accepted_block_connection.reset();
    accepted_block_header_connection.reset();
    accepted_block_connection.reset();
    irreversible_block_connection.reset();
-   accepted_transaction_connection.reset();
    applied_transaction_connection.reset();
    block_start_connection.reset();
    chain.reset();
