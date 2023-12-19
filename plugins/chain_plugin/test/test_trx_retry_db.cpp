@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto bsp1 = make_block_state(1, {});
       trx_retry.on_block_start(1);
       trx_retry.on_accepted_block(bsp1->block_num);
-      trx_retry.on_irreversible_block(bsp1->block, bsp1->block_num);
+      trx_retry.on_irreversible_block(bsp1->block);
       BOOST_CHECK(!trx_1_expired);
       BOOST_CHECK(!trx_2_expired);
       // increase time by 3 seconds to expire first
@@ -287,7 +287,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto bsp2 = make_block_state(2, {});
       trx_retry.on_block_start(2);
       trx_retry.on_accepted_block(bsp2->block_num);
-      trx_retry.on_irreversible_block(bsp2->block, bsp2->block_num);
+      trx_retry.on_irreversible_block(bsp2->block);
       BOOST_CHECK(trx_1_expired);
       BOOST_CHECK(!trx_2_expired);
       // increase time by 2 seconds to expire second
@@ -297,7 +297,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto bsp3 = make_block_state(3, {});
       trx_retry.on_block_start(3);
       trx_retry.on_accepted_block(bsp3->block_num);
-      trx_retry.on_irreversible_block(bsp3->block, bsp3->block_num);
+      trx_retry.on_irreversible_block(bsp3->block);
       BOOST_CHECK(trx_1_expired);
       BOOST_CHECK(trx_2_expired);
       BOOST_CHECK_EQUAL(0u, trx_retry.size());
@@ -348,9 +348,9 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto bsp6 = make_block_state(6, {});
       trx_retry.on_block_start(6);
       trx_retry.on_accepted_block(bsp6->block_num);
-      trx_retry.on_irreversible_block(bsp4->block, bsp4->block_num);
-      trx_retry.on_irreversible_block(bsp5->block, bsp5->block_num);
-      trx_retry.on_irreversible_block(bsp6->block, bsp6->block_num);
+      trx_retry.on_irreversible_block(bsp4->block);
+      trx_retry.on_irreversible_block(bsp5->block);
+      trx_retry.on_irreversible_block(bsp6->block);
       BOOST_CHECK(trx_3_expired);
       BOOST_CHECK(trx_4_expired);
       BOOST_CHECK_EQUAL(0u, trx_retry.size());
@@ -416,10 +416,10 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_accepted_block(bsp11->block_num);
       BOOST_CHECK(!trx_5_variant);
       BOOST_CHECK(trx_6_variant);
-      trx_retry.on_irreversible_block(bsp7->block, bsp7->block_num);
+      trx_retry.on_irreversible_block(bsp7->block);
       BOOST_CHECK(!trx_5_variant);
       BOOST_CHECK(trx_6_variant);
-      trx_retry.on_irreversible_block(bsp8->block, bsp8->block_num);
+      trx_retry.on_irreversible_block(bsp8->block);
       BOOST_CHECK(trx_5_variant);
       BOOST_CHECK(trx_6_variant);
       BOOST_CHECK_EQUAL(0u, trx_retry.size());
@@ -541,16 +541,16 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
-      trx_retry.on_irreversible_block(bsp9->block, bsp9->block_num);
-      trx_retry.on_irreversible_block(bsp10->block, bsp10->block_num);
-      trx_retry.on_irreversible_block(bsp11->block, bsp11->block_num);
-      trx_retry.on_irreversible_block(bsp12->block, bsp12->block_num);
-      trx_retry.on_irreversible_block(bsp13b->block, bsp13b->block_num);
-      trx_retry.on_irreversible_block(bsp14b->block, bsp14b->block_num);
+      trx_retry.on_irreversible_block(bsp9->block);
+      trx_retry.on_irreversible_block(bsp10->block);
+      trx_retry.on_irreversible_block(bsp11->block);
+      trx_retry.on_irreversible_block(bsp12->block);
+      trx_retry.on_irreversible_block(bsp13b->block);
+      trx_retry.on_irreversible_block(bsp14b->block);
       BOOST_CHECK(!trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
-      trx_retry.on_irreversible_block(bsp15b->block, bsp15b->block_num);
+      trx_retry.on_irreversible_block(bsp15b->block);
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -560,11 +560,11 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto bsp19 = make_block_state(19, {});
       trx_retry.on_block_start(19);
       trx_retry.on_accepted_block(bsp19->block_num);
-      trx_retry.on_irreversible_block(bsp15->block, bsp15->block_num);
-      trx_retry.on_irreversible_block(bsp16->block, bsp16->block_num);
-      trx_retry.on_irreversible_block(bsp17->block, bsp17->block_num);
-      trx_retry.on_irreversible_block(bsp18->block, bsp18->block_num);
-      trx_retry.on_irreversible_block(bsp19->block, bsp19->block_num);
+      trx_retry.on_irreversible_block(bsp15->block);
+      trx_retry.on_irreversible_block(bsp16->block);
+      trx_retry.on_irreversible_block(bsp17->block);
+      trx_retry.on_irreversible_block(bsp18->block);
+      trx_retry.on_irreversible_block(bsp19->block);
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
@@ -577,7 +577,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(!trx_9_expired);
-      trx_retry.on_irreversible_block(bsp20->block, bsp20->block_num);
+      trx_retry.on_irreversible_block(bsp20->block);
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(trx_9_expired);

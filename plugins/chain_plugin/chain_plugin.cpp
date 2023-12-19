@@ -1039,7 +1039,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          const auto& [ block, id ] = t;
 
          if (_trx_retry_db) {
-            _trx_retry_db->on_irreversible_block(block, block->block_num());
+            _trx_retry_db->on_irreversible_block(block);
          }
 
          if (_trx_finality_status_processing) {

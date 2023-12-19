@@ -167,8 +167,8 @@ struct trx_retry_db_impl {
       retry_trxs();
    }
 
-   void on_irreversible_block( const chain::signed_block_ptr& block, uint32_t block_num ) {
-      ack_ready_trxs_by_lib( block_num );
+   void on_irreversible_block( const chain::signed_block_ptr& block ) {
+      ack_ready_trxs_by_lib( block->block_num() );
       clear_expired( block->timestamp );
    }
 
@@ -327,9 +327,9 @@ void trx_retry_db::on_accepted_block( uint32_t block_num ) {
    } FC_LOG_AND_DROP(("trx retry accepted_block ERROR"));
 }
 
-void trx_retry_db::on_irreversible_block(const chain::signed_block_ptr& block, uint32_t block_num ) {
+void trx_retry_db::on_irreversible_block(const chain::signed_block_ptr& block) {
    try {
-      _impl->on_irreversible_block(block, block_num);
+      _impl->on_irreversible_block(block);
    } FC_LOG_AND_DROP(("trx retry irreversible_block ERROR"));
 }
 
