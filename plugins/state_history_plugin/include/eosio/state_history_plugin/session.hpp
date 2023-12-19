@@ -503,7 +503,7 @@ private:
       // not just an optimization, on accepted_block signal may not be able to find block_num in forkdb as it has not been validated
       // until after the accepted_block signal
       std::optional<chain::block_id_type> block_id =
-          (block->block_num() == to_send_block_num) ? id : plugin.get_block_id(to_send_block_num);
+          (block && block->block_num() == to_send_block_num) ? id : plugin.get_block_id(to_send_block_num);
 
       if (block_id && position_it && (*position_it)->block_num == to_send_block_num) {
          // This branch happens when the head block of nodeos is behind the head block of connecting client.
@@ -527,8 +527,10 @@ private:
          auto prev_block_id = plugin.get_block_id(to_send_block_num - 1);
          if (prev_block_id)
             result.prev_block = state_history::block_position{to_send_block_num - 1, *prev_block_id};
-         if (current_request->fetch_block)
-            plugin.get_block(to_send_block_num, block->block_num(), block, result.block);
+         if (current_request->fetch_block) {
+            uint32_t block_num = block ? block->block_num() : 0; // block can be nullptr in testing
+            plugin.get_block(to_send_block_num, block_num, block, result.block);
+         }
          if (current_request->fetch_traces && plugin.get_trace_log())
             result.traces.emplace();
          if (current_request->fetch_deltas && plugin.get_chain_state_log())
