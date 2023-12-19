@@ -389,7 +389,7 @@ namespace eosio::chain {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
-      auto prev_bh = get_block_impl( n->previous() );
+      auto prev_bh = get_block_header_impl( n->previous() );
 
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
                   "unlinkable block", ("id", n->id)("previous", n->previous()) );
@@ -400,7 +400,7 @@ namespace eosio::chain {
 
             if( exts.count(protocol_feature_activation::extension_id()) > 0 ) {
                const auto& new_protocol_features = std::get<protocol_feature_activation>(exts.lower_bound(protocol_feature_activation::extension_id())->second).protocol_features;
-               validator( n->timestamp(), prev_bh->get_activated_protocol_features()->protocol_features, new_protocol_features );
+               validator( n->timestamp(), static_cast<bs*>(prev_bh.get())->get_activated_protocol_features()->protocol_features, new_protocol_features );
             }
          } EOS_RETHROW_EXCEPTIONS( fork_database_exception, "serialized fork database is incompatible with configured protocol features"  )
       }
@@ -625,10 +625,6 @@ namespace eosio::chain {
 
    template<class bsp, class bhsp>
    bsp fork_database_impl<bsp, bhsp>::get_block_impl(const block_id_type& id) const {
-      if( root->id == id ) {
-         return root;
-      }
-      
       auto itr = index.find( id );
       if( itr != index.end() )
          return *itr;

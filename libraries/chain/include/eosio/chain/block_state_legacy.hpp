@@ -27,14 +27,14 @@ namespace eosio { namespace chain {
       block_state_legacy() = default;
 
 
-      signed_block_ptr                                    block;
+      signed_block_ptr      block;
 
       // internal use only, not thread safe
-      const block_id_type&  previous() const { return block_header_state_legacy::prev(); }
-      uint32_t              irreversible_blocknum() const { return dpos_irreversible_blocknum; }
-      uint32_t              block_num() const { return block_header_state_legacy::block_num; }
-      block_timestamp_type  timestamp() const { return header.timestamp; }
-      extensions_type       header_extensions() { return header.header_extensions; }
+      const block_id_type&   previous()              const { return block_header_state_legacy::prev(); }
+      uint32_t               irreversible_blocknum() const { return dpos_irreversible_blocknum; }
+      uint32_t               block_num()             const { return block_header_state_legacy::block_num; }
+      block_timestamp_type   timestamp()             const { return header.timestamp; }
+      const extensions_type& header_extensions()     const { return header.header_extensions; }
       protocol_feature_activation_set_ptr get_activated_protocol_features() { return activated_protocol_features; }
       
    private: // internal use only, not thread safe
@@ -49,7 +49,6 @@ namespace eosio { namespace chain {
 
       bool is_valid()const { return validated; }
       bool is_pub_keys_recovered()const { return _pub_keys_recovered; }
-      block_header_state_legacy* get_bhs() { return static_cast<block_header_state_legacy*>(this); }
       
       deque<transaction_metadata_ptr> extract_trxs_metas() {
          _pub_keys_recovered = false;
