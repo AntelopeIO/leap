@@ -38,52 +38,6 @@ namespace eosio::chain {
    struct by_lib_block_num;
    struct by_prev;
 
-   using fork_multi_index_type_legacy = multi_index_container<
-      block_state_legacy_ptr,
-      indexed_by<
-         hashed_unique< tag<by_block_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state_legacy, const block_id_type&, id), std::hash<block_id_type>>,
-         ordered_non_unique< tag<by_prev>, const_mem_fun<block_state_legacy, const block_id_type&, &block_state_legacy::previous> >,
-         ordered_unique< tag<by_lib_block_num>,
-            composite_key< block_state_legacy,
-               global_fun<const block_state_legacy&, bool, &block_state_is_valid>,
-               // see first_preferred comment
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state_legacy, uint32_t, irreversible_blocknum),
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state_legacy, uint32_t, block_num),
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state_legacy, const block_id_type&, id)
-            >,
-            composite_key_compare<
-               std::greater<bool>,
-               std::greater<uint32_t>,
-               std::greater<uint32_t>,
-               sha256_less
-            >
-         >
-      >
-   >;
-
-   using fork_multi_index_type = multi_index_container<
-      block_state_ptr,
-      indexed_by<
-         hashed_unique< tag<by_block_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state, const block_id_type&, id), std::hash<block_id_type>>,
-         ordered_non_unique< tag<by_prev>, const_mem_fun<block_state, const block_id_type&, &block_state::previous> >,
-         ordered_unique< tag<by_lib_block_num>,
-            composite_key< block_state,
-               BOOST_MULTI_INDEX_MEMBER(block_state, bool, validated),
-               // see first_preferred comment
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state, uint32_t, irreversible_blocknum),
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state, uint32_t, block_num),
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state, const block_id_type&, id)
-            >,
-            composite_key_compare<
-               std::greater<bool>,
-               std::greater<uint32_t>,
-               std::greater<uint32_t>,
-               sha256_less
-            >
-         >
-      >
-   >;
-
    template<class bs>  
    bool first_preferred( const bs& lhs, const bs& rhs ) {
       // dpos_irreversible_blocknum == std::numeric_limits<uint32_t>::max() after hotstuff activation
@@ -97,14 +51,27 @@ namespace eosio::chain {
    struct fork_database_impl {
       using bs               = bsp::element_type;
       using bhs              = bhsp::element_type;
-      using index_type       = std::conditional<std::is_same_v<bsp, block_state_ptr>, fork_multi_index_type, fork_multi_index_type_legacy>::type;
+      //using index_type       = std::conditional<std::is_same_v<bsp, block_state_ptr>, fork_multi_index_type, fork_multi_index_type_legacy>::type;
       
       using fork_database_t  = fork_database<bsp, bhsp>;
       using branch_type      = fork_database_t::branch_type;
       using branch_type_pair = fork_database_t::branch_type_pair;
-      
+
+      using fork_multi_index_type = multi_index_container<
+         bsp,
+         indexed_by<
+            hashed_unique<tag<by_block_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(bs, const block_id_type&, id), std::hash<block_id_type>>,
+            ordered_non_unique<tag<by_prev>, const_mem_fun<bs, const block_id_type&, &bs::previous>>,
+            ordered_unique<tag<by_lib_block_num>,
+                           composite_key<bs, BOOST_MULTI_INDEX_CONST_MEM_FUN(bs, bool, is_valid),
+                                         // see first_preferred comment
+                                         BOOST_MULTI_INDEX_CONST_MEM_FUN(bs, uint32_t, irreversible_blocknum),
+                                         BOOST_MULTI_INDEX_CONST_MEM_FUN(bs, uint32_t, block_num),
+                                         BOOST_MULTI_INDEX_CONST_MEM_FUN(bs, const block_id_type&, id)>,
+                           composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>, sha256_less>>>>;
+
       std::shared_mutex      mtx;
-      index_type             index;
+      fork_multi_index_type  index;
       bsp                    root; // Only uses the block_header_state_legacy portion
       bsp                    head;
       std::filesystem::path  datadir;

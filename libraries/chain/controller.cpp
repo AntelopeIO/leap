@@ -125,11 +125,9 @@ struct completed_block {
       return std::visit([](auto& bsp) { return bsp->extract_trxs_metas(); }, bsp);
    }
 
-   flat_set<digest_type> get_activated_protocol_features() const {
-      return std::visit(
-         overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->activated_protocol_features->protocol_features; },
-                    [](const block_state_ptr& bsp)        { return bsp->get_activated_protocol_features()->protocol_features; }},
-         bsp);
+   const flat_set<digest_type>& get_activated_protocol_features() const {
+      return std::visit([](const auto& bsp) -> const flat_set<digest_type>& {
+            return bsp->get_activated_protocol_features()->protocol_features; }, bsp);
    }
    
    uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }

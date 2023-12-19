@@ -36,7 +36,8 @@ namespace eosio { namespace chain {
       uint32_t               block_num()             const { return block_header_state_legacy::block_num; }
       block_timestamp_type   timestamp()             const { return header.timestamp; }
       const extensions_type& header_extensions()     const { return header.header_extensions; }
-      protocol_feature_activation_set_ptr get_activated_protocol_features() { return activated_protocol_features; }
+      bool                   is_valid()              const { return validated; }
+      protocol_feature_activation_set_ptr get_activated_protocol_features() const { return activated_protocol_features; }
       
    private: // internal use only, not thread safe
       friend struct fc::reflector<block_state_legacy>;
@@ -48,7 +49,6 @@ namespace eosio { namespace chain {
       friend struct pending_state;
       friend struct completed_block;
 
-      bool is_valid()const { return validated; }
       bool is_pub_keys_recovered()const { return _pub_keys_recovered; }
       
       deque<transaction_metadata_ptr> extract_trxs_metas() {
