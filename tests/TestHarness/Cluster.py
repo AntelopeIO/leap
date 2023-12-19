@@ -1063,6 +1063,9 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to import %s account keys into ignition wallet." % (eosioName))
             return None
 
+        if not PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
+            return True
+
         contract="eosio.boot"
         contractDir= str(self.unittestsContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
