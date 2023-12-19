@@ -163,6 +163,19 @@ try:
        time.sleep(1)
        secwait = secwait - 1
 
+    secwait = 30
+    Print("Waiting until node 0 start to produce...")
+    node = cluster.getNode(1)
+    while secwait > 0:
+       info = node.getInfo()
+       if info["head_block_producer"] >= "defproducera" and info["head_block_producer"] <= "defproducerk":
+          break
+       time.sleep(1)
+       secwait = secwait - 1
+
+    if secwait <= 0:
+       errorExit("No producer of node 0")
+
     resource = "producer"
     command = "schedule_protocol_feature_activations"
     payload = {"protocol_features_to_activate":[digest]}
