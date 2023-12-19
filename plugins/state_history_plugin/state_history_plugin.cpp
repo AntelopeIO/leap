@@ -201,12 +201,12 @@ public:
    }
 
    // called from main thread
-   void on_accepted_block(const signed_block_ptr& block, const block_id_type& id, const signed_block_header& block_header, uint32_t block_num) {
+   void on_accepted_block(const signed_block_ptr& block, const block_id_type& id) {
       update_current();
 
       try {
          store_traces(block, id);
-         store_chain_state(id, block_header, block_num);
+         store_chain_state(id, static_cast<signed_block_header>(*block), block->block_num());
       } catch (const fc::exception& e) {
          fc_elog(_log, "fc::exception: ${details}", ("details", e.to_detail_string()));
          // Both app().quit() and exception throwing are required. Without app().quit(),
@@ -224,8 +224,8 @@ public:
       // this is safe as there are no clients connected until after replay is complete
       // this method is called from the main thread and "plugin_started" is set on the main thread as well when plugin is started 
       if (plugin_started) {
-         boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block, id, block_num]() {
-            self->get_session_manager().send_update(block, id, block_num);
+         boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block, id]() {
+            self->get_session_manager().send_update(block, id);
          });
       }
 
@@ -331,7 +331,7 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
       accepted_block_connection.emplace(
           chain.accepted_block.connect([&](const block_signal_params& t) {
              const auto& [ block, id ] = t;
-             on_accepted_block(block, id, static_cast<signed_block_header>(*block), block->block_num());
+             on_accepted_block(block, id);
           }));
       block_start_connection.emplace(
           chain.block_start.connect([&](uint32_t block_num) { on_block_start(block_num); }));

@@ -528,7 +528,7 @@ namespace eosio {
       uint32_t get_chain_lib_num() const;
       uint32_t get_chain_head_num() const;
 
-      void on_accepted_block_header( const signed_block_ptr& block, const block_id_type& id, uint32_t block_num );
+      void on_accepted_block_header( const signed_block_ptr& block, const block_id_type& id );
       void on_accepted_block();
 
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
@@ -3882,11 +3882,11 @@ namespace eosio {
    }
 
    // called from application thread
-   void net_plugin_impl::on_accepted_block_header(const signed_block_ptr& block, const block_id_type& id, uint32_t block_num) {
+   void net_plugin_impl::on_accepted_block_header(const signed_block_ptr& block, const block_id_type& id) {
       update_chain_info();
 
-      dispatcher->strand.post([block, id, block_num]() {
-         fc_dlog(logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", block_num)("id", id));
+      dispatcher->strand.post([block, id]() {
+         fc_dlog(logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", block->block_num())("id", id));
          my_impl->dispatcher->bcast_block(block, id);
       });
    }
@@ -4286,7 +4286,7 @@ namespace eosio {
          chain::controller& cc = chain_plug->chain();
          cc.accepted_block_header.connect( [my = shared_from_this()]( const block_signal_params& t ) {
             const auto& [ block, id ] = t;
-            my->on_accepted_block_header( block, id, block->block_num() );
+            my->on_accepted_block_header( block, id );
          } );
 
          cc.accepted_block.connect( [my = shared_from_this()]( const block_signal_params& t ) {
