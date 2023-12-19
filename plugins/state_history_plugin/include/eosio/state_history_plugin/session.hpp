@@ -1,5 +1,4 @@
 #pragma once
-#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/state_history/compression.hpp>
 #include <eosio/state_history/log.hpp>
 #include <eosio/state_history/serialization.hpp>
@@ -26,7 +25,7 @@ struct send_queue_entry_base {
 
 struct session_base {
    virtual void send_update(bool changed)                                     = 0;
-   virtual void send_update(const eosio::chain::block_state_legacy_ptr& block_state) = 0;
+   virtual void send_update(const chain::signed_block_ptr& block, const chain::block_id_type& id) = 0;
    virtual ~session_base()                                                    = default;
 
    std::optional<state_history::get_blocks_request_v0> current_request;
@@ -35,15 +34,17 @@ struct session_base {
 
 class send_update_send_queue_entry : public send_queue_entry_base {
    std::shared_ptr<session_base> session;
-   const chain::block_state_legacy_ptr block_state;
+   const chain::signed_block_ptr block;
+   const chain::block_id_type id;
 public:
-   send_update_send_queue_entry(std::shared_ptr<session_base> s, chain::block_state_legacy_ptr block_state)
+   send_update_send_queue_entry(std::shared_ptr<session_base> s, chain::signed_block_ptr block, const chain::block_id_type& id)
          : session(std::move(s))
-         , block_state(std::move(block_state)){}
+         , block(std::move(block))
+         , id(id){}
 
    void send_entry() override {
-      if( block_state ) {
-         session->send_update(block_state);
+      if( block) {
+         session->send_update(block, id);
       } else {
          session->send_update(false);
       }
@@ -118,14 +119,14 @@ public:
    void send_updates() {
       for( auto& s : session_set ) {
          if (s->need_to_send_update ) {
-            add_send_queue(s, std::make_unique<send_update_send_queue_entry>(s, nullptr));
+            add_send_queue(s, std::make_unique<send_update_send_queue_entry>(s, nullptr, chain::block_id_type{}));
          }
       }
    }
 
-   void send_update(const chain::block_state_legacy_ptr& block_state) {
+   void send_update(const chain::signed_block_ptr& block, const chain::block_id_type& id) {
       for( auto& s : session_set ) {
-         add_send_queue(s, std::make_unique<send_update_send_queue_entry>(s, block_state));
+         add_send_queue(s, std::make_unique<send_update_send_queue_entry>(s, block, id));
       }
    }
 
@@ -481,7 +482,7 @@ private:
       current_request = std::move(req);
    }
 
-   void send_update(state_history::get_blocks_result_v0 result, const chain::block_state_legacy_ptr& block_state) {
+   void send_update(state_history::get_blocks_result_v0 result, const chain::signed_block_ptr& block, const chain::block_id_type& id) {
       need_to_send_update = true;
       if (!current_request || !current_request->max_messages_in_flight) {
          session_mgr.pop_entry(false);
@@ -502,7 +503,7 @@ private:
       // not just an optimization, on accepted_block signal may not be able to find block_num in forkdb as it has not been validated
       // until after the accepted_block signal
       std::optional<chain::block_id_type> block_id =
-         (block_state && block_state->block_num() == to_send_block_num) ? block_state->id() : plugin.get_block_id(to_send_block_num);
+          (block && block->block_num() == to_send_block_num) ? id : plugin.get_block_id(to_send_block_num);
 
       if (block_id && position_it && (*position_it)->block_num == to_send_block_num) {
          // This branch happens when the head block of nodeos is behind the head block of connecting client.
@@ -526,8 +527,10 @@ private:
          auto prev_block_id = plugin.get_block_id(to_send_block_num - 1);
          if (prev_block_id)
             result.prev_block = state_history::block_position{to_send_block_num - 1, *prev_block_id};
-         if (current_request->fetch_block)
-            plugin.get_block(to_send_block_num, block_state, result.block);
+         if (current_request->fetch_block) {
+            uint32_t block_num = block ? block->block_num() : 0; // block can be nullptr in testing
+            plugin.get_block(to_send_block_num, block_num, block, result.block);
+         }
          if (current_request->fetch_traces && plugin.get_trace_log())
             result.traces.emplace();
          if (current_request->fetch_deltas && plugin.get_chain_state_log())
@@ -541,9 +544,10 @@ private:
          fc_ilog(plugin.get_logger(),
                  "pushing result "
                  "{\"head\":{\"block_num\":${head}},\"last_irreversible\":{\"block_num\":${last_irr}},\"this_block\":{"
-                 "\"block_num\":${this_block}}} to send queue",
-                 ("head", result.head.block_num)("last_irr", result.last_irreversible.block_num)(
-                     "this_block", result.this_block ? result.this_block->block_num : fc::variant()));
+                 "\"block_num\":${this_block}, \"block_id\":${this_id}}} to send queue",
+                 ("head", result.head.block_num)("last_irr", result.last_irreversible.block_num)
+                 ("this_block", result.this_block ? result.this_block->block_num : fc::variant())
+                 ("this_id", result.this_block ? fc::variant{result.this_block->block_id} : fc::variant{}));
       }
 
       --current_request->max_messages_in_flight;
@@ -553,23 +557,24 @@ private:
       std::make_shared<blocks_result_send_queue_entry<session>>(this->shared_from_this(), std::move(result))->send_entry();
    }
 
-   void send_update(const chain::block_state_legacy_ptr& block_state) override {
+   void send_update(const chain::signed_block_ptr& block, const chain::block_id_type& id) override {
       if (!current_request || !current_request->max_messages_in_flight) {
          session_mgr.pop_entry(false);
          return;
       }
 
+      auto block_num = block->block_num();
       state_history::get_blocks_result_v0 result;
-      result.head = {block_state->block_num(), block_state->id()};
-      to_send_block_num = std::min(block_state->block_num(), to_send_block_num);
-      send_update(std::move(result), block_state);
+      result.head = {block_num, id};
+      to_send_block_num = std::min(block_num, to_send_block_num);
+      send_update(std::move(result), block, id);
    }
 
    void send_update(bool changed) override {
       if (changed || need_to_send_update) {
          state_history::get_blocks_result_v0 result;
          result.head = plugin.get_block_head();
-         send_update(std::move(result), {});
+         send_update(std::move(result), nullptr, chain::block_id_type{});
       } else {
          session_mgr.pop_entry(false);
       }

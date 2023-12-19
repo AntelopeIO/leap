@@ -1,6 +1,5 @@
 #pragma once
 #include <eosio/chain/types.hpp>
-#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/trace.hpp>
 
 namespace eosio::chain_apis {
@@ -40,7 +39,7 @@ namespace eosio::chain_apis {
        * uncommitted traces.
        * @param block
        */
-      void commit_block(const chain::block_state_legacy_ptr& block );
+      void commit_block( const chain::signed_block_ptr& block );
 
       /**
        * parameters for the get_accounts_by_authorizers RPC

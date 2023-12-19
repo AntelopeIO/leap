@@ -56,7 +56,7 @@ namespace eosio::chain {
       const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
 
       for (size_t i = 0; i < finalizers.size();i++) {
-         if (finalizers[i].public_key == finalizer_key) {
+         if ( finalizers[i].public_key == finalizer_key ) {
             b.set(i);
 
             fc_tlog(_logger, " === finalizer found ${finalizer} new value : ${value}",

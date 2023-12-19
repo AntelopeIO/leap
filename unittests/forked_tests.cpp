@@ -351,10 +351,15 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
 
    auto id = n1.control->head_block_id();
 
-   block_state_legacy_ptr first_block;
+   signed_block_ptr first_block;
+   block_id_type first_id;
+   signed_block_header first_header;
 
-   auto c = n2.control->accepted_block.connect( [&]( const block_state_legacy_ptr& bsp) {
-      first_block = bsp;
+   auto c = n2.control->accepted_block.connect( [&]( block_signal_params t ) {
+      const auto& [ block, id ] = t;
+      first_block = block;
+      first_id = id;
+      first_header = static_cast<signed_block_header>(*block);
    } );
 
    push_blocks( n1, n2 );
@@ -362,13 +367,14 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
    BOOST_CHECK_EQUAL( n2.control->head_block_id(), id );
 
    BOOST_REQUIRE( first_block );
-   first_block->verify_signee();
-   BOOST_CHECK_EQUAL( first_block->header.calculate_id(), first_block->block->calculate_id() );
-   BOOST_CHECK( first_block->header.producer_signature == first_block->block->producer_signature );
+   const auto& first_bsp = n2.control->fetch_block_state_by_id(first_id);
+   first_bsp->verify_signee();
+   BOOST_CHECK_EQUAL( first_header.calculate_id(), first_block->calculate_id() );
+   BOOST_CHECK( first_header.producer_signature == first_block->producer_signature );
 
    c.disconnect();
 
-   n3.push_block( first_block->block );
+   n3.push_block( first_block );
 
    BOOST_CHECK_EQUAL( n3.control->head_block_id(), id );
 
@@ -697,8 +703,9 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
 
    // test forked blocks signal accepted_block in order, required by trace_api_plugin
    std::vector<signed_block_ptr> accepted_blocks;
-   auto conn = c.control->accepted_block.connect( [&]( const block_state_legacy_ptr& bsp) {
-      accepted_blocks.emplace_back( bsp->block );
+   auto conn = c.control->accepted_block.connect( [&]( block_signal_params t ) {
+      const auto& [ block, id ] = t;
+      accepted_blocks.emplace_back( block );
    } );
 
    // dan on chain 1 now gets all of the blocks from chain 2 which should cause fork switch

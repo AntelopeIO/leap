@@ -194,9 +194,9 @@ namespace eosio::chain_apis {
          key_bimap.right.erase(key_range.first, key_range.second);
       }
 
-      bool is_rollback_required( const chain::block_state_legacy_ptr& bsp ) const {
+      bool is_rollback_required( const chain::signed_block_ptr& block ) const {
          std::shared_lock read_lock(rw_mutex);
-         const auto bnum = bsp->block->block_num();
+         const auto bnum = block->block_num();
          const auto& index = permission_info_index.get<by_last_updated_height>();
 
          if (index.empty()) {
@@ -231,10 +231,10 @@ namespace eosio::chain_apis {
        *
        * For each removed entry, this will create a new entry if there exists an equivalent {owner, name} permission
        * at the HEAD state of the chain.
-       * @param bsp - the block to rollback before
+       * @param block - the block to rollback before
        */
-      void rollback_to_before( const chain::block_state_legacy_ptr& bsp ) {
-         const auto bnum = bsp->block->block_num();
+      void rollback_to_before( const chain::signed_block_ptr& block ) {
+         const auto bnum = block->block_num();
          auto& index = permission_info_index.get<by_last_updated_height>();
          const auto& permission_by_owner = controller.db().get_index<chain::permission_index>().indices().get<chain::by_owner>();
 
@@ -265,8 +265,8 @@ namespace eosio::chain_apis {
             } else {
                const auto& po = *itr;
 
-               uint32_t last_updated_height = chain::block_timestamp_type(po.last_updated) == bsp->header.timestamp ?
-                  bsp->block_num() : last_updated_time_to_height(po.last_updated);
+               uint32_t last_updated_height = chain::block_timestamp_type(po.last_updated) == block->timestamp ?
+                  bnum : last_updated_time_to_height(po.last_updated);
 
                index.modify(index.iterator_to(pi), [&po, last_updated_height](auto& mutable_pi) {
                   mutable_pi.last_updated_height = last_updated_height;
@@ -303,9 +303,9 @@ namespace eosio::chain_apis {
       /**
        * Pre-Commit step with const qualifier to guarantee it does not mutate
        * the thread-safe data set
-       * @param bsp
+       * @param block
        */
-      auto commit_block_prelock( const chain::block_state_legacy_ptr& bsp ) const {
+      auto commit_block_prelock( const chain::signed_block_ptr& block ) const {
          permission_set_t updated;
          permission_set_t deleted;
 
@@ -338,7 +338,7 @@ namespace eosio::chain_apis {
          if( onblock_trace )
             process_trace(*onblock_trace);
 
-         for( const auto& r : bsp->block->transactions ) {
+         for( const auto& r : block->transactions ) {
             chain::transaction_id_type id;
             if( std::holds_alternative<chain::transaction_id_type>(r.trx)) {
                id = std::get<chain::transaction_id_type>(r.trx);
@@ -352,31 +352,32 @@ namespace eosio::chain_apis {
             }
          }
 
-         return std::make_tuple(std::move(updated), std::move(deleted), is_rollback_required(bsp));
+         return std::make_tuple(std::move(updated), std::move(deleted), is_rollback_required(block));
       }
 
       /**
        * Commit a block of transactions to the account query DB
        * transaction traces need to be in the cache prior to this call
-       * @param bsp
+       * @param block
        */
-      void commit_block(const chain::block_state_legacy_ptr& bsp ) {
+      void commit_block(const chain::signed_block_ptr& block) {
          permission_set_t updated;
          permission_set_t deleted;
          bool rollback_required = false;
 
-         std::tie(updated, deleted, rollback_required) = commit_block_prelock(bsp);
+         std::tie(updated, deleted, rollback_required) = commit_block_prelock(block);
 
          // optimistic skip of locking section if there is nothing to do
          if (!updated.empty() || !deleted.empty() || rollback_required) {
             std::unique_lock write_lock(rw_mutex);
+            auto block_num = block->block_num();
 
-            rollback_to_before(bsp);
+            rollback_to_before(block);
 
             // insert this blocks time into the time map
-            time_to_block_num.emplace(bsp->header.timestamp, bsp->block_num());
+            time_to_block_num.emplace(block->timestamp, block_num);
 
-            const auto bnum = bsp->block_num();
+            const auto bnum = block_num;
             auto& index = permission_info_index.get<by_owner_name>();
             const auto& permission_by_owner = controller.db().get_index<chain::permission_index>().indices().get<chain::by_owner>();
 
@@ -520,7 +521,7 @@ namespace eosio::chain_apis {
       } FC_LOG_AND_DROP(("ACCOUNT DB cache_transaction_trace ERROR"));
    }
 
-   void account_query_db::commit_block(const chain::block_state_legacy_ptr& block ) {
+   void account_query_db::commit_block( const chain::signed_block_ptr& block ) {
       try {
          _impl->commit_block(block);
       } FC_LOG_AND_DROP(("ACCOUNT DB commit_block ERROR"));

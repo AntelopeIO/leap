@@ -110,11 +110,13 @@ namespace eosio::chain {
         _qc_chain("default", this, std::move(my_producers), std::move(finalizer_keys), logger, eosio::chain::config::safetydb_filename),
         _logger(logger)
    {
-      _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_legacy_ptr& blk ) {
-         on_accepted_block( blk );
+      _accepted_block_connection = chain->accepted_block.connect( [this]( const block_signal_params& t ) {
+         const auto& [ block, id ] = t;
+         on_accepted_block( block );
       } );
-      _irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_legacy_ptr& blk ) {
-         on_irreversible_block( blk );
+      _irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_signal_params& t ) {
+         const auto& [ block, id ] = t;
+         on_irreversible_block( block );
       } );
       _head_block_state = chain->head_block_state();
    }
@@ -157,21 +159,21 @@ namespace eosio::chain {
    }
 
    // called from main thread
-   void chain_pacemaker::on_accepted_block( const block_state_legacy_ptr& blk ) {
+   void chain_pacemaker::on_accepted_block( const signed_block_ptr& block ) {
       std::scoped_lock g( _chain_state_mutex );
-      _head_block_state = blk;
+      _head_block_state = _chain->fetch_block_state_by_number(block->block_num());
    }
 
    // called from main thread
-   void chain_pacemaker::on_irreversible_block( const block_state_legacy_ptr& blk ) {
-      if (!blk->block->header_extensions.empty()) {
-         std::optional<block_header_extension> ext = blk->block->extract_header_extension(finalizer_policy_extension::extension_id());
+   void chain_pacemaker::on_irreversible_block( const signed_block_ptr& block ) {
+      if (!block->header_extensions.empty()) {
+         std::optional<block_header_extension> ext = block->extract_header_extension(finalizer_policy_extension::extension_id());
          if (ext) {
             std::scoped_lock g( _chain_state_mutex );
             if (_active_finalizer_policy.generation == 0) {
                // switching from dpos to hotstuff, all nodes will switch at same block height
                // block header extension is set in finalize_block to value set by host function set_finalizers
-               _chain->set_hs_irreversible_block_num(blk->block_num()); // can be any value <= dpos lib
+               _chain->set_hs_irreversible_block_num(block->block_num()); // can be any value <= dpos lib
             }
             _active_finalizer_policy = std::move(std::get<finalizer_policy_extension>(*ext));
          }

@@ -161,15 +161,15 @@ struct trx_retry_db_impl {
       rollback_to( block_num );
    }
 
-   void on_accepted_block(const chain::block_state_legacy_ptr& bsp ) {
+   void on_accepted_block( uint32_t block_num ) {
       // good time to perform processing
-      ack_ready_trxs_by_block_num( bsp->block_num() );
+      ack_ready_trxs_by_block_num( block_num );
       retry_trxs();
    }
 
-   void on_irreversible_block(const chain::block_state_legacy_ptr& bsp ) {
-      ack_ready_trxs_by_lib( bsp->block_num() );
-      clear_expired( bsp->block->timestamp );
+   void on_irreversible_block( const chain::signed_block_ptr& block ) {
+      ack_ready_trxs_by_lib( block->block_num() );
+      clear_expired( block->timestamp );
    }
 
 private:
@@ -321,13 +321,13 @@ void trx_retry_db::on_block_start( uint32_t block_num ) {
    } FC_LOG_AND_DROP(("trx retry block_start ERROR"));
 }
 
-void trx_retry_db::on_accepted_block(const chain::block_state_legacy_ptr& block ) {
+void trx_retry_db::on_accepted_block( uint32_t block_num ) {
    try {
-      _impl->on_accepted_block(block);
+      _impl->on_accepted_block(block_num);
    } FC_LOG_AND_DROP(("trx retry accepted_block ERROR"));
 }
 
-void trx_retry_db::on_irreversible_block(const chain::block_state_legacy_ptr& block ) {
+void trx_retry_db::on_irreversible_block(const chain::signed_block_ptr& block) {
    try {
       _impl->on_irreversible_block(block);
    } FC_LOG_AND_DROP(("trx retry irreversible_block ERROR"));

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <eosio/trace_api/trace.hpp>
-#include <eosio/chain/block_state_legacy.hpp>
 
 namespace eosio { namespace trace_api {
 
@@ -63,16 +62,16 @@ inline TransactionTrace to_transaction_trace( const cache_trace& t ) {
    return r;
 }
 
-inline block_trace_v2 create_block_trace( const chain::block_state_legacy_ptr& bsp ) {
+inline block_trace_v2 create_block_trace( const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
    block_trace_v2 r;
-   r.id = bsp->id();
-   r.number = bsp->block_num();
-   r.previous_id = bsp->block->previous;
-   r.timestamp = bsp->block->timestamp;
-   r.producer = bsp->block->producer;
-   r.schedule_version = bsp->block->schedule_version;
-   r.transaction_mroot = bsp->block->transaction_mroot;
-   r.action_mroot = bsp->block->action_mroot;
+   r.id = id;
+   r.number = block->block_num();
+   r.previous_id = block->previous;
+   r.timestamp = block->timestamp;
+   r.producer = block->producer;
+   r.schedule_version = block->schedule_version;
+   r.transaction_mroot = block->transaction_mroot;
+   r.action_mroot = block->action_mroot;
    return r;
 }
 

@@ -44,9 +44,10 @@ jobs:
           registry: ghcr.io
           username: ${{github.repository_owner}}
           password: ${{github.token}}
+      - run: echo "REPOSITORY_OWNER_LOWER=${GITHUB_REPOSITORY_OWNER,,}" >> "${GITHUB_ENV}"
       - name: Build and push experimental-binaries
         uses: docker/build-push-action@v3
         with:
           push: true
-          tags: ghcr.io/${{github.repository_owner}}/experimental-binaries:${{github.ref_name}}
+          tags: ghcr.io/${{env.REPOSITORY_OWNER_LOWER}}/experimental-binaries:${{github.ref_name}}
           context: .

@@ -31,13 +31,13 @@ public:
    }
 
    /// connect to chain controller accepted_block signal
-   void signal_accepted_block( const chain::block_state_legacy_ptr& bsp ) {
-      on_accepted_block( bsp );
+   void signal_accepted_block( const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
+      on_accepted_block( block, id );
    }
 
    /// connect to chain controller irreversible_block signal
-   void signal_irreversible_block( const chain::block_state_legacy_ptr& bsp ) {
-      on_irreversible_block( bsp );
+   void signal_irreversible_block( uint32_t block_num ) {
+      on_irreversible_block( block_num );
    }
 
    /// connect to chain controller block_start signal
@@ -63,12 +63,12 @@ private:
       }
    }
 
-   void on_accepted_block(const chain::block_state_legacy_ptr& block_state) {
-      store_block_trace( block_state );
+   void on_accepted_block(const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
+      store_block_trace( block, id );
    }
 
-   void on_irreversible_block( const chain::block_state_legacy_ptr& block_state ) {
-      store_lib( block_state );
+   void on_irreversible_block( uint32_t block_num ) {
+      store_lib( block_num );
    }
 
    void on_block_start( uint32_t block_num ) {
@@ -80,18 +80,18 @@ private:
       onblock_trace.reset();
    }
 
-   void store_block_trace( const chain::block_state_legacy_ptr& block_state ) {
+   void store_block_trace( const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
       try {
          using transaction_trace_t = transaction_trace_v3;
-         auto bt = create_block_trace( block_state );
+         auto bt = create_block_trace( block, id );
 
          std::vector<transaction_trace_t> traces;
-         traces.reserve( block_state->block->transactions.size() + 1 );
+         traces.reserve( block->transactions.size() + 1 );
          block_trxs_entry tt;
-         tt.ids.reserve(block_state->block->transactions.size() + 1);
+         tt.ids.reserve(block->transactions.size() + 1);
          if( onblock_trace )
             traces.emplace_back( to_transaction_trace<transaction_trace_t>( *onblock_trace ));
-         for( const auto& r : block_state->block->transactions ) {
+         for( const auto& r : block->transactions ) {
             transaction_id_type id;
             if( std::holds_alternative<transaction_id_type>(r.trx)) {
                id = std::get<transaction_id_type>(r.trx);
@@ -117,9 +117,9 @@ private:
       }
    }
 
-   void store_lib( const chain::block_state_legacy_ptr& bsp ) {
+   void store_lib( uint32_t block_num ) {
       try {
-         store.append_lib( bsp->block_num() );
+         store.append_lib( block_num );
       } catch( ... ) {
          except_handler( MAKE_EXCEPTION_WITH_CONTEXT( std::current_exception() ) );
       }
