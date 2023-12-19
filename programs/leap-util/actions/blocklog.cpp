@@ -1,5 +1,4 @@
 #include "blocklog.hpp"
-#include "eosio/chain/block_state_legacy.hpp"
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/config.hpp>
@@ -268,7 +267,7 @@ int blocklog_actions::read_log() {
    }
 
    using fork_database_t = fork_database_legacy; // [greg todo] what is it is not a legacy fork_db?
-   fork_database_legacy::branch_type fork_db_branch;
+   fork_database_t::branch_type fork_db_branch;
 
    if(std::filesystem::exists(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name / config::forkdb_filename)) {
       ilog("opening fork_db");

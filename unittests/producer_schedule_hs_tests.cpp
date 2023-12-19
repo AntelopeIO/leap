@@ -22,7 +22,7 @@ inline account_name get_expected_producer(const vector<producer_authority>& sche
 } // anonymous namespace
 #if 0
 
-[Enable test when https://github.com/AntelopeIO/leap/issues/1980 is worked
+// [greg todo] Enable test when https://github.com/AntelopeIO/leap/issues/1980 is completed
 
 BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, validating_tester ) try {
 
