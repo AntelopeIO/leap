@@ -3746,9 +3746,9 @@ namespace eosio {
 
          if( block_num != 0 ) {
             fc_dlog( logger, "validated block header, broadcasting immediately, connection ${cid}, blk num = ${num}, id = ${id}",
-                     ("cid", cid)("num", block_num)("id", bsp->id) );
-            my_impl->dispatcher->add_peer_block( bsp->id, cid ); // no need to send back to sender
-            my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
+                     ("cid", cid)("num", block_num)("id", bsp->id()) );
+            my_impl->dispatcher->add_peer_block( bsp->id(), cid ); // no need to send back to sender
+            my_impl->dispatcher->bcast_block( bsp->block, bsp->id() );
          }
 
          app().executor().post(priority::medium, exec_queue::read_write, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
@@ -3916,8 +3916,8 @@ namespace eosio {
       update_chain_info();
 
       dispatcher->strand.post([bs]() {
-         fc_dlog(logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", bs->block_num())("id", bs->id));
-         my_impl->dispatcher->bcast_block(bs->block, bs->id);
+         fc_dlog(logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", bs->block_num())("id", bs->id()));
+         my_impl->dispatcher->bcast_block(bs->block, bs->id());
       });
    }
 
@@ -3943,7 +3943,7 @@ namespace eosio {
 
    // called from application thread
    void net_plugin_impl::on_irreversible_block( const block_state_legacy_ptr& block) {
-      fc_dlog( logger, "on_irreversible_block, blk num = ${num}, id = ${id}", ("num", block->block_num())("id", block->id) );
+      fc_dlog( logger, "on_irreversible_block, blk num = ${num}, id = ${id}", ("num", block->block_num())("id", block->id()) );
       update_chain_info();
    }
 

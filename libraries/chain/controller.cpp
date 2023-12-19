@@ -683,7 +683,7 @@ struct controller_impl {
       auto prev = fork_db.get_block( head->header.previous );
 
       if( !prev ) {
-         EOS_ASSERT( fork_db.root()->id == head->header.previous, block_validate_exception, "attempt to pop beyond last irreversible block" );
+         EOS_ASSERT( fork_db.root()->id() == head->header.previous, block_validate_exception, "attempt to pop beyond last irreversible block" );
          prev = fork_db.root();
       }
 
@@ -828,7 +828,7 @@ struct controller_impl {
 
       const auto lib_num = valid_log_head ? block_header::num_from_id(*log_head_id) : (blog.first_block_num() - 1);
 
-      auto root_id = fork_db.root()->id;
+      auto root_id = fork_db.root()->id();
 
       if( valid_log_head ) {
          EOS_ASSERT( root_id == log_head_id, fork_database_exception, "fork database root does not match block log head" );
@@ -845,7 +845,7 @@ struct controller_impl {
       if( new_lib <= lib_num )
          return;
 
-      auto branch = fork_db.fetch_branch( fork_head->id, new_lib );
+      auto branch = fork_db.fetch_branch( fork_head->id(), new_lib );
       try {
 
          std::vector<std::future<std::vector<char>>> v;
@@ -865,14 +865,14 @@ struct controller_impl {
 
             // blog.append could fail due to failures like running out of space.
             // Do it before commit so that in case it throws, DB can be rolled back.
-            blog.append( (*bitr)->block, (*bitr)->id, it->get() );
+            blog.append( (*bitr)->block, (*bitr)->id(), it->get() );
             ++it;
 
             db.commit( (*bitr)->block_num() );
-            root_id = (*bitr)->id;
+            root_id = (*bitr)->id();
          }
       } catch( std::exception& ) {
-         if( root_id != fork_db.root()->id ) {
+         if( root_id != fork_db.root()->id() ) {
             fork_db.advance_root( root_id );
          }
          throw;
@@ -880,7 +880,7 @@ struct controller_impl {
 
       //db.commit( new_lib ); // redundant
 
-      if( root_id != fork_db.root()->id ) {
+      if( root_id != fork_db.root()->id() ) {
          branch.emplace_back(fork_db.root());
          fork_db.advance_root( root_id );
       }
@@ -949,16 +949,16 @@ struct controller_impl {
          if( pending_head ) {
             ilog( "fork database head ${h}, root ${r}", ("h", pending_head->block_num())( "r", fork_db.root()->block_num() ) );
             if( pending_head->block_num() < head->block_num() || head->block_num() < fork_db.root()->block_num() ) {
-               ilog( "resetting fork database with new last irreversible block as the new root: ${id}", ("id", head->id) );
+               ilog( "resetting fork database with new last irreversible block as the new root: ${id}", ("id", head->id()) );
                fork_db.reset( *head );
             } else if( head->block_num() != fork_db.root()->block_num() ) {
-               auto new_root = fork_db.search_on_branch( pending_head->id, head->block_num() );
+               auto new_root = fork_db.search_on_branch( pending_head->id(), head->block_num() );
                EOS_ASSERT( new_root, fork_database_exception,
                            "unexpected error: could not find new LIB in fork database" );
                ilog( "advancing fork database root to new last irreversible block within existing fork database: ${id}",
-                     ("id", new_root->id) );
+                     ("id", new_root->id()) );
                fork_db.mark_valid( new_root );
-               fork_db.advance_root( new_root->id );
+               fork_db.advance_root( new_root->id() );
             }
          }
 
@@ -975,7 +975,7 @@ struct controller_impl {
          fork_db.reset( *head );
       } else if( !except_ptr && !check_shutdown() && fork_db.head() ) {
          auto head_block_num = head->block_num();
-         auto branch = fork_db.fetch_branch( fork_db.head()->id );
+         auto branch = fork_db.fetch_branch( fork_db.head()->id() );
          int rev = 0;
          for( auto i = branch.rbegin(); i != branch.rend(); ++i ) {
             if( check_shutdown() ) break;
@@ -1040,7 +1040,7 @@ struct controller_impl {
 
       this->shutdown = std::move(shutdown);
       if( fork_db.head() ) {
-         if( read_mode == db_read_mode::IRREVERSIBLE && fork_db.head()->id != fork_db.root()->id ) {
+         if( read_mode == db_read_mode::IRREVERSIBLE && fork_db.head()->id() != fork_db.root()->id() ) {
             fork_db.rollback_head_to_root();
          }
          wlog( "No existing chain state. Initializing fresh blockchain state." );
@@ -1085,7 +1085,7 @@ struct controller_impl {
          }
       }
 
-      if( read_mode == db_read_mode::IRREVERSIBLE && fork_db.head()->id != fork_db.root()->id ) {
+      if( read_mode == db_read_mode::IRREVERSIBLE && fork_db.head()->id() != fork_db.root()->id() ) {
          fork_db.rollback_head_to_root();
       }
       head = fork_db.head();
@@ -1159,16 +1159,16 @@ struct controller_impl {
       // Also, even though blog.head() may still be nullptr, blog.first_block_num() is guaranteed to be lib_num + 1.
 
       if( read_mode != db_read_mode::IRREVERSIBLE
-          && fork_db.pending_head()->id != fork_db.head()->id
-          && fork_db.head()->id == fork_db.root()->id
+          && fork_db.pending_head()->id() != fork_db.head()->id()
+          && fork_db.head()->id() == fork_db.root()->id()
       ) {
          wlog( "read_mode has changed from irreversible: applying best branch from fork database" );
 
          for( auto pending_head = fork_db.pending_head();
-              pending_head->id != fork_db.head()->id;
+              pending_head->id() != fork_db.head()->id();
               pending_head = fork_db.pending_head()
          ) {
-            wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id) );
+            wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
             controller::block_report br;
             maybe_switch_forks( br, pending_head, controller::block_status::complete, forked_branch_callback{}, trx_meta_cache_lookup{} );
          }
@@ -1490,7 +1490,7 @@ struct controller_impl {
 
       const auto& tapos_block_summary = db.get<block_summary_object>(1);
       db.modify( tapos_block_summary, [&]( auto& bs ) {
-         bs.block_id = head->id;
+         bs.block_id = head->id();
       });
 
       genesis.initial_configuration.validate();
@@ -2116,7 +2116,7 @@ struct controller_impl {
          pending.reset();
       });
 
-      //building_block_input bbi{ head->id, when, head->get_scheduled_producer(when), std::move(new_protocol_feature_activations) };
+      //building_block_input bbi{ head->id(), when, head->get_scheduled_producer(when), std::move(new_protocol_feature_activations) };
       // [greg todo] build IF `building_block` below if not in dpos mode.
       //             we'll need a different `building_block` constructor for IF mode
       if (!self.skip_db_sessions(s)) {
@@ -2514,7 +2514,7 @@ struct controller_impl {
          const signed_block_ptr& b = bsp->block;
          const auto& new_protocol_feature_activations = bsp->get_new_protocol_feature_activations();
 
-         auto producer_block_id = bsp->id;
+         auto producer_block_id = bsp->id();
          start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
          // validated in create_block_state_future()
@@ -2657,8 +2657,8 @@ struct controller_impl {
             skip_validate_signee
       );
 
-      EOS_ASSERT( id == bsp->id, block_validate_exception,
-                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id) );
+      EOS_ASSERT( id == bsp->id(), block_validate_exception,
+                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
       return bsp;
    }
 
@@ -2795,24 +2795,24 @@ struct controller_impl {
                             const forked_branch_callback& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
    {
       bool head_changed = true;
-      if( new_head->header.previous == head->id ) {
+      if( new_head->header.previous == head->id() ) {
          try {
             apply_block( br, new_head, s, trx_lookup );
          } catch ( const std::exception& e ) {
-            fork_db.remove( new_head->id );
+            fork_db.remove( new_head->id() );
             throw;
          }
-      } else if( new_head->id != head->id ) {
+      } else if( new_head->id() != head->id() ) {
          auto old_head = head;
          ilog("switching forks from ${current_head_id} (block number ${current_head_num}) to ${new_head_id} (block number ${new_head_num})",
-              ("current_head_id", head->id)("current_head_num", head->block_num())("new_head_id", new_head->id)("new_head_num", new_head->block_num()) );
+              ("current_head_id", head->id())("current_head_num", head->block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num()) );
 
          // not possible to log transaction specific infor when switching forks
          if (auto dm_logger = get_deep_mind_logger(false)) {
-            dm_logger->on_switch_forks(head->id, new_head->id);
+            dm_logger->on_switch_forks(head->id(), new_head->id());
          }
 
-         auto branches = fork_db.fetch_branch_from( new_head->id, head->id );
+         auto branches = fork_db.fetch_branch_from( new_head->id(), head->id() );
 
          if( branches.second.size() > 0 ) {
             for( auto itr = branches.second.begin(); itr != branches.second.end(); ++itr ) {
@@ -2845,7 +2845,7 @@ struct controller_impl {
             if( except ) {
                // ritr currently points to the block that threw
                // Remove the block that threw and all forks built off it.
-               fork_db.remove( (*ritr)->id );
+               fork_db.remove( (*ritr)->id() );
 
                // pop all blocks from the bad fork, discarding their transactions
                // ritr base is a forward itr to the last block successfully applied
@@ -2865,7 +2865,7 @@ struct controller_impl {
             } // end if exception
          } /// end for each block in branch
 
-         ilog("successfully switched fork to new head ${new_head_id}", ("new_head_id", new_head->id));
+         ilog("successfully switched fork to new head ${new_head_id}", ("new_head_id", new_head->id()));
       } else {
          head_changed = false;
       }
@@ -3528,7 +3528,7 @@ time_point controller::head_block_time()const {
    return my->head->header.timestamp;
 }
 block_id_type controller::head_block_id()const {
-   return my->head->id;
+   return my->head->id();
 }
 account_name  controller::head_block_producer()const {
    return my->head->header.producer;
@@ -3556,7 +3556,7 @@ uint32_t controller::fork_db_head_block_num()const {
 }
 
 block_id_type controller::fork_db_head_block_id()const {
-   return my->fork_db_head()->id;
+   return my->fork_db_head()->id();
 }
 
 block_timestamp_type controller::pending_block_timestamp()const {
@@ -3600,7 +3600,7 @@ uint32_t controller::last_irreversible_block_num() const {
 }
 
 block_id_type controller::last_irreversible_block_id() const {
-   return my->fork_db.root()->id;
+   return my->fork_db.root()->id();
 }
 
 time_point controller::last_irreversible_block_time() const {
@@ -3665,7 +3665,7 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
 
    if( !find_in_blog ) {
       auto bsp = fetch_block_state_by_number( block_num );
-      if( bsp ) return bsp->id;
+      if( bsp ) return bsp->id();
    }
 
    auto id = my->blog.read_block_id_by_num(block_num);

@@ -204,7 +204,7 @@ namespace eosio::chain {
 
    block_id_type chain_pacemaker::get_current_block_id() {
       std::scoped_lock g( _chain_state_mutex );
-      return _head_block_state->id;
+      return _head_block_state->id();
    }
 
    uint32_t chain_pacemaker::get_quorum_threshold() {

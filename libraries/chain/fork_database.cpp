@@ -41,15 +41,15 @@ namespace eosio::chain {
    using fork_multi_index_type_legacy = multi_index_container<
       block_state_legacy_ptr,
       indexed_by<
-         hashed_unique< tag<by_block_id>, member<block_header_state_legacy, block_id_type, &block_header_state_legacy::id>, std::hash<block_id_type>>,
+         hashed_unique< tag<by_block_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state_legacy, const block_id_type&, id), std::hash<block_id_type>>,
          ordered_non_unique< tag<by_prev>, const_mem_fun<block_state_legacy, const block_id_type&, &block_state_legacy::previous> >,
          ordered_unique< tag<by_lib_block_num>,
             composite_key< block_state_legacy,
                global_fun<const block_state_legacy&, bool, &block_state_is_valid>,
                // see first_preferred comment
-               member<detail::block_header_state_legacy_common, uint32_t, &detail::block_header_state_legacy_common::dpos_irreversible_blocknum>,
-               member<detail::block_header_state_legacy_common, uint32_t, &detail::block_header_state_legacy_common::block_num>,
-               member<block_header_state_legacy,        block_id_type, &block_header_state_legacy::id>
+               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state_legacy, uint32_t, irreversible_blocknum),
+               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state_legacy, uint32_t, block_num),
+               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state_legacy, const block_id_type&, id)
             >,
             composite_key_compare<
                std::greater<bool>,
@@ -64,7 +64,7 @@ namespace eosio::chain {
    using fork_multi_index_type = multi_index_container<
       block_state_ptr,
       indexed_by<
-         hashed_unique< tag<by_block_id>, BOOST_MULTI_INDEX_MEMBER(block_state, const block_id_type, id), std::hash<block_id_type>>,
+         hashed_unique< tag<by_block_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state, const block_id_type&, id), std::hash<block_id_type>>,
          ordered_non_unique< tag<by_prev>, const_mem_fun<block_state, const block_id_type&, &block_state::previous> >,
          ordered_unique< tag<by_lib_block_num>,
             composite_key< block_state,
@@ -72,7 +72,7 @@ namespace eosio::chain {
                // see first_preferred comment
                BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state, uint32_t, irreversible_blocknum),
                BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state, uint32_t, block_num),
-               BOOST_MULTI_INDEX_MEMBER(block_state, const block_id_type, id)
+               BOOST_MULTI_INDEX_CONST_MEM_FUN(block_state, const block_id_type&, id)
             >,
             composite_key_compare<
                std::greater<bool>,
@@ -191,7 +191,7 @@ namespace eosio::chain {
             block_id_type head_id;
             fc::raw::unpack( ds, head_id );
 
-            if( root->id == head_id ) {
+            if( root->id() == head_id ) {
                head = root;
             } else {
                head = get_block_impl( head_id );
@@ -202,7 +202,7 @@ namespace eosio::chain {
 
             auto candidate = index.template get<by_lib_block_num>().begin();
             if( candidate == index.template get<by_lib_block_num>().end() || !(*candidate)->is_valid() ) {
-               EOS_ASSERT( head->id == root->id, fork_database_exception,
+               EOS_ASSERT( head->id() == root->id(), fork_database_exception,
                            "head not set to root despite no better option available; '${filename}' is likely corrupted",
                            ("filename", fork_db_dat) );
             } else {
@@ -277,7 +277,7 @@ namespace eosio::chain {
       }
 
       if( head ) {
-         fc::raw::pack( out, head->id );
+         fc::raw::pack( out, head->id() );
       } else {
          elog( "head not set in fork database; '${filename}' will be corrupted",
                ("filename", fork_db_dat) );
@@ -346,7 +346,7 @@ namespace eosio::chain {
       for( auto b = new_root; b; ) {
          blocks_to_remove.emplace_back( b->previous() );
          b = get_block_impl( blocks_to_remove.back() );
-         EOS_ASSERT( b || blocks_to_remove.back() == root->id, fork_database_exception, "invariant violation: orphaned branch was present in forked database" );
+         EOS_ASSERT( b || blocks_to_remove.back() == root->id(), fork_database_exception, "invariant violation: orphaned branch was present in forked database" );
       }
 
       // The new root block should be erased from the fork database index individually rather than with the remove method,
@@ -373,7 +373,7 @@ namespace eosio::chain {
 
    template<class bsp, class bhsp>
    bhsp fork_database_impl<bsp, bhsp>::get_block_header_impl( const block_id_type& id ) const {
-      if( root->id == id ) {
+      if( root->id() == id ) {
          return root;
       }
 
@@ -392,7 +392,7 @@ namespace eosio::chain {
       auto prev_bh = get_block_header_impl( n->previous() );
 
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
-                  "unlinkable block", ("id", n->id)("previous", n->previous()) );
+                  "unlinkable block", ("id", n->id())("previous", n->previous()) );
 
       if( validate ) {
          try {
@@ -408,7 +408,7 @@ namespace eosio::chain {
       auto inserted = index.insert(n);
       if( !inserted.second ) {
          if( ignore_duplicate ) return;
-         EOS_THROW( fork_database_exception, "duplicate block added", ("id", n->id) );
+         EOS_THROW( fork_database_exception, "duplicate block added", ("id", n->id()) );
       }
 
       auto candidate = index.template get<by_lib_block_num>().begin();
@@ -505,8 +505,8 @@ namespace eosio::chain {
    fork_database<bsp, bhsp>::branch_type_pair
    fork_database_impl<bsp, bhsp>::fetch_branch_from_impl(const block_id_type& first, const block_id_type& second) const {
       pair<branch_type, branch_type> result;
-      auto first_branch = (first == root->id) ? root : get_block_impl(first);
-      auto second_branch = (second == root->id) ? root : get_block_impl(second);
+      auto first_branch = (first == root->id()) ? root : get_block_impl(first);
+      auto second_branch = (second == root->id()) ? root : get_block_impl(second);
 
       EOS_ASSERT(first_branch, fork_db_block_not_found, "block ${id} does not exist", ("id", first));
       EOS_ASSERT(second_branch, fork_db_block_not_found, "block ${id} does not exist", ("id", second));
@@ -515,7 +515,7 @@ namespace eosio::chain {
       {
          result.first.push_back(first_branch);
          const auto& prev = first_branch->previous();
-         first_branch = (prev == root->id) ? root : get_block_impl( prev );
+         first_branch = (prev == root->id()) ? root : get_block_impl( prev );
          EOS_ASSERT( first_branch, fork_db_block_not_found,
                      "block ${id} does not exist",
                      ("id", prev)
@@ -526,14 +526,14 @@ namespace eosio::chain {
       {
          result.second.push_back( second_branch );
          const auto& prev = second_branch->previous();
-         second_branch = (prev == root->id) ? root : get_block_impl( prev );
+         second_branch = (prev == root->id()) ? root : get_block_impl( prev );
          EOS_ASSERT( second_branch, fork_db_block_not_found,
                      "block ${id} does not exist",
                      ("id", prev)
          );
       }
 
-      if (first_branch->id == second_branch->id) return result;
+      if (first_branch->id() == second_branch->id()) return result;
 
       while( first_branch->previous() != second_branch->previous() )
       {
@@ -572,7 +572,7 @@ namespace eosio::chain {
    void fork_database_impl<bsp, bhsp>::remove_impl( const block_id_type& id ) {
       deque<block_id_type> remove_queue{id};
       const auto& previdx = index.template get<by_prev>();
-      const auto& head_id = head->id;
+      const auto& head_id = head->id();
 
       for( uint32_t i = 0; i < remove_queue.size(); ++i ) {
          EOS_ASSERT( remove_queue[i] != head_id, fork_database_exception,
@@ -580,7 +580,7 @@ namespace eosio::chain {
 
          auto previtr = previdx.lower_bound( remove_queue[i] );
          while( previtr != previdx.end() && (*previtr)->previous() == remove_queue[i] ) {
-            remove_queue.emplace_back( (*previtr)->id );
+            remove_queue.emplace_back( (*previtr)->id() );
             ++previtr;
          }
       }
@@ -602,10 +602,10 @@ namespace eosio::chain {
 
       auto& by_id_idx = index.template get<by_block_id>();
 
-      auto itr = by_id_idx.find( h->id );
+      auto itr = by_id_idx.find( h->id() );
       EOS_ASSERT( itr != by_id_idx.end(), fork_database_exception,
                   "block state not in fork database; cannot mark as valid",
-                  ("id", h->id) );
+                  ("id", h->id()) );
 
       by_id_idx.modify( itr, []( bsp& _bsp ) {
          _bsp->validated = true;

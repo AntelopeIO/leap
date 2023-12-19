@@ -152,27 +152,27 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
    block_state_legacy_ptr accepted_bsp;
    auto c = chain.control->accepted_block.connect([&](const block_state_legacy_ptr& b) {
       BOOST_CHECK(b);
-      BOOST_CHECK(chain.control->fetch_block_state_by_id(b->id) == b);
+      BOOST_CHECK(chain.control->fetch_block_state_by_id(b->id()) == b);
       BOOST_CHECK(chain.control->fetch_block_state_by_number(b->block_num()) == b);  // verify it can be found (has to be validated)
-      BOOST_CHECK(chain.control->fetch_block_by_id(b->id) == b->block);
+      BOOST_CHECK(chain.control->fetch_block_by_id(b->id()) == b->block);
       BOOST_CHECK(chain.control->fetch_block_by_number(b->block_num()) == b->block);
       BOOST_REQUIRE(chain.control->fetch_block_header_by_number(b->block_num()));
-      BOOST_CHECK(chain.control->fetch_block_header_by_number(b->block_num())->calculate_id() == b->id);
-      BOOST_REQUIRE(chain.control->fetch_block_header_by_id(b->id));
-      BOOST_CHECK(chain.control->fetch_block_header_by_id(b->id)->calculate_id() == b->id);
+      BOOST_CHECK(chain.control->fetch_block_header_by_number(b->block_num())->calculate_id() == b->id());
+      BOOST_REQUIRE(chain.control->fetch_block_header_by_id(b->id()));
+      BOOST_CHECK(chain.control->fetch_block_header_by_id(b->id())->calculate_id() == b->id());
       accepted_bsp = b;
    });
    block_state_legacy_ptr validated_bsp;
    auto c2 = validator.control->accepted_block.connect([&](const block_state_legacy_ptr& b) {
       BOOST_CHECK(b);
-      BOOST_CHECK(validator.control->fetch_block_state_by_id(b->id) == b);
+      BOOST_CHECK(validator.control->fetch_block_state_by_id(b->id()) == b);
       BOOST_CHECK(validator.control->fetch_block_state_by_number(b->block_num()) == b);  // verify it can be found (has to be validated)
-      BOOST_CHECK(validator.control->fetch_block_by_id(b->id) == b->block);
+      BOOST_CHECK(validator.control->fetch_block_by_id(b->id()) == b->block);
       BOOST_CHECK(validator.control->fetch_block_by_number(b->block_num()) == b->block);
       BOOST_REQUIRE(validator.control->fetch_block_header_by_number(b->block_num()));
-      BOOST_CHECK(validator.control->fetch_block_header_by_number(b->block_num())->calculate_id() == b->id);
-      BOOST_REQUIRE(validator.control->fetch_block_header_by_id(b->id));
-      BOOST_CHECK(validator.control->fetch_block_header_by_id(b->id)->calculate_id() == b->id);
+      BOOST_CHECK(validator.control->fetch_block_header_by_number(b->block_num())->calculate_id() == b->id());
+      BOOST_REQUIRE(validator.control->fetch_block_header_by_id(b->id()));
+      BOOST_CHECK(validator.control->fetch_block_header_by_id(b->id())->calculate_id() == b->id());
       validated_bsp = b;
    });
 
@@ -182,8 +182,8 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
    chain.create_account("hello"_n);
    auto produced_block = chain.produce_block();
    validator.push_block(accepted_bsp->block);
-   BOOST_CHECK(produced_block->calculate_id() == accepted_bsp->id);
-   BOOST_CHECK(accepted_bsp->id == validated_bsp->id);
+   BOOST_CHECK(produced_block->calculate_id() == accepted_bsp->id());
+   BOOST_CHECK(accepted_bsp->id() == validated_bsp->id());
 
 } FC_LOG_AND_RETHROW()
 

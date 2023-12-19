@@ -278,7 +278,7 @@ int blocklog_actions::read_log() {
                       const flat_set<digest_type>& cur_features,
                       const vector<digest_type>& new_features) {});
 
-      fork_db_branch = fork_db.fetch_branch(fork_db.head()->id);
+      fork_db_branch = fork_db.fetch_branch(fork_db.head()->id());
       if(fork_db_branch.empty()) {
          elog("no blocks available in reversible block database: only block_log blocks are available");
       } else {

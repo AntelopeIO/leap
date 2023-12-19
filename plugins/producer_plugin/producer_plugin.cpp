@@ -747,10 +747,10 @@ public:
               ("count", block->transactions.size())("lib", chain.last_irreversible_block_num())
               ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
               ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (now - block->timestamp).count() / 1000));
-         if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hbs->id != id && hbs->block != nullptr) { // not applied to head
+         if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hbs->id() != id && hbs->block != nullptr) { // not applied to head
             ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
                  "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
-                 ("p", hbs->block->producer)("id", hbs->id.str().substr(8, 16))("n", hbs->block_num())("t", hbs->block->timestamp)
+                 ("p", hbs->block->producer)("id", hbs->id().str().substr(8, 16))("n", hbs->block_num())("t", hbs->block->timestamp)
                  ("count", hbs->block->transactions.size())("lib", chain.last_irreversible_block_num())
                  ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)
                  ("latency", (now - hbs->block->timestamp).count() / 1000));
@@ -2658,7 +2658,7 @@ void producer_plugin_impl::produce_block() {
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
-        ("p", new_bs->header.producer)("id", new_bs->id.str().substr(8, 16))("n", new_bs->block_num())("t", new_bs->header.timestamp)
+        ("p", new_bs->header.producer)("id", new_bs->id().str().substr(8, 16))("n", new_bs->block_num())("t", new_bs->header.timestamp)
         ("count", new_bs->block->transactions.size())("lib", chain.last_irreversible_block_num())("net", br.total_net_usage)
         ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_bs->header.confirmed));
 

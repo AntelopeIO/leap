@@ -30,6 +30,7 @@ namespace eosio { namespace chain {
       signed_block_ptr      block;
 
       // internal use only, not thread safe
+      const block_id_type&   id()                    const { return block_header_state_legacy::id; }
       const block_id_type&   previous()              const { return block_header_state_legacy::prev(); }
       uint32_t               irreversible_blocknum() const { return dpos_irreversible_blocknum; }
       uint32_t               block_num()             const { return block_header_state_legacy::block_num; }

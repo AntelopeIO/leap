@@ -494,7 +494,7 @@ namespace eosio { namespace testing {
       } );
 
       control->commit_block();
-      last_produced_block[control->head_block_state()->header.producer] = control->head_block_state()->id;
+      last_produced_block[control->head_block_state()->header.producer] = control->head_block_state()->id();
 
       return control->head_block_state()->block;
    }

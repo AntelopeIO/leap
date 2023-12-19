@@ -490,7 +490,7 @@ BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
 
    {
       auto bs = irreversible.control->fetch_block_state_by_id( fork_first_block_id );
-      BOOST_REQUIRE( bs && bs->id == fork_first_block_id );
+      BOOST_REQUIRE( bs && bs->id() == fork_first_block_id );
    }
 
    main.produce_block();

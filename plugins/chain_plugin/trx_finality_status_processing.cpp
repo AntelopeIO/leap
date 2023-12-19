@@ -49,7 +49,7 @@ namespace eosio::chain_apis {
 
    void trx_finality_status_processing::signal_irreversible_block( const chain::block_state_legacy_ptr& bsp ) {
       try {
-         _my->_irr_block_id = bsp->id;
+         _my->_irr_block_id = bsp->id();
          _my->_irr_block_timestamp = bsp->block->timestamp;
       } FC_LOG_AND_DROP(("Failed to signal irreversible block for finality status"));
    }
@@ -141,11 +141,11 @@ namespace eosio::chain_apis {
 
    void trx_finality_status_processing_impl::signal_accepted_block( const chain::block_state_legacy_ptr& bsp ) {
       // if this block had any transactions, then we have processed everything we need to already
-      if (bsp->id == _head_block_id) {
+      if (bsp->id() == _head_block_id) {
          return;
       }
 
-      _head_block_id = bsp->id;
+      _head_block_id = bsp->id();
       _head_block_timestamp = bsp->block->timestamp;
 
       const auto head_block_num = chain::block_header::num_from_id(_head_block_id);

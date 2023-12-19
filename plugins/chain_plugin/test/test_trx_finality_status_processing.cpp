@@ -84,7 +84,7 @@ chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_pt
          trx->id(),
          block_number,
          chain::block_timestamp_type(fc::time_point::now()),
-         bs_ptr ? bs_ptr->id : std::optional<block_id_type> {},
+         bs_ptr ? bs_ptr->id() : std::optional<block_id_type> {},
          chain::transaction_receipt_header{status},
          fc::microseconds(0),
          0,
@@ -146,7 +146,7 @@ auto make_block_state( uint32_t block_num ) {
              const std::vector<chain::digest_type>& new_features ) {},
          signer
    );
-   bsp->id = block_id;
+   ((block_header_state_legacy *)bsp.get())->id = block_id;  // [greg todo]
    ((block_header_state_legacy *)bsp.get())->block_num = block_num; // [greg todo]
 
    return bsp;
@@ -244,7 +244,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
       const auto& trace = std::get<0>(trx_tuple);
       const auto& txn = std::get<1>(trx_tuple);
 
-      trace->producer_block_id = bs_20->id;
+      trace->producer_block_id = bs_20->id();
       trace->block_time = bs_20->block->timestamp;
 
       status.signal_applied_transaction(trace, txn);
@@ -258,25 +258,25 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == bs_20->id);
+   BOOST_CHECK(cs.head_id == bs_20->id());
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[0])->producer_block_id);
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[1])->producer_block_id);
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[2])->producer_block_id);
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_20[3])->producer_block_id);
    BOOST_CHECK(cs.head_block_timestamp == bs_20->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id());
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK(fc::time_point_sec(ts->expiration) == (std::get<1>(trx_pairs_20[1])->expiration()));
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
@@ -284,14 +284,14 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -324,36 +324,36 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    status.signal_accepted_block(bs_21);
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == bs_21->id);
+   BOOST_CHECK(cs.head_id == bs_21->id());
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_21[0])->producer_block_id);
    BOOST_CHECK(cs.head_block_timestamp == bs_21->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id());
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -374,7 +374,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_21->id);
+   BOOST_CHECK(ts->block_id == bs_21->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -393,37 +393,37 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    status.signal_accepted_block(bs_22);
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == bs_22->id);
+   BOOST_CHECK(cs.head_id == bs_22->id());
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_22[0])->producer_block_id);
    BOOST_CHECK(cs.head_block_timestamp == bs_22->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id());
 
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -444,14 +444,14 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_21->id);
+   BOOST_CHECK(ts->block_id == bs_21->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22->id);
+   BOOST_CHECK(ts->block_id == bs_22->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -471,37 +471,37 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    status.signal_accepted_block(bs_22_alt);
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == bs_22_alt->id);
+   BOOST_CHECK(cs.head_id == bs_22_alt->id());
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_22_alt[0])->producer_block_id);
    BOOST_CHECK(cs.head_block_timestamp == bs_22_alt->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == bs_20->id());
 
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -522,21 +522,21 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_21->id);
+   BOOST_CHECK(ts->block_id == bs_21->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22->id);
+   BOOST_CHECK(ts->block_id == bs_22->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22_alt[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22_alt->id);
+   BOOST_CHECK(ts->block_id == bs_22_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_alt_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -556,37 +556,37 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    status.signal_accepted_block(bs_19);
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == bs_19->id);
+   BOOST_CHECK(cs.head_id == bs_19->id());
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_19[0])->producer_block_id);
    BOOST_CHECK(cs.head_block_timestamp == bs_19->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == bs_19->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == bs_19->id());
 
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_20->id);
+   BOOST_CHECK(ts->block_id == bs_20->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
@@ -607,7 +607,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_21->id);
+   BOOST_CHECK(ts->block_id == bs_21->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
@@ -615,21 +615,21 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22->id);
+   BOOST_CHECK(ts->block_id == bs_22->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22_alt[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22_alt->id);
+   BOOST_CHECK(ts->block_id == bs_22_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_alt_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_19[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19->id);
+   BOOST_CHECK(ts->block_id == bs_19->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_19_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -655,7 +655,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
       const auto& trace = std::get<0>(trx_tuple);
       const auto& txn = std::get<1>(trx_tuple);
 
-      trace->producer_block_id = bs_19_alt->id;
+      trace->producer_block_id = bs_19_alt->id();
       trace->block_time = bs_19_alt->block->timestamp;
 
       status.signal_applied_transaction(trace, txn);
@@ -664,44 +664,44 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    status.signal_accepted_block(bs_19_alt);
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == bs_19_alt->id);
+   BOOST_CHECK(cs.head_id == bs_19_alt->id());
    BOOST_CHECK(cs.head_id == *std::get<0>(trx_pairs_19[0])->producer_block_id);
    BOOST_CHECK(cs.head_block_timestamp == bs_19_alt->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == bs_19_alt->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == bs_19_alt->id());
 
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -715,7 +715,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_21->id);
+   BOOST_CHECK(ts->block_id == bs_21->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
@@ -723,21 +723,21 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22->id);
+   BOOST_CHECK(ts->block_id == bs_22->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22_alt[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22_alt->id);
+   BOOST_CHECK(ts->block_id == bs_22_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_alt_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_19[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_19_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
@@ -753,43 +753,43 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    status.signal_irreversible_block(bs_19_alt);
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == bs_19_alt->id);
-   BOOST_CHECK(cs.irr_id == bs_19_alt->id);
+   BOOST_CHECK(cs.head_id == bs_19_alt->id());
+   BOOST_CHECK(cs.irr_id == bs_19_alt->id());
    BOOST_CHECK(cs.irr_block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK(cs.earliest_tracked_block_id == bs_19_alt->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == bs_19_alt->id());
 
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
@@ -803,7 +803,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_21->id);
+   BOOST_CHECK(ts->block_id == bs_21->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
@@ -811,21 +811,21 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22->id);
+   BOOST_CHECK(ts->block_id == bs_22->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22_alt[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_22_alt->id);
+   BOOST_CHECK(ts->block_id == bs_22_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_alt_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_19[0])->id());
    BOOST_REQUIRE(ts);
-   BOOST_CHECK(ts->block_id == bs_19_alt->id);
+   BOOST_CHECK(ts->block_id == bs_19_alt->id());
    BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
    BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_19_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
@@ -918,7 +918,7 @@ namespace {
          if (end == std::numeric_limits<uint32_t>::max()) {
             end = block.size();
          }
-         const auto id = bs ? bs->id : eosio::chain::transaction_id_type{};
+         const auto id = bs ? bs->id() : eosio::chain::transaction_id_type{};
          for (auto i = begin; i < end; ++i) {
             const auto& trx_pair = trx_pairs[i];
             std::string msg = context + ": block_num==" + std::to_string(bn) + ", i==" + std::to_string(i) + ", id: " + std::string(std::get<1>(trx_pair)->id());
@@ -951,7 +951,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction) { try {
    trx_finality_status_processing status(max_storage, max_success_duration, max_failure_duration);
 
    // auto verify_trx = [&status](trx_deque& trx_pairs, const eosio::chain::block_state_ptr& bs) {
-   //    const auto id = bs ? bs->id : eosio::chain::transaction_id_type{};
+   //    const auto id = bs ? bs->id() : eosio::chain::transaction_id_type{};
    //    for (const auto& trx_pair : trx_pairs) {
    //       auto ts = status.get_trx_state(std::get<1>(trx_pair)->id());
    //       BOOST_REQUIRE(ts);
@@ -1054,9 +1054,9 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction) { try {
 
 
    auto cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == b_11.bs->id);
+   BOOST_CHECK(cs.head_id == b_11.bs->id());
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == b_01.bs->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == b_01.bs->id());
 
    // Test expects the next block range to exceed max_storage. Need to adjust
    // this test if this fails.
@@ -1071,11 +1071,11 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction) { try {
    b_12.verify_block();
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == b_12.bs->id);
+   BOOST_CHECK(cs.head_id == b_12.bs->id());
    BOOST_CHECK(cs.head_block_timestamp == b_12.bs->block->timestamp);
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
    BOOST_CHECK(cs.irr_block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == b_03.bs->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == b_03.bs->id());
 
 
    b_01.verify_spec_block_not_there();
@@ -1125,7 +1125,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_lifespan) { try {
    trx_finality_status_processing status(max_storage, max_success_duration, max_failure_duration);
 
    // auto verify_trx = [&status](trx_deque& trx_pairs, const eosio::chain::block_state_ptr& bs) {
-   //    const auto id = bs ? bs->id : eosio::chain::transaction_id_type{};
+   //    const auto id = bs ? bs->id() : eosio::chain::transaction_id_type{};
    //    for (const auto& trx_pair : trx_pairs) {
    //       auto ts = status.get_trx_state(std::get<1>(trx_pair)->id());
    //       BOOST_REQUIRE(ts);
@@ -1191,9 +1191,9 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_lifespan) { try {
    b_01.verify_spec_block();
 
    auto cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == b_06.bs->id);
+   BOOST_CHECK(cs.head_id == b_06.bs->id());
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == b_02.bs->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == b_02.bs->id());
 
 
    block_frame b_07(status, "04:44:30.500");
@@ -1210,9 +1210,9 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_lifespan) { try {
    b_02.verify_spec_block();
 
    cs = status.get_chain_state();
-   BOOST_CHECK(cs.head_id == b_07.bs->id);
+   BOOST_CHECK(cs.head_id == b_07.bs->id());
    BOOST_CHECK(cs.irr_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(cs.earliest_tracked_block_id == b_03.bs->id);
+   BOOST_CHECK(cs.earliest_tracked_block_id == b_03.bs->id());
 
 
    block_frame b_08(status, "04:44:35.500");

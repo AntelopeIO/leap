@@ -633,8 +633,8 @@ struct state_history_tester : state_history_tester_logs, tester {
 
       control.accepted_block.connect([&](const block_state_legacy_ptr& block_state) {
          eosio::state_history_log_header header{.magic        = eosio::ship_magic(eosio::ship_current_version, 0),
-                                      .block_id     = block_state->id,
-                                      .payload_size = 0};
+                                                .block_id     = block_state->id(),
+                                                .payload_size = 0};
 
          traces_log.pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
             trace_converter.pack(buf, false, block_state);

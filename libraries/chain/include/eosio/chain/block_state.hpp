@@ -17,11 +17,11 @@ namespace eosio::chain {
 
    
       // ------ data members caching information available elsewhere ----------------------
-      block_id_type              id;          // cache of block_header_state::header.calculate_id() (indexed on this field)
+      block_id_type              cached_id;   // cache of block_header_state::header.calculate_id() (indexed on this field)
       header_extension_multimap  header_exts; // redundant with the data stored in header
 
       // ------ functions -----------------------------------------------------------------
-   
+      const block_id_type&   id()                const { return cached_id; }
       const block_id_type&   previous()          const { return block_header_state::previous(); }
       uint32_t               block_num()         const { return block_header_state::block_num(); }
       block_timestamp_type   timestamp()         const { return block_header_state::timestamp(); }

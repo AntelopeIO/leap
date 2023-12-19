@@ -248,7 +248,7 @@ public:
          return;
 
       state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
-                                      .block_id     = block_state->id,
+                                      .block_id     = block_state->id(),
                                       .payload_size = 0};
       trace_log->pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
          trace_converter.pack(buf, trace_debug_mode, block_state);
@@ -264,7 +264,7 @@ public:
          fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block_num()));
 
       state_history_log_header header{
-          .magic = ship_magic(ship_current_version, 0), .block_id = block_state->id, .payload_size = 0};
+          .magic = ship_magic(ship_current_version, 0), .block_id = block_state->id(), .payload_size = 0};
       chain_state_log->pack_and_write_entry(header, block_state->header.previous, [this, fresh](auto&& buf) {
          pack_deltas(buf, chain_plug->chain().db(), fresh);
       });
