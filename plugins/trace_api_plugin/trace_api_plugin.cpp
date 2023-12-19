@@ -377,16 +377,18 @@ struct trace_api_plugin_impl {
             }));
 
       accepted_block_connection.emplace(
-         chain.accepted_block.connect([this](const chain::block_state_legacy_ptr& p) {
+         chain.accepted_block.connect([this](const chain::block_signal_params& t) {
             emit_killer([&](){
-               extraction->signal_accepted_block(p);
+               const auto& [ block, id ] = t;
+               extraction->signal_accepted_block(block, id);
             });
          }));
 
       irreversible_block_connection.emplace(
-         chain.irreversible_block.connect([this](const chain::block_state_legacy_ptr& p) {
+         chain.irreversible_block.connect([this](const chain::block_signal_params& t) {
+            const auto& [ block, id ] = t;
             emit_killer([&](){
-               extraction->signal_irreversible_block(p);
+               extraction->signal_irreversible_block(block->block_num());
             });
          }));
 

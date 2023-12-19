@@ -44,6 +44,8 @@ namespace eosio { namespace chain {
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
+   using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
+
    class fork_database;
 
    enum class db_read_mode {
@@ -326,24 +328,11 @@ namespace eosio { namespace chain {
 
          static std::optional<uint64_t> convert_exception_to_error_code( const fc::exception& e );
 
-         signal<void(uint32_t)>                        block_start; // block_num
-         signal<void(const signed_block_ptr&)>         pre_accepted_block;
-         signal<void(const block_state_legacy_ptr&)>   accepted_block_header;
-         signal<void(const block_state_legacy_ptr&)>   accepted_block;
-         signal<void(const block_state_legacy_ptr&)>   irreversible_block;
-         signal<void(const transaction_metadata_ptr&)> accepted_transaction;
+         signal<void(uint32_t)>             block_start;
+         signal<void(const block_signal_params&)>  accepted_block_header;
+         signal<void(const block_signal_params&)>  accepted_block;
+         signal<void(const block_signal_params&)>  irreversible_block;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
-         signal<void(const int&)>                      bad_alloc;
-
-         /*
-         signal<void()>                                  pre_apply_block;
-         signal<void()>                                  post_apply_block;
-         signal<void()>                                  abort_apply_block;
-         signal<void(const transaction_metadata_ptr&)>   pre_apply_transaction;
-         signal<void(const transaction_trace_ptr&)>      post_apply_transaction;
-         signal<void(const transaction_trace_ptr&)>  pre_apply_action;
-         signal<void(const transaction_trace_ptr&)>  post_apply_action;
-         */
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface& get_wasm_interface();

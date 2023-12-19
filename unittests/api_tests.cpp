@@ -1470,8 +1470,10 @@ void transaction_tests(T& chain) {
             auto& t = std::get<0>(x);
             if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
          } );
-         block_state_legacy_ptr bsp;
-         auto c2 = chain.control->accepted_block.connect([&](const block_state_legacy_ptr& b) { bsp = b; });
+         signed_block_ptr block;
+         auto c2 = chain.control->accepted_block.connect([&](block_signal_params t) {
+            const auto& [ b, id ] = t;
+            block = b; });
 
          // test error handling on deferred transaction failure
          auto test_trace = CALL_TEST_FUNCTION(chain, "test_transaction", "send_transaction_trigger_error_handler", {});
@@ -1480,7 +1482,7 @@ void transaction_tests(T& chain) {
          BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::soft_fail);
 
          std::set<transaction_id_type> block_ids;
-         for( const auto& receipt : bsp->block->transactions ) {
+         for( const auto& receipt : block->transactions ) {
             transaction_id_type id;
             if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
                const auto& pt = std::get<packed_transaction>(receipt.trx);
