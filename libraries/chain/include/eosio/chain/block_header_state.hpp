@@ -54,35 +54,35 @@ struct block_header_state_core {
 struct block_header_state {
    // ------ data members ------------------------------------------------------------
    block_id_type                       id;
-   block_header                        _header;
-   protocol_feature_activation_set_ptr _activated_protocol_features;
+   block_header                        header;
+   protocol_feature_activation_set_ptr activated_protocol_features;
 
-   block_header_state_core             _core;
-   incremental_merkle_tree             _proposal_mtree;
-   incremental_merkle_tree             _finality_mtree;
+   block_header_state_core             core;
+   incremental_merkle_tree             proposal_mtree;
+   incremental_merkle_tree             finality_mtree;
 
-   finalizer_policy_ptr                _finalizer_policy; // finalizer set + threshold + generation, supports `digest()`
-   proposer_policy_ptr                 _proposer_policy;  // producer authority schedule, supports `digest()`
+   finalizer_policy_ptr                finalizer_policy; // finalizer set + threshold + generation, supports `digest()`
+   proposer_policy_ptr                 proposer_policy;  // producer authority schedule, supports `digest()`
 
-   flat_map<uint32_t, proposer_policy_ptr>  _proposer_policies;
-   flat_map<uint32_t, finalizer_policy_ptr> _finalizer_policies;
+   flat_map<uint32_t, proposer_policy_ptr>  proposer_policies;
+   flat_map<uint32_t, finalizer_policy_ptr> finalizer_policies;
 
    // ------ functions -----------------------------------------------------------------
    digest_type           compute_finalizer_digest() const;
-   block_timestamp_type  timestamp() const { return _header.timestamp; }
-   account_name          producer() const { return _header.producer; }
-   const block_id_type&  previous() const { return _header.previous; }
+   block_timestamp_type  timestamp() const { return header.timestamp; }
+   account_name          producer() const  { return header.producer; }
+   const block_id_type&  previous() const  { return header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
    
    block_header_state next(const block_header_state_input& data) const;
    
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
-      return !_core.last_qc_block_height || qc.block_height > *_core.last_qc_block_height;
+      return !core.last_qc_block_height || qc.block_height > *core.last_qc_block_height;
    }
 
    protocol_feature_activation_set_ptr  get_prev_activated_protocol_features() const { return {}; } //  [greg todo] 
-   flat_set<digest_type> get_activated_protocol_features() const { return _activated_protocol_features->protocol_features; }
+   flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    detail::schedule_info prev_pending_schedule() const;
    uint32_t active_schedule_version() const;
    std::optional<producer_authority_schedule>& new_pending_producer_schedule() { static std::optional<producer_authority_schedule> x; return x; } //  [greg todo] 
@@ -91,7 +91,7 @@ struct block_header_state {
                                          const std::optional<producer_authority_schedule>& new_producers,
                                          vector<digest_type>&& new_protocol_feature_activations,
                                          const protocol_feature_set& pfs) const;
-   uint32_t increment_finalizer_policy_generation() { return ++_core.finalizer_policy_generation; }
+   uint32_t increment_finalizer_policy_generation() { return ++core.finalizer_policy_generation; }
 };
 
 using block_header_state_ptr = std::shared_ptr<block_header_state>;

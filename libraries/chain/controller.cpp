@@ -140,7 +140,7 @@ struct completed_block {
 
    account_name producer() const {
       return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) { return bsp->block->producer; },
-                                   [](const block_state_ptr& bsp)        { return bsp->_header.producer; }},
+                                   [](const block_state_ptr& bsp)        { return bsp->header.producer; }},
                         bsp);
    }
 
@@ -178,7 +178,7 @@ struct completed_block {
                                       return bsp->valid_block_signing_authority;
                                    },
                                    [](const block_state_ptr& bsp) -> const block_signing_authority& {
-                                      static block_signing_authority bsa; return bsa; //return bsp->_header.producer; [greg todo]
+                                      static block_signing_authority bsa; return bsa; //return bsp->header.producer; [greg todo]
                                    }},
                         bsp);
    }
@@ -247,7 +247,7 @@ struct assembled_block {
    block_timestamp_type timestamp() const {
       return std::visit(
          overloaded{[](const assembled_block_dpos& ab)  { return ab.pending_block_header_state.timestamp; },
-                    [](const assembled_block_if& ab)    { return ab.new_block_header_state._header.timestamp; }},
+                    [](const assembled_block_if& ab)    { return ab.new_block_header_state.header.timestamp; }},
          v);
    }
 
@@ -399,15 +399,15 @@ struct building_block {
          , timestamp(input.timestamp)
          , active_producer_authority{input.producer,
                               [&]() -> block_signing_authority {
-                                 const auto& pas = parent._proposer_policy->proposer_schedule;
+                                 const auto& pas = parent.proposer_policy->proposer_schedule;
                                  for (const auto& pa : pas.producers)
                                     if (pa.producer_name == input.producer)
                                        return pa.authority;
                                  assert(0); // we should find the authority
                                  return {};
                               }()}
-         , prev_activated_protocol_features(parent._activated_protocol_features)
-         , active_proposer_policy(parent._proposer_policy)
+         , prev_activated_protocol_features(parent.activated_protocol_features)
+         , active_proposer_policy(parent.proposer_policy)
          , block_num(parent.block_num() + 1) {}
 
       bool is_protocol_feature_activated(const digest_type& digest) const {
