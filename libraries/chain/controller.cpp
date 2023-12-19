@@ -2804,8 +2804,10 @@ struct controller_impl {
          }
       } else if( new_head->id != head->id ) {
          auto old_head = head;
+         auto head_num = head->block_num();
+         auto new_head_num = new_head->block_num();
          ilog("switching forks from ${current_head_id} (block number ${current_head_num}) to ${new_head_id} (block number ${new_head_num})",
-              ("current_head_id", head->id)("current_head_num", head->block_num())("new_head_id", new_head->id)("new_head_num", new_head->block_num()) );
+              ("current_head_id", head->id)("current_head_num", head_num)("new_head_id", new_head->id)("new_head_num", new_head_num) );
 
          // not possible to log transaction specific infor when switching forks
          if (auto dm_logger = get_deep_mind_logger(false)) {
