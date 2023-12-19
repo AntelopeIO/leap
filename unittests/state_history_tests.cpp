@@ -641,7 +641,7 @@ struct state_history_tester : state_history_tester_logs, tester {
             trace_converter.pack(buf, false, block);
          });
 
-         chain_state_log.pack_and_write_entry(header, static_cast<signed_block_header>(*block).previous, [&control](auto&& buf) {
+         chain_state_log.pack_and_write_entry(header, block->previous, [&control](auto&& buf) {
             eosio::state_history::pack_deltas(buf, control.db(), true);
          });
       });

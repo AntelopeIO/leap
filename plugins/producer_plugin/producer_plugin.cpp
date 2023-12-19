@@ -1335,7 +1335,7 @@ void producer_plugin_impl::plugin_startup() {
           }));
          _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const block_signal_params& t) {
             const auto& [ block, id ] = t;
-            on_block_header(static_cast<signed_block_header>(*block).producer, block->block_num(), block->timestamp);
+            on_block_header(block->producer, block->block_num(), block->timestamp);
          }));
          _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](const block_signal_params& t) {
             const auto& [ block, id ] = t;

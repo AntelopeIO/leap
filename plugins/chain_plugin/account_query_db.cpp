@@ -265,7 +265,7 @@ namespace eosio::chain_apis {
             } else {
                const auto& po = *itr;
 
-               uint32_t last_updated_height = chain::block_timestamp_type(po.last_updated) == static_cast<chain::signed_block_header>(*block).timestamp ?
+               uint32_t last_updated_height = chain::block_timestamp_type(po.last_updated) == block->timestamp ?
                   bnum : last_updated_time_to_height(po.last_updated);
 
                index.modify(index.iterator_to(pi), [&po, last_updated_height](auto& mutable_pi) {
@@ -375,7 +375,7 @@ namespace eosio::chain_apis {
             rollback_to_before(block);
 
             // insert this blocks time into the time map
-            time_to_block_num.emplace(static_cast<chain::signed_block_header>(*block).timestamp, block_num);
+            time_to_block_num.emplace(block->timestamp, block_num);
 
             const auto bnum = block_num;
             auto& index = permission_info_index.get<by_owner_name>();
