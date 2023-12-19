@@ -1340,15 +1340,9 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
-<<<<<<< HEAD
          chain.create_pacemaker(_producers, std::move(_finalizer_keys), hotstuff_logger);
          _finalizer_keys.clear();
 
-         _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
-         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
-         _irreversible_block_connection.emplace(
-            chain.irreversible_block.connect([this](const auto& bsp) { on_irreversible_block(bsp->block); }));
-=======
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](const block_signal_params& t) {
             const auto& [ block, id ] = t;
             on_block(block);
@@ -1361,7 +1355,6 @@ void producer_plugin_impl::plugin_startup() {
             const auto& [ block, id ] = t;
             on_irreversible_block(block);
          }));
->>>>>>> origin/main
 
          _block_start_connection.emplace(chain.block_start.connect([this, &chain](uint32_t bs) {
             try {
