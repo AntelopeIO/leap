@@ -380,7 +380,7 @@ struct trace_api_plugin_impl {
          chain.accepted_block.connect([this](const chain::block_signal_params& t) {
             emit_killer([&](){
                const auto& [ block, id ] = t;
-               extraction->signal_accepted_block(block, id, block->block_num());
+               extraction->signal_accepted_block(block, id);
             });
          }));
 

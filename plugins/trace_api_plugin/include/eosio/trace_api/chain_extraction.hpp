@@ -31,8 +31,8 @@ public:
    }
 
    /// connect to chain controller accepted_block signal
-   void signal_accepted_block( const chain::signed_block_ptr& block, const chain::block_id_type& id, uint32_t block_num ) {
-      on_accepted_block( block, id, block_num );
+   void signal_accepted_block( const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
+      on_accepted_block( block, id );
    }
 
    /// connect to chain controller irreversible_block signal
@@ -63,8 +63,8 @@ private:
       }
    }
 
-   void on_accepted_block(const chain::signed_block_ptr& block, const chain::block_id_type& id, uint32_t block_num) {
-      store_block_trace( block, id, block_num );
+   void on_accepted_block(const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
+      store_block_trace( block, id );
    }
 
    void on_irreversible_block( uint32_t block_num ) {
@@ -80,10 +80,10 @@ private:
       onblock_trace.reset();
    }
 
-   void store_block_trace( const chain::signed_block_ptr& block, const chain::block_id_type& id, uint32_t block_num) {
+   void store_block_trace( const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
       try {
          using transaction_trace_t = transaction_trace_v3;
-         auto bt = create_block_trace( block, id, block_num );
+         auto bt = create_block_trace( block, id );
 
          std::vector<transaction_trace_t> traces;
          traces.reserve( block->transactions.size() + 1 );

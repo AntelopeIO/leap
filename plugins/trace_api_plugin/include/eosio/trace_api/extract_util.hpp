@@ -62,10 +62,10 @@ inline TransactionTrace to_transaction_trace( const cache_trace& t ) {
    return r;
 }
 
-inline block_trace_v2 create_block_trace( const chain::signed_block_ptr& block, const chain::block_id_type& id, uint32_t block_num ) {
+inline block_trace_v2 create_block_trace( const chain::signed_block_ptr& block, const chain::block_id_type& id ) {
    block_trace_v2 r;
    r.id = id;
-   r.number = block_num;
+   r.number = block->block_num();
    r.previous_id = block->previous;
    r.timestamp = block->timestamp;
    r.producer = block->producer;

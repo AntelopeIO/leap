@@ -137,7 +137,7 @@ struct extraction_test_fixture {
    }
 
    void signal_accepted_block( const chain::block_state_legacy_ptr& bsp ) {
-      extraction_impl.signal_accepted_block(bsp->block, bsp->id, bsp->block_num);
+      extraction_impl.signal_accepted_block(bsp->block, bsp->id);
    }
 
    // fixture data and methods
