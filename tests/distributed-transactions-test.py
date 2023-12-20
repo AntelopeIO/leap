@@ -23,7 +23,7 @@ errorExit=Utils.errorExit
 
 appArgs = AppArgs()
 extraArgs = appArgs.add_bool(flag="--speculative", help="Run nodes in read-mode=speculative")
-args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed", "--speculative"
+args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed", "--speculative", "--activate-if"
                            ,"--dump-error-details","-v","--leave-running","--keep-logs","--unshared"}, applicationSpecificArgs=appArgs)
 
 pnodes=args.p
@@ -36,12 +36,13 @@ dontLaunch=nodesFile is not None
 seed=args.seed
 dumpErrorDetails=args.dump_error_details
 speculative=args.speculative
+activateIF=args.activate_if
 
 Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(unshared=args.unshared, keepRunning=True if nodesFile is not None else args.leave_running, keepLogs=args.keep_logs)
+cluster=Cluster(unshared=args.unshared, keepRunning=True if nodesFile is not None else args.leave_running, keepLogs=args.keep_logs, loggingLevel="all")
 walletMgr=WalletMgr(True)
 
 try:
@@ -67,7 +68,7 @@ try:
         if speculative:
            extraNodeosArgs = " --read-mode speculative "
 
-        if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, extraNodeosArgs=extraNodeosArgs) is False:
+        if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, extraNodeosArgs=extraNodeosArgs, activateIF=activateIF) is False:
             errorExit("Failed to stand up eos cluster.")
 
         Print ("Wait for Cluster stabilization")

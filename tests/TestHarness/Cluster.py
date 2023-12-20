@@ -167,7 +167,8 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=21, topo="mesh", delay=2, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, activateIF=False,
+               nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count
@@ -519,7 +520,7 @@ class Cluster(object):
             return True
 
         Utils.Print("Bootstrap cluster.")
-        if not self.bootstrap(self.biosNode, self.startedNodesCount, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract):
+        if not self.bootstrap(launcher, self.biosNode, self.startedNodesCount, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract, activateIF):
             Utils.Print("ERROR: Bootstrap failed.")
             return False
 
@@ -991,7 +992,42 @@ class Cluster(object):
         Utils.Print(f'Found {len(producerKeys)} producer keys')
         return producerKeys
 
-    def bootstrap(self, biosNode, totalNodes, prodCount, totalProducers, pfSetupPolicy, onlyBios=False, onlySetProds=False, loadSystemContract=True):
+    def activateInstantFinality(self, launcher):
+        # call setfinalizer
+        numFins = len(launcher.network.nodes.values())
+        setFinStr =  f'{{"finalizer_policy": {{'
+        setFinStr += f'  "threshold": {int(numFins * 2 / 3 + 1)}, '
+        setFinStr += f'  "finalizers": ['
+        finNum = 1
+        for n in launcher.network.nodes.values():
+            if n.keys[0].blspubkey is None:
+                continue
+            if len(n.producers) == 0:
+                continue
+            setFinStr += f'    {{"description": "finalizer #{finNum}", '
+            setFinStr += f'     "weight":1, '
+            setFinStr += f'     "public_key": "{n.keys[0].blspubkey}", '
+            setFinStr += f'     "pop": "{n.keys[0].blspop}"'
+            setFinStr += f'    }}'
+            if finNum != numFins:
+                setFinStr += f', '
+            finNum = finNum + 1
+        setFinStr +=  f'  ]'
+        setFinStr +=  f'}}}}'
+        if Utils.Debug: Utils.Print("setfinalizers: %s" % (setFinStr))
+        Utils.Print("Setting finalizers")
+        opts = "--permission eosio@active"
+        trans = self.biosNode.pushMessage("eosio", "setfinalizer", setFinStr, opts)
+        if trans is None or not trans[0]:
+            Utils.Print("ERROR: Failed to set finalizers")
+            return None
+        Node.validateTransaction(trans[1])
+        transId = Node.getTransId(trans[1])
+        if not self.biosNode.waitForTransFinalization(transId, timeout=21*12*3):
+            Utils.Print("ERROR: Failed to validate transaction %s got rolled into a LIB block on server port %d." % (transId, biosNode.port))
+            return None
+
+    def bootstrap(self, launcher,  biosNode, totalNodes, prodCount, totalProducers, pfSetupPolicy, onlyBios=False, onlySetProds=False, loadSystemContract=True, activateIF=False):
         """Create 'prodCount' init accounts and deposits 10000000000 SYS in each. If prodCount is -1 will initialize all possible producers.
         Ensure nodes are inter-connected prior to this call. One way to validate this will be to check if every node has block 1."""
 
@@ -1027,12 +1063,11 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to import %s account keys into ignition wallet." % (eosioName))
             return None
 
-        contract="eosio.bios"
-        contractDir= str(self.libTestingContractsPath / contract)
-        if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
-            contractDir=str(self.libTestingContractsPath / "old_versions" / "v1.7.0-develop-preactivate_feature" / contract)
-        else:
-            contractDir=str(self.libTestingContractsPath / "old_versions" / "v1.6.0-rc3" / contract)
+        if not PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
+            return True
+
+        contract="eosio.boot"
+        contractDir= str(self.unittestsContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
@@ -1043,8 +1078,20 @@ class Cluster(object):
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
             biosNode.preactivateAllBuiltinProtocolFeature()
-
         Node.validateTransaction(trans)
+
+        contract="eosio.bios"
+        contractDir= str(self.libTestingContractsPath / contract)
+        wasmFile="%s.wasm" % (contract)
+        abiFile="%s.abi" % (contract)
+        Utils.Print("Publish %s contract" % (contract))
+        trans=biosNode.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+        if trans is None:
+            Utils.Print("ERROR: Failed to publish contract %s." % (contract))
+            return None
+
+        if activateIF:
+            self.activateInstantFinality(launcher)
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(eosioName)
@@ -1092,7 +1139,7 @@ class Cluster(object):
                     if counts[keys["node"]] >= prodCount:
                         Utils.Print(f'Count for this node exceeded: {counts[keys["node"]]}')
                         continue
-                    prodStanzas.append({ 'producer_name': keys['name'], 'block_signing_key': keys['public'] })
+                    prodStanzas.append({ 'producer_name': keys['name'], 'authority': ["block_signing_authority_v0", { 'threshold': 1, 'keys': [{ 'key': keys['public'], 'weight': 1 }]}]})
                     prodNames.append(keys["name"])
                     counts[keys["node"]] += 1
                 setProdsStr += json.dumps(prodStanzas)
