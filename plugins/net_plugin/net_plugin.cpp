@@ -3062,7 +3062,7 @@ namespace eosio {
                  ("h", my_impl->get_chain_head_num()));
       if( !my_impl->sync_master->syncing_from_peer() ) { // guard against peer thinking it needs to send us old blocks
          uint32_t lib_num = my_impl->get_chain_lib_num();
-         if( blk_num < lib_num ) {
+         if( blk_num <= lib_num ) {
             fc::unique_lock g( conn_mtx );
             const auto last_sent_lib = last_handshake_sent.last_irreversible_block_num;
             g.unlock();
@@ -3079,6 +3079,13 @@ namespace eosio {
       } else {
          block_sync_bytes_received += message_length;
          my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
+         uint32_t lib_num = my_impl->get_chain_lib_num();
+         if( blk_num <= lib_num ) {
+            cancel_wait();
+
+            pending_message_buffer.advance_read_ptr( message_length );
+            return true;
+         }
       }
 
       auto ds = pending_message_buffer.create_datastream();
@@ -3740,7 +3747,7 @@ namespace eosio {
       connection_ptr c = shared_from_this();
 
       try {
-         if( cc.fetch_block_by_id(blk_id) ) {
+         if( blk_num <= cc.last_irreversible_block_num() || cc.fetch_block_by_id(blk_id) ) {
             c->strand.post( [sync_master = my_impl->sync_master.get(),
                              dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
                dispatcher->add_peer_block( blk_id, c->connection_id );
