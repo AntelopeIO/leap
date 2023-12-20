@@ -17,7 +17,7 @@ namespace eosio::chain {
       finalizer_policy& operator=(finalizer_policy&&) noexcept;
 
       uint32_t                         generation = 0; ///< sequentially incrementing version number
-      uint64_t                         fthreshold = 0;  ///< vote fweight threshold to finalize blocks
+      uint64_t                         threshold = 0;  ///< vote weight threshold to finalize blocks
       std::vector<finalizer_authority> finalizers; ///< Instant Finality voter set
    };
 
@@ -33,5 +33,5 @@ namespace eosio::chain {
 
 } /// eosio::chain
 
-FC_REFLECT( eosio::chain::finalizer_policy, (generation)(fthreshold)(finalizers) )
+FC_REFLECT( eosio::chain::finalizer_policy, (generation)(threshold)(finalizers) )
 FC_REFLECT_DERIVED( eosio::chain::finalizer_policy_extension, (eosio::chain::finalizer_policy), )
