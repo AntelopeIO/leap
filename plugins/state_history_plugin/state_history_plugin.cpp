@@ -406,10 +406,11 @@ void state_history_plugin_impl::plugin_startup() {
    try {
       const auto& chain = chain_plug->chain();
       update_current();
-      auto bsp = chain.head_block_state();
-      if( bsp && chain_state_log && chain_state_log->empty() ) {
+      const auto& b = chain.head_block();
+      const auto& id = chain.head_block_id();
+      if( chain_state_log && chain_state_log->empty() ) {
          fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
-         store_chain_state( bsp->id(), bsp->header, bsp->block_num() );
+         store_chain_state( id, *b, b->block_num() );
          fc_ilog( _log, "Done storing initial state on startup" );
       }
       first_available_block = chain.earliest_available_block_num();

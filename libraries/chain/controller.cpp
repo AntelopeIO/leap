@@ -3536,8 +3536,12 @@ account_name  controller::head_block_producer()const {
 const block_header& controller::head_block_header()const {
    return my->head->header;
 }
-block_state_legacy_ptr controller::head_block_state()const {
+block_state_legacy_ptr controller::head_block_state_legacy()const {
+   // TODO: return null after instant finality activated
    return my->head;
+}
+const signed_block_ptr& controller::head_block()const {
+   return my->head->block;
 }
 
 block_state_legacy_ptr controller_impl::fork_db_head() const {

@@ -1593,19 +1593,17 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
 
 
    { // ensure producer_schedule_change_extension is rejected
-      const auto& hbs = remote.control->head_block_state();
-
       // create a bad block that has the producer schedule change extension before the feature upgrade
       auto bad_block = std::make_shared<signed_block>(last_legacy_block->clone());
       emplace_extension(
               bad_block->header_extensions,
               producer_schedule_change_extension::extension_id(),
-              fc::raw::pack(std::make_pair(hbs->active_schedule.version + 1, std::vector<char>{}))
+              fc::raw::pack(std::make_pair(remote.control->active_producers().version + 1, std::vector<char>{}))
       );
 
       // re-sign the bad block
-      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
 
       // ensure it is rejected as an unknown extension
@@ -1616,15 +1614,13 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
    }
 
    { // ensure that non-null new_producers is accepted (and fails later in validation)
-      const auto& hbs = remote.control->head_block_state();
-
       // create a bad block that has the producer schedule change extension before the feature upgrade
       auto bad_block = std::make_shared<signed_block>(last_legacy_block->clone());
-      bad_block->new_producers = legacy::producer_schedule_type{hbs->active_schedule.version + 1, {}};
+      bad_block->new_producers = legacy::producer_schedule_type{remote.control->active_producers().version + 1, {}};
 
       // re-sign the bad block
-      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
 
       // ensure it is accepted (but rejected because it doesn't match expected state)
@@ -1640,19 +1636,17 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
    auto first_new_block = c.produce_block();
 
    {
-      const auto& hbs = remote.control->head_block_state();
-
       // create a bad block that has the producer schedule change extension that is valid but not warranted by actions in the block
       auto bad_block = std::make_shared<signed_block>(first_new_block->clone());
       emplace_extension(
               bad_block->header_extensions,
               producer_schedule_change_extension::extension_id(),
-              fc::raw::pack(std::make_pair(hbs->active_schedule.version + 1, std::vector<char>{}))
+              fc::raw::pack(std::make_pair(remote.control->active_producers().version + 1, std::vector<char>{}))
       );
 
       // re-sign the bad block
-      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
 
       // ensure it is rejected because it doesn't match expected state (but the extention was accepted)
@@ -1663,15 +1657,13 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
    }
 
    { // ensure that non-null new_producers is rejected
-      const auto& hbs = remote.control->head_block_state();
-
       // create a bad block that has the producer schedule change extension before the feature upgrade
       auto bad_block = std::make_shared<signed_block>(first_new_block->clone());
-      bad_block->new_producers = legacy::producer_schedule_type{hbs->active_schedule.version + 1, {}};
+      bad_block->new_producers = legacy::producer_schedule_type{remote.control->active_producers().version + 1, {}};
 
       // re-sign the bad block
-      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
 
       // ensure it is rejected because the new_producers field is not null
@@ -2246,8 +2238,8 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    copy_b->transaction_mroot = canonical_merkle( std::move(trx_digests) );
 
    // Re-sign the block
-   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), tester1.control->head_block_state()->blockroot_merkle.get_root() ) );
-   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, tester1.control->head_block_state()->pending_schedule.schedule_hash) );
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), tester1.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, tester1.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
    copy_b->producer_signature = tester1.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
    // Create the second chain

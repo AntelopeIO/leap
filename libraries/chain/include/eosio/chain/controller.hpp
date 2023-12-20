@@ -233,7 +233,9 @@ namespace eosio::chain {
          block_id_type        head_block_id()const;
          account_name         head_block_producer()const;
          const block_header&  head_block_header()const;
-         block_state_legacy_ptr head_block_state()const;
+         const signed_block_ptr& head_block()const;
+         // returns nullptr after instant finality enabled
+         block_state_legacy_ptr head_block_state_legacy()const;
 
          uint32_t             fork_db_head_block_num()const;
          block_id_type        fork_db_head_block_id()const;

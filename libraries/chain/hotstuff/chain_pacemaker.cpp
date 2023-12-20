@@ -118,7 +118,8 @@ namespace eosio::chain {
          const auto& [ block, id ] = t;
          on_irreversible_block( block );
       } );
-      _head_block_state = chain->head_block_state();
+      // TODO: assuming this will be going away
+      _head_block_state = chain->head_block_state_legacy();
    }
 
    void chain_pacemaker::register_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> broadcast_hs_message) {

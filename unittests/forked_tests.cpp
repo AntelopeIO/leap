@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
    // produce 6 blocks on bios
    for (int i = 0; i < 6; i ++) {
       bios.produce_block();
-      BOOST_REQUIRE_EQUAL( bios.control->head_block_state()->header.producer.to_string(), "a" );
+      BOOST_REQUIRE_EQUAL( bios.control->head_block()->producer.to_string(), "a" );
    }
 
    vector<fork_tracker> forks(7);
@@ -73,7 +73,7 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
             auto copy_b = std::make_shared<signed_block>(b->clone());
             if (j == i) {
                // corrupt this block
-               fork.block_merkle = remote.control->head_block_state()->blockroot_merkle;
+               fork.block_merkle = remote.control->head_block_state_legacy()->blockroot_merkle;
                copy_b->action_mroot._hash[0] ^= 0x1ULL;
             } else if (j < i) {
                // link to a corrupted chain
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
 
             // re-sign the block
             auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), fork.block_merkle.get_root() ) );
-            auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+            auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
             copy_b->producer_signature = remote.get_private_key("b"_n, "active").sign(sig_digest);
 
             // add this new block to our corrupted block merkle
@@ -117,9 +117,9 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
    }
 
    // make sure we can still produce a blocks until irreversibility moves
-   auto lib = bios.control->head_block_state()->dpos_irreversible_blocknum;
+   auto lib = bios.control->head_block_state_legacy()->dpos_irreversible_blocknum;
    size_t tries = 0;
-   while (bios.control->head_block_state()->dpos_irreversible_blocknum == lib && ++tries < 10000) {
+   while (bios.control->head_block_state_legacy()->dpos_irreversible_blocknum == lib && ++tries < 10000) {
       bios.produce_block();
    }
 
@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_CASE( prune_remove_branch ) try {
    auto nextproducer = [](tester &c, int skip_interval) ->account_name {
       auto head_time = c.control->head_block_time();
       auto next_time = head_time + fc::milliseconds(config::block_interval_ms * skip_interval);
-      return c.control->head_block_state()->get_scheduled_producer(next_time).producer_name;
+      return c.control->active_producers().get_scheduled_producer(next_time).producer_name;
    };
 
    // fork c: 2 producers: dan, sam
