@@ -1788,7 +1788,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    _pending_block_mode = pending_block_mode::producing;
 
    // Not our turn
-   const auto& scheduled_producer = chain.active_producers().get_scheduled_producer(block_time);
+   const auto scheduled_producer = chain.active_producers().get_scheduled_producer(block_time);
 
    const auto current_watermark = _producer_watermarks.get_watermark(scheduled_producer.producer_name);
 
@@ -1947,12 +1947,11 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    LOG_AND_DROP();
 
    if (chain.is_building_block()) {
-      const auto& pending_block_signing_authority = chain.pending_block_signing_authority();
-      const auto& scheduled_producer_authority = chain.active_producers().get_scheduled_producer(block_time);
+      auto pending_block_signing_authority = chain.pending_block_signing_authority();
 
-      if (in_producing_mode() && pending_block_signing_authority != scheduled_producer_authority.authority) {
+      if (in_producing_mode() && pending_block_signing_authority != scheduled_producer.authority) {
          elog("Unexpected block signing authority, reverting to speculative mode! [expected: \"${expected}\", actual: \"${actual\"",
-              ("expected", scheduled_producer_authority.authority)("actual", pending_block_signing_authority));
+              ("expected", scheduled_producer.authority)("actual", pending_block_signing_authority));
          _pending_block_mode = pending_block_mode::speculating;
       }
 
