@@ -736,7 +736,7 @@ public:
 
       const auto& hb = chain.head_block();
       now             = fc::time_point::now();
-      if (hb->timestamp.next().to_time_point() >= now) {
+      if (hb && hb->timestamp.next().to_time_point() >= now) {
          _production_enabled = true;
       }
 
