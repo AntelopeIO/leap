@@ -3524,6 +3524,9 @@ void controller::set_disable_replay_opts( bool v ) {
 uint32_t controller::head_block_num()const {
    return my->head->block_num();
 }
+block_timestamp_type controller::head_block_timestamp()const {
+   return my->head->header.timestamp;
+}
 time_point controller::head_block_time()const {
    return my->head->header.timestamp;
 }

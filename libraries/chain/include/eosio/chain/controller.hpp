@@ -230,6 +230,7 @@ namespace eosio::chain {
 
          uint32_t             head_block_num()const;
          time_point           head_block_time()const;
+         block_timestamp_type head_block_timestamp()const;
          block_id_type        head_block_id()const;
          account_name         head_block_producer()const;
          const block_header&  head_block_header()const;

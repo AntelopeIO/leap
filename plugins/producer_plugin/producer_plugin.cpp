@@ -734,9 +734,8 @@ public:
          handle_error(fc::std_exception_wrapper::from_current_exception(e));
       }
 
-      const auto& hb = chain.head_block();
       now             = fc::time_point::now();
-      if (hb && hb->timestamp.next().to_time_point() >= now) {
+      if (chain.head_block_timestamp().next().to_time_point() >= now) {
          _production_enabled = true;
       }
 
@@ -748,7 +747,8 @@ public:
               ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
               ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (now - block->timestamp).count() / 1000));
          const auto& hb_id = chain.head_block_id();
-         if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hb_id != id && hb != nullptr) { // not applied to head
+         const auto& hb = chain.head_block();
+         if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hb && hb_id != id && hb != nullptr) { // not applied to head
             ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
                  "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
                  ("p", hb->producer)("id", hb_id.str().substr(8, 16))("n", hb->block_num())("t", hb->timestamp)
