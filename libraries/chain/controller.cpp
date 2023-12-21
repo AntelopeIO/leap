@@ -778,9 +778,7 @@ struct controller_impl {
    chainbase::database             db;
    block_log                       blog;
    std::optional<pending_state>    pending;
-   block_data_t                    block_data;
-   //block_state_legacy_ptr          head;
-   //fork_database_legacy            fork_db;
+   block_data_t                    block_data;  // includes `head` aand `fork_db`
    std::optional<chain_pacemaker>  pacemaker;
    std::atomic<uint32_t>           hs_irreversible_block_num{0};
    resource_limits_manager         resource_limits;
@@ -811,6 +809,7 @@ struct controller_impl {
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
    unordered_map< builtin_protocol_feature_t, std::function<void(controller_impl&)>, enum_hash<builtin_protocol_feature_t> > protocol_feature_activation_handlers;
+
 
    void pop_block() {
       uint32_t block_num = block_data.pop_block();
@@ -4351,16 +4350,21 @@ void controller::replace_producer_keys( const public_key_type& key ) {
       gp.proposed_schedule.version = 0;
       gp.proposed_schedule.producers.clear();
    });
-   auto version = my->head->pending_schedule.schedule.version;
-   my->head->pending_schedule = {};
-   my->head->pending_schedule.schedule.version = version;
-   for (auto& prod: my->head->active_schedule.producers ) {
-      ilog("${n}", ("n", prod.producer_name));
-      std::visit([&](auto &auth) {
-         auth.threshold = 1;
-         auth.keys = {key_weight{key, 1}};
-      }, prod.authority);
-   }
+   
+   auto replace_keys = [&key](auto& fork_db, auto& head) {
+      auto version = head->pending_schedule.schedule.version;
+      head->pending_schedule = {};
+      head->pending_schedule.schedule.version = version;
+      for (auto& prod: head->active_schedule.producers ) {
+         ilog("${n}", ("n", prod.producer_name));
+         std::visit([&](auto &auth) {
+            auth.threshold = 1;
+            auth.keys = {key_weight{key, 1}};
+         }, prod.authority);
+      }
+   };
+
+   my->block_data.apply_dpos<void>(replace_keys); // [greg todo]: make it work with `apply` instead of `apply_dpos`
 }
 
 void controller::replace_account_keys( name account, name permission, const public_key_type& key ) {
