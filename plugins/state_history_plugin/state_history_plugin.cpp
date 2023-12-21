@@ -408,7 +408,7 @@ void state_history_plugin_impl::plugin_startup() {
       update_current();
       const auto& b = chain.head_block();
       const auto& id = chain.head_block_id();
-      if( chain_state_log && chain_state_log->empty() ) {
+      if( b && chain_state_log && chain_state_log->empty() ) {
          fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
          store_chain_state( id, *b, b->block_num() );
          fc_ilog( _log, "Done storing initial state on startup" );
