@@ -409,12 +409,6 @@ public:
 
    fc::variant get_block_info(const get_block_info_params& params, const fc::time_point& deadline) const;
 
-   struct get_block_header_state_params {
-      string block_num_or_id;
-   };
-
-   fc::variant get_block_header_state(const get_block_header_state_params& params, const fc::time_point& deadline) const;
-
    struct get_table_rows_params {
       bool                 json = false;
       name                 code;
@@ -1067,7 +1061,6 @@ FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params,
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_raw_block_params, (block_num_or_id))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_info_params, (block_num))
-FC_REFLECT(eosio::chain_apis::read_only::get_block_header_state_params, (block_num_or_id))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_params, (block_num_or_id)(include_extensions))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_result, (id)(signed_block_header)(block_extensions))
 

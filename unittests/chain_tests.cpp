@@ -156,10 +156,6 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
       const auto& [ block, id ] = t;
       auto block_num = block->block_num();
       BOOST_CHECK(block);
-      const auto& bsp_by_id = chain.control->fetch_block_state_by_id(id);
-      BOOST_CHECK(bsp_by_id->block_num() == block_num);
-      const auto& bsp_by_number = chain.control->fetch_block_state_by_number(block_num);  // verify it can be found (has to be validated)
-      BOOST_CHECK(bsp_by_number->id() == id);
       BOOST_CHECK(chain.control->fetch_block_by_id(id) == block);
       BOOST_CHECK(chain.control->fetch_block_by_number(block_num) == block);
       BOOST_REQUIRE(chain.control->fetch_block_header_by_number(block_num));
@@ -175,10 +171,6 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
       const auto& [ block, id ] = t;
       auto block_num = block->block_num();
       BOOST_CHECK(block);
-      const auto& bsp_by_id = validator.control->fetch_block_state_by_id(id);
-      BOOST_CHECK(bsp_by_id->block_num() == block_num);
-      const auto& bsp_by_number = validator.control->fetch_block_state_by_number(block_num);  // verify it can be found (has to be validated)
-      BOOST_CHECK(bsp_by_number->id() == id);
       BOOST_CHECK(validator.control->fetch_block_by_id(id) == block);
       BOOST_CHECK(validator.control->fetch_block_by_number(block_num) == block);
       BOOST_REQUIRE(validator.control->fetch_block_header_by_number(block_num));
