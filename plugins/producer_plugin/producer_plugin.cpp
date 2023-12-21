@@ -1788,7 +1788,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    _pending_block_mode = pending_block_mode::producing;
 
    // Not our turn
-   const auto& scheduled_producer = chain.active_producers().get_scheduled_producer(block_time);
+   const auto scheduled_producer = chain.active_producers().get_scheduled_producer(block_time);
 
    const auto current_watermark = _producer_watermarks.get_watermark(scheduled_producer.producer_name);
 
