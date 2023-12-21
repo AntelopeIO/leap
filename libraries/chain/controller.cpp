@@ -2552,16 +2552,17 @@ struct controller_impl {
             head = bsp;
             
             emit( self.accepted_block, std::tie(bsp->block, bsp->id()) );
+
+            if constexpr (std::is_same_v<block_state_legacy_ptr,std::decay_t<decltype(head)>>) {\
+               // [greg todo] support deep_mind_logger even when in IF mode
+               // at block level, no transaction specific logging is possible
+               if (auto* dm_logger = get_deep_mind_logger(false)) {
+                  dm_logger->on_accepted_block(bsp);
+               }
+            }
          };
 
          block_data.apply<void>(add_completed_block);
-
-#ifdef DM_LOGGER_TODO // [todo]
-         // at block level, no transaction specific logging is possible
-         if (auto* dm_logger = get_deep_mind_logger(false)) {
-            dm_logger->on_accepted_block(bsp);
-         }
-#endif
 
          if( s == controller::block_status::incomplete ) {
             log_irreversible();
