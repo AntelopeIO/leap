@@ -46,7 +46,6 @@ namespace eosio::chain {
    struct fork_database_impl {
       using bs               = bsp::element_type;
       using bhs              = bhsp::element_type;
-      //using index_type       = std::conditional<std::is_same_v<bsp, block_state_ptr>, fork_multi_index_type, fork_multi_index_type_legacy>::type;
       
       using fork_database_t  = fork_database<bsp, bhsp>;
       using branch_type      = fork_database_t::branch_type;

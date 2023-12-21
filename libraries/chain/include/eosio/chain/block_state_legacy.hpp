@@ -35,11 +35,15 @@ namespace eosio { namespace chain {
       uint32_t               irreversible_blocknum() const { return dpos_irreversible_blocknum; }
       uint32_t               block_num()             const { return block_header_state_legacy::block_num; }
       block_timestamp_type   timestamp()             const { return header.timestamp; }
+      account_name           producer()              const { return header.producer; }
       const extensions_type& header_extensions()     const { return header.header_extensions; }
       bool                   is_valid()              const { return validated; }
       void                   set_valid(bool b)             { validated = b; }
+      
       protocol_feature_activation_set_ptr    get_activated_protocol_features() const { return activated_protocol_features; }
-      const deque<transaction_metadata_ptr>& trxs_metas() const { return _cached_trxs; }
+      const producer_authority_schedule&     active_schedule()  const { return block_header_state_legacy_common::active_schedule; }
+      const producer_authority_schedule&     pending_schedule() const { return block_header_state_legacy::pending_schedule.schedule; }
+      const deque<transaction_metadata_ptr>& trxs_metas()       const { return _cached_trxs; }
 
       
    private: // internal use only, not thread safe

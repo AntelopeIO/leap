@@ -24,9 +24,9 @@ namespace eosio::chain {
    template<class bsp, class bhsp>  // either [block_state_legacy_ptr, block_state_ptr], same with block_header_state_ptr
    class fork_database {
    public:
-      using bs = bsp::element_type;
-      using bhs = bhsp::element_type;
-      using branch_type = deque<bsp>;
+      using bs               = bsp::element_type;
+      using bhs              = bhsp::element_type;
+      using branch_type      = deque<bsp>;
       using branch_type_pair = pair<branch_type, branch_type>;
       
       explicit fork_database( const std::filesystem::path& data_dir );

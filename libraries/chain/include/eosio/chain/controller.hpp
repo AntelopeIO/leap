@@ -236,7 +236,7 @@ namespace eosio::chain {
          block_state_legacy_ptr head_block_state()const;
 
          uint32_t             fork_db_head_block_num()const;
-         block_id_type        fork_db_head_block_id()const;
+         const block_id_type& fork_db_head_block_id()const;
 
          time_point                     pending_block_time()const;
          block_timestamp_type           pending_block_timestamp()const;
