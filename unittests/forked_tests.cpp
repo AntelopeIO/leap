@@ -367,10 +367,9 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
    BOOST_CHECK_EQUAL( n2.control->head_block_id(), id );
 
    BOOST_REQUIRE( first_block );
-   const auto& first_bsp = n2.control->fetch_block_state_by_id(first_id);
-   first_bsp->verify_signee();
-   BOOST_CHECK_EQUAL( first_header.calculate_id(), first_block->calculate_id() );
-   BOOST_CHECK( first_header.producer_signature == first_block->producer_signature );
+   const auto& first_bp = n2.control->fetch_block_by_id(first_id);
+   BOOST_CHECK_EQUAL( first_bp->calculate_id(), first_block->calculate_id() );
+   BOOST_CHECK( first_bp->producer_signature == first_block->producer_signature );
 
    c.disconnect();
 
@@ -495,8 +494,8 @@ BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
    BOOST_CHECK_EQUAL( does_account_exist( irreversible, "alice"_n ), true );
 
    {
-      auto bs = irreversible.control->fetch_block_state_by_id( fork_first_block_id );
-      BOOST_REQUIRE( bs && bs->id() == fork_first_block_id );
+      auto b = irreversible.control->fetch_block_by_id( fork_first_block_id );
+      BOOST_REQUIRE( b && b->calculate_id() == fork_first_block_id );
    }
 
    main.produce_block();
@@ -508,8 +507,8 @@ BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
    push_blocks( main, irreversible, hbn5 );
 
    {
-      auto bs = irreversible.control->fetch_block_state_by_id( fork_first_block_id );
-      BOOST_REQUIRE( !bs );
+      auto b = irreversible.control->fetch_block_by_id( fork_first_block_id );
+      BOOST_REQUIRE( !b );
    }
 
 } FC_LOG_AND_RETHROW()

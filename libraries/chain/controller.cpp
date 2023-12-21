@@ -3656,11 +3656,6 @@ std::optional<signed_block_header> controller::fetch_block_header_by_number( uin
    return my->blog.read_block_header_by_num(block_num);
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
-block_state_legacy_ptr controller::fetch_block_state_by_id( block_id_type id )const {
-   auto state = my->fork_db.get_block(id);
-   return state;
-}
-
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
    const auto& blog_head = my->blog.head();
 
