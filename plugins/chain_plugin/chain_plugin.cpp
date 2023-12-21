@@ -1984,9 +1984,9 @@ fc::variant read_only::convert_block( const chain::signed_block_ptr& block, abi_
 
 fc::variant read_only::get_block_info(const read_only::get_block_info_params& params, const fc::time_point&) const {
 
-   signed_block_ptr block;
+   std::optional<signed_block_header> block;
    try {
-         block = db.fetch_block_by_number( params.block_num );
+         block = db.fetch_block_header_by_number( params.block_num );
    } catch (...)   {
       // assert below will handle the invalid block num
    }
