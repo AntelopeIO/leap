@@ -1773,9 +1773,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    if (!chain_plug->accept_transactions())
       return start_block_result::waiting_for_block;
 
-   const auto& hb = chain.head_block();
+   uint32_t head_block_num = chain.head_block_num();
 
-   if (chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() <= chain.head_block_num()) {
+   if (chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() <= head_block_num) {
       ilog("Reached configured maximum block ${num}; terminating", ("num", chain.get_terminate_at_block()));
       app().quit();
       return start_block_result::failed;
@@ -1783,7 +1783,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    const fc::time_point       now               = fc::time_point::now();
    const block_timestamp_type block_time        = calculate_pending_block_time();
-   const uint32_t             pending_block_num = hb->block_num() + 1;
+   const uint32_t             pending_block_num = head_block_num + 1;
 
    _pending_block_mode = pending_block_mode::producing;
 
@@ -1824,10 +1824,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       // determine if our watermark excludes us from producing at this point
       if (current_watermark) {
          const block_timestamp_type block_timestamp{block_time};
-         if (current_watermark->first > hb->block_num()) {
+         if (current_watermark->first > head_block_num) {
             elog("Not producing block because \"${producer}\" signed a block at a higher block number (${watermark}) than the current "
                  "fork's head (${head_block_num})",
-                 ("producer", scheduled_producer.producer_name)("watermark", current_watermark->first)("head_block_num", hb->block_num()));
+                 ("producer", scheduled_producer.producer_name)("watermark", current_watermark->first)("head_block_num", head_block_num));
             _pending_block_mode = pending_block_mode::speculating;
          } else if (current_watermark->second >= block_timestamp) {
             elog("Not producing block because \"${producer}\" signed a block at the next block time or later (${watermark}) than the pending "
@@ -1888,13 +1888,13 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          // 4) the producer on this node's last watermark is higher (meaning on a different fork)
          if (current_watermark) {
             uint32_t watermark_bn = current_watermark->first;
-            if (watermark_bn < hb->block_num()) {
-               blocks_to_confirm = (uint16_t)(std::min<uint32_t>(std::numeric_limits<uint16_t>::max(), (hb->block_num() - watermark_bn)));
+            if (watermark_bn < head_block_num) {
+               blocks_to_confirm = (uint16_t)(std::min<uint32_t>(std::numeric_limits<uint16_t>::max(), (head_block_num - watermark_bn)));
             }
          }
 
          // can not confirm irreversible blocks
-         blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (hb->block_num() - block_state->dpos_irreversible_blocknum)));
+         blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (head_block_num - block_state->dpos_irreversible_blocknum)));
       }
 
       abort_block();
