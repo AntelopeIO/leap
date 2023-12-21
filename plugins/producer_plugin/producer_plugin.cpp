@@ -734,9 +734,8 @@ public:
          handle_error(fc::std_exception_wrapper::from_current_exception(e));
       }
 
-      const auto& hbs = chain.head_block_state();
       now             = fc::time_point::now();
-      if (hbs->header.timestamp.next().to_time_point() >= now) {
+      if (chain.head_block_timestamp().next().to_time_point() >= now) {
          _production_enabled = true;
       }
 
@@ -747,13 +746,15 @@ public:
               ("count", block->transactions.size())("lib", chain.last_irreversible_block_num())
               ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
               ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (now - block->timestamp).count() / 1000));
-         if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hbs->id() != id && hbs->block != nullptr) { // not applied to head
+         const auto& hb_id = chain.head_block_id();
+         const auto& hb = chain.head_block();
+         if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hb && hb_id != id && hb != nullptr) { // not applied to head
             ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
                  "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
-                 ("p", hbs->block->producer)("id", hbs->id().str().substr(8, 16))("n", hbs->block_num())("t", hbs->block->timestamp)
-                 ("count", hbs->block->transactions.size())("lib", chain.last_irreversible_block_num())
+                 ("p", hb->producer)("id", hb_id.str().substr(8, 16))("n", hb->block_num())("t", hb->timestamp)
+                 ("count", hb->transactions.size())("lib", chain.last_irreversible_block_num())
                  ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)
-                 ("latency", (now - hbs->block->timestamp).count() / 1000));
+                 ("latency", (now - hb->timestamp).count() / 1000));
          }
       }
       if (_update_incoming_block_metrics) {
@@ -1014,14 +1015,10 @@ void new_chain_banner(const eosio::chain::controller& db)
       "*******************************\n"
       "\n";
 
-   if( db.head_block_state()->header.timestamp.to_time_point() < (fc::time_point::now() - fc::milliseconds(200 * config::block_interval_ms)))
-   {
+   if( db.head_block_time() < (fc::time_point::now() - fc::milliseconds(200 * config::block_interval_ms))) {
       std::cerr << "Your genesis seems to have an old timestamp\n"
-         "Please consider using the --genesis-timestamp option to give your genesis a recent timestamp\n"
-         "\n"
-         ;
+         "Please consider using the --genesis-timestamp option to give your genesis a recent timestamp\n\n";
    }
-   return;
 }
 
 producer_plugin::producer_plugin()
@@ -1776,9 +1773,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    if (!chain_plug->accept_transactions())
       return start_block_result::waiting_for_block;
 
-   const auto& hbs = chain.head_block_state();
+   uint32_t head_block_num = chain.head_block_num();
 
-   if (chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() <= chain.head_block_num()) {
+   if (chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() <= head_block_num) {
       ilog("Reached configured maximum block ${num}; terminating", ("num", chain.get_terminate_at_block()));
       app().quit();
       return start_block_result::failed;
@@ -1786,12 +1783,12 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    const fc::time_point       now               = fc::time_point::now();
    const block_timestamp_type block_time        = calculate_pending_block_time();
-   const uint32_t             pending_block_num = hbs->block_num() + 1;
+   const uint32_t             pending_block_num = head_block_num + 1;
 
    _pending_block_mode = pending_block_mode::producing;
 
    // Not our turn
-   const auto& scheduled_producer = hbs->get_scheduled_producer(block_time);
+   const auto scheduled_producer = chain.active_producers().get_scheduled_producer(block_time);
 
    const auto current_watermark = _producer_watermarks.get_watermark(scheduled_producer.producer_name);
 
@@ -1827,10 +1824,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       // determine if our watermark excludes us from producing at this point
       if (current_watermark) {
          const block_timestamp_type block_timestamp{block_time};
-         if (current_watermark->first > hbs->block_num()) {
+         if (current_watermark->first > head_block_num) {
             elog("Not producing block because \"${producer}\" signed a block at a higher block number (${watermark}) than the current "
                  "fork's head (${head_block_num})",
-                 ("producer", scheduled_producer.producer_name)("watermark", current_watermark->first)("head_block_num", hbs->block_num()));
+                 ("producer", scheduled_producer.producer_name)("watermark", current_watermark->first)("head_block_num", head_block_num));
             _pending_block_mode = pending_block_mode::speculating;
          } else if (current_watermark->second >= block_timestamp) {
             elog("Not producing block because \"${producer}\" signed a block at the next block time or later (${watermark}) than the pending "
@@ -1881,7 +1878,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    try {
       uint16_t blocks_to_confirm = 0;
 
-      if (in_producing_mode() && hbs->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum) { // only if hotstuff not enabled
+      auto block_state = chain.head_block_state_legacy(); // null means if is active
+      if (in_producing_mode() && block_state && block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum) { // only if hotstuff not enabled
          // determine how many blocks this producer can confirm
          // 1) if it is not a producer from this node, assume no confirmations (we will discard this block anyway)
          // 2) if it is a producer on this node that has never produced, the conservative approach is to assume no
@@ -1889,14 +1887,14 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          // 3) if it is a producer on this node where this node knows the last block it produced, safely set it -UNLESS-
          // 4) the producer on this node's last watermark is higher (meaning on a different fork)
          if (current_watermark) {
-            auto watermark_bn = current_watermark->first;
-            if (watermark_bn < hbs->block_num()) {
-               blocks_to_confirm = (uint16_t)(std::min<uint32_t>(std::numeric_limits<uint16_t>::max(), (uint32_t)(hbs->block_num() - watermark_bn)));
+            uint32_t watermark_bn = current_watermark->first;
+            if (watermark_bn < head_block_num) {
+               blocks_to_confirm = (uint16_t)(std::min<uint32_t>(std::numeric_limits<uint16_t>::max(), (head_block_num - watermark_bn)));
             }
          }
 
          // can not confirm irreversible blocks
-         blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (uint32_t)(hbs->block_num() - hbs->dpos_irreversible_blocknum)));
+         blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (head_block_num - block_state->dpos_irreversible_blocknum)));
       }
 
       abort_block();
@@ -1959,7 +1957,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
       try {
          chain::subjective_billing& subjective_bill = chain.get_mutable_subjective_billing();
-         _account_fails.report_and_clear(hbs->block_num(), subjective_bill);
+         _account_fails.report_and_clear(pending_block_num, subjective_bill);
 
          if (!remove_expired_trxs(preprocess_deadline))
             return start_block_result::exhausted;
@@ -2498,7 +2496,7 @@ void producer_plugin_impl::schedule_production_loop() {
          chain::controller& chain = chain_plug->chain();
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
          auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.head_block_num(), calculate_pending_block_time(),
-                                                                             _producers, chain.head_block_state()->active_schedule.producers,
+                                                                             _producers, chain.active_producers().producers,
                                                                              _producer_watermarks);
          schedule_delayed_production_loop(weak_from_this(), wake_time);
       } else {
@@ -2517,7 +2515,7 @@ void producer_plugin_impl::schedule_production_loop() {
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
       auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds{config::block_interval_us}, chain.pending_block_num(), chain.pending_block_timestamp(),
-                                                                          _producers, chain.head_block_state()->active_schedule.producers,
+                                                                          _producers, chain.active_producers().producers,
                                                                           _producer_watermarks);
       if (wake_time && fc::time_point::now() > *wake_time) {
          // if wake time has already passed then use the block deadline instead
@@ -2659,26 +2657,27 @@ void producer_plugin_impl::produce_block() {
 
    chain.commit_block();
 
-   block_state_legacy_ptr new_bs = chain.head_block_state();
+   const auto& id = chain.head_block_id();
+   const auto& new_b = chain.head_block();
    producer_plugin::produced_block_metrics metrics;
 
    br.total_time += fc::time_point::now() - start;
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
-        ("p", new_bs->header.producer)("id", new_bs->id().str().substr(8, 16))("n", new_bs->block_num())("t", new_bs->header.timestamp)
-        ("count", new_bs->block->transactions.size())("lib", chain.last_irreversible_block_num())("net", br.total_net_usage)
-        ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_bs->header.confirmed));
+        ("p", new_b->producer)("id", id.str().substr(8, 16))("n", new_b->block_num())("t", new_b->timestamp)
+        ("count", new_b->transactions.size())("lib", chain.last_irreversible_block_num())("net", br.total_net_usage)
+        ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_b->confirmed));
 
    _time_tracker.add_other_time();
-   _time_tracker.report(new_bs->block_num(), new_bs->block->producer, metrics);
+   _time_tracker.report(new_b->block_num(), new_b->producer, metrics);
    _time_tracker.clear();
 
    if (_update_produced_block_metrics) {
       metrics.unapplied_transactions_total = _unapplied_transactions.size();
       metrics.subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size();
       metrics.scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size();
-      metrics.trxs_produced_total = new_bs->block->transactions.size();
+      metrics.trxs_produced_total = new_b->transactions.size();
       metrics.cpu_usage_us = br.total_cpu_usage_us;
       metrics.total_elapsed_time_us = br.total_elapsed_time.count();
       metrics.total_time_us = br.total_time.count();

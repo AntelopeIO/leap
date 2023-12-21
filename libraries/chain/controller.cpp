@@ -141,11 +141,11 @@ struct completed_block {
    }
 
    const producer_authority_schedule& active_producers() const {
-      return std::visit([](const auto& bsp) -> const producer_authority_schedule& { return bsp->active_schedule(); }, bsp);
+      return std::visit([](const auto& bsp) -> const producer_authority_schedule& { return bsp->active_schedule_auth(); }, bsp);
    }
 
    const producer_authority_schedule& pending_producers() const {
-      return std::visit([](const auto& bsp) -> const producer_authority_schedule& { return bsp->pending_schedule();}, bsp);
+      return std::visit([](const auto& bsp) -> const producer_authority_schedule& { return bsp->pending_schedule_auth();}, bsp);
    }
 
    bool is_protocol_feature_activated(const digest_type& digest) const {
@@ -684,12 +684,12 @@ struct controller_impl {
          return bd.head->get_activated_protocol_features(); }, v);
       }
 
-      const producer_authority_schedule& head_active_schedule() {
-         return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->active_schedule(); }, v);
+      const producer_authority_schedule& head_active_schedule_auth() {
+         return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->active_schedule_auth(); }, v);
       }
       
-      const producer_authority_schedule& head_pending_schedule() {
-         return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->pending_schedule(); }, v);
+      const producer_authority_schedule& head_pending_schedule_auth() {
+         return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->pending_schedule_auth(); }, v);
       }
       
       const block_id_type& head_block_id()   const {
@@ -3714,23 +3714,32 @@ void controller::set_disable_replay_opts( bool v ) {
 uint32_t controller::head_block_num()const {
    return my->block_data.head_block_num();
 }
+block_timestamp_type controller::head_block_timestamp()const {
+   return my->block_data.head_block_time();
+}
 time_point controller::head_block_time()const {
    return my->block_data.head_block_time();
 }
 block_id_type controller::head_block_id()const {
    return my->block_data.head_block_id();
 }
+
 account_name  controller::head_block_producer()const {
    return my->block_data.head_block_producer();
 }
+
 const block_header& controller::head_block_header()const {
    return my->block_data.head_block_header();
 }
-      
-block_state_legacy_ptr controller::head_block_state()const {
-   // [to be removed]
+
+block_state_legacy_ptr controller::head_block_state_legacy()const {
+   // returns null after instant finality activated
    auto dpos_head = [](auto& fork_db, auto& head) -> block_state_legacy_ptr { return head; };
    return my->block_data.apply_dpos<block_state_legacy_ptr>(dpos_head);
+}
+
+const signed_block_ptr& controller::head_block()const {
+   return my->block_data.head_block();
 }
 
 uint32_t controller::fork_db_head_block_num()const {
@@ -3806,7 +3815,8 @@ signed_block_ptr controller::fetch_block_by_id( const block_id_type& id )const {
 }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_id( const block_id_type& id )const {
-#if 0 // [greg todo] is the below code equivalent??
+#if 0
+   // [greg todo] is the below code equivalent??
    auto state = my->fork_db.get_block(id);
    if( state && state->block ) return state->header;
 #else
@@ -3835,6 +3845,7 @@ std::optional<signed_block_header> controller::fetch_block_header_by_number( uin
 
    return my->blog.read_block_header_by_num(block_num);
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
+
 
 block_state_legacy_ptr controller::fetch_block_state_by_id( block_id_type id )const {
    // returns nullptr when in IF mode 
@@ -3961,14 +3972,14 @@ void controller::notify_hs_message( const uint32_t connection_id, const hs_messa
 
 const producer_authority_schedule& controller::active_producers()const {
    if( !(my->pending) )
-      return  my->block_data.head_active_schedule();
+      return  my->block_data.head_active_schedule_auth();
 
    return my->pending->active_producers();
 }
 
 const producer_authority_schedule& controller::pending_producers()const {
    if( !(my->pending) ) 
-      return  my->block_data.head_pending_schedule();    // [greg todo] implement pending_producers correctly for IF mode
+      return  my->block_data.head_pending_schedule_auth();    // [greg todo] implement pending_producers correctly for IF mode
 
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage).pending_producers();

@@ -73,8 +73,8 @@ struct block_header_state {
    account_name          producer() const  { return header.producer; }
    const block_id_type&  previous() const  { return header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
-   const producer_authority_schedule& active_schedule() const { return proposer_policy->proposer_schedule; }
-   const producer_authority_schedule& pending_schedule() const { return proposer_policies.rbegin()->second->proposer_schedule; } // [greg todo]
+   const producer_authority_schedule& active_schedule_auth()  const { return proposer_policy->proposer_schedule; }
+   const producer_authority_schedule& pending_schedule_auth() const { return proposer_policies.rbegin()->second->proposer_schedule; } // [greg todo]
    
    block_header_state next(const block_header_state_input& data) const;
    

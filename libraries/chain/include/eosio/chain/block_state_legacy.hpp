@@ -41,9 +41,9 @@ namespace eosio { namespace chain {
       void                   set_valid(bool b)             { validated = b; }
       
       protocol_feature_activation_set_ptr    get_activated_protocol_features() const { return activated_protocol_features; }
-      const producer_authority_schedule&     active_schedule()  const { return block_header_state_legacy_common::active_schedule; }
-      const producer_authority_schedule&     pending_schedule() const { return block_header_state_legacy::pending_schedule.schedule; }
-      const deque<transaction_metadata_ptr>& trxs_metas()       const { return _cached_trxs; }
+      const producer_authority_schedule&     active_schedule_auth()  const { return block_header_state_legacy_common::active_schedule; }
+      const producer_authority_schedule&     pending_schedule_auth() const { return block_header_state_legacy::pending_schedule.schedule; }
+      const deque<transaction_metadata_ptr>& trxs_metas()            const { return _cached_trxs; }
 
       
    private: // internal use only, not thread safe
