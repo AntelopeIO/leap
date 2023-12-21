@@ -268,8 +268,6 @@ namespace eosio::chain {
          // thread-safe
          std::optional<signed_block_header> fetch_block_header_by_id( const block_id_type& id )const;
          // return block_state_legacy from forkdb, thread-safe
-         block_state_legacy_ptr fetch_block_state_by_number( uint32_t block_num )const;
-         // return block_state_legacy from forkdb, thread-safe
          block_state_legacy_ptr fetch_block_state_by_id( block_id_type id )const;
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;

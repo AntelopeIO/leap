@@ -3636,7 +3636,7 @@ std::optional<signed_block_header> controller::fetch_block_header_by_id( const b
 }
 
 signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  { try {
-   auto blk_state = fetch_block_state_by_number( block_num );
+   auto blk_state = my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
    if( blk_state ) {
       return blk_state->block;
    }
@@ -3645,7 +3645,7 @@ signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  {
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_number( uint32_t block_num )const  { try {
-   auto blk_state = fetch_block_state_by_number( block_num );
+   auto blk_state = my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
    if( blk_state ) {
       return blk_state->header;
    }
@@ -3658,17 +3658,13 @@ block_state_legacy_ptr controller::fetch_block_state_by_id( block_id_type id )co
    return state;
 }
 
-block_state_legacy_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  { try {
-   return my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
-} FC_CAPTURE_AND_RETHROW( (block_num) ) }
-
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
    const auto& blog_head = my->blog.head();
 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
 
    if( !find_in_blog ) {
-      auto bsp = fetch_block_state_by_number( block_num );
+      auto bsp = my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
       if( bsp ) return bsp->id();
    }
 
