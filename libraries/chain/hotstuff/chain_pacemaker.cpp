@@ -118,7 +118,8 @@ namespace eosio::chain {
          const auto& [ block, id ] = t;
          on_irreversible_block( block );
       } );
-      _head_block_state = chain->head_block_state();
+      // TODO: assuming this will be going away
+      _head_block_state = chain->head_block_state_legacy();
    }
 
    void chain_pacemaker::register_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> broadcast_hs_message) {
@@ -161,7 +162,8 @@ namespace eosio::chain {
    // called from main thread
    void chain_pacemaker::on_accepted_block( const signed_block_ptr& block ) {
       std::scoped_lock g( _chain_state_mutex );
-      _head_block_state = _chain->fetch_block_state_by_number(block->block_num());
+      // TODO: assume this is going away
+      _head_block_state = _chain->head_block_state_legacy();
    }
 
    // called from main thread

@@ -3524,6 +3524,9 @@ void controller::set_disable_replay_opts( bool v ) {
 uint32_t controller::head_block_num()const {
    return my->head->block_num();
 }
+block_timestamp_type controller::head_block_timestamp()const {
+   return my->head->header.timestamp;
+}
 time_point controller::head_block_time()const {
    return my->head->header.timestamp;
 }
@@ -3536,8 +3539,12 @@ account_name  controller::head_block_producer()const {
 const block_header& controller::head_block_header()const {
    return my->head->header;
 }
-block_state_legacy_ptr controller::head_block_state()const {
+block_state_legacy_ptr controller::head_block_state_legacy()const {
+   // TODO: return null after instant finality activated
    return my->head;
+}
+const signed_block_ptr& controller::head_block()const {
+   return my->head->block;
 }
 
 block_state_legacy_ptr controller_impl::fork_db_head() const {
@@ -3632,7 +3639,7 @@ std::optional<signed_block_header> controller::fetch_block_header_by_id( const b
 }
 
 signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  { try {
-   auto blk_state = fetch_block_state_by_number( block_num );
+   auto blk_state = my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
    if( blk_state ) {
       return blk_state->block;
    }
@@ -3641,21 +3648,12 @@ signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  {
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_number( uint32_t block_num )const  { try {
-   auto blk_state = fetch_block_state_by_number( block_num );
+   auto blk_state = my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
    if( blk_state ) {
       return blk_state->header;
    }
 
    return my->blog.read_block_header_by_num(block_num);
-} FC_CAPTURE_AND_RETHROW( (block_num) ) }
-
-block_state_legacy_ptr controller::fetch_block_state_by_id( block_id_type id )const {
-   auto state = my->fork_db.get_block(id);
-   return state;
-}
-
-block_state_legacy_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  { try {
-   return my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
@@ -3664,7 +3662,7 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
 
    if( !find_in_blog ) {
-      auto bsp = fetch_block_state_by_number( block_num );
+      auto bsp = my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
       if( bsp ) return bsp->id();
    }
 

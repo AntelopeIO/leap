@@ -28,13 +28,14 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule, validating_tester ) try {
       const uint32_t check_duration = 1000; // number of blocks
       bool scheduled_changed_to_new = false;
       for (uint32_t i = 0; i < check_duration; ++i) {
-         const auto current_schedule = control->head_block_state()->active_schedule.producers;
+         const auto current_schedule = control->active_producers().producers;
          if (new_prod_schd == current_schedule) {
             scheduled_changed_to_new = true;
          }
 
          // Produce block
          produce_block();
+         control->abort_block(); // abort started block in produce_block so activate_producers() is off head
 
          // Check if the producer is the same as what we expect
          const auto block_time = control->head_block_time();
@@ -401,8 +402,8 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
    wdump((alice_last_produced_block_num));
 
    {
-      wdump((c.control->head_block_state()->producer_to_last_produced));
-      const auto& last_produced = c.control->head_block_state()->producer_to_last_produced;
+      wdump((c.control->head_block_state_legacy()->producer_to_last_produced));
+      const auto& last_produced = c.control->head_block_state_legacy()->producer_to_last_produced;
       auto alice_itr = last_produced.find( "alice"_n );
       BOOST_REQUIRE( alice_itr != last_produced.end() );
       BOOST_CHECK_EQUAL( alice_itr->second, alice_last_produced_block_num );
@@ -638,8 +639,8 @@ BOOST_AUTO_TEST_CASE( extra_signatures_test ) try {
       BOOST_REQUIRE_EQUAL( additional_sigs.size(), 1u );
 
       // Generate the extra signature and add to additonal_sigs.
-      auto header_bmroot = digest_type::hash( std::make_pair( b->digest(), remote.control->head_block_state()->blockroot_merkle.get_root() ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( b->digest(), remote.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       additional_sigs.emplace_back( remote.get_private_key("alice"_n, "bs3").sign(sig_digest) );
       additional_sigs.emplace_back( remote.get_private_key("alice"_n, "bs4").sign(sig_digest) );
 

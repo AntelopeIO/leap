@@ -345,7 +345,7 @@ public:
         }
         produce_blocks( 250 );
 
-        auto producer_keys = control->head_block_state()->active_schedule.producers;
+        auto producer_keys = control->active_producers().producers;
         BOOST_CHECK_EQUAL( 21u, producer_keys.size() );
         BOOST_CHECK_EQUAL( name("defproducera"), producer_keys[0].producer_name );
 

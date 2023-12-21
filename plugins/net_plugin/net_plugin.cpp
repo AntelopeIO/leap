@@ -3711,7 +3711,7 @@ namespace eosio {
          controller& cc = my_impl->chain_plug->chain();
 
          // may have come in on a different connection and posted into dispatcher strand before this one
-         if( my_impl->dispatcher->have_block( id ) || cc.fetch_block_state_by_id( id ) ) { // thread-safe
+         if( my_impl->dispatcher->have_block( id ) || cc.fetch_block_by_id( id ) ) { // thread-safe
             my_impl->dispatcher->add_peer_block( id, c->connection_id );
             c->strand.post( [c, id]() {
                my_impl->sync_master->sync_recv_block( c, id, block_header::num_from_id(id), false );

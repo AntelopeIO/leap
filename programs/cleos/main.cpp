@@ -3016,7 +3016,6 @@ int main( int argc, char** argv ) {
    get_block_params params;
    auto getBlock = get->add_subcommand("block", localized("Retrieve a full block from the blockchain"));
    getBlock->add_option("block", params.blockArg, localized("The number or ID of the block to retrieve"))->required();
-   getBlock->add_flag("--header-state", params.get_bhs, localized("Get block header state from fork database instead") );
    getBlock->add_flag("--info", params.get_binfo, localized("Get block info from the blockchain by block num only") );
    getBlock->add_flag("--raw", params.get_braw, localized("Get raw block from the blockchain") );
    getBlock->add_flag("--header", params.get_bheader, localized("Get block header from the blockchain") );
@@ -3024,7 +3023,7 @@ int main( int argc, char** argv ) {
 
    getBlock->callback([&params] {
       int num_flags = params.get_bhs + params.get_binfo + params.get_braw + params.get_bheader + params.get_bheader_extensions;
-      EOSC_ASSERT( num_flags <= 1, "ERROR: Only one of the following flags can be set: --header-state, --info, --raw, --header, --header-with-extensions." );
+      EOSC_ASSERT( num_flags <= 1, "ERROR: Only one of the following flags can be set: --info, --raw, --header, --header-with-extensions." );
       if (params.get_binfo) {
          std::optional<int64_t> block_num;
          try {
@@ -3037,9 +3036,7 @@ int main( int argc, char** argv ) {
          std::cout << fc::json::to_pretty_string(call(get_block_info_func, arg)) << std::endl;
       } else {
          const auto arg = fc::variant_object("block_num_or_id", params.blockArg);
-         if (params.get_bhs) {
-            std::cout << fc::json::to_pretty_string(call(get_block_header_state_func, arg)) << std::endl;
-         } else if (params.get_braw) {
+         if (params.get_braw) {
             std::cout << fc::json::to_pretty_string(call(get_raw_block_func, arg)) << std::endl;
          } else if (params.get_bheader || params.get_bheader_extensions) {
             std::cout << fc::json::to_pretty_string(

@@ -230,10 +230,13 @@ namespace eosio::chain {
 
          uint32_t             head_block_num()const;
          time_point           head_block_time()const;
+         block_timestamp_type head_block_timestamp()const;
          block_id_type        head_block_id()const;
          account_name         head_block_producer()const;
          const block_header&  head_block_header()const;
-         block_state_legacy_ptr head_block_state()const;
+         const signed_block_ptr& head_block()const;
+         // returns nullptr after instant finality enabled
+         block_state_legacy_ptr head_block_state_legacy()const;
 
          uint32_t             fork_db_head_block_num()const;
          block_id_type        fork_db_head_block_id()const;
@@ -265,10 +268,6 @@ namespace eosio::chain {
          std::optional<signed_block_header> fetch_block_header_by_number( uint32_t block_num )const;
          // thread-safe
          std::optional<signed_block_header> fetch_block_header_by_id( const block_id_type& id )const;
-         // return block_state_legacy from forkdb, thread-safe
-         block_state_legacy_ptr fetch_block_state_by_number( uint32_t block_num )const;
-         // return block_state_legacy from forkdb, thread-safe
-         block_state_legacy_ptr fetch_block_state_by_id( block_id_type id )const;
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
 
