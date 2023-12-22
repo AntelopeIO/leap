@@ -35,7 +35,10 @@ namespace eosio::testing {
    }
 
    void provider_connection::init_and_connect() {
-      _connection_thread_pool.start(1, {});
+      _connection_thread_pool.start(1,
+                                    [&](const fc::exception &e) {
+                                       wlog("Exception in connection_thread: ${e}", ("e", e.to_detail_string()));
+                                    });
       connect();
    };
 

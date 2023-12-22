@@ -170,7 +170,10 @@ try:
             waitForBlock(node0, catchupHead+5, timeout=twoRoundsTimeout*2, blockType=BlockType.lib)
 
         Print("Restart catchup node")
-        catchupNode.relaunch()
+        addSwapFlags = None
+        if catchup_num % 3 == 0:
+            addSwapFlags = {"--block-log-retain-blocks": "0", "--delete-all": ""}
+        catchupNode.relaunch(skipGenesis=False, addSwapFlags=addSwapFlags)
         waitForNodeStarted(catchupNode)
         lastCatchupLibNum=lib(catchupNode)
 
@@ -188,6 +191,12 @@ try:
         waitForBlock(catchupNode, lastLibNum, timeout=(numBlocksToCatchup/2 + 60), blockType=BlockType.lib)
         catchupNode.interruptAndVerifyExitStatus(60)
         catchupNode.popenProc=None
+
+        logFile = Utils.getNodeDataDir(catchupNodeNum) + "/stderr.txt"
+        f = open(logFile)
+        contents = f.read()
+        if contents.count("3030001 unlinkable_block_exception: Unlinkable block") > 10: # a few are fine
+            errorExit(f"Node{catchupNodeNum} has unlinkable blocks: {logFile}.")
 
     testSuccessful=True
 
