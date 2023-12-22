@@ -18,8 +18,8 @@ on:
         - default
         - true
         - false
-      override-eos-system-contracts:
-        description: 'Override eos-system-contracts ref'
+      override-reference-contracts:
+        description: 'Override reference contracts ref'
         type: string
 
 permissions:
@@ -57,9 +57,9 @@ jobs:
     outputs:
       cdt-target: ${{steps.versions.outputs.cdt-target}}
       cdt-prerelease: ${{steps.versions.outputs.cdt-prerelease}}
-      eos-system-contracts-ref: ${{steps.versions.outputs.eos-system-contracts-ref}}
+      reference-contracts-ref: ${{steps.versions.outputs.reference-contracts-ref}}
     steps:
-      - name: Setup cdt and eos-system-contracts versions
+      - name: Setup cdt and reference-contracts versions
         id: versions
         env:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -67,7 +67,7 @@ jobs:
           DEFAULTS_JSON=$(curl -sSfL $(gh api https://api.github.com/repos/${{github.repository}}/contents/.cicd/defaults.json?ref=${{github.sha}} --jq .download_url))
           echo cdt-target=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.target') >> $GITHUB_OUTPUT
           echo cdt-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.prerelease') >> $GITHUB_OUTPUT
-          echo eos-system-contracts-ref=$(echo "$DEFAULTS_JSON" | jq -r '.eossystemcontracts.ref') >> $GITHUB_OUTPUT
+          echo reference-contracts-ref=$(echo "$DEFAULTS_JSON" | jq -r '.referencecontracts.ref') >> $GITHUB_OUTPUT
 
           if [[ "${{inputs.override-cdt}}" != "" ]]; then
             echo cdt-target=${{inputs.override-cdt}} >> $GITHUB_OUTPUT
@@ -75,8 +75,8 @@ jobs:
           if [[ "${{inputs.override-cdt-prerelease}}" == +(true|false) ]]; then
             echo cdt-prerelease=${{inputs.override-cdt-prerelease}} >> $GITHUB_OUTPUT
           fi
-          if [[ "${{inputs.override-eos-system-contracts}}" != "" ]]; then
-            echo eos-system-contracts-ref=${{inputs.override-eos-system-contracts}} >> $GITHUB_OUTPUT
+          if [[ "${{inputs.override-reference-contracts}}" != "" ]]; then
+            echo reference-contracts-ref=${{inputs.override-reference-contracts}} >> $GITHUB_OUTPUT
           fi
 
   package:
@@ -312,21 +312,21 @@ jobs:
           rm ./*.deb
 
       # Reference Contracts
-      - name: checkout eos-system-contracts
+      - name: checkout reference-contracts
         uses: actions/checkout@v4
         with:
-          repository: eosnetworkfoundation/eos-system-contracts
-          path: eos-system-contracts
-          ref: '${{needs.v.outputs.eos-system-contracts-ref}}'
+          repository: AntelopeIO/reference-contracts
+          path: reference-contracts
+          ref: '${{needs.v.outputs.reference-contracts-ref}}'
       - if: ${{ matrix.test == 'deb-install' }}
-        name: Install eos-system-contracts deps
+        name: Install reference-contracts deps
         run: |
           apt-get -y install cmake build-essential
-      - name: Build & Test eos-system-contracts
+      - name: Build & Test reference-contracts
         run: |
-          cmake -S eos-system-contracts -B eos-system-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -DSYSTEM_ENABLE_LEAP_VERSION_CHECK=Off -DSYSTEM_ENABLE_CDT_VERSION_CHECK=Off
-          cmake --build eos-system-contracts/build -- -j $(nproc)
-          cd eos-system-contracts/build/tests
+          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -DSYSTEM_ENABLE_LEAP_VERSION_CHECK=Off -DSYSTEM_ENABLE_CDT_VERSION_CHECK=Off
+          cmake --build reference-contracts/build -- -j $(nproc)
+          cd reference-contracts/build/tests
           ctest --output-on-failure -j $(nproc)
 
   all-passing:
