@@ -97,6 +97,9 @@ class TestHelper(object):
         if "--dont-launch" in includeArgs:
             thGrp.add_argument("--dont-launch", help=argparse.SUPPRESS if suppressHelp else "Don't launch own node. Assume node is already running.",
                                      action='store_true')
+        if "--activate-if" in includeArgs:
+            thGrp.add_argument("--activate-if", help=argparse.SUPPRESS if suppressHelp else "Activate instant finality during bios boot.",
+                                     action='store_true')
         if "--keep-logs" in includeArgs:
             thGrp.add_argument("--keep-logs", help=argparse.SUPPRESS if suppressHelp else "Don't delete <test_name><pid>/node_* folders, or other test specific log directories, upon test completion",
                                      action='store_true')

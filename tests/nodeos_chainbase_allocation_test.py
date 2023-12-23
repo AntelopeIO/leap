@@ -61,7 +61,7 @@ try:
     nonProdNode.createAccount(newProducerAcc, cluster.eosioAccount, waitForTransBlock=True)
 
     setProdsStr = '{"schedule": ['
-    setProdsStr += '{"producer_name":' + newProducerAcc.name + ',"block_signing_key":' + newProducerAcc.activePublicKey + '}'
+    setProdsStr += '{"producer_name":' + newProducerAcc.name + ',"authority": ["block_signing_authority_v0", {"threshold":1, "keys":[{"key":' + newProducerAcc.activePublicKey + ', "weight":1}]}]}'
     setProdsStr += ']}'
     cmd="push action -j eosio setprods '{}' -p eosio".format(setProdsStr)
     trans = producerNode.processCleosCmd(cmd, cmd, silentErrors=False)

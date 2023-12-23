@@ -192,7 +192,7 @@ static finalizer_policy create_fs(std::vector<std::string> keys){
       f_auths.push_back(eosio::chain::finalizer_authority{"" , 1 , pk});
    }
    eosio::chain::finalizer_policy fset;
-   fset.fthreshold = 15;
+   fset.threshold = 15;
    fset.finalizers = f_auths;
    return fset;
 }

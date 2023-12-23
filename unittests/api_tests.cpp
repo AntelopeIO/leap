@@ -3885,7 +3885,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    BOOST_TEST(!!ext);
    BOOST_TEST(std::get<finalizer_policy_extension>(*ext).finalizers.size() == finalizers.size());
    BOOST_TEST(std::get<finalizer_policy_extension>(*ext).generation == 1);
-   BOOST_TEST(std::get<finalizer_policy_extension>(*ext).fthreshold == finalizers.size() / 3 * 2 + 1);
+   BOOST_TEST(std::get<finalizer_policy_extension>(*ext).threshold == finalizers.size() / 3 * 2 + 1);
 
    // old dpos still in affect until block is irreversible
    BOOST_TEST(block->confirmed == 0);
