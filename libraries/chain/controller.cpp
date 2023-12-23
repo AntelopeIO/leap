@@ -970,7 +970,7 @@ struct controller_impl {
          return;
 
       auto mark_branch_irreversible = [&](auto& fork_db, auto& head) {
-         auto branch = fork_db.fetch_branch( fork_db.head()->id(), new_lib );
+         auto branch = fork_db.fetch_branch( fork_db_head_block_id(), new_lib );
          try {
             std::vector<std::future<std::vector<char>>> v;
             v.reserve( branch.size() );
