@@ -6,6 +6,7 @@
 #include <type_traits>
 
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/dynamic_bitset.hpp>
 
 namespace fc {
 
@@ -295,6 +296,35 @@ inline datastream<ST>& operator>>(datastream<ST>& ds, uint8_t& d) {
   ds.read((char*)&d, sizeof(d) );
   return ds;
 }
+
+// write to stream
+template<typename ST, typename T>
+inline datastream<ST>& operator<<(datastream<ST>& ds, const boost::dynamic_bitset<T>& bs) {
+  std::vector<uint32_t> blocks;
+  blocks.resize(bs.num_blocks());
+  boost::to_block_range(bs, blocks.begin());
+
+  for (const auto& b: blocks) {
+    ds.write( (const char*)&b, sizeof(b) );
+  }
+
+  return ds;
+}
+
+// read from stream
+template<typename ST, typename T>
+inline datastream<ST>& operator>>(datastream<ST>& ds, boost::dynamic_bitset<T>& bs) {
+  std::vector<uint32_t> blocks;
+  blocks.resize(bs.num_blocks());
+
+  for (auto& b: blocks) {
+    ds.read( (char*)&b, sizeof(b) );
+  }
+
+  bs = { blocks.cbegin(), blocks.cend() };
+  return ds;
+}
+
 /*
 template<typename ST, typename T>
 inline datastream<ST>& operator<<(datastream<ST>& ds, const boost::multiprecision::number<T>& n) {
