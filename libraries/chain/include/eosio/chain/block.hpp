@@ -77,18 +77,17 @@ namespace eosio { namespace chain {
 
       quorum_certificate_extension() = default;
 
-      quorum_certificate_extension( const quorum_certificate_message& qc, uint32_t last_qc_block_num )
-      :qc( qc ), last_qc_block_num( last_qc_block_num )
+      quorum_certificate_extension( const quorum_certificate& qc)
+      :qc( qc )
       {}
 
-      quorum_certificate_extension( const quorum_certificate_message&& qc, uint32_t last_qc_block_num )
-      :qc( std::move(qc) ), last_qc_block_num( last_qc_block_num )
+      quorum_certificate_extension( const quorum_certificate&& qc)
+      :qc( std::move(qc) )
       {}
 
       void reflector_init();
 
-      quorum_certificate_message qc;
-      uint32_t last_qc_block_num;
+      quorum_certificate qc;
    };
 
    namespace detail {
@@ -140,5 +139,5 @@ FC_REFLECT_ENUM( eosio::chain::transaction_receipt::status_enum,
 FC_REFLECT(eosio::chain::transaction_receipt_header, (status)(cpu_usage_us)(net_usage_words) )
 FC_REFLECT_DERIVED(eosio::chain::transaction_receipt, (eosio::chain::transaction_receipt_header), (trx) )
 FC_REFLECT(eosio::chain::additional_block_signatures_extension, (signatures));
-FC_REFLECT(eosio::chain::quorum_certificate_extension, (qc)(last_qc_block_num));
+FC_REFLECT(eosio::chain::quorum_certificate_extension, (qc));
 FC_REFLECT_DERIVED(eosio::chain::signed_block, (eosio::chain::signed_block_header), (transactions)(block_extensions) )
