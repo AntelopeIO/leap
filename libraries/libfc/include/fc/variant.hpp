@@ -16,6 +16,7 @@
 #include <fc/container/flat_fwd.hpp>
 #include <boost/multi_index_container_fwd.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/dynamic_bitset.hpp>
 #include <variant>
 
 namespace fc
@@ -692,6 +693,35 @@ namespace fc
    }
    template<typename T> void from_variant( const fc::variant& v, boost::multiprecision::number<T>& n ) {
       n = boost::multiprecision::number<T>(v.get_string());
+   }
+
+   template<typename T> void to_variant( const boost::dynamic_bitset<T>& bs, fc::variant& v ) {
+      auto num_blocks = bs.num_blocks();
+      if( num_blocks > MAX_NUM_ARRAY_ELEMENTS ) throw std::range_error( "too large" );
+
+      std::vector<uint32_t> blocks(num_blocks);
+      boost::to_block_range(bs, blocks.begin());
+
+      std::vector<fc::variant> vars;
+      vars.reserve(num_blocks);
+      for( const auto& b: blocks ) {
+         vars.push_back( fc::variant(b) );
+      }
+      v = std::move(vars);
+   }
+
+   template<typename T> void from_variant( const fc::variant& v, boost::dynamic_bitset<T>& bs ) {
+      const std::vector<fc::variant>& vars = v.get_array();
+      auto num_vars = vars.size();
+      if( num_vars > MAX_NUM_ARRAY_ELEMENTS ) throw std::range_error( "too large" );
+
+      std::vector<uint32_t> blocks;
+      blocks.reserve(num_vars);
+      for( const auto& var: vars ) {
+         blocks.push_back( var.as<uint32_t>() );
+      }
+
+      bs = { blocks.cbegin(), blocks.cend() };
    }
 
    fc::variant operator + ( const fc::variant& a, const fc::variant& b );
