@@ -2,8 +2,7 @@
 #include <eosio/chain/block_timestamp.hpp>
 #include <eosio/chain/producer_schedule.hpp>
 #include <eosio/chain/protocol_feature_activation.hpp>
-#include <eosio/chain/hotstuff/finalizer_policy.hpp>
-#include <eosio/chain/hotstuff/proposal_info.hpp>
+#include <eosio/chain/hotstuff/instant_finality_extension.hpp>
 
 #include <optional>
 #include <type_traits>
@@ -21,8 +20,7 @@ namespace eosio { namespace chain {
    using block_header_extension_types = detail::block_header_extension_types<
       protocol_feature_activation,
       producer_schedule_change_extension,
-      finalizer_policy_extension,
-      proposal_info_extension
+      instant_finality_extension
    >;
 
    using block_header_extension = block_header_extension_types::block_header_extension_t;
