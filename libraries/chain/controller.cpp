@@ -2218,7 +2218,10 @@ struct controller_impl {
       bool hs_active = false;
       if (!b->header_extensions.empty()) {
          std::optional<block_header_extension> ext = b->extract_header_extension(instant_finality_extension::extension_id());
-         hs_active = !!ext;
+         if (ext) {
+            const auto& if_extension = std::get<instant_finality_extension>(*ext);
+            hs_active = !!if_extension.new_proposer_policy;
+         }
       }
 
       auto trx_mroot = calculate_trx_merkle( b->transactions, hs_active );
