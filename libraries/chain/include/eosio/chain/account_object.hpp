@@ -15,6 +15,8 @@ namespace eosio { namespace chain {
       id_type              id;
       account_name         name; //< name should not be changed within a chainbase modifier lambda
       block_timestamp_type creation_date;
+      uint64_t              recv_sequence = 0;
+      uint64_t              auth_sequence = 0;
       shared_blob          abi;
 
       void set_abi( const eosio::chain::abi_def& a ) {
@@ -54,8 +56,6 @@ namespace eosio { namespace chain {
 
       id_type               id;
       account_name          name; //< name should not be changed within a chainbase modifier lambda
-      uint64_t              recv_sequence = 0;
-      uint64_t              auth_sequence = 0;
       uint64_t              code_sequence = 0;
       uint64_t              abi_sequence  = 0;
       digest_type           code_hash;
@@ -104,7 +104,7 @@ CHAINBASE_SET_INDEX_TYPE(eosio::chain::account_object, eosio::chain::account_ind
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::account_metadata_object, eosio::chain::account_metadata_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::account_ram_correction_object, eosio::chain::account_ram_correction_index)
 
-FC_REFLECT(eosio::chain::account_object, (name)(creation_date)(abi))
-FC_REFLECT(eosio::chain::account_metadata_object, (name)(recv_sequence)(auth_sequence)(code_sequence)(abi_sequence)
+FC_REFLECT(eosio::chain::account_object, (name)(creation_date)(recv_sequence)(auth_sequence)(abi))
+FC_REFLECT(eosio::chain::account_metadata_object, (name)(code_sequence)(abi_sequence)
                                                   (code_hash)(last_code_update)(flags)(vm_type)(vm_version))
 FC_REFLECT(eosio::chain::account_ram_correction_object, (name)(ram_correction))

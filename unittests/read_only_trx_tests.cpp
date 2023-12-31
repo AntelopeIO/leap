@@ -301,33 +301,33 @@ BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, read_only_trx_tester) { try {
    set_up_test_contract();
 
    const auto& p = control->get_dynamic_global_properties();
-   auto receiver_account = control->db().find<account_metadata_object,by_name>("noauthtable"_n);
-   auto amo = control->db().find<account_metadata_object,by_name>("alice"_n);
+   auto receiver_account = control->db().find<account_object,by_name>("noauthtable"_n);
+   auto ao = control->db().find<account_object,by_name>("alice"_n);
 
    // verify sequence numbers in state increment for non-read-only transactions
    auto prev_global_action_sequence = p.global_action_sequence;
    auto prev_recv_sequence = receiver_account->recv_sequence;
-   auto prev_auth_sequence = amo->auth_sequence; 
+   auto prev_auth_sequence = ao->auth_sequence; 
 
    auto res = send_db_api_transaction("insert"_n, insert_data);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
 
    BOOST_CHECK_EQUAL( prev_global_action_sequence + 1, p.global_action_sequence );
    BOOST_CHECK_EQUAL( prev_recv_sequence + 1, receiver_account->recv_sequence );
-   BOOST_CHECK_EQUAL( prev_auth_sequence + 1, amo->auth_sequence );
+   BOOST_CHECK_EQUAL( prev_auth_sequence + 1, ao->auth_sequence );
    
    produce_block();
 
    // verify sequence numbers in state do not change for read-only transactions
    prev_global_action_sequence = p.global_action_sequence;
    prev_recv_sequence = receiver_account->recv_sequence;
-   prev_auth_sequence = amo->auth_sequence; 
+   prev_auth_sequence = ao->auth_sequence; 
 
    send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only);
 
    BOOST_CHECK_EQUAL( prev_global_action_sequence, p.global_action_sequence );
    BOOST_CHECK_EQUAL( prev_recv_sequence, receiver_account->recv_sequence );
-   BOOST_CHECK_EQUAL( prev_auth_sequence, amo->auth_sequence );
+   BOOST_CHECK_EQUAL( prev_auth_sequence, ao->auth_sequence );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()
