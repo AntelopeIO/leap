@@ -11,8 +11,8 @@
 namespace eosio { namespace chain { namespace resource_limits {
 
 using resource_index_set = index_set<
-   resource_limits_index,
-   resource_usage_index,
+   resource_index,
+   resource_pending_index,
    resource_limits_state_index,
    resource_limits_config_index
 >;
@@ -95,16 +95,12 @@ void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& sna
 }
 
 void resource_limits_manager::initialize_account(const account_name& account, bool is_trx_transient) {
-   const auto& limits = _db.create<resource_limits_object>([&]( resource_limits_object& bl ) {
+   const auto& limits = _db.create<resource_object>([&]( resource_object& bl ) {
       bl.owner = account;
    });
-
-   const auto& usage = _db.create<resource_usage_object>([&]( resource_usage_object& bu ) {
-      bu.owner = account;
-   });
-   if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-      dm_logger->on_newaccount_resource_limits(limits, usage);
-   }
+   // if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+   //    dm_logger->on_newaccount_resource_limits(limits, usage);
+   // }
 }
 
 void resource_limits_manager::set_block_parameters(const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters ) {
@@ -128,7 +124,7 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
 void resource_limits_manager::update_account_usage(const flat_set<account_name>& accounts, uint32_t time_slot ) {
    const auto& config = _db.get<resource_limits_config_object>();
    for( const auto& a : accounts ) {
-      const auto& usage = _db.get<resource_usage_object,by_owner>( a );
+      const auto& usage = _db.get<resource_object,by_owner>( a );
       _db.modify( usage, [&]( auto& bu ){
           bu.net_usage.add( 0, time_slot, config.account_net_usage_average_window );
           bu.cpu_usage.add( 0, time_slot, config.account_cpu_usage_average_window );
@@ -142,7 +138,7 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
 
    for( const auto& a : accounts ) {
 
-      const auto& usage = _db.get<resource_usage_object,by_owner>( a );
+      const auto& usage = _db.get<resource_object,by_owner>( a );
       int64_t unused;
       int64_t net_weight;
       int64_t cpu_weight;
@@ -152,9 +148,9 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
           bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
           bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
 
-         if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-            dm_logger->on_update_account_usage(bu);
-         }
+         // if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+         //    dm_logger->on_update_account_usage(bu);
+         // }
       });
 
       if( cpu_weight >= 0 && state.total_cpu_weight > 0 ) {
@@ -213,7 +209,7 @@ void resource_limits_manager::add_pending_ram_usage( const account_name account,
       return;
    }
 
-   const auto& usage  = _db.get<resource_usage_object,by_owner>( account );
+   const auto& usage  = _db.get<resource_object,by_owner>( account );
 
    EOS_ASSERT( ram_delta <= 0 || UINT64_MAX - usage.ram_usage >= (uint64_t)ram_delta, transaction_exception,
               "Ram usage delta would overflow UINT64_MAX");
@@ -232,7 +228,7 @@ void resource_limits_manager::add_pending_ram_usage( const account_name account,
 void resource_limits_manager::verify_account_ram_usage( const account_name account )const {
    int64_t ram_bytes; int64_t net_weight; int64_t cpu_weight;
    get_account_limits( account, ram_bytes, net_weight, cpu_weight );
-   const auto& usage  = _db.get<resource_usage_object,by_owner>( account );
+   const auto& usage  = _db.get<resource_object,by_owner>( account );
 
    if( ram_bytes >= 0 ) {
       EOS_ASSERT( usage.ram_usage <= static_cast<uint64_t>(ram_bytes), ram_usage_exceeded,
@@ -242,27 +238,26 @@ void resource_limits_manager::verify_account_ram_usage( const account_name accou
 }
 
 int64_t resource_limits_manager::get_account_ram_usage( const account_name& name )const {
-   return _db.get<resource_usage_object,by_owner>( name ).ram_usage;
+   return _db.get<resource_object,by_owner>( name ).ram_usage;
 }
 
 
 bool resource_limits_manager::set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight, bool is_trx_transient) {
-   //const auto& usage = _db.get<resource_usage_object,by_owner>( account );
+   //const auto& usage = _db.get<resource_object,by_owner>( account );
    /*
     * Since we need to delay these until the next resource limiting boundary, these are created in a "pending"
     * state or adjusted in an existing "pending" state.  The chain controller will collapse "pending" state into
     * the actual state at the next appropriate boundary.
     */
-   auto find_or_create_pending_limits = [&]() -> const resource_limits_object& {
-      const auto* pending_limits = _db.find<resource_limits_object, by_owner>( boost::make_tuple(true, account) );
+   auto find_or_create_pending_limits = [&]() -> const resource_pending_object& {
+      const auto* pending_limits = _db.find<resource_pending_object, by_owner>( account );
       if (pending_limits == nullptr) {
-         const auto& limits = _db.get<resource_limits_object, by_owner>( boost::make_tuple(false, account));
-         return _db.create<resource_limits_object>([&](resource_limits_object& pending_limits){
-            pending_limits.owner = limits.owner;
-            pending_limits.ram_bytes = limits.ram_bytes;
-            pending_limits.net_weight = limits.net_weight;
-            pending_limits.cpu_weight = limits.cpu_weight;
-            pending_limits.pending = true;
+         const auto& actual_limits = _db.get<resource_object, by_owner>( account);
+         return _db.create<resource_pending_object>([&](resource_pending_object& pending_limits){
+            pending_limits.owner = actual_limits.owner;
+            pending_limits.ram_bytes = actual_limits.ram_bytes;
+            pending_limits.net_weight = actual_limits.net_weight;
+            pending_limits.cpu_weight = actual_limits.cpu_weight;
          });
       } else {
          return *pending_limits;
@@ -287,27 +282,27 @@ bool resource_limits_manager::set_account_limits( const account_name& account, i
       */
    }
 
-   _db.modify( limits, [&]( resource_limits_object& pending_limits ){
+   _db.modify( limits, [&]( resource_pending_object& pending_limits ){
       pending_limits.ram_bytes = ram_bytes;
       pending_limits.net_weight = net_weight;
       pending_limits.cpu_weight = cpu_weight;
 
-      if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-         dm_logger->on_set_account_limits(pending_limits);
-      }
+      // if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+      //    dm_logger->on_set_account_limits(pending_limits);
+      // }
    });
 
    return decreased_limit;
 }
 
 void resource_limits_manager::get_account_limits( const account_name& account, int64_t& ram_bytes, int64_t& net_weight, int64_t& cpu_weight ) const {
-   const auto* pending_buo = _db.find<resource_limits_object,by_owner>( boost::make_tuple(true, account) );
+   const auto* pending_buo = _db.find<resource_pending_object,by_owner>( account );
    if (pending_buo) {
       ram_bytes  = pending_buo->ram_bytes;
       net_weight = pending_buo->net_weight;
       cpu_weight = pending_buo->cpu_weight;
    } else {
-      const auto& buo = _db.get<resource_limits_object,by_owner>( boost::make_tuple( false, account ) );
+      const auto& buo = _db.get<resource_object,by_owner>( account );
       ram_bytes  = buo.ram_bytes;
       net_weight = buo.net_weight;
       cpu_weight = buo.cpu_weight;
@@ -315,7 +310,7 @@ void resource_limits_manager::get_account_limits( const account_name& account, i
 }
 
 bool resource_limits_manager::is_unlimited_cpu( const account_name& account ) const {
-   const auto* buo = _db.find<resource_limits_object,by_owner>( boost::make_tuple(false, account) );
+   const auto* buo = _db.find<resource_object,by_owner>( account );
    if (buo) {
       return buo->cpu_weight == -1;
    }
@@ -323,8 +318,8 @@ bool resource_limits_manager::is_unlimited_cpu( const account_name& account ) co
 }
 
 void resource_limits_manager::process_account_limit_updates() {
-   auto& multi_index = _db.get_mutable_index<resource_limits_index>();
-   auto& by_owner_index = multi_index.indices().get<by_owner>();
+   auto& multi_index = _db.get_mutable_index<resource_pending_index>();
+   auto& pending_idx = multi_index.indices().get<by_owner>();
 
    // convenience local lambda to reduce clutter
    auto update_state_and_value = [](uint64_t &total, int64_t &value, int64_t pending_value, const char* debug_which) -> void {
@@ -343,14 +338,10 @@ void resource_limits_manager::process_account_limit_updates() {
 
    const auto& state = _db.get<resource_limits_state_object>();
    _db.modify(state, [&](resource_limits_state_object& rso){
-      while(!by_owner_index.empty()) {
-         const auto& itr = by_owner_index.lower_bound(boost::make_tuple(true));
-         if (itr == by_owner_index.end() || itr->pending!= true) {
-            break;
-         }
-
-         const auto& actual_entry = _db.get<resource_limits_object, by_owner>(boost::make_tuple(false, itr->owner));
-         _db.modify(actual_entry, [&](resource_limits_object& rlo){
+      while(pending_idx.begin() != pending_idx.end()) {
+         const auto& itr = pending_idx.begin();
+         const auto& actual_entry = _db.get<resource_object, by_owner>(itr->owner);
+         _db.modify(actual_entry, [&](resource_object& rlo){
             update_state_and_value(rso.total_ram_bytes,  rlo.ram_bytes,  itr->ram_bytes, "ram_bytes");
             update_state_and_value(rso.total_cpu_weight, rlo.cpu_weight, itr->cpu_weight, "cpu_weight");
             update_state_and_value(rso.total_net_weight, rlo.net_weight, itr->net_weight, "net_weight");
@@ -431,7 +422,7 @@ std::pair<account_resource_limit, bool>
 resource_limits_manager::get_account_cpu_limit_ex( const account_name& name, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time) const {
 
    const auto& state = _db.get<resource_limits_state_object>();
-   const auto& usage = _db.get<resource_usage_object, by_owner>(name);
+   const auto& usage = _db.get<resource_object, by_owner>(name);
    const auto& config = _db.get<resource_limits_config_object>();
 
    int64_t cpu_weight, x, y;
@@ -493,7 +484,7 @@ std::pair<account_resource_limit, bool>
 resource_limits_manager::get_account_net_limit_ex( const account_name& name, uint32_t greylist_limit, const std::optional<block_timestamp_type>& current_time) const {
    const auto& config = _db.get<resource_limits_config_object>();
    const auto& state  = _db.get<resource_limits_state_object>();
-   const auto& usage  = _db.get<resource_usage_object, by_owner>(name);
+   const auto& usage  = _db.get<resource_object, by_owner>(name);
 
    int64_t net_weight, x, y;
    get_account_limits( name, x, net_weight, y );

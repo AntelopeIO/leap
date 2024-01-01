@@ -330,24 +330,24 @@ namespace eosio::chain {
    }
    void deep_mind_handler::on_newaccount_resource_limits(const resource_limits::resource_limits_object& limits, const resource_limits::resource_usage_object& usage)
    {
-      fc_dlog(_logger, "RLIMIT_OP ACCOUNT_LIMITS INS ${data}",
-         ("data", limits)
-      );
-      fc_dlog(_logger, "RLIMIT_OP ACCOUNT_USAGE INS ${data}",
-         ("data", usage)
-      );
+      // fc_dlog(_logger, "RLIMIT_OP ACCOUNT_LIMITS INS ${data}",
+      //    ("data", limits)
+      // );
+      // fc_dlog(_logger, "RLIMIT_OP ACCOUNT_USAGE INS ${data}",
+      //    ("data", usage)
+      // );
    }
    void deep_mind_handler::on_update_account_usage(const resource_limits::resource_usage_object& usage)
    {
-      fc_dlog(_logger, "RLIMIT_OP ACCOUNT_USAGE UPD ${data}",
-         ("data", usage)
-      );
+      // fc_dlog(_logger, "RLIMIT_OP ACCOUNT_USAGE UPD ${data}",
+      //    ("data", usage)
+      // );
    }
    void deep_mind_handler::on_set_account_limits(const resource_limits::resource_limits_object& limits)
    {
-      fc_dlog(_logger, "RLIMIT_OP ACCOUNT_LIMITS UPD ${data}",
-         ("data", limits)
-      );
+      // fc_dlog(_logger, "RLIMIT_OP ACCOUNT_LIMITS UPD ${data}",
+      //    ("data", limits)
+      // );
    }
    void deep_mind_handler::on_ram_trace(std::string&& event_id, const char* family, const char* operation, const char* legacy_tag)
    {

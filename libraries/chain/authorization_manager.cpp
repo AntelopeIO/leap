@@ -48,10 +48,7 @@ namespace eosio { namespace chain {
             // lookup parent name
             const auto& parent = db.get(value.parent);
             res.parent = parent.name;
-
-            // lookup the usage object
-            const auto& usage = db.get<permission_usage_object>(value.usage_id);
-            res.last_used = usage.last_used;
+            res.last_used = value.last_used;
 
             return res;
          };
@@ -61,7 +58,7 @@ namespace eosio { namespace chain {
             value.owner = row.owner;
             value.last_updated = row.last_updated;
             value.auth = row.auth;
-
+            value.last_used = row.last_used;
             value.parent = 0;
             if (value.id == 0) {
                EOS_ASSERT(row.parent == permission_name(), snapshot_exception, "Unexpected parent name on reserved permission 0");
@@ -71,6 +68,7 @@ namespace eosio { namespace chain {
                EOS_ASSERT(row.auth.keys.size() == 0,  snapshot_exception, "Unexpected auth keys on reserved permission 0");
                EOS_ASSERT(row.auth.waits.size() == 0,  snapshot_exception, "Unexpected auth waits on reserved permission 0");
                EOS_ASSERT(row.auth.threshold == 0,  snapshot_exception, "Unexpected auth threshold on reserved permission 0");
+               EOS_ASSERT(row.last_used == time_point(),  snapshot_exception, "Unexpected auth last used on reserved permission 0");
                EOS_ASSERT(row.last_updated == time_point(),  snapshot_exception, "Unexpected auth last updated on reserved permission 0");
                value.parent = 0;
             } else if ( row.parent != permission_name()){
@@ -79,16 +77,6 @@ namespace eosio { namespace chain {
                EOS_ASSERT(parent.id != 0, snapshot_exception, "Unexpected mapping to reserved permission 0");
                value.parent = parent.id;
             }
-
-            if (value.id != 0) {
-               // create the usage object
-               const auto& usage = db.create<permission_usage_object>([&](auto& p) {
-                  p.last_used = row.last_used;
-               });
-               value.usage_id = usage.id;
-            } else {
-               value.usage_id = 0;
-            }
          }
       };
    }
@@ -96,11 +84,6 @@ namespace eosio { namespace chain {
    void authorization_manager::add_to_snapshot( const snapshot_writer_ptr& snapshot ) const {
       authorization_index_set::walk_indices([this, &snapshot]( auto utils ){
          using section_t = typename decltype(utils)::index_t::value_type;
-
-         // skip the permission_usage_index as its inlined with permission_index
-         if (std::is_same<section_t, permission_usage_object>::value) {
-            return;
-         }
 
          snapshot->write_section<section_t>([this]( auto& section ){
             decltype(utils)::walk(_db, [this, &section]( const auto &row ) {
@@ -113,11 +96,6 @@ namespace eosio { namespace chain {
    void authorization_manager::read_from_snapshot( const snapshot_reader_ptr& snapshot ) {
       authorization_index_set::walk_indices([this, &snapshot]( auto utils ){
          using section_t = typename decltype(utils)::index_t::value_type;
-
-         // skip the permission_usage_index as its inlined with permission_index
-         if (std::is_same<section_t, permission_usage_object>::value) {
-            return;
-         }
 
          snapshot->read_section<section_t>([this]( auto& section ) {
             bool more = !section.empty();
@@ -147,17 +125,13 @@ namespace eosio { namespace chain {
          creation_time = _control.pending_block_time();
       }
 
-      const auto& perm_usage = _db.create<permission_usage_object>([&](auto& p) {
-         p.last_used = creation_time;
-      });
-
       const auto& perm = _db.create<permission_object>([&](auto& p) {
-         p.usage_id     = perm_usage.id;
          p.parent       = parent;
          p.owner        = account;
          p.name         = name;
          p.last_updated = creation_time;
          p.auth         = auth;
+         p.last_used = creation_time;
 
          if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_create_permission(p);
@@ -183,17 +157,13 @@ namespace eosio { namespace chain {
          creation_time = _control.pending_block_time();
       }
 
-      const auto& perm_usage = _db.create<permission_usage_object>([&](auto& p) {
-         p.last_used = creation_time;
-      });
-
       const auto& perm = _db.create<permission_object>([&](auto& p) {
-         p.usage_id     = perm_usage.id;
          p.parent       = parent;
          p.owner        = account;
          p.name         = name;
          p.last_updated = creation_time;
          p.auth         = std::move(auth);
+         p.last_used = creation_time;
 
          if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_create_permission(p);
@@ -230,8 +200,6 @@ namespace eosio { namespace chain {
       EOS_ASSERT( range.first == range.second, action_validate_exception,
                   "Cannot remove a permission which has children. Remove the children first.");
 
-      _db.get_mutable_index<permission_usage_index>().remove_object( permission.usage_id._id );
-
       if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
          dm_logger->on_remove_permission(permission);
       }
@@ -240,14 +208,14 @@ namespace eosio { namespace chain {
    }
 
    void authorization_manager::update_permission_usage( const permission_object& permission ) {
-      const auto& puo = _db.get<permission_usage_object, by_id>( permission.usage_id );
-      _db.modify( puo, [&](permission_usage_object& p) {
+      const auto& puo = _db.get<permission_object, by_id>( permission.id );
+      _db.modify( puo, [&](permission_object& p) {
          p.last_used = _control.pending_block_time();
       });
    }
 
    fc::time_point authorization_manager::get_permission_last_used( const permission_object& permission )const {
-      return _db.get<permission_usage_object, by_id>( permission.usage_id ).last_used;
+      return _db.get<permission_object, by_id>( permission.id ).last_used;
    }
 
    const permission_object*  authorization_manager::find_permission( const permission_level& level )const

@@ -151,7 +151,6 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
                   chain::index256_index*, chain::index_double_index*, chain::index_long_double_index*,
                   chain::global_property_multi_index*, chain::generated_transaction_multi_index*,
                   chain::protocol_state_multi_index*, chain::permission_index*, chain::permission_link_index*,
-                  chain::resource_limits::resource_limits_index*, chain::resource_limits::resource_usage_index*,
                   chain::resource_limits::resource_limits_state_index*,
                   chain::resource_limits::resource_limits_config_index*>());
 
@@ -176,8 +175,8 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
    process_table(ds, "permission", db.get_index<chain::permission_index>(), pack_row);
    process_table(ds, "permission_link", db.get_index<chain::permission_link_index>(), pack_row);
 
-   process_table(ds, "resource_limits", db.get_index<chain::resource_limits::resource_limits_index>(), pack_row);
-   process_table(ds, "resource_usage", db.get_index<chain::resource_limits::resource_usage_index>(), pack_row);
+   // process_table(ds, "resource_limits", db.get_index<chain::resource_limits::resource_limits_index>(), pack_row);
+   // process_table(ds, "resource_usage", db.get_index<chain::resource_limits::resource_usage_index>(), pack_row);
    process_table(ds, "resource_limits_state", db.get_index<chain::resource_limits::resource_limits_state_index>(),
                  pack_row);
    process_table(ds, "resource_limits_config", db.get_index<chain::resource_limits::resource_limits_config_index>(),

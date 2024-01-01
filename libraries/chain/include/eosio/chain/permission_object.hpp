@@ -26,11 +26,11 @@ namespace eosio { namespace chain {
       OBJECT_CTOR(permission_object, (auth))
 
       id_type                           id;
-      permission_usage_object::id_type  usage_id;
       id_type                           parent; ///< parent permission
       account_name                      owner; ///< the account this permission belongs to (should not be changed within a chainbase modifier lambda)
       permission_name                   name; ///< human-readable name for the permission (should not be changed within a chainbase modifier lambda)
       time_point                        last_updated; ///< the last time this authority was updated
+      time_point                        last_used; ///< when this permission was last used
       shared_authority                  auth; ///< authority required to execute this permission
 
 
@@ -120,7 +120,7 @@ namespace eosio { namespace chain {
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::permission_object, eosio::chain::permission_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::permission_usage_object, eosio::chain::permission_usage_index)
 
-FC_REFLECT(eosio::chain::permission_object, (usage_id)(parent)(owner)(name)(last_updated)(auth))
+FC_REFLECT(eosio::chain::permission_object, (parent)(owner)(name)(last_updated)(last_used)(auth))
 FC_REFLECT(eosio::chain::snapshot_permission_object, (parent)(owner)(name)(last_updated)(last_used)(auth))
 
 FC_REFLECT(eosio::chain::permission_usage_object, (last_used))

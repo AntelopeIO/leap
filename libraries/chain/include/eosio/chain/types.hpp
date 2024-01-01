@@ -177,6 +177,8 @@ namespace eosio::chain {
       account_ram_correction_object_type,
       code_object_type,
       database_header_object_type,
+      resource_object_type,
+      resource_pending_object_type,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 
