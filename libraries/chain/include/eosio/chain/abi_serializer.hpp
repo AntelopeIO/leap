@@ -692,7 +692,6 @@ namespace impl {
          }
          auto qc_extension_count = block_exts.count(quorum_certificate_extension::extension_id());
          if ( qc_extension_count > 0) {
-            EOS_ASSERT(qc_extension_count == 1, ill_formed_quorum_certificate_extension, "At most one quorum certificate is allowed in block extension, which has ${c}.", ("c", qc_extension_count));
             const auto& qc_extension =
                   std::get<quorum_certificate_extension>(block_exts.lower_bound(quorum_certificate_extension::extension_id())->second);
             mvo("qc_extension", qc_extension);

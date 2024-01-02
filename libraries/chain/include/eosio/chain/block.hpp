@@ -81,7 +81,7 @@ namespace eosio { namespace chain {
       :qc( qc )
       {}
 
-      quorum_certificate_extension( const quorum_certificate&& qc)
+      quorum_certificate_extension( quorum_certificate&& qc)
       :qc( std::move(qc) )
       {}
 
