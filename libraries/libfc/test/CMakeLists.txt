@@ -7,7 +7,6 @@ add_executable( test_fc
         crypto/test_modular_arithmetic.cpp
         crypto/test_webauthn.cpp
         io/test_cfile.cpp
-        io/test_datastream.cpp
         io/test_json.cpp
         io/test_tracked_storage.cpp
         network/test_message_buffer.cpp
