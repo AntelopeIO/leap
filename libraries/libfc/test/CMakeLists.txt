@@ -8,6 +8,7 @@ add_executable( test_fc
         crypto/test_webauthn.cpp
         io/test_cfile.cpp
         io/test_json.cpp
+        io/test_raw.cpp
         io/test_tracked_storage.cpp
         network/test_message_buffer.cpp
         scoped_exit/test_scoped_exit.cpp

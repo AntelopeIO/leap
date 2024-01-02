@@ -35,6 +35,8 @@ namespace fc {
     template<typename Stream> void unpack( Stream& s,  Int<256>& n );
     template<typename Stream, typename T> void pack( Stream& s, const boost::multiprecision::number<T>& n );
     template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n );
+    template<typename Stream, typename T> void pack( Stream& s, const boost::dynamic_bitset<T>& bs );
+    template<typename Stream, typename T> void unpack( Stream& s,  boost::dynamic_bitset<T>& bs );
 
     template<typename Stream, typename Arg0, typename... Args>
     inline void pack( Stream& s, const Arg0& a0, const Args&... args ) {
