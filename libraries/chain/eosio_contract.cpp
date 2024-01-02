@@ -94,31 +94,47 @@ void apply_eosio_newaccount(apply_context& context) {
               "Cannot create account named ${name}, as that name is already taken",
               ("name", create.name));
 
-   db.create<account_object>([&](auto& a) {
-      a.name = create.name;
-      a.creation_date = context.control.pending_block_time();
-   });
-
-   db.create<account_metadata_object>([&](auto& a) {
-      a.name = create.name;
-   });
-
-   for( const auto& auth : { create.owner, create.active } ){
-      validate_authority_precondition( context, auth );
-   }
-
-   const auto& owner_permission  = authorization.create_permission( create.name, config::owner_name, 0,
-                                                                    std::move(create.owner), context.trx_context.is_transient() );
-   const auto& active_permission = authorization.create_permission( create.name, config::active_name, owner_permission.id,
-                                                                    std::move(create.active), context.trx_context.is_transient() );
-
-   context.control.get_mutable_resource_limits_manager().initialize_account(create.name, context.trx_context.is_transient());
-
    int64_t ram_delta = config::overhead_per_account_ram_bytes;
-   ram_delta += 2*config::billable_size_v<permission_object>;
-   ram_delta += owner_permission.auth.get_billable_size();
-   ram_delta += active_permission.auth.get_billable_size();
+   if(context.control.is_builtin_activated( builtin_protocol_feature_t::slim_account )){
+      // To do: check owner should be empty
+      db.create<account_object>([&](auto& a) {
+         a.name = create.name;
+         a.creation_date = context.control.pending_block_time();
+      });
 
+      // for( const auto& auth : { create.active } ){
+      //    validate_authority_precondition( context, auth );
+      // }
+
+      // const auto& active_permission = authorization.create_permission( create.name, config::active_name, 0,
+      //                                                               std::move(create.active), context.trx_context.is_transient() );
+      // ram_delta += config::billable_size_v<permission_object>;
+      // ram_delta += active_permission.auth.get_billable_size();
+   }else{
+      db.create<account_object>([&](auto& a) {
+         a.name = create.name;
+         a.creation_date = context.control.pending_block_time();
+      });
+
+      db.create<account_metadata_object>([&](auto& a) {
+         a.name = create.name;
+      });
+
+      for( const auto& auth : { create.owner, create.active } ){
+         validate_authority_precondition( context, auth );
+      }
+
+      const auto& owner_permission  = authorization.create_permission( create.name, config::owner_name, 0,
+                                                                     std::move(create.owner), context.trx_context.is_transient() );
+      const auto& active_permission = authorization.create_permission( create.name, config::active_name, owner_permission.id,
+                                                                     std::move(create.active), context.trx_context.is_transient() );
+
+      context.control.get_mutable_resource_limits_manager().initialize_account(create.name, context.trx_context.is_transient());
+
+      ram_delta += 2*config::billable_size_v<permission_object>;
+      ram_delta += owner_permission.auth.get_billable_size();
+      ram_delta += active_permission.auth.get_billable_size();
+   }
    if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {
       dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newaccount");
    }

@@ -279,6 +279,15 @@ namespace eosio { namespace testing {
             set_bios_contract();
             break;
          }
+         case setup_policy::full_with_slim_account: {
+            schedule_preactivate_protocol_feature();
+            produce_block();
+            set_before_producer_authority_bios_contract();
+            preactivate_all_with_slim_account();
+            produce_block();
+            set_bios_contract();
+            break;
+         }
          case setup_policy::none:
          default:
             break;
@@ -1226,9 +1235,12 @@ namespace eosio { namespace testing {
       preactivate_protocol_features( preactivations );
    }
 
-   std::vector<builtin_protocol_feature_t> base_tester::get_all_builtin_protocol_features() {
+   std::vector<builtin_protocol_feature_t> base_tester::get_all_builtin_protocol_features(bool without_slim_account) {
       std::vector<builtin_protocol_feature_t> builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
+         if( without_slim_account && f.first ==  builtin_protocol_feature_t::slim_account ) {
+            continue;
+         }
          builtins.push_back( f.first );
       }
 
@@ -1242,12 +1254,16 @@ namespace eosio { namespace testing {
    }
 
    void base_tester::preactivate_all_builtin_protocol_features() {
-      preactivate_builtin_protocol_features( get_all_builtin_protocol_features() );
+      preactivate_builtin_protocol_features( get_all_builtin_protocol_features(true) );
+   }
+
+   void base_tester::preactivate_all_with_slim_account() {
+      preactivate_builtin_protocol_features( get_all_builtin_protocol_features(false) );
    }
 
    void base_tester::preactivate_all_but_disable_deferred_trx() {
       std::vector<builtin_protocol_feature_t> builtins;
-      for( const auto& f : get_all_builtin_protocol_features() ) {
+      for( const auto& f : get_all_builtin_protocol_features(true) ) {
          // Before deferred trxs feature is fully disabled, existing tests involving
          // deferred trxs need to be exercised to make sure existing behaviors are
          // maintained. Excluding DISABLE_DEFERRED_TRXS_STAGE_1 and DISABLE_DEFERRED_TRXS_STAGE_2

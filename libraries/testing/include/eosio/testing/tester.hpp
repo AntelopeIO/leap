@@ -65,7 +65,8 @@ namespace eosio { namespace testing {
       preactivate_feature_and_new_bios,
       old_wasm_parser,
       full_except_do_not_disable_deferred_trx,
-      full
+      full,
+      full_with_slim_account
    };
 
    std::ostream& operator<<(std::ostream& os, setup_policy p);
@@ -387,6 +388,7 @@ namespace eosio { namespace testing {
          void preactivate_protocol_features(const vector<digest_type> feature_digests);
          void preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& features);
          void preactivate_all_builtin_protocol_features();
+         void preactivate_all_with_slim_account();
          void preactivate_all_but_disable_deferred_trx();
 
          static genesis_state default_genesis() {
@@ -456,7 +458,7 @@ namespace eosio { namespace testing {
          vector<digest_type>                           protocol_features_to_be_activated_wo_preactivation;
 
       private:
-         std::vector<builtin_protocol_feature_t> get_all_builtin_protocol_features();
+         std::vector<builtin_protocol_feature_t> get_all_builtin_protocol_features(bool without_slim_account = true);
    };
 
    class tester : public base_tester {

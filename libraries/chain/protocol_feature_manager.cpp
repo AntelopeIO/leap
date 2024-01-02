@@ -308,6 +308,19 @@ retires a deferred transaction is invalid.
 */
             {builtin_protocol_feature_t::disable_deferred_trxs_stage_1}
          } )
+         (  builtin_protocol_feature_t::slim_account, builtin_protocol_feature_spec{
+            "SLIM_ACCOUNT",
+            fc::variant("5e807ba67b038630e8c2ec76d55bccb4f386fe2b2896cf0351cf87c6e11fd94f").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: SLIM_ACCOUNT
+
+This feature, upon activation, brings significant changes to account object structure and management. 
+Key changes include optimizing the storage and processing requirements for accounts, 
+thereby enhancing overall system performance.
+*/
+            {}
+         } )
    ;
 
 
