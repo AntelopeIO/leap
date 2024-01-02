@@ -11,17 +11,17 @@ flowchart TD
     subgraph G["`**_apply_block()_**`"]
        direction TB
        start -- "stage = &Oslash;" --> sb
-       sb("`_start_block()_`"):::fun -- stage = building_block --> et
-       et["execute transactions" ] -- stage = building_block --> fb("`_finalize_block()_`"):::fun
-       fb -- stage = assembled block --> cb["add transaction metadata and create completed block"]
-       cb -- stage = completed block --> commit("`_commit_block()_ where we [maybe] add to fork_db and mark valid`"):::fun
+       sb("`_start_block()_`"):::fun -- "stage = building_block" --> et
+       et["execute transactions" ] -- "stage = building_block" --> fb("`_finalize_block()_`"):::fun
+       fb -- "stage = assembled block" --> cb["add transaction metadata and create completed block"]
+       cb -- "stage = completed block" --> commit("`_commit_block()_ where we [maybe] add to fork_db and mark valid`"):::fun
 
     end
     B ----> start
     E --> G
     D --> F("`_log_irreversible()_`"):::fun
-    commit -- stage =  &Oslash; -->  F
-    F -- if in irreversible mode --> G
+    commit -- "stage =  &Oslash;" -->  F
+    F -- "if in irreversible mode" --> G
 
     classDef fun fill:#f96
 ```
