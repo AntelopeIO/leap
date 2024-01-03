@@ -806,11 +806,9 @@ struct controller_impl {
 
 
    void pop_block() {
-      uint32_t block_num = block_data.pop_block();
-
+      uint32_t prev_block_num = block_data.pop_block();
       db.undo();
-
-      protocol_features.popped_blocks_to( block_num );
+      protocol_features.popped_blocks_to(prev_block_num);
    }
 
    template<builtin_protocol_feature_t F>
