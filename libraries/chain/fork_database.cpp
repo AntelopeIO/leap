@@ -282,7 +282,7 @@ namespace eosio::chain {
       auto& by_id_idx = index.template get<by_block_id>();
       auto itr = by_id_idx.begin();
       while (itr != by_id_idx.end()) {
-         by_id_idx.modify( itr, [&]( bsp& _bsp ) {
+         by_id_idx.modify( itr, []( bsp& _bsp ) {
             _bsp->set_valid(false);
          } );
          ++itr;

@@ -193,17 +193,24 @@ struct assembled_block {
 
    template <class R, class F>
    R apply_dpos(F&& f) {
-      return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return std::forward<F>(f)(ab); },
-               [&](assembled_block_if& ab)   -> R { if constexpr (std::is_same<R, void>::value) return; else  return {}; }},
-                        v);
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](assembled_block_dpos& ab) { std::forward<F>(f)(ab); },
+                               [&](assembled_block_if& ab)   {}}, v);
+      else
+         return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return std::forward<F>(f)(ab); },
+                                      [&](assembled_block_if& ab)   -> R { return {}; }}, v);
    }
 
    template <class R, class F>
    R apply_hs(F&& f) {
-      return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return {}; },
-                                   [&](assembled_block_if& ab)   -> R { return std::forward<F>(f)(ab); }},
-                        v);
-   }   
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](assembled_block_dpos& ab) {},
+                               [&](assembled_block_if& ab)   { std::forward<F>(f)(ab); }}, v);
+      else
+         return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return {}; },
+                                      [&](assembled_block_if& ab)   -> R { return std::forward<F>(f)(ab); }}, v);
+   }
+
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& ab) { return std::move(ab.trx_metas); }, v);
    }
@@ -415,34 +422,22 @@ struct building_block {
 
    template <class R, class F>
    R apply_dpos(F&& f) {
-      // assert(std::holds_alternative<building_block_dpos>(v));
-      return std::visit(overloaded{
-                           [&](building_block_dpos& bb) -> R {
-                              if constexpr (std::is_same<R, void>::value)
-                                 std::forward<F>(f)(bb);
-                              else
-                                 return std::forward<F>(f)(bb);
-                           },
-                           [&](building_block_if& bb) -> R {
-                              if constexpr (std::is_same<R, void>::value) return; else  return {};
-                           }},
-                        v);
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](building_block_dpos& bb) { std::forward<F>(f)(bb); },
+                               [&](building_block_if& bb)   {}}, v);
+      else
+         return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return std::forward<F>(f)(bb); },
+                                      [&](building_block_if& bb)   -> R { return {}; }}, v);
    }
 
    template <class R, class F>
    R apply_hs(F&& f) {
-      // assert(std::holds_alternative<building_block_if>(v));
-      return std::visit(overloaded{
-                           [&](building_block_dpos& bb) -> R {
-                              if constexpr (std::is_same<R, void>::value) return; else  return {};
-                           },
-                           [&](building_block_if& bb) -> R {
-                              if constexpr (std::is_same<R, void>::value)
-                                 std::forward<F>(f)(bb);
-                              else
-                                 return std::forward<F>(f)(bb);
-                           }},
-                        v);
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](building_block_dpos& bb) {},
+                               [&](building_block_if& bb)   { std::forward<F>(f)(bb); }}, v);
+      else
+         return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return {}; },
+                                      [&](building_block_if& bb)   -> R { return std::forward<F>(f)(bb); }}, v);
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -763,13 +758,11 @@ struct controller_impl {
       template <class R, class F>
       R apply_dpos(F& f) {
          if constexpr (std::is_same_v<void, R>)
-            std::visit(
-               overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); },
-                          [](block_data_new_t& bd) {}}, v);
+            std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); },
+                                  [&](block_data_new_t& bd) {}}, v);
          else
             return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
-                                         [](block_data_new_t& bd) -> R { return {}; }},
-                              v);
+                                         [&](block_data_new_t& bd)    -> R { return {}; }}, v);
       }
    };
 
