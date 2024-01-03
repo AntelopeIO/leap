@@ -1034,7 +1034,7 @@ struct controller_impl {
          head->block = std::make_shared<signed_block>(genheader.header);
       };
 
-      block_data.apply_dpos<void>(init_blockchain); // [greg todo] assuming here that genesis_state is always dpos
+      block_data.apply_dpos<void>(init_blockchain); // assuming here that genesis_state is always dpos
       
       db.set_revision( head_block_num() );
       initialize_database(genesis);
