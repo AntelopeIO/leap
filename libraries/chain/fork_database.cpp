@@ -195,10 +195,14 @@ namespace eosio::chain {
          return;
       }
 
+      // [greg todo] we need support for writing both the old and new format of fork_db to disk.
+      // I think it would be easier to have a different magic number for the new format (rather than a different
+      // version), since we do not need to be able to load a fork_db which is meant for a different
+      //  consensus (dpos vs if).
       std::ofstream out( fork_db_dat.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
       fc::raw::pack( out, fork_database_t::magic_number );
       fc::raw::pack( out, fork_database_t::max_supported_version ); // write out current version which is always max_supported_version
-      fc::raw::pack( out, *static_cast<bhs*>(&*root) );             // [greg todo] enought to write only bhs?
+      fc::raw::pack( out, *static_cast<bhs*>(&*root) );             // [greg todo] enought to write only bhs for IF?
       uint32_t num_blocks_in_fork_db = index.size();
       fc::raw::pack( out, unsigned_int{num_blocks_in_fork_db} );
 
