@@ -1923,7 +1923,7 @@ struct controller_impl {
          emplace_extension(
                  block_ptr->header_extensions,
                  instant_finality_extension::extension_id(),
-                 fc::raw::pack( instant_finality_extension{ last_qc_block_num, is_last_qc_strong, std::move(fin_pol), new_proposer_policy } )
+                 fc::raw::pack( instant_finality_extension{ last_qc_block_num, is_last_qc_strong, std::move(fin_pol), std::move(new_proposer_policy) } )
          );
       }
 
@@ -2217,10 +2217,11 @@ struct controller_impl {
    block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
       bool hs_active = false;
       if (!b->header_extensions.empty()) {
-         std::optional<block_header_extension> ext = b->extract_header_extension(instant_finality_extension::extension_id());
-         if (ext) {
-            const auto& if_extension = std::get<instant_finality_extension>(*ext);
-            hs_active = !!if_extension.new_proposer_policy;
+         std::optional<block_header_extension> instant_finality_ext = b->extract_header_extension(instant_finality_extension::extension_id());
+#warning change to use instant_finality_ext https://github.com/AntelopeIO/leap/issues/1508
+         if (instant_finality_ext) {
+            const auto& ext = std::get<instant_finality_extension>(*instant_finality_ext);
+            hs_active = !!ext.new_proposer_policy;
          }
       }
 
