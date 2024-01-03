@@ -1034,7 +1034,7 @@ struct controller_impl {
          head->block = std::make_shared<signed_block>(genheader.header);
       };
 
-      block_data.apply_dpos<void>(init_blockchain);
+      block_data.apply_dpos<void>(init_blockchain); // [greg todo] assuming here that genesis_state is always dpos
       
       db.set_revision( head_block_num() );
       initialize_database(genesis);
@@ -2348,7 +2348,7 @@ struct controller_impl {
          const auto& gpo = self.get_global_properties();
 
          if (!hs_active) {
-            bb.apply_dpos<void>([&](building_block::building_block_dpos &bb_dpos) {
+            bb.apply_dpos<void>([&](building_block::building_block_dpos& bb_dpos) {
                pending_block_header_state_legacy& pbhs = bb_dpos.pending_block_header_state;
                
                if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
