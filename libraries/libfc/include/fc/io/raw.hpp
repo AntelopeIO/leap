@@ -588,13 +588,10 @@ namespace fc {
     inline void unpack( Stream& s, boost::dynamic_bitset<T>& value ) {
       unsigned_int size; fc::raw::unpack( s, size );
       FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
-      std::vector<T> blocks;
-      blocks.reserve(size.value);
+      std::vector<T> blocks((size_t)size.value);
       for( uint64_t i = 0; i < size.value; ++i )
       {
-        T tmp;
-        fc::raw::unpack( s, tmp );
-        blocks.emplace_back( std::move(tmp) );
+        fc::raw::unpack( s, blocks[i] );
       }
       value = { blocks.cbegin(), blocks.cend() };
     }
