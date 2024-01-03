@@ -153,13 +153,7 @@ void ostream_snapshot_writer::write_start_section( const std::string& section_na
 }
 
 void ostream_snapshot_writer::write_row( const detail::abstract_snapshot_row_writer& row_writer ) {
-   auto restore = snapshot.tellp();
-   try {
-      row_writer.write(snapshot);
-   } catch (...) {
-      snapshot.seekp(restore);
-      throw;
-   }
+   row_writer.write(snapshot);
    row_count++;
 }
 
