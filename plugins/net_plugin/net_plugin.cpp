@@ -538,7 +538,7 @@ namespace eosio {
       void start_monitors();
 
       // we currently pause on snapshot generation
-      void wait_if_paused() {
+      void wait_if_paused() const {
          controller& cc = chain_plug->chain();
          while (cc.is_writing_snapshot()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
