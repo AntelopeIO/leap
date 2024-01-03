@@ -1,5 +1,6 @@
 #pragma once
 #include <fc/variant.hpp>
+#include <fc/variant_dynamic_bitset.hpp>
 #include <memory>
 
 namespace fc
