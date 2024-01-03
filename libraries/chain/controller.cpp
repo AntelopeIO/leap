@@ -837,8 +837,9 @@ struct controller_impl {
         cfg.read_only ? database::read_only : database::read_write,
         cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
-    block_data(  block_data_t::block_data_variant{std::in_place_type<block_data_legacy_t>,
-                                                  std::filesystem::path{cfg.blocks_dir / config::reversible_blocks_dir_name}}),
+    block_data(block_data_t::block_data_variant{
+         std::in_place_type<block_data_legacy_t>, // [greg todo] create correct type depending on whether IF activated
+         std::filesystem::path{cfg.blocks_dir / config::reversible_blocks_dir_name}}),
     resource_limits( db, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
     authorization( s, db ),
     protocol_features( std::move(pfs), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); } ),
@@ -937,21 +938,21 @@ struct controller_impl {
    }
 
    void log_irreversible() {
-      EOS_ASSERT( block_data.fork_db_has_root(), fork_database_exception, "fork database not properly initialized" );
+      EOS_ASSERT( fork_db_has_root(), fork_database_exception, "fork database not properly initialized" );
 
       const std::optional<block_id_type> log_head_id = blog.head_id();
       const bool valid_log_head = !!log_head_id;
 
       const auto lib_num = valid_log_head ? block_header::num_from_id(*log_head_id) : (blog.first_block_num() - 1);
 
-      auto root_id = block_data.fork_db_root_block_id();
+      auto root_id = fork_db_root_block_id();
 
       if( valid_log_head ) {
          EOS_ASSERT( root_id == log_head_id, fork_database_exception, "fork database root does not match block log head" );
       } else {
-         EOS_ASSERT( block_data.fork_db_root_block_num() == lib_num, fork_database_exception,
+         EOS_ASSERT( fork_db_root_block_num() == lib_num, fork_database_exception,
                      "The first block ${lib_num} when starting with an empty block log should be the block after fork database root ${bn}.",
-                     ("lib_num", lib_num)("bn", block_data.fork_db_root_block_num()) );
+                     ("lib_num", lib_num)("bn", fork_db_root_block_num()) );
       }
 
       const uint32_t hs_lib = hs_irreversible_block_num;
@@ -1035,20 +1036,20 @@ struct controller_impl {
 
       block_data.apply_dpos<void>(init_blockchain);
       
-      db.set_revision( block_data.head_block_num() );
+      db.set_revision( head_block_num() );
       initialize_database(genesis);
    }
 
    void replay(std::function<bool()> check_shutdown) {
       auto blog_head = blog.head();
-      if( !block_data.fork_db_has_root() ) {
+      if( !fork_db_has_root() ) {
          block_data.fork_db_reset_to_head();
          if (!blog_head)
             return;
       }
 
       replaying = true;
-      auto start_block_num = block_data.head_block_num() + 1;
+      auto start_block_num = head_block_num() + 1;
       auto start = fc::time_point::now();
 
       std::exception_ptr except_ptr;
@@ -1142,12 +1143,12 @@ struct controller_impl {
          } else {
             ilog( "Starting initialization from snapshot and no block log, this may take a significant amount of time" );
             read_from_snapshot( snapshot, 0, std::numeric_limits<uint32_t>::max() );
-            EOS_ASSERT( block_data.head_block_num() > 0, snapshot_exception,
+            EOS_ASSERT( head_block_num() > 0, snapshot_exception,
                         "Snapshot indicates controller head at block number 0, but that is not allowed. "
                         "Snapshot is invalid." );
-            blog.reset( chain_id, block_data.head_block_num() + 1 );
+            blog.reset( chain_id, head_block_num() + 1 );
          }
-         ilog( "Snapshot loaded, lib: ${lib}", ("lib", block_data.head_block_num()) );
+         ilog( "Snapshot loaded, lib: ${lib}", ("lib", head_block_num()) );
 
          init(std::move(check_shutdown));
          auto snapshot_load_time = (fc::time_point::now() - snapshot_load_start_time).to_seconds();
@@ -1201,7 +1202,7 @@ struct controller_impl {
       EOS_ASSERT( block_data.fork_db_has_head(), fork_database_exception, "No existing fork database despite existing chain state. Replay required." );
 
       this->shutdown = std::move(shutdown);
-      uint32_t lib_num = block_data.fork_db_root_block_num();
+      uint32_t lib_num = fork_db_root_block_num();
       auto first_block_num = blog.first_block_num();
       if( auto blog_head = blog.head() ) {
          EOS_ASSERT( first_block_num <= lib_num && lib_num <= blog_head->block_num(),
@@ -1263,16 +1264,16 @@ struct controller_impl {
       }
 
       // At this point head != nullptr
-      EOS_ASSERT( db.revision() >= block_data.head_block_num(), fork_database_exception,
+      EOS_ASSERT( db.revision() >= head_block_num(), fork_database_exception,
                   "fork database head (${head}) is inconsistent with state (${db})",
-                  ("db",db.revision())("head",block_data.head_block_num()) );
+                  ("db",db.revision())("head",head_block_num()) );
 
-      if( db.revision() > block_data.head_block_num() ) {
+      if( db.revision() > head_block_num() ) {
          wlog( "database revision (${db}) is greater than head block number (${head}), "
                "attempting to undo pending changes",
-               ("db",db.revision())("head",block_data.head_block_num()) );
+               ("db",db.revision())("head",head_block_num()) );
       }
-      while( db.revision() > block_data.head_block_num() ) {
+      while( db.revision() > head_block_num() ) {
          db.undo();
       }
 
@@ -1280,7 +1281,7 @@ struct controller_impl {
 
       // At startup, no transaction specific logging is possible
       if (auto dm_logger = get_deep_mind_logger(false)) {
-         dm_logger->on_startup(db, block_data.head_block_num());
+         dm_logger->on_startup(db, head_block_num());
       }
 
       if( conf.integrity_hash_on_start )
@@ -1567,7 +1568,7 @@ struct controller_impl {
       authorization.read_from_snapshot(snapshot);
       resource_limits.read_from_snapshot(snapshot);
 
-      db.set_revision( block_data.head_block_num() );
+      db.set_revision( head_block_num() );
       db.create<database_header_object>([](const auto& header){
          // nothing to do
       });
@@ -2243,15 +2244,15 @@ struct controller_impl {
       uint32_t hs_lib = hs_irreversible_block_num.load();
       const bool hs_active = hs_lib > 0; // the transition from 0 to >0 cannot happen during start_block
 
-      emit( self.block_start, block_data.head_block_num() + 1 );
+      emit( self.block_start, head_block_num() + 1 );
 
       // at block level, no transaction specific logging is possible
       if (auto dm_logger = get_deep_mind_logger(false)) {
          // The head block represents the block just before this one that is about to start, so add 1 to get this block num
-         dm_logger->on_start_block(block_data.head_block_num() + 1);
+         dm_logger->on_start_block(head_block_num() + 1);
       }
 
-      auto guard_pending = fc::make_scoped_exit([this, head_block_num=block_data.head_block_num()](){
+      auto guard_pending = fc::make_scoped_exit([this, head_block_num=head_block_num()](){
          protocol_features.popped_blocks_to( head_block_num );
          pending.reset();
       });
@@ -2261,8 +2262,8 @@ struct controller_impl {
       //             we'll need a different `building_block` constructor for IF mode
       auto update_pending = [&](auto& fork_db, auto& head) {
          if (!self.skip_db_sessions(s)) {
-            EOS_ASSERT( db.revision() == block_data.head_block_num(), database_exception, "db revision is not on par with head block",
-                        ("db.revision()", db.revision())("controller_head_block", block_data.head_block_num())("fork_db_head_block", fork_db_head_block_num()) );
+            EOS_ASSERT( db.revision() == head_block_num(), database_exception, "db revision is not on par with head block",
+                        ("db.revision()", db.revision())("controller_head_block", head_block_num())("fork_db_head_block", fork_db_head_block_num()) );
 
             pending.emplace( maybe_session(db), *head, when, confirm_block_count, new_protocol_feature_activations );
          } else {
@@ -2388,7 +2389,7 @@ struct controller_impl {
             auto trace = push_transaction( onbtrx, fc::time_point::maximum(), fc::microseconds::maximum(),
                                            gpo.configuration.min_transaction_cpu_usage, true, 0 );
             if( trace->except ) {
-               wlog("onblock ${block_num} is REJECTING: ${entire_trace}",("block_num", block_data.head_block_num() + 1)("entire_trace", trace));
+               wlog("onblock ${block_num} is REJECTING: ${entire_trace}",("block_num", head_block_num() + 1)("entire_trace", trace));
             }
          } catch( const std::bad_alloc& e ) {
             elog( "on block transaction failed due to a std::bad_alloc" );
@@ -2977,7 +2978,7 @@ struct controller_impl {
             }
          } else if( new_head->id() != head->id() ) {
             ilog("switching forks from ${current_head_id} (block number ${current_head_num}) to ${new_head_id} (block number ${new_head_num})",
-                 ("current_head_id", head->id())("current_head_num", block_data.head_block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num()) );
+                 ("current_head_id", head->id())("current_head_num", head_block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num()) );
 
             // not possible to log transaction specific infor when switching forks
             if (auto dm_logger = get_deep_mind_logger(false)) {
@@ -3066,7 +3067,7 @@ struct controller_impl {
       if( pending ) {
          applied_trxs = pending->extract_trx_metas();
          pending.reset();
-         protocol_features.popped_blocks_to( block_data.head_block_num() );
+         protocol_features.popped_blocks_to( head_block_num() );
       }
       return applied_trxs;
    }
@@ -3333,7 +3334,7 @@ struct controller_impl {
    }
 
    uint32_t earliest_available_block_num() const {
-      return (blog.first_block_num() != 0) ? blog.first_block_num() : block_data.fork_db_root_block_num();
+      return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db_root_block_num();
    }
 
    void set_to_write_window() {
@@ -3374,6 +3375,12 @@ struct controller_impl {
    const block_id_type& fork_db_head_block_id()  const { return block_data.fork_db_head_block_id(irreversible_mode()); }
    uint32_t             fork_db_head_block_num() const { return block_data.fork_db_head_block_num(irreversible_mode()); }
    uint32_t             fork_db_head_irreversible_blocknum() const { return block_data.fork_db_head_irreversible_blocknum(irreversible_mode()); }
+   bool                 fork_db_has_root() const       { return block_data.fork_db_has_root(); }
+   uint32_t             fork_db_root_block_num() const { return block_data.fork_db_root_block_num(); }
+   const block_id_type& fork_db_root_block_id() const  { return block_data.fork_db_root_block_id(); }
+   block_timestamp_type fork_db_root_timestamp() const { return block_data.fork_db_root_timestamp(); }
+
+   uint32_t             head_block_num() const         { return block_data.head_block_num(); }
 }; /// controller_impl
 
 thread_local platform_timer controller_impl::timer;
@@ -3709,7 +3716,7 @@ void controller::set_disable_replay_opts( bool v ) {
 }
 
 uint32_t controller::head_block_num()const {
-   return my->block_data.head_block_num();
+   return my->head_block_num();
 }
 block_timestamp_type controller::head_block_timestamp()const {
    return my->block_data.head_block_time();
@@ -3784,15 +3791,15 @@ void controller::set_hs_irreversible_block_num(uint32_t block_num) {
 }
 
 uint32_t controller::last_irreversible_block_num() const {
-   return my->block_data.fork_db_root_block_num();
+   return my->fork_db_root_block_num();
 }
 
 block_id_type controller::last_irreversible_block_id() const {
-   return my->block_data.fork_db_root_block_id();
+   return my->fork_db_root_block_id();
 }
 
 time_point controller::last_irreversible_block_time() const {
-   return my->block_data.fork_db_root_timestamp().to_time_point();
+   return my->fork_db_root_timestamp().to_time_point();
 }
 
 
