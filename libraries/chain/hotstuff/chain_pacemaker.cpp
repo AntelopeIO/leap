@@ -176,9 +176,10 @@ namespace eosio::chain {
                // block header extension is set in finalize_block to value set by host function set_finalizers
                _chain->set_hs_irreversible_block_num(block->block_num()); // can be any value <= dpos lib
             }
-            const auto& if_extension = std::get<instant_finality_extension>(*ext);
+            auto if_extension = std::get<instant_finality_extension>(*ext);
+#warning Revisit after finalizer policy change design is complete as this is not necessarily when we will change active finalizer policy.
             if (if_extension.new_finalizer_policy) {
-               _active_finalizer_policy = *if_extension.new_finalizer_policy;
+               _active_finalizer_policy = std::move(*if_extension.new_finalizer_policy);
             }
          }
       }
