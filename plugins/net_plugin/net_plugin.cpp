@@ -522,11 +522,6 @@ namespace eosio {
       mutable fc::mutex             chain_info_mtx; // protects chain_info_t
       chain_info_t                  chain_info GUARDED_BY(chain_info_mtx);
 
-      alignas(hardware_destructive_interference_size)
-      std::mutex                            pause_mtx;
-      std::condition_variable               pause_cv;
-      bool                                  paused = false;
-
    public:
       void update_chain_info();
       chain_info_t get_chain_info() const;
@@ -542,25 +537,11 @@ namespace eosio {
       void start_expire_timer();
       void start_monitors();
 
+      // we currently pause on snapshot generation
       void wait_if_paused() {
          controller& cc = chain_plug->chain();
-         if (!cc.is_writing_snapshot())
-            return;
-
-         std::unique_lock l(pause_mtx);
-         paused = true;
-         while (!pause_cv.wait_for(l, std::chrono::milliseconds(10), [&]{ return !paused; } )) {
-            if (!cc.is_writing_snapshot()) {
-               paused = false;
-            }
-         }
-      }
-
-      void unpause() {
-         std::lock_guard g(pause_mtx);
-         if (paused) {
-            paused = false;
-            pause_cv.notify_all();
+         while (cc.is_writing_snapshot()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
          }
       }
 
@@ -3919,7 +3900,6 @@ namespace eosio {
 
    // called from application thread
    void net_plugin_impl::on_accepted_block_header(const block_state_ptr& bs) {
-      unpause();
       update_chain_info();
 
       dispatcher->strand.post([bs]() {

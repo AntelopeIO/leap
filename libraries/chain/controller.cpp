@@ -3247,18 +3247,15 @@ fc::sha256 controller::calculate_integrity_hash() { try {
 
 void controller::write_snapshot( const snapshot_writer_ptr& snapshot ) {
    EOS_ASSERT( !my->pending, block_validate_exception, "cannot take a consistent snapshot with a pending block" );
-   my->writing_snapshot = true;
-   try {
-      my->add_to_snapshot(snapshot);
-      my->writing_snapshot = false;
-   } catch(...) {
-      my->writing_snapshot = false;
-      throw;
-   }
+   my->writing_snapshot.store(true, std::memory_order_release);
+   fc::scoped_exit<std::function<void()>> e = [&] {
+      my->writing_snapshot.store(false, std::memory_order_release);
+   };
+   my->add_to_snapshot(snapshot);
 }
 
 bool controller::is_writing_snapshot() const {
-   return my->writing_snapshot;
+   return my->writing_snapshot.load(std::memory_order_acquire);
 }
 
 int64_t controller::set_proposed_producers( vector<producer_authority> producers ) {
