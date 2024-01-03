@@ -20,13 +20,11 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_empty_values_test)
    block_header header;
    constexpr uint32_t                    last_qc_block_num {0};
    constexpr bool                        is_last_qc_strong {false};
-   const std::optional<finalizer_policy> new_finalizer_policy;
-   const std::optional<proposer_policy>  new_proposer_policy;
 
    emplace_extension(
       header.header_extensions,
       instant_finality_extension::extension_id(),
-      fc::raw::pack( instant_finality_extension{last_qc_block_num, is_last_qc_strong, new_finalizer_policy, new_proposer_policy} )
+      fc::raw::pack( instant_finality_extension{last_qc_block_num, is_last_qc_strong, std::optional<finalizer_policy>{}, std::optional<proposer_policy>{}} )
    );
 
    std::optional<block_header_extension> ext = header.extract_header_extension(instant_finality_extension::extension_id());
