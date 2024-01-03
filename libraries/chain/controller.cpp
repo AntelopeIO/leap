@@ -1192,7 +1192,7 @@ struct controller_impl {
                      "block log does not start with genesis block"
          );
       } else {
-         blog.reset( genesis, block_data.head_block() );
+         blog.reset( genesis, head_block() );
       }
       init(std::move(check_shutdown));
    }
@@ -3381,6 +3381,7 @@ struct controller_impl {
    block_timestamp_type fork_db_root_timestamp() const { return block_data.fork_db_root_timestamp(); }
 
    uint32_t             head_block_num() const         { return block_data.head_block_num(); }
+   const signed_block_ptr& head_block() const          { return block_data.head_block(); }
 }; /// controller_impl
 
 thread_local platform_timer controller_impl::timer;
@@ -3743,7 +3744,7 @@ block_state_legacy_ptr controller::head_block_state_legacy()const {
 }
 
 const signed_block_ptr& controller::head_block()const {
-   return my->block_data.head_block();
+   return my->head_block();
 }
 
 uint32_t controller::fork_db_head_block_num()const {
