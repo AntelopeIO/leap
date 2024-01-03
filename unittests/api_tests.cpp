@@ -3876,7 +3876,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // activate hotstuff
    t.set_finalizers(finalizers);
-   auto block = t.produce_block(); // this block contains the header extension of the instant finality
+   auto block = t.produce_block(); // this block contains the header extension for the instant finality
 
    std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
    BOOST_TEST(!!ext);
