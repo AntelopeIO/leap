@@ -1916,10 +1916,14 @@ struct controller_impl {
          finalizer_policy& fin_pol = *bb._pending_block_header_state_legacy.proposed_finalizer_policy;
          ++bb._pending_block_header_state_legacy.last_proposed_finalizer_policy_generation;
          fin_pol.generation = bb._pending_block_header_state_legacy.last_proposed_finalizer_policy_generation;
+#warning set last_qc_block_num, is_last_qc_strong, and new_proposer_policy correctly
+         uint32_t last_qc_block_num {0};
+         bool is_last_qc_strong {false};
+         std::optional<proposer_policy> new_proposer_policy {std::nullopt};
          emplace_extension(
                  block_ptr->header_extensions,
-                 finalizer_policy_extension::extension_id(),
-                 fc::raw::pack( finalizer_policy_extension{ std::move(fin_pol) } )
+                 instant_finality_extension::extension_id(),
+                 fc::raw::pack( instant_finality_extension{ last_qc_block_num, is_last_qc_strong, std::move(fin_pol), std::move(new_proposer_policy) } )
          );
       }
 
@@ -2213,8 +2217,12 @@ struct controller_impl {
    block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
       bool hs_active = false;
       if (!b->header_extensions.empty()) {
-         std::optional<block_header_extension> ext = b->extract_header_extension(proposal_info_extension::extension_id());
-         hs_active = !!ext;
+         std::optional<block_header_extension> instant_finality_ext = b->extract_header_extension(instant_finality_extension::extension_id());
+#warning change to use instant_finality_ext https://github.com/AntelopeIO/leap/issues/1508
+         if (instant_finality_ext) {
+            const auto& ext = std::get<instant_finality_extension>(*instant_finality_ext);
+            hs_active = !!ext.new_proposer_policy;
+         }
       }
 
       auto trx_mroot = calculate_trx_merkle( b->transactions, hs_active );

@@ -110,6 +110,7 @@ target_include_directories(EosioChain INTERFACE
                               @CMAKE_BINARY_DIR@/libraries/chain/include
                               @CMAKE_SOURCE_DIR@/libraries/libfc/include
                               @CMAKE_SOURCE_DIR@/libraries/libfc/libraries/boringssl/boringssl/src/include
+                              @CMAKE_SOURCE_DIR@/libraries/libfc/libraries/bls12-381/include
                               @CMAKE_SOURCE_DIR@/libraries/softfloat/source/include
                               @CMAKE_SOURCE_DIR@/libraries/appbase/include
                               @CMAKE_SOURCE_DIR@/libraries/chainbase/include
