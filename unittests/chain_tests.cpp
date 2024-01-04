@@ -18,23 +18,24 @@ BOOST_AUTO_TEST_SUITE(chain_tests)
 BOOST_AUTO_TEST_CASE( replace_producer_keys ) try {
    validating_tester tester;
 
-   const auto head_ptr = tester.control->head_block_state();
-   BOOST_REQUIRE(head_ptr);
-
    const auto new_key = get_public_key(name("newkey"), config::active_name.to_string());
 
    // make sure new keys is not used
-   for(const auto& prod : head_ptr->active_schedule.producers) {
+   for(const auto& prod : tester.control->active_producers().producers) {
       for(const auto& key : std::get<block_signing_authority_v0>(prod.authority).keys){  
          BOOST_REQUIRE(key.key != new_key);
       }
    }
 
-   const auto old_version = head_ptr->pending_schedule.schedule.version;
+   const auto old_pending_version = tester.control->pending_producers().version;
+   const auto old_version = tester.control->active_producers().version;
    BOOST_REQUIRE_NO_THROW(tester.control->replace_producer_keys(new_key));
-   const auto new_version = head_ptr->pending_schedule.schedule.version;
+   const auto new_version = tester.control->active_producers().version;
+   const auto pending_version = tester.control->pending_producers().version;
    // make sure version not been changed
    BOOST_REQUIRE(old_version == new_version);
+   BOOST_REQUIRE(old_version == pending_version);
+   BOOST_REQUIRE(pending_version == old_pending_version);
 
    const auto& gpo = tester.control->db().get<global_property_object>();
    BOOST_REQUIRE(!gpo.proposed_schedule_block_num);
@@ -43,7 +44,7 @@ BOOST_AUTO_TEST_CASE( replace_producer_keys ) try {
 
    const uint32_t expected_threshold = 1;
    const weight_type expected_key_weight = 1;
-   for(const auto& prod : head_ptr->active_schedule.producers) {
+   for(const auto& prod : tester.control->pending_producers().producers) {
       BOOST_REQUIRE_EQUAL(std::get<block_signing_authority_v0>(prod.authority).threshold, expected_threshold);
       for(const auto& key : std::get<block_signing_authority_v0>(prod.authority).keys){
          BOOST_REQUIRE_EQUAL(key.key, new_key);
@@ -155,10 +156,6 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
       const auto& [ block, id ] = t;
       auto block_num = block->block_num();
       BOOST_CHECK(block);
-      const auto& bsp_by_id = chain.control->fetch_block_state_by_id(id);
-      BOOST_CHECK(bsp_by_id->block_num == block_num);
-      const auto& bsp_by_number = chain.control->fetch_block_state_by_number(block_num);  // verify it can be found (has to be validated)
-      BOOST_CHECK(bsp_by_number->id == id);
       BOOST_CHECK(chain.control->fetch_block_by_id(id) == block);
       BOOST_CHECK(chain.control->fetch_block_by_number(block_num) == block);
       BOOST_REQUIRE(chain.control->fetch_block_header_by_number(block_num));
@@ -174,10 +171,6 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
       const auto& [ block, id ] = t;
       auto block_num = block->block_num();
       BOOST_CHECK(block);
-      const auto& bsp_by_id = validator.control->fetch_block_state_by_id(id);
-      BOOST_CHECK(bsp_by_id->block_num == block_num);
-      const auto& bsp_by_number = validator.control->fetch_block_state_by_number(block_num);  // verify it can be found (has to be validated)
-      BOOST_CHECK(bsp_by_number->id == id);
       BOOST_CHECK(validator.control->fetch_block_by_id(id) == block);
       BOOST_CHECK(validator.control->fetch_block_by_number(block_num) == block);
       BOOST_REQUIRE(validator.control->fetch_block_header_by_number(block_num));

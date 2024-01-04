@@ -62,10 +62,10 @@ void test_control_plugin_impl::process_next_block_state(const chain::block_id_ty
    // Tests expect the shutdown only after signaling a producer shutdown and seeing a full production cycle
    const auto block_time = _chain.head_block_time() + fc::microseconds(chain::config::block_interval_us);
    // have to fetch bsp due to get_scheduled_producer call
-   const auto& bsp = _chain.fetch_block_state_by_id(id);
-   const auto& producer_authority = bsp->get_scheduled_producer(block_time);
+
+   const auto& producer_authority = _chain.active_producers().get_scheduled_producer(block_time);
    const auto producer_name = producer_authority.producer_name;
-   const auto slot = bsp->block->timestamp.slot % chain::config::producer_repetitions;
+   const auto slot = _chain.head_block_timestamp().slot % chain::config::producer_repetitions;
    if (_producer != account_name()) {
       if( _producer != producer_name ) _clean_producer_sequence = true;
       if( _clean_producer_sequence ) {

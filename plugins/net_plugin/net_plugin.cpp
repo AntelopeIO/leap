@@ -3718,7 +3718,7 @@ namespace eosio {
          controller& cc = my_impl->chain_plug->chain();
 
          // may have come in on a different connection and posted into dispatcher strand before this one
-         if( my_impl->dispatcher->have_block( id ) || cc.fetch_block_state_by_id( id ) ) { // thread-safe
+         if( my_impl->dispatcher->have_block( id ) || cc.fetch_block_by_id( id ) ) { // thread-safe
             my_impl->dispatcher->add_peer_block( id, c->connection_id );
             c->strand.post( [c, id]() {
                my_impl->sync_master->sync_recv_block( c, id, block_header::num_from_id(id), false );
@@ -3749,13 +3749,13 @@ namespace eosio {
          }
 
 
-         uint32_t block_num = bsp ? bsp->block_num : 0;
+         uint32_t block_num = bsp ? bsp->block_num() : 0;
 
          if( block_num != 0 ) {
             fc_dlog( logger, "validated block header, broadcasting immediately, connection ${cid}, blk num = ${num}, id = ${id}",
-                     ("cid", cid)("num", block_num)("id", bsp->id) );
-            my_impl->dispatcher->add_peer_block( bsp->id, cid ); // no need to send back to sender
-            my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
+                     ("cid", cid)("num", block_num)("id", bsp->id()) );
+            my_impl->dispatcher->add_peer_block( bsp->id(), cid ); // no need to send back to sender
+            my_impl->dispatcher->bcast_block( bsp->block, bsp->id() );
          }
 
          app().executor().post(priority::medium, exec_queue::read_write, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {

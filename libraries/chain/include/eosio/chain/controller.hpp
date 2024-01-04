@@ -1,9 +1,11 @@
 #pragma once
 #include <eosio/chain/block_state_legacy.hpp>
+#include <eosio/chain/block_state.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 
@@ -48,13 +50,15 @@ namespace eosio::chain {
    class subjective_billing;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
+
+   using fork_database_legacy = fork_database<block_state_legacy_ptr, block_header_state_legacy_ptr>;   
+   using branch_type = typename fork_database_legacy::branch_type;
+   
    using forked_branch_callback = std::function<void(const branch_type&)>;
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
    using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
-
-   class fork_database;
 
    enum class db_read_mode {
       HEAD,
@@ -171,7 +175,7 @@ namespace eosio::chain {
             fc::microseconds   total_time{};
          };
 
-         block_state_legacy_ptr finalize_block( block_report& br, const signer_callback_type& signer_callback );
+         void finalize_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
          
@@ -195,7 +199,7 @@ namespace eosio::chain {
 
          const chainbase::database& db()const;
 
-         const fork_database& fork_db()const;
+         const fork_database_legacy& fork_db()const;
 
          const account_object&                 get_account( account_name n )const;
          const global_property_object&         get_global_properties()const;
@@ -226,18 +230,21 @@ namespace eosio::chain {
 
          uint32_t             head_block_num()const;
          time_point           head_block_time()const;
+         block_timestamp_type head_block_timestamp()const;
          block_id_type        head_block_id()const;
          account_name         head_block_producer()const;
          const block_header&  head_block_header()const;
-         block_state_legacy_ptr head_block_state()const;
+         const signed_block_ptr& head_block()const;
+         // returns nullptr after instant finality enabled
+         block_state_legacy_ptr head_block_state_legacy()const;
 
          uint32_t             fork_db_head_block_num()const;
-         block_id_type        fork_db_head_block_id()const;
+         const block_id_type& fork_db_head_block_id()const;
 
          time_point                     pending_block_time()const;
          block_timestamp_type           pending_block_timestamp()const;
          account_name                   pending_block_producer()const;
-         const block_signing_authority& pending_block_signing_authority()const;
+         block_signing_authority        pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
          uint32_t                       pending_block_num()const;
 

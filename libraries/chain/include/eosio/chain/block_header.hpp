@@ -24,6 +24,7 @@ namespace eosio { namespace chain {
    >;
 
    using block_header_extension = block_header_extension_types::block_header_extension_t;
+   using header_extension_multimap = flat_multimap<uint16_t, block_header_extension>;
 
    // totem for block_header.confirmed that indicates hotstuff consensus is active
    constexpr uint16_t hs_block_confirmed = std::numeric_limits<uint16_t>::max();
@@ -76,7 +77,7 @@ namespace eosio { namespace chain {
       uint32_t          block_num() const { return num_from_id(previous) + 1; }
       static uint32_t   num_from_id(const block_id_type& id);
 
-      flat_multimap<uint16_t, block_header_extension> validate_and_extract_header_extensions()const;
+      header_extension_multimap validate_and_extract_header_extensions()const;
       std::optional<block_header_extension> extract_header_extension(uint16_t extension_id)const;
    };
 

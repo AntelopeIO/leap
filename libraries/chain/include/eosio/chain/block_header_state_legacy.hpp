@@ -80,10 +80,11 @@ namespace detail {
                               builtin_protocol_feature_t feature_codename );
 }
 
+using validator_t = const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>;
+
 struct pending_block_header_state_legacy : public detail::block_header_state_legacy_common {
    protocol_feature_activation_set_ptr  prev_activated_protocol_features;
    detail::schedule_info                prev_pending_schedule;
-   std::optional<finalizer_policy>         proposed_finalizer_policy; // set by set_finalizer host function
    bool                                 was_pending_promoted = false;
    block_id_type                        previous;
    account_name                         producer;
@@ -100,51 +101,20 @@ struct pending_block_header_state_legacy : public detail::block_header_state_leg
    block_header_state_legacy  finish_next( const signed_block_header& h,
                                            vector<signature_type>&& additional_signatures,
                                            const protocol_feature_set& pfs,
-                                           const std::function<void( block_timestamp_type,
-                                                                     const flat_set<digest_type>&,
-                                                                     const vector<digest_type>& )>& validator,
+                                           validator_t& validator,
                                            bool skip_validate_signee = false )&&;
 
    block_header_state_legacy  finish_next( signed_block_header& h,
                                            const protocol_feature_set& pfs,
-                                           const std::function<void( block_timestamp_type,
-                                                                     const flat_set<digest_type>&,
-                                                                     const vector<digest_type>& )>& validator,
+                                           validator_t& validator,
                                            const signer_callback_type& signer )&&;
 
 protected:
    block_header_state_legacy  _finish_next( const signed_block_header& h,
                                             const protocol_feature_set& pfs,
-                                            const std::function<void( block_timestamp_type,
-                                                                      const flat_set<digest_type>&,
-                                                                      const vector<digest_type>& )>& validator )&&;
+                                            validator_t& validator )&&;
 };
 
-/**
- *  @struct block_header_state_core
- *
- *  A data structure holding hotstuff core information
- */
-struct block_header_state_core {
-   // the block height of the last irreversible (final) block.
-   uint32_t last_final_block_height = 0;
-
-   // the block height of the block that would become irreversible (final) if the
-   // associated block header was to achieve a strong QC.
-   std::optional<uint32_t> final_on_strong_qc_block_height;
-
-   // the block height of the block that is referenced as the last QC block
-   std::optional<uint32_t> last_qc_block_height;
-
-   block_header_state_core() = default;
-
-   explicit block_header_state_core( uint32_t last_final_block_height,
-                                     std::optional<uint32_t> final_on_strong_qc_block_height,
-                                     std::optional<uint32_t> last_qc_block_height );
-
-   block_header_state_core next( uint32_t last_qc_block_height,
-                                 bool is_last_qc_strong);
-};
 /**
  *  @struct block_header_state
  *
@@ -186,7 +156,7 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
    /// this data is redundant with the data stored in header, but it acts as a cache that avoids
    /// duplication of work
-   flat_multimap<uint16_t, block_header_extension> header_exts;
+   header_extension_multimap            header_exts;
 
    block_header_state_legacy() = default;
 
@@ -196,15 +166,13 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
    explicit block_header_state_legacy( legacy::snapshot_block_header_state_v2&& snapshot );
 
-   pending_block_header_state_legacy  next( block_timestamp_type when, bool hotstuff_activated, uint16_t num_prev_blocks_to_confirm )const;
+   pending_block_header_state_legacy next( block_timestamp_type when, uint16_t num_prev_blocks_to_confirm )const;
 
    block_header_state_legacy  next( const signed_block_header& h,
                                     vector<signature_type>&& additional_signatures,
                                     const protocol_feature_set& pfs,
                                     bool hotstuff_activated,
-                                    const std::function<void( block_timestamp_type,
-                                                              const flat_set<digest_type>&,
-                                                              const vector<digest_type>& )>& validator,
+                                    validator_t& validator,
                                     bool skip_validate_signee = false )const;
 
    uint32_t             calc_dpos_last_irreversible( account_name producer_of_next_block )const;

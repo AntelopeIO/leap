@@ -25,7 +25,7 @@ namespace eosio { namespace chain {
       return result;
    }
 
-   flat_multimap<uint16_t, block_header_extension> block_header::validate_and_extract_header_extensions()const {
+   header_extension_multimap block_header::validate_and_extract_header_extensions()const {
       using decompose_t = block_header_extension_types::decompose_t;
 
       flat_multimap<uint16_t, block_header_extension> results;

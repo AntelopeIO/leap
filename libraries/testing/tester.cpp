@@ -398,7 +398,6 @@ namespace eosio { namespace testing {
 
    signed_block_ptr base_tester::_produce_block( fc::microseconds skip_time, bool skip_pending_trxs,
                                                  bool no_throw, std::vector<transaction_trace_ptr>& traces ) {
-      auto head = control->head_block_state();
       auto head_time = control->head_block_time();
       auto next_time = head_time + skip_time;
 
@@ -438,7 +437,7 @@ namespace eosio { namespace testing {
 
    void base_tester::_start_block(fc::time_point block_time) {
       auto head_block_number = control->head_block_num();
-      auto producer = control->head_block_state()->get_scheduled_producer(block_time);
+      auto producer = control->active_producers().get_scheduled_producer(block_time);
 
       auto last_produced_block_num = control->last_irreversible_block_num();
       auto itr = last_produced_block.find(producer.producer_name);
@@ -473,16 +472,17 @@ namespace eosio { namespace testing {
    signed_block_ptr base_tester::_finish_block() {
       FC_ASSERT( control->is_building_block(), "must first start a block before it can be finished" );
 
-      auto producer = control->head_block_state()->get_scheduled_producer( control->pending_block_time() );
+      auto auth = control->pending_block_signing_authority();
+      auto producer_name = control->pending_block_producer();
       vector<private_key_type> signing_keys;
 
-      auto default_active_key = get_public_key( producer.producer_name, "active");
-      producer.for_each_key([&](const public_key_type& key){
+      auto default_active_key = get_public_key( producer_name, "active");
+      producer_authority::for_each_key(auth, [&](const public_key_type& key){
          const auto& iter = block_signing_private_keys.find(key);
          if(iter != block_signing_private_keys.end()) {
             signing_keys.push_back(iter->second);
          } else if (key == default_active_key) {
-            signing_keys.emplace_back( get_private_key( producer.producer_name, "active") );
+            signing_keys.emplace_back( get_private_key( producer_name, "active") );
          }
       });
 
@@ -497,9 +497,9 @@ namespace eosio { namespace testing {
       } );
 
       control->commit_block();
-      last_produced_block[control->head_block_state()->header.producer] = control->head_block_state()->id;
+      last_produced_block[producer_name] = control->head_block_id();
 
-      return control->head_block_state()->block;
+      return control->head_block();
    }
 
    signed_block_ptr base_tester::produce_block( std::vector<transaction_trace_ptr>& traces ) {
@@ -547,7 +547,7 @@ namespace eosio { namespace testing {
    void base_tester::produce_min_num_of_blocks_to_spend_time_wo_inactive_prod(const fc::microseconds target_elapsed_time) {
       fc::microseconds elapsed_time;
       while (elapsed_time < target_elapsed_time) {
-         for(uint32_t i = 0; i < control->head_block_state()->active_schedule.producers.size(); i++) {
+         for(uint32_t i = 0; i < control->active_producers().producers.size(); i++) {
             const auto time_to_skip = fc::milliseconds(config::producer_repetitions * config::block_interval_ms);
             produce_block(time_to_skip);
             elapsed_time += time_to_skip;

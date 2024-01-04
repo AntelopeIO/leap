@@ -336,25 +336,6 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(ret_json["payload"]["block_num"], 1)
 
-        # get_block_header_state with empty parameter
-        command = "get_block_header_state"
-        ret_json = self.nodeos.processUrllibRequest(resource, command, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # get_block_header_state with empty content parameter
-        ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # get_block_header_state with invalid parameter
-        ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # get_block_header_state with valid parameter, the irreversible is not available, unknown block number
-        payload = {"block_num_or_id":1}
-        ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3100002)
-
         # get_account with empty parameter
         command = "get_account"
         ret_json = self.nodeos.processUrllibRequest(resource, command, endpoint=endpoint)

@@ -1984,9 +1984,9 @@ fc::variant read_only::convert_block( const chain::signed_block_ptr& block, abi_
 
 fc::variant read_only::get_block_info(const read_only::get_block_info_params& params, const fc::time_point&) const {
 
-   signed_block_ptr block;
+   std::optional<signed_block_header> block;
    try {
-         block = db.fetch_block_by_number( params.block_num );
+         block = db.fetch_block_header_by_number( params.block_num );
    } catch (...)   {
       // assert below will handle the invalid block num
    }
@@ -2009,29 +2009,6 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
          ("schedule_version", block->schedule_version)
          ("producer_signature", block->producer_signature)
          ("ref_block_prefix", ref_block_prefix);
-}
-
-fc::variant read_only::get_block_header_state(const get_block_header_state_params& params, const fc::time_point&) const {
-   block_state_legacy_ptr b;
-   std::optional<uint64_t> block_num;
-   std::exception_ptr e;
-   try {
-      block_num = fc::to_uint64(params.block_num_or_id);
-   } catch( ... ) {}
-
-   if( block_num ) {
-      b = db.fetch_block_state_by_number(*block_num);
-   } else {
-      try {
-         b = db.fetch_block_state_by_id(fc::variant(params.block_num_or_id).as<block_id_type>());
-      } EOS_RETHROW_EXCEPTIONS(chain::block_id_type_exception, "Invalid block ID: ${block_num_or_id}", ("block_num_or_id", params.block_num_or_id))
-   }
-
-   EOS_ASSERT( b, unknown_block_exception, "Could not find reversible block: ${block}", ("block", params.block_num_or_id));
-
-   fc::variant vo;
-   fc::to_variant( static_cast<const block_header_state_legacy&>(*b), vo );
-   return vo;
 }
 
 void read_write::push_block(read_write::push_block_params&& params, next_function<read_write::push_block_results> next) {

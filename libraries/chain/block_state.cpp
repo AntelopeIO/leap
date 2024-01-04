@@ -1,7 +1,7 @@
-#include <eosio/chain/block_state_legacy.hpp>
+#include <eosio/chain/block_state.hpp>
 #include <eosio/chain/exceptions.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    namespace {
       constexpr auto additional_sigs_eid = additional_block_signatures_extension::extension_id();
@@ -47,13 +47,16 @@ namespace eosio { namespace chain {
        */
 
       template<typename ...Extras>
-      block_header_state_legacy inject_additional_signatures( pending_block_header_state_legacy&& cur,
-                                                              signed_block& b,
-                                                              const protocol_feature_set& pfs,
-                                                              Extras&& ... extras )
+      block_header_state inject_additional_signatures(block_header_state&& cur,
+                                                      signed_block& b,
+                                                      const protocol_feature_set& pfs,
+                                                      Extras&& ... extras)
       {
+         
+         block_header_state result;
+#if 0
+         result = std::move(cur).finish_next(b, pfs, std::forward<Extras>(extras)...);
          auto pfa = cur.prev_activated_protocol_features;
-         block_header_state_legacy result = std::move(cur).finish_next(b, pfs, std::forward<Extras>(extras)...);
 
          if (!result.additional_signatures.empty()) {
             bool wtmsig_enabled = detail::is_builtin_activated(pfa, pfs, builtin_protocol_feature_t::wtmsig_block_signatures);
@@ -68,34 +71,36 @@ namespace eosio { namespace chain {
 
             emplace_extension(b.block_extensions, additional_sigs_eid, fc::raw::pack( result.additional_signatures ));
          }
-
+#endif
          return result;
       }
 
    }
+#if 0
 
-   block_state_legacy::block_state_legacy( const block_header_state_legacy& prev,
-                                           signed_block_ptr b,
-                                           const protocol_feature_set& pfs,
-                                           bool hotstuff_activated,
-                                           const validator_t& validator,
-                                           bool skip_validate_signee
+   block_state::block_state(const block_header_state& prev,
+                                  signed_block_ptr b,
+                                  const protocol_feature_set& pfs,
+                                  bool hotstuff_activated,
+                                  const validator_t& validator,
+                                  bool skip_validate_signee
                            )
-   :block_header_state_legacy( prev.next( *b, extract_additional_signatures(b, pfs, prev.activated_protocol_features), pfs, hotstuff_activated, validator, skip_validate_signee ) )
+   :block_header_state( prev.next( *b, extract_additional_signatures(b, pfs, prev.activated_protocol_features), pfs, hotstuff_activated, validator, skip_validate_signee ) )
    ,block( std::move(b) )
    {}
 
-   block_state_legacy::block_state_legacy( pending_block_header_state_legacy&& cur,
-                                           signed_block_ptr&& b,
-                                           deque<transaction_metadata_ptr>&& trx_metas,
-                                           const protocol_feature_set& pfs,
-                                           const validator_t& validator,
-                                           const signer_callback_type& signer
-                           )
-   :block_header_state_legacy( inject_additional_signatures( std::move(cur), *b, pfs, validator, signer ) )
+   block_state::block_state(pending_block_header_state&& cur,
+                            signed_block_ptr&& b,
+                            deque<transaction_metadata_ptr>&& trx_metas,
+                            const protocol_feature_set& pfs,
+                            const validator_t& validator,
+                            const signer_callback_type& signer
+      )
+   :block_header_state( inject_additional_signatures( std::move(cur), *b, pfs, validator, signer ) )
    ,block( std::move(b) )
    ,_pub_keys_recovered( true ) // called by produce_block so signature recovery of trxs must have been done
    ,_cached_trxs( std::move(trx_metas) )
    {}
-
-} } /// eosio::chain
+#endif
+   
+} /// eosio::chain

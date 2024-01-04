@@ -1,6 +1,7 @@
 #pragma once
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/types.hpp>
+#include <eosio/chain/block_timestamp.hpp>
 #include <chainbase/chainbase.hpp>
 #include <eosio/chain/authority.hpp>
 #include <eosio/chain/snapshot.hpp>
@@ -248,6 +249,12 @@ namespace eosio { namespace chain {
 
       uint32_t                                       version = 0; ///< sequentially incrementing version number
       vector<producer_authority>                     producers;
+
+      const producer_authority& get_scheduled_producer( block_timestamp_type t )const {
+         auto index = t.slot % (producers.size() * config::producer_repetitions);
+         index /= config::producer_repetitions;
+         return producers[index];
+      }
 
       friend bool operator == ( const producer_authority_schedule& a, const producer_authority_schedule& b )
       {

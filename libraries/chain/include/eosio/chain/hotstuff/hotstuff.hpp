@@ -9,7 +9,7 @@
 
 namespace eosio::chain {
 
-   using hs_bitset = boost::dynamic_bitset<uint8_t>;
+   using hs_bitset = boost::dynamic_bitset<uint32_t>;
    using bls_key_map_t = std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>;
 
    inline digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc) {

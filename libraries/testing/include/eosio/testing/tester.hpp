@@ -640,8 +640,8 @@ namespace eosio { namespace testing {
       bool validate() {
 
 
-        auto hbh = control->head_block_state()->header;
-        auto vn_hbh = validating_node->head_block_state()->header;
+        const auto& hbh = control->head_block_header();
+        const auto& vn_hbh = validating_node->head_block_header();
         bool ok = control->head_block_id() == validating_node->head_block_id() &&
                hbh.previous == vn_hbh.previous &&
                hbh.timestamp == vn_hbh.timestamp &&

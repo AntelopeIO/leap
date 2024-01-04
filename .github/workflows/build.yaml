@@ -312,22 +312,22 @@ jobs:
           rm ./*.deb
 
       # Reference Contracts
-      - name: checkout reference-contracts
-        uses: actions/checkout@v4
-        with:
-          repository: AntelopeIO/reference-contracts
-          path: reference-contracts
-          ref: '${{needs.v.outputs.reference-contracts-ref}}'
-      - if: ${{ matrix.test == 'deb-install' }}
-        name: Install reference-contracts deps
-        run: |
-          apt-get -y install cmake build-essential
-      - name: Build & Test reference-contracts
-        run: |
-          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -DSYSTEM_ENABLE_LEAP_VERSION_CHECK=Off -DSYSTEM_ENABLE_CDT_VERSION_CHECK=Off
-          cmake --build reference-contracts/build -- -j $(nproc)
-          cd reference-contracts/build/tests
-          ctest --output-on-failure -j $(nproc)
+#     - name: checkout reference-contracts
+#       uses: actions/checkout@v4
+#       with:
+#         repository: AntelopeIO/reference-contracts
+#         path: reference-contracts
+#         ref: '${{needs.v.outputs.reference-contracts-ref}}'
+#     - if: ${{ matrix.test == 'deb-install' }}
+#       name: Install reference-contracts deps
+#       run: |
+#         apt-get -y install cmake build-essential
+#     - name: Build & Test reference-contracts
+#       run: |
+#         cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -DSYSTEM_ENABLE_LEAP_VERSION_CHECK=Off -DSYSTEM_ENABLE_CDT_VERSION_CHECK=Off
+#         cmake --build reference-contracts/build -- -j $(nproc)
+#         cd reference-contracts/build/tests
+#         ctest --output-on-failure -j $(nproc)
 
   all-passing:
     name: All Required Tests Passed

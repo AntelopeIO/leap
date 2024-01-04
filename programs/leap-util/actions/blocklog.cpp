@@ -266,25 +266,26 @@ int blocklog_actions::read_log() {
       opt->first_block = block_logger.first_block_num();
    }
 
-   eosio::chain::branch_type fork_db_branch;
+   using fork_database_t = fork_database_legacy; // [greg todo] what is it is not a legacy fork_db?
+   fork_database_t::branch_type fork_db_branch;
 
    if(std::filesystem::exists(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name / config::forkdb_filename)) {
       ilog("opening fork_db");
-      fork_database fork_db(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name);
+      fork_database_t fork_db(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name);
 
       fork_db.open([](block_timestamp_type timestamp,
                       const flat_set<digest_type>& cur_features,
                       const vector<digest_type>& new_features) {});
 
-      fork_db_branch = fork_db.fetch_branch(fork_db.head()->id);
+      fork_db_branch = fork_db.fetch_branch(fork_db.head()->id());
       if(fork_db_branch.empty()) {
          elog("no blocks available in reversible block database: only block_log blocks are available");
       } else {
          auto first = fork_db_branch.rbegin();
          auto last = fork_db_branch.rend() - 1;
          ilog("existing reversible fork_db block num ${first} through block num ${last} ",
-              ("first", (*first)->block_num)("last", (*last)->block_num));
-         EOS_ASSERT(end->block_num() + 1 == (*first)->block_num, block_log_exception,
+              ("first", (*first)->block_num())("last", (*last)->block_num()));
+         EOS_ASSERT(end->block_num() + 1 == (*first)->block_num(), block_log_exception,
                     "fork_db does not start at end of block log");
       }
    }

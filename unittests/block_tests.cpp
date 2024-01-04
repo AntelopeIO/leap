@@ -38,8 +38,8 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
    copy_b->transaction_mroot = canonical_merkle( std::move(trx_digests) );
 
    // Re-sign the block
-   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );
-   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state()->pending_schedule.schedule_hash) );
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
    copy_b->producer_signature = main.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
    // Push block with invalid transaction to other chain
@@ -77,8 +77,8 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
    copy_b->transactions.back().trx = std::move(invalid_packed_tx);
 
    // Re-sign the block
-   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );
-   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state()->pending_schedule.schedule_hash) );
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
    copy_b->producer_signature = main.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
    // Push block with invalid transaction to other chain
@@ -118,8 +118,8 @@ std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_te
    copy_b->transaction_mroot = canonical_merkle( std::move(trx_digests) );
 
    // Re-sign the block
-   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );
-   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state()->pending_schedule.schedule_hash) );
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
    copy_b->producer_signature = main.get_private_key(b->producer, "active").sign(sig_digest);
    return std::pair<signed_block_ptr, signed_block_ptr>(b, copy_b);
 }

@@ -3858,6 +3858,9 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
    check("test"_n, 3);
 } FC_LOG_AND_RETHROW() }
 
+#if 0
+// [greg todo]  re-implement the test after https://github.com/AntelopeIO/leap/issues/1911 is done
+
 // test set_finalizer host function serialization and tester set_finalizers
 BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    validating_tester t;
@@ -3905,5 +3908,8 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    BOOST_TEST(block_state->dpos_irreversible_blocknum == hs_dpos_irreversible_blocknum);
 
 } FC_LOG_AND_RETHROW() }
+
+#endif
+
 
 BOOST_AUTO_TEST_SUITE_END()
