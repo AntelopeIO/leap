@@ -737,9 +737,6 @@ struct controller_impl {
          ilog( "chain database started with hash: ${hash}", ("hash", calculate_integrity_hash()) );
       okay_to_print_integrity_hash_on_stop = true;
 
-      if (self.post_db_initialize)
-          self.post_db_initialize();
-
       replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
 
       if( check_shutdown() ) return;
@@ -1125,6 +1122,9 @@ struct controller_impl {
                                                                              active_producers_authority,
                                                                              false,
                                                                              genesis.initial_timestamp );
+      if (self.post_db_initialize)
+          self.post_db_initialize();
+
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.

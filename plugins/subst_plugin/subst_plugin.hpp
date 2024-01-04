@@ -10,12 +10,14 @@
 
 #include <eosio/vm/backend.hpp>
 
+#include <eosio/chain/config.hpp>
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/chain/global_property_object.hpp>
 
 namespace http = boost::beast::http;

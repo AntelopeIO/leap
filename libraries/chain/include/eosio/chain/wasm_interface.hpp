@@ -70,6 +70,9 @@ namespace eosio { namespace chain {
          // then apply returns immediately.
          std::function<bool(
             const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, apply_context& context)> substitute_apply;
+
+         // If post_apply is set, then apply calls it after its done executing
+         std::function<void(apply_context& context)> post_apply;
       private:
          unique_ptr<struct wasm_interface_impl> my;
          vm_type vm;

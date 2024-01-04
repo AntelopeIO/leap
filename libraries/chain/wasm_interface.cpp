@@ -118,6 +118,8 @@ namespace eosio { namespace chain {
       }
 #endif
       my->get_instantiated_module(code_hash, vm_type, vm_version, context.trx_context)->apply(context);
+
+      if (post_apply) post_apply(context);
    }
 
    bool wasm_interface::is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
