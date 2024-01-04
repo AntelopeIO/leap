@@ -5,6 +5,7 @@
 #include <eosio/chain/exceptions.hpp>
 #include <utility>
 #include <fc/variant_object.hpp>
+#include <fc/variant_dynamic_bitset.hpp>
 #include <fc/scoped_exit.hpp>
 #include <fc/time.hpp>
 
