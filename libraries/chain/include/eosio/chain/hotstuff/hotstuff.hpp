@@ -243,3 +243,5 @@ FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
 FC_REFLECT(eosio::chain::finalizer_state, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
 FC_REFLECT(eosio::chain::hs_message, (msg));
+FC_REFLECT(eosio::chain::valid_quorum_certificate, (_proposal_id)(_proposal_digest)(_strong_votes)(_weak_votes)(_sig));
+FC_REFLECT(eosio::chain::quorum_certificate, (block_height)(qc));

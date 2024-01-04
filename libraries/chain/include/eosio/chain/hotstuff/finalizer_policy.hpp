@@ -1,10 +1,9 @@
 #pragma once
 
 #include <eosio/chain/types.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 
 namespace eosio::chain {
-
-   struct finalizer_authority;
 
    struct finalizer_policy {
       finalizer_policy();
@@ -23,15 +22,6 @@ namespace eosio::chain {
 
    using finalizer_policy_ptr = std::shared_ptr<finalizer_policy>;
 
-   /**
-    * Block Header Extension Compatibility
-    */
-   struct finalizer_policy_extension : finalizer_policy {
-      static constexpr uint16_t extension_id() { return 2; } // TODO 3 instead?
-      static constexpr bool     enforce_unique() { return true; }
-   };
-
 } /// eosio::chain
 
 FC_REFLECT( eosio::chain::finalizer_policy, (generation)(threshold)(finalizers) )
-FC_REFLECT_DERIVED( eosio::chain::finalizer_policy_extension, (eosio::chain::finalizer_policy), )

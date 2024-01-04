@@ -3879,13 +3879,15 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // activate hotstuff
    t.set_finalizers(finalizers);
-   auto block = t.produce_block(); // this block contains the header extension of the finalizer set
+   auto block = t.produce_block(); // this block contains the header extension for the instant finality
 
-   std::optional<block_header_extension> ext = block->extract_header_extension(finalizer_policy_extension::extension_id());
+   std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
    BOOST_TEST(!!ext);
-   BOOST_TEST(std::get<finalizer_policy_extension>(*ext).finalizers.size() == finalizers.size());
-   BOOST_TEST(std::get<finalizer_policy_extension>(*ext).generation == 1);
-   BOOST_TEST(std::get<finalizer_policy_extension>(*ext).threshold == finalizers.size() / 3 * 2 + 1);
+   std::optional<finalizer_policy> fin_policy = std::get<instant_finality_extension>(*ext).new_finalizer_policy;
+   BOOST_TEST(!!fin_policy);
+   BOOST_TEST(fin_policy->finalizers.size() == finalizers.size());
+   BOOST_TEST(fin_policy->generation == 1);
+   BOOST_TEST(fin_policy->threshold == finalizers.size() / 3 * 2 + 1);
 
    // old dpos still in affect until block is irreversible
    BOOST_TEST(block->confirmed == 0);

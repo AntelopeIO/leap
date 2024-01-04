@@ -5,6 +5,7 @@
 #include <eosio/chain/exceptions.hpp>
 #include <utility>
 #include <fc/variant_object.hpp>
+#include <fc/variant_dynamic_bitset.hpp>
 #include <fc/scoped_exit.hpp>
 #include <fc/time.hpp>
 
@@ -636,7 +637,7 @@ namespace impl {
          out(name, std::move(mvo));
       }
 
-      static void add_block_header_finalizer_policy_extension( mutable_variant_object& mvo, const header_extension_multimap& header_exts );
+      static void add_block_header_instant_finality_extension( mutable_variant_object& mvo, const header_extension_multimap& header_exts );
 
       /**
        * overload of to_variant_object for signed_block
@@ -678,7 +679,7 @@ namespace impl {
                   std::get<producer_schedule_change_extension>(header_exts.lower_bound(producer_schedule_change_extension::extension_id())->second);
             mvo("new_producer_schedule", new_producer_schedule);
          }
-         add_block_header_finalizer_policy_extension(mvo, header_exts);
+         add_block_header_instant_finality_extension(mvo, header_exts);
 
          mvo("producer_signature", block.producer_signature);
          add(mvo, "transactions", block.transactions, resolver, ctx);
@@ -689,6 +690,12 @@ namespace impl {
             const auto& additional_signatures =
                   std::get<additional_block_signatures_extension>(block_exts.lower_bound(additional_block_signatures_extension::extension_id())->second);
             mvo("additional_signatures", additional_signatures);
+         }
+         auto qc_extension_count = block_exts.count(quorum_certificate_extension::extension_id());
+         if ( qc_extension_count > 0) {
+            const auto& qc_extension =
+                  std::get<quorum_certificate_extension>(block_exts.lower_bound(quorum_certificate_extension::extension_id())->second);
+            mvo("qc_extension", qc_extension);
          }
 
          out(name, std::move(mvo));
