@@ -589,8 +589,7 @@ namespace fc {
       unsigned_int size; fc::raw::unpack( s, size );
       FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
       std::vector<T> blocks((size_t)size.value);
-      for( uint64_t i = 0; i < size.value; ++i )
-      {
+      for( uint64_t i = 0; i < size.value; ++i ) {
         fc::raw::unpack( s, blocks[i] );
       }
       value = { blocks.cbegin(), blocks.cend() };
