@@ -251,6 +251,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
+   std::atomic<bool>               writing_snapshot = false;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
@@ -3246,7 +3247,15 @@ fc::sha256 controller::calculate_integrity_hash() { try {
 
 void controller::write_snapshot( const snapshot_writer_ptr& snapshot ) {
    EOS_ASSERT( !my->pending, block_validate_exception, "cannot take a consistent snapshot with a pending block" );
-   return my->add_to_snapshot(snapshot);
+   my->writing_snapshot.store(true, std::memory_order_release);
+   fc::scoped_exit<std::function<void()>> e = [&] {
+      my->writing_snapshot.store(false, std::memory_order_release);
+   };
+   my->add_to_snapshot(snapshot);
+}
+
+bool controller::is_writing_snapshot() const {
+   return my->writing_snapshot.load(std::memory_order_acquire);
 }
 
 int64_t controller::set_proposed_producers( vector<producer_authority> producers ) {

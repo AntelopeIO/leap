@@ -537,6 +537,14 @@ namespace eosio {
       void start_expire_timer();
       void start_monitors();
 
+      // we currently pause on snapshot generation
+      void wait_if_paused() const {
+         controller& cc = chain_plug->chain();
+         while (cc.is_writing_snapshot()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+         }
+      }
+
       void expire();
       /** \name Peer Timestamps
        *  Time message handling
@@ -2896,6 +2904,8 @@ namespace eosio {
             close( false );
             return;
          }
+
+         my_impl->wait_if_paused();
 
          boost::asio::async_read( *socket,
             pending_message_buffer.get_buffer_sequence_for_boost_async_read(), completion_handler,
