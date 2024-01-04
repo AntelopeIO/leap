@@ -169,7 +169,7 @@ namespace eosio::chain {
    // called from main thread
    void chain_pacemaker::on_irreversible_block( const signed_block_ptr& block ) {
       if (!block->header_extensions.empty()) {
-         std::optional<block_header_extension> ext = block->extract_header_extension(finalizer_policy_extension::extension_id());
+         std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
          if (ext) {
             std::scoped_lock g( _chain_state_mutex );
             if (_active_finalizer_policy.generation == 0) {
@@ -178,7 +178,11 @@ namespace eosio::chain {
                // block header extension is set in finalize_block to value set by host function set_finalizers
                _chain->set_hs_irreversible_block_num(block->block_num()); // can be any value <= dpos lib
             }
-            _active_finalizer_policy = std::move(std::get<finalizer_policy_extension>(*ext));
+            auto if_extension = std::get<instant_finality_extension>(*ext);
+#warning Revisit after finalizer policy change design is complete as this is not necessarily when we will change active finalizer policy.
+            if (if_extension.new_finalizer_policy) {
+               _active_finalizer_policy = std::move(*if_extension.new_finalizer_policy);
+            }
          }
       }
    }

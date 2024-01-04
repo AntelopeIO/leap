@@ -636,7 +636,7 @@ namespace impl {
          out(name, std::move(mvo));
       }
 
-      static void add_block_header_finalizer_policy_extension( mutable_variant_object& mvo, const header_extension_multimap& header_exts );
+      static void add_block_header_instant_finality_extension( mutable_variant_object& mvo, const header_extension_multimap& header_exts );
 
       /**
        * overload of to_variant_object for signed_block
@@ -678,7 +678,7 @@ namespace impl {
                   std::get<producer_schedule_change_extension>(header_exts.lower_bound(producer_schedule_change_extension::extension_id())->second);
             mvo("new_producer_schedule", new_producer_schedule);
          }
-         add_block_header_finalizer_policy_extension(mvo, header_exts);
+         add_block_header_instant_finality_extension(mvo, header_exts);
 
          mvo("producer_signature", block.producer_signature);
          add(mvo, "transactions", block.transactions, resolver, ctx);
