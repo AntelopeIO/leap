@@ -172,7 +172,7 @@ struct assembled_block {
       deque<transaction_metadata_ptr>   trx_metas;
       signed_block_ptr                  unsigned_block;
 
-      // if the _unsigned_block pre-dates block-signing authorities this may be present.
+      // if the unsigned_block pre-dates block-signing authorities this may be present.
       std::optional<producer_authority_schedule> new_producer_authority_cache;
 
    };
