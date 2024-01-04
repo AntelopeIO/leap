@@ -17,6 +17,7 @@
 #include <list>
 
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/dynamic_bitset.hpp>
 #include <fc/crypto/hex.hpp>
 
 namespace fc {
@@ -34,6 +35,8 @@ namespace fc {
     template<typename Stream> void unpack( Stream& s,  Int<256>& n );
     template<typename Stream, typename T> void pack( Stream& s, const boost::multiprecision::number<T>& n );
     template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n );
+    template<typename Stream, typename T> void pack( Stream& s, const boost::dynamic_bitset<T>& bs );
+    template<typename Stream, typename T> void unpack( Stream& s,  boost::dynamic_bitset<T>& bs );
 
     template<typename Stream, typename Arg0, typename... Args>
     inline void pack( Stream& s, const Arg0& a0, const Args&... args ) {
@@ -562,6 +565,34 @@ namespace fc {
        for( auto& i : value ) {
           fc::raw::unpack( s, i );
        }
+    }
+
+    template<typename Stream, typename T>
+    inline void pack( Stream& s, const boost::dynamic_bitset<T>& value ) {
+      const auto num_blocks = value.num_blocks();
+      FC_ASSERT( num_blocks <= MAX_NUM_ARRAY_ELEMENTS );
+      fc::raw::pack( s, unsigned_int((uint32_t)num_blocks) );
+
+      // convert bitset to a vector of blocks
+      std::vector<T> blocks;
+      blocks.resize(num_blocks);
+      boost::to_block_range(value, blocks.begin());
+
+      // pack the blocks
+      for (const auto& b: blocks) {
+        fc::raw::pack( s, b );
+      }
+    }
+
+    template<typename Stream, typename T>
+    inline void unpack( Stream& s, boost::dynamic_bitset<T>& value ) {
+      unsigned_int size; fc::raw::unpack( s, size );
+      FC_ASSERT( size.value <= MAX_NUM_ARRAY_ELEMENTS );
+      std::vector<T> blocks((size_t)size.value);
+      for( uint64_t i = 0; i < size.value; ++i ) {
+        fc::raw::unpack( s, blocks[i] );
+      }
+      value = { blocks.cbegin(), blocks.cend() };
     }
 
     template<typename Stream, typename T>

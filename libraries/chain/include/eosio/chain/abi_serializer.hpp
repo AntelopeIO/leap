@@ -5,6 +5,7 @@
 #include <eosio/chain/exceptions.hpp>
 #include <utility>
 #include <fc/variant_object.hpp>
+#include <fc/variant_dynamic_bitset.hpp>
 #include <fc/scoped_exit.hpp>
 #include <fc/time.hpp>
 
@@ -689,6 +690,12 @@ namespace impl {
             const auto& additional_signatures =
                   std::get<additional_block_signatures_extension>(block_exts.lower_bound(additional_block_signatures_extension::extension_id())->second);
             mvo("additional_signatures", additional_signatures);
+         }
+         auto qc_extension_count = block_exts.count(quorum_certificate_extension::extension_id());
+         if ( qc_extension_count > 0) {
+            const auto& qc_extension =
+                  std::get<quorum_certificate_extension>(block_exts.lower_bound(quorum_certificate_extension::extension_id())->second);
+            mvo("qc_extension", qc_extension);
          }
 
          out(name, std::move(mvo));
