@@ -4118,7 +4118,7 @@ void controller::check_key_list( const public_key_type& key )const {
 }
 
 bool controller::is_building_block()const {
-   return my->pending.has_value();
+   return my->pending.has_value() && !std::holds_alternative<completed_block>(my->pending->_block_stage);
 }
 
 bool controller::is_speculative_block()const {
