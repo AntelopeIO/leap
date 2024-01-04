@@ -17,9 +17,9 @@ BOOST_AUTO_TEST_CASE(block_header_without_extension_test)
 // test for empty instant_finality_extension
 BOOST_AUTO_TEST_CASE(instant_finality_extension_with_empty_values_test)
 {
-   block_header header;
-   constexpr uint32_t                    last_qc_block_num {0};
-   constexpr bool                        is_last_qc_strong {false};
+   block_header       header;
+   constexpr uint32_t last_qc_block_num {0};
+   constexpr bool     is_last_qc_strong {false};
 
    emplace_extension(
       header.header_extensions,
@@ -68,9 +68,9 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_uniqueness_test)
 // test for instant_finality_extension with values
 BOOST_AUTO_TEST_CASE(instant_finality_extension_with_values_test)
 {
-   block_header header;
-   constexpr uint32_t                        last_qc_block_num {10};
-   constexpr bool                            is_last_qc_strong {true};
+   block_header       header;
+   constexpr uint32_t last_qc_block_num {10};
+   constexpr bool     is_last_qc_strong {true};
    
    std::vector<finalizer_authority> finalizers { {"test description", 50, fc::crypto::blslib::bls_public_key{"PUB_BLS_MPPeebAPxt/ibL2XPuZVGpADjGn+YEVPPoYmTZeBD6Ok2E19M8SnmDGSdZBf2qwSuJim+8H83EsTpEn3OiStWBiFeJYfVRLlEsZuSF0SYYwtVteY48n+KeE1IWzlSAkSyBqiGA==" }} };
    finalizer_policy new_finalizer_policy;
