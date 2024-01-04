@@ -22,6 +22,20 @@ struct newaccount {
    }
 };
 
+struct newslimacc {
+   account_name                     creator;
+   account_name                     name;
+   authority                        active;
+
+   static account_name get_account() {
+      return config::system_account_name;
+   }
+
+   static action_name get_name() {
+      return "newslimacc"_n;
+   }
+};
+
 struct setcode {
    account_name                     account;
    uint8_t                          vmtype = 0;
@@ -155,6 +169,7 @@ struct onerror {
 } } /// namespace eosio::chain
 
 FC_REFLECT( eosio::chain::newaccount                       , (creator)(name)(owner)(active) )
+FC_REFLECT( eosio::chain::newslimacc                       , (creator)(name)(active) )
 FC_REFLECT( eosio::chain::setcode                          , (account)(vmtype)(vmversion)(code) )
 FC_REFLECT( eosio::chain::setabi                           , (account)(abi) )
 FC_REFLECT( eosio::chain::updateauth                       , (account)(permission)(parent)(auth) )

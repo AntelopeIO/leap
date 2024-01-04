@@ -606,6 +606,39 @@ namespace eosio { namespace testing {
       return push_transaction( trx );
    }
 
+   transaction_trace_ptr base_tester::create_slim_account( account_name a, account_name creator, bool multisig, bool include_code ) {
+      signed_transaction trx;
+      set_transaction_headers(trx);
+
+      authority active_auth( get_public_key( a, "active" ) );
+
+      auto sort_permissions = []( authority& auth ) {
+         std::sort( auth.accounts.begin(), auth.accounts.end(),
+                    []( const permission_level_weight& lhs, const permission_level_weight& rhs ) {
+                        return lhs.permission < rhs.permission;
+                    }
+                  );
+      };
+
+      if( include_code ) {
+         FC_ASSERT( active_auth.threshold <= std::numeric_limits<weight_type>::max(), "threshold is too high" );
+         active_auth.accounts.push_back( permission_level_weight{ {a, config::eosio_code_name},
+                                                                  static_cast<weight_type>(active_auth.threshold) } );
+         sort_permissions(active_auth);
+      }
+
+      trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
+                                newslimacc{
+                                   .creator  = creator,
+                                   .name     = a,
+                                   .active   = active_auth,
+                                });
+
+      set_transaction_headers(trx);
+      trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
+      return push_transaction( trx );
+   }
+
    transaction_trace_ptr base_tester::push_transaction( packed_transaction& trx,
                                                         fc::time_point deadline,
                                                         uint32_t billed_cpu_time_us

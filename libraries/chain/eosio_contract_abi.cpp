@@ -145,6 +145,14 @@ abi_def eosio_contract_abi(const abi_def& eosio_system_abi)
    });
 
    eos_abi.structs.emplace_back( struct_def {
+      "newaccount", "", {
+         {"creator", "account_name"},
+         {"name", "account_name"},
+         {"active", "authority"},
+      }
+   });
+
+   eos_abi.structs.emplace_back( struct_def {
       "setcode", "", {
          {"account", "account_name"},
          {"vmtype", "uint8"},
@@ -215,6 +223,7 @@ abi_def eosio_contract_abi(const abi_def& eosio_system_abi)
 
    // TODO add ricardian contracts
    eos_abi.actions.push_back( action_def{name("newaccount"), "newaccount",""} );
+   eos_abi.actions.push_back( action_def{name("newslimacc"), "newslimacc",""} );
    eos_abi.actions.push_back( action_def{name("setcode"), "setcode",""} );
    eos_abi.actions.push_back( action_def{name("setabi"), "setabi",""} );
    eos_abi.actions.push_back( action_def{name("updateauth"), "updateauth",""} );
