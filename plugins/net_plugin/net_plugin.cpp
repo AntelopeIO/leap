@@ -4597,7 +4597,6 @@ namespace eosio {
    // called from any thread
    void connections_manager::start_conn_timers() {
       start_conn_timer(connector_period, {}, timer_type::check); // this locks mutex
-      start_conn_timer(connector_period, {}, timer_type::stats); // this locks mutex
       if (update_p2p_connection_metrics) {
          start_conn_timer(connector_period + connector_period / 2, {}, timer_type::stats); // this locks mutex
       }

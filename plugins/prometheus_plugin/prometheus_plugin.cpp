@@ -18,17 +18,13 @@ namespace eosio {
    struct prometheus_plugin_impl {
 
       eosio::chain::named_thread_pool<struct prom> _prometheus_thread_pool;
-      boost::asio::io_context::strand              _prometheus_strand;
+      boost::asio::io_context::strand              _prometheus_strand{_prometheus_thread_pool.get_executor()};
       metrics::catalog_type                        _catalog;
       fc::microseconds                             _max_response_time_us;
-
-      prometheus_plugin_impl(): _prometheus_strand(_prometheus_thread_pool.get_executor()){ 
-         _catalog.register_update_handlers(_prometheus_strand);
-      }
    };
 
    prometheus_plugin::prometheus_plugin()
-   : my(new prometheus_plugin_impl{}) {
+   : my(new prometheus_plugin_impl) {
    }
 
    prometheus_plugin::~prometheus_plugin() = default;
@@ -53,6 +49,7 @@ namespace eosio {
 
 
    void prometheus_plugin::plugin_initialize(const variables_map& options) {
+      my->_catalog.register_update_handlers(my->_prometheus_strand);
 
       auto& _http_plugin = app().get_plugin<http_plugin>();
       my->_max_response_time_us = _http_plugin.get_max_response_time();
