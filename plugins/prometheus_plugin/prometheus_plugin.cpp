@@ -24,7 +24,7 @@ namespace eosio {
    };
 
    prometheus_plugin::prometheus_plugin()
-   : my(new prometheus_plugin_impl{}) {
+   : my(new prometheus_plugin_impl) {
    }
 
    prometheus_plugin::~prometheus_plugin() = default;
