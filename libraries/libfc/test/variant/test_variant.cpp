@@ -3,7 +3,6 @@
 #include <fc/crypto/base64.hpp>
 
 #include <boost/test/unit_test.hpp>
-#include <boost/dynamic_bitset.hpp>
 
 #include <string>
 

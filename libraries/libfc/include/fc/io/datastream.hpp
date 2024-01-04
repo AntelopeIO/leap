@@ -6,7 +6,6 @@
 #include <type_traits>
 
 #include <boost/multiprecision/cpp_int.hpp>
-#include <boost/dynamic_bitset.hpp>
 
 namespace fc {
 
