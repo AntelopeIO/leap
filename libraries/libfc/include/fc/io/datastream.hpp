@@ -295,6 +295,7 @@ inline datastream<ST>& operator>>(datastream<ST>& ds, uint8_t& d) {
   ds.read((char*)&d, sizeof(d) );
   return ds;
 }
+
 /*
 template<typename ST, typename T>
 inline datastream<ST>& operator<<(datastream<ST>& ds, const boost::multiprecision::number<T>& n) {
