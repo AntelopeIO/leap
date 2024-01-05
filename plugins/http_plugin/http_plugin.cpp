@@ -123,7 +123,7 @@ namespace eosio {
 
          std::map<std::string, api_category_set> categories_by_address;
 
-         http_plugin_state plugin_state{logger()};
+         std::shared_ptr<http_plugin_state> plugin_state{new http_plugin_state(logger())};
          std::atomic<bool> listening;
 
 
@@ -202,7 +202,7 @@ namespace eosio {
                return true;
             auto [host, port] = fc::split_host_port(address);
             boost::system::error_code ec;
-            tcp::resolver             resolver(plugin_state.thread_pool.get_executor());
+            tcp::resolver             resolver(plugin_state->thread_pool.get_executor());
             auto endpoints = resolver.resolve(host, port, boost::asio::ip::tcp::resolver::passive, ec);
             if (ec) {
                fc_wlog(logger(), "Cannot resolve address ${addr}: ${msg}", ("addr", address)("msg", ec.message()));
@@ -232,7 +232,7 @@ namespace eosio {
                      ->run_session();
             };
 
-            fc::create_listener<Protocol>(plugin_state.thread_pool.get_executor(), logger(), accept_timeout, address,
+            fc::create_listener<Protocol>(plugin_state->thread_pool.get_executor(), logger(), accept_timeout, address,
                                           extra_listening_log_info, create_session);
          }
 
@@ -328,33 +328,33 @@ namespace eosio {
 
       cfg.add_options()
             ("access-control-allow-origin", bpo::value<string>()->notifier([this](const string& v) {
-                my->plugin_state.access_control_allow_origin = v;
+                my->plugin_state->access_control_allow_origin = v;
                 fc_ilog( logger(), "configured http with Access-Control-Allow-Origin: ${o}",
-                         ("o", my->plugin_state.access_control_allow_origin) );
+                         ("o", my->plugin_state->access_control_allow_origin) );
              }),
              "Specify the Access-Control-Allow-Origin to be returned on each request")
 
             ("access-control-allow-headers", bpo::value<string>()->notifier([this](const string& v) {
-                my->plugin_state.access_control_allow_headers = v;
+                my->plugin_state->access_control_allow_headers = v;
                 fc_ilog( logger(), "configured http with Access-Control-Allow-Headers : ${o}",
-                         ("o", my->plugin_state.access_control_allow_headers) );
+                         ("o", my->plugin_state->access_control_allow_headers) );
              }),
              "Specify the Access-Control-Allow-Headers to be returned on each request")
 
             ("access-control-max-age", bpo::value<string>()->notifier([this](const string& v) {
-                my->plugin_state.access_control_max_age = v;
+                my->plugin_state->access_control_max_age = v;
                 fc_ilog( logger(), "configured http with Access-Control-Max-Age : ${o}",
-                         ("o", my->plugin_state.access_control_max_age) );
+                         ("o", my->plugin_state->access_control_max_age) );
              }),
              "Specify the Access-Control-Max-Age to be returned on each request.")
 
             ("access-control-allow-credentials",
              bpo::bool_switch()->notifier([this](bool v) {
-                my->plugin_state.access_control_allow_credentials = v;
+                my->plugin_state->access_control_allow_credentials = v;
                 if( v ) fc_ilog( logger(), "configured http with Access-Control-Allow-Credentials: true" );
              })->default_value(false),
              "Specify if Access-Control-Allow-Credentials: true should be returned on each request.")
-            ("max-body-size", bpo::value<uint32_t>()->default_value(my->plugin_state.max_body_size),
+            ("max-body-size", bpo::value<uint32_t>()->default_value(my->plugin_state->max_body_size),
              "The maximum body size in bytes allowed for incoming RPC requests")
             ("http-max-bytes-in-flight-mb", bpo::value<int64_t>()->default_value(500),
              "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded." )
@@ -368,7 +368,7 @@ namespace eosio {
              "If set to false, then any incoming \"Host\" header is considered valid")
             ("http-alias", bpo::value<std::vector<string>>()->composing(),
              "Additionally acceptable values for the \"Host\" header of incoming HTTP requests, can be specified multiple times.  Includes http/s_server_address by default.")
-            ("http-threads", bpo::value<uint16_t>()->default_value( my->plugin_state.thread_pool_size ),
+            ("http-threads", bpo::value<uint16_t>()->default_value( my->plugin_state->thread_pool_size ),
              "Number of worker threads in http thread pool")
             ("http-keep-alive", bpo::value<bool>()->default_value(true),
              "If set to false, do not keep HTTP connections alive, even if client requests.")
@@ -378,38 +378,38 @@ namespace eosio {
    void http_plugin::plugin_initialize(const variables_map& options) {
       try {
          handle_sighup(); // setup logging
-         my->plugin_state.max_body_size = options.at( "max-body-size" ).as<uint32_t>();
+         my->plugin_state->max_body_size = options.at( "max-body-size" ).as<uint32_t>();
          verbose_http_errors = options.at( "verbose-http-errors" ).as<bool>();
 
-         my->plugin_state.thread_pool_size = options.at( "http-threads" ).as<uint16_t>();
-         EOS_ASSERT( my->plugin_state.thread_pool_size > 0, chain::plugin_config_exception,
-                     "http-threads ${num} must be greater than 0", ("num", my->plugin_state.thread_pool_size));
+         my->plugin_state->thread_pool_size = options.at( "http-threads" ).as<uint16_t>();
+         EOS_ASSERT( my->plugin_state->thread_pool_size > 0, chain::plugin_config_exception,
+                     "http-threads ${num} must be greater than 0", ("num", my->plugin_state->thread_pool_size));
 
          auto max_bytes_mb = options.at( "http-max-bytes-in-flight-mb" ).as<int64_t>();
          EOS_ASSERT( (max_bytes_mb >= -1 && max_bytes_mb < std::numeric_limits<int64_t>::max() / (1024 * 1024)), chain::plugin_config_exception,
                      "http-max-bytes-in-flight-mb (${max_bytes_mb}) must be equal to or greater than -1 and less than ${max}", ("max_bytes_mb", max_bytes_mb) ("max", std::numeric_limits<int64_t>::max() / (1024 * 1024)) );
          if ( max_bytes_mb == -1 ) {
-            my->plugin_state.max_bytes_in_flight = std::numeric_limits<size_t>::max();
+            my->plugin_state->max_bytes_in_flight = std::numeric_limits<size_t>::max();
          } else {
-            my->plugin_state.max_bytes_in_flight = max_bytes_mb * 1024 * 1024;
+            my->plugin_state->max_bytes_in_flight = max_bytes_mb * 1024 * 1024;
          }
-         my->plugin_state.max_requests_in_flight = options.at( "http-max-in-flight-requests" ).as<int32_t>();
+         my->plugin_state->max_requests_in_flight = options.at( "http-max-in-flight-requests" ).as<int32_t>();
          int64_t max_reponse_time_ms = options.at("http-max-response-time-ms").as<int64_t>();
          EOS_ASSERT( max_reponse_time_ms == -1 || max_reponse_time_ms >= 0, chain::plugin_config_exception,
                      "http-max-response-time-ms must be -1, or non-negative: ${m}", ("m", max_reponse_time_ms) );
-         my->plugin_state.max_response_time = max_reponse_time_ms == -1 ?
+         my->plugin_state->max_response_time = max_reponse_time_ms == -1 ?
                fc::microseconds::maximum() : fc::microseconds( max_reponse_time_ms * 1000 );
 
-         my->plugin_state.validate_host = options.at("http-validate-host").as<bool>();
+         my->plugin_state->validate_host = options.at("http-validate-host").as<bool>();
          if( options.count( "http-alias" )) {
             const auto& aliases = options["http-alias"].as<vector<string>>();
             for (const auto& alias : aliases ) {
                auto [host, port] = fc::split_host_port(alias);
-               my->plugin_state.valid_hosts.insert(host);
+               my->plugin_state->valid_hosts.insert(host);
             }
          }
 
-         my->plugin_state.keep_alive = options.at("http-keep-alive").as<bool>();
+         my->plugin_state->keep_alive = options.at("http-keep-alive").as<bool>();
 
          std::string http_server_address;
          if (options.count("http-server-address")) {
@@ -467,7 +467,7 @@ namespace eosio {
                my->categories_by_address[address].insert(category);
             }
          }
-         my->plugin_state.server_header = current_http_plugin_defaults.server_header;
+         my->plugin_state->server_header = current_http_plugin_defaults.server_header;
 
 
          //watch out for the returns above when adding new code here
@@ -479,7 +479,7 @@ namespace eosio {
       {
          // The reason we post here is because we want blockchain replay to happen before we start listening.
          try {
-            my->plugin_state.thread_pool.start( my->plugin_state.thread_pool_size, [](const fc::exception& e) {
+            my->plugin_state->thread_pool.start( my->plugin_state->thread_pool_size, [](const fc::exception& e) {
                fc_elog( logger(), "Exception in http thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
                app().quit();
             } );
@@ -507,10 +507,10 @@ namespace eosio {
    }
 
    void http_plugin::plugin_shutdown() {
-      my->plugin_state.thread_pool.stop();
+      my->plugin_state->thread_pool.stop();
 
       // release http_plugin_impl_ptr shared_ptrs captured in url handlers
-      my->plugin_state.url_handlers.clear();
+      my->plugin_state->url_handlers.clear();
 
       fc_ilog( logger(), "exit shutdown");
    }
@@ -528,20 +528,20 @@ namespace eosio {
    void http_plugin::add_handler(api_entry&& entry, appbase::exec_queue q, int priority, http_content_type content_type) {
       log_add_handler(my.get(), entry);
       std::string path  = entry.path;
-      auto p = my->plugin_state.url_handlers.emplace(path, my->make_app_thread_url_handler(std::move(entry), q, priority, my, content_type));
+      auto p = my->plugin_state->url_handlers.emplace(path, my->make_app_thread_url_handler(std::move(entry), q, priority, my, content_type));
       EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", path) );
    }
 
    void http_plugin::add_async_handler(api_entry&& entry, http_content_type content_type) {
       log_add_handler(my.get(), entry);
       std::string path  = entry.path;
-      auto p = my->plugin_state.url_handlers.emplace(path, my->make_http_thread_url_handler(std::move(entry), content_type));
+      auto p = my->plugin_state->url_handlers.emplace(path, my->make_http_thread_url_handler(std::move(entry), content_type));
       EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", path) );
    }
 
    void http_plugin::post_http_thread_pool(std::function<void()> f) {
       if( f )
-         boost::asio::post( my->plugin_state.thread_pool.get_executor(), f );
+         boost::asio::post( my->plugin_state->thread_pool.get_executor(), f );
    }
 
    void http_plugin::handle_exception( const char* api_name, const char* call_name, const string& body, const url_response_callback& cb) {
@@ -613,15 +613,15 @@ namespace eosio {
    }
 
    fc::microseconds http_plugin::get_max_response_time()const {
-      return my->plugin_state.max_response_time;
+      return my->plugin_state->max_response_time;
    }
 
    size_t http_plugin::get_max_body_size()const {
-      return my->plugin_state.max_body_size;
+      return my->plugin_state->max_body_size;
    }
 
    void  http_plugin::register_update_metrics(std::function<void(metrics)>&& fun) {
-      my->plugin_state.update_metrics = std::move(fun);
+      my->plugin_state->update_metrics = std::move(fun);
    }
 
    std::atomic<bool>& http_plugin::listening() {
