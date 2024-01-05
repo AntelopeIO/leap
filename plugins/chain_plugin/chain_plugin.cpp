@@ -2307,12 +2307,12 @@ read_only::get_code_results read_only::get_code( const get_code_params& params, 
    result.account_name = params.account_name;
    const auto& d = db.db();
    const auto& accnt_obj          = d.get<account_object,by_name>( params.account_name );
-   const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>( params.account_name );
+   const auto *accnt_metadata_itr = d.find<account_metadata_object,by_name>( params.account_name );
 
    EOS_ASSERT( params.code_as_wasm, unsupported_feature, "Returning WAST from get_code is no longer supported" );
 
-   if( accnt_metadata_obj.code_hash != digest_type() ) {
-      const auto& code_obj = d.get<code_object, by_code_hash>(accnt_metadata_obj.code_hash);
+   if( accnt_metadata_itr != nullptr && accnt_metadata_itr->code_hash != digest_type() ) {
+      const auto& code_obj = d.get<code_object, by_code_hash>(accnt_metadata_itr->code_hash);
       result.wasm = string(code_obj.code.begin(), code_obj.code.end());
       result.code_hash = code_obj.code_hash;
    }
@@ -2330,10 +2330,10 @@ read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_p
    get_code_hash_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
-   const auto& accnt  = d.get<account_metadata_object,by_name>( params.account_name );
+   const auto *accnt_metadata_itr  = d.find<account_metadata_object,by_name>( params.account_name );
 
-   if( accnt.code_hash != digest_type() )
-      result.code_hash = accnt.code_hash;
+   if( accnt_metadata_itr != nullptr && accnt_metadata_itr->code_hash != digest_type() )
+      result.code_hash = accnt_metadata_itr->code_hash;
 
    return result;
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account code hash")
@@ -2346,9 +2346,9 @@ read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const g
 
    const auto& d = db.db();
    const auto& accnt_obj          = d.get<account_object,by_name>(params.account_name);
-   const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>(params.account_name);
-   if( accnt_metadata_obj.code_hash != digest_type() ) {
-      const auto& code_obj = d.get<code_object, by_code_hash>(accnt_metadata_obj.code_hash);
+   const auto *accnt_metadata_itr = d.find<account_metadata_object,by_name>(params.account_name);
+   if( accnt_metadata_itr != nullptr && accnt_metadata_itr->code_hash != digest_type() ) {
+      const auto& code_obj = d.get<code_object, by_code_hash>(accnt_metadata_itr->code_hash);
       result.wasm = blob{{code_obj.code.begin(), code_obj.code.end()}};
    }
    result.abi = blob{{accnt_obj.abi.begin(), accnt_obj.abi.end()}};
@@ -2364,10 +2364,10 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
 
    const auto& d = db.db();
    const auto& accnt_obj          = d.get<account_object,by_name>(params.account_name);
-   const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>(params.account_name);
+   const auto *accnt_metadata_itr = d.find<account_metadata_object,by_name>(params.account_name);
    result.abi_hash = fc::sha256::hash( accnt_obj.abi.data(), accnt_obj.abi.size() );
-   if( accnt_metadata_obj.code_hash != digest_type() )
-      result.code_hash = accnt_metadata_obj.code_hash;
+   if( accnt_metadata_itr != nullptr && accnt_metadata_itr->code_hash != digest_type() )
+      result.code_hash = accnt_metadata_itr->code_hash;
    if( !params.abi_hash || *params.abi_hash != result.abi_hash )
       result.abi = blob{{accnt_obj.abi.begin(), accnt_obj.abi.end()}};
 
@@ -2389,10 +2389,11 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    rm.get_account_limits( result.account_name, result.ram_quota, result.net_weight, result.cpu_weight );
 
    const auto& accnt_obj = db.get_account( result.account_name );
-   const auto& accnt_metadata_obj = db.db().get<account_metadata_object,by_name>( result.account_name );
-
-   result.privileged       = accnt_metadata_obj.is_privileged();
-   result.last_code_update = accnt_metadata_obj.last_code_update;
+   const auto *accnt_metadata_itr = db.db().find<account_metadata_object,by_name>( result.account_name );
+   if(accnt_metadata_itr != nullptr){
+      result.privileged       = accnt_metadata_itr->is_privileged();
+      result.last_code_update = accnt_metadata_itr->last_code_update;
+   }
    result.created          = accnt_obj.creation_date;
 
    uint32_t greylist_limit = db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;

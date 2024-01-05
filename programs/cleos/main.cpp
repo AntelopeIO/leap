@@ -753,6 +753,17 @@ chain::action create_newaccount(const name& creator, const name& newaccount, aut
    };
 }
 
+chain::action create_newslimacc(const name& creator, const name& newaccount, authority active) {
+   return action {
+      get_account_permissions(tx_permission, {creator,config::active_name}),
+      eosio::chain::newslimacc{
+         .creator      = creator,
+         .name         = newaccount,
+         .active       = active
+      }
+   };
+}
+
 chain::action create_action(const vector<permission_level>& authorization, const account_name& code, const action_name& act, const fc::variant& args) {
    return chain::action{authorization, code, act, variant_to_bin(code, act, args)};
 }
@@ -1267,6 +1278,83 @@ struct create_account_subcommand {
             }
 
             auto create = create_newaccount(name(creator), name(account_name), owner, active);
+            if (!simple) {
+               EOSC_ASSERT( buy_ram_eos.size() || buy_ram_bytes_in_kbytes || buy_ram_bytes, "ERROR: One of --buy-ram, --buy-ram-kbytes or --buy-ram-bytes should have non-zero value" );
+               EOSC_ASSERT( !buy_ram_bytes_in_kbytes || !buy_ram_bytes, "ERROR: --buy-ram-kbytes and --buy-ram-bytes cannot be set at the same time" );
+               action buyram = !buy_ram_eos.empty() ? create_buyram(name(creator), name(account_name), to_asset(buy_ram_eos))
+                  : create_buyrambytes(name(creator), name(account_name), (buy_ram_bytes_in_kbytes) ? (buy_ram_bytes_in_kbytes * 1024) : buy_ram_bytes);
+               auto net = to_asset(stake_net);
+               auto cpu = to_asset(stake_cpu);
+               if ( net.get_amount() != 0 || cpu.get_amount() != 0 ) {
+                  action delegate = create_delegate( name(creator), name(account_name), net, cpu, transfer);
+                  send_actions( { create, buyram, delegate }, signing_keys_opt.get_keys());
+               } else {
+                  send_actions( { create, buyram }, signing_keys_opt.get_keys());
+               }
+            } else {
+               send_actions( { create }, signing_keys_opt.get_keys());
+            }
+      });
+   }
+};
+
+struct create_slim_account_subcommand {
+   string creator;
+   string account_name;
+   string active_key_str;
+   string stake_net;
+   string stake_cpu;
+   uint32_t buy_ram_bytes_in_kbytes = 0;
+   uint32_t buy_ram_bytes = 0;
+   string buy_ram_eos;
+   bool transfer = false;
+   bool simple = false;
+
+   create_slim_account_subcommand(CLI::App* actionRoot, bool s) : simple(s) {
+      auto createSlimAccount = actionRoot->add_subcommand(
+                              (simple ? "slimaccount" : "newslimacc"),
+                              (simple ? localized("Create a new account on the blockchain (assumes system contract does not restrict RAM usage)")
+                                      : localized("Create a new account on the blockchain with initial resources") )
+      );
+      createSlimAccount->add_option("creator", creator, localized("The name of the account creating the new account"))->required();
+      createSlimAccount->add_option("name", account_name, localized("The name of the new account"))->required();
+      createSlimAccount->add_option("ActiveKey", active_key_str, localized("The active public key, permission level, or authority for the new account"));
+
+      if (!simple) {
+         createSlimAccount->add_option("--stake-net", stake_net,
+                                   (localized("The amount of tokens delegated for net bandwidth")))->required();
+         createSlimAccount->add_option("--stake-cpu", stake_cpu,
+                                   (localized("The amount of tokens delegated for CPU bandwidth")))->required();
+         createSlimAccount->add_option("--buy-ram-kbytes", buy_ram_bytes_in_kbytes,
+                                   (localized("The amount of RAM bytes to purchase for the new account in kibibytes (KiB)")));
+         createSlimAccount->add_option("--buy-ram-bytes", buy_ram_bytes,
+                                   (localized("The amount of RAM bytes to purchase for the new account in bytes")));
+         createSlimAccount->add_option("--buy-ram", buy_ram_eos,
+                                   (localized("The amount of RAM bytes to purchase for the new account in tokens")));
+         createSlimAccount->add_flag("--transfer", transfer,
+                                 (localized("Transfer voting power and right to unstake tokens to receiver")));
+      }
+
+      add_standard_transaction_options_plus_signing(createSlimAccount, "creator@active");
+
+      createSlimAccount->callback([this] {
+            authority active;
+            EOSC_ASSERT( !active_key_str.empty(), "Active public key must not empty" );
+            if ( active_key_str.find('{') != string::npos ) {
+               try{
+                  active = parse_json_authority_or_key(active_key_str);
+               } EOS_RETHROW_EXCEPTIONS( explained_exception, "Invalid active authority: ${authority}", ("authority", active_key_str) )
+            }else if( active_key_str.find('@') != string::npos ) {
+               try {
+                  active = authority(to_permission_level(active_key_str));
+               } EOS_RETHROW_EXCEPTIONS( explained_exception, "Invalid active permission level: ${permission}", ("permission", active_key_str) )
+            } else {
+               try {
+                  active = authority(public_key_type(active_key_str));
+               } EOS_RETHROW_EXCEPTIONS( public_key_type_exception, "Invalid active public key: ${public_key}", ("public_key", active_key_str) );
+            }
+
+            auto create = create_newslimacc(name(creator), name(account_name), active);
             if (!simple) {
                EOSC_ASSERT( buy_ram_eos.size() || buy_ram_bytes_in_kbytes || buy_ram_bytes, "ERROR: One of --buy-ram, --buy-ram-kbytes or --buy-ram-bytes should have non-zero value" );
                EOSC_ASSERT( !buy_ram_bytes_in_kbytes || !buy_ram_bytes, "ERROR: --buy-ram-kbytes and --buy-ram-bytes cannot be set at the same time" );
@@ -2860,6 +2948,9 @@ int main( int argc, char** argv ) {
    // create account
    auto createAccount = create_account_subcommand( create, true /*simple*/ );
 
+   // create account
+   auto createSlimAccount = create_slim_account_subcommand( create, true /*simple*/ );
+
    // convert subcommand
    auto convert = app.add_subcommand("convert", localized("Pack and unpack transactions")); // TODO also add converting action args based on abi from here ?
    convert->require_subcommand();
@@ -4447,6 +4538,7 @@ int main( int argc, char** argv ) {
    system->require_subcommand();
 
    auto createAccountSystem = create_account_subcommand( system, false /*simple*/ );
+   auto createSlimAccountSystem = create_slim_account_subcommand( system, false /*simple*/ );
    auto registerProducer = register_producer_subcommand(system);
    auto unregisterProducer = unregister_producer_subcommand(system);
 

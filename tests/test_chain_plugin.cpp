@@ -108,6 +108,38 @@ public:
         return push_transaction( trx );
     }
 
+    transaction_trace_ptr create_slim_account_with_resources( account_name a, account_name creator, uint32_t ram_bytes = 8000 ) {
+        signed_transaction trx;
+        set_transaction_headers(trx);
+
+        trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
+                                  newslimacc{
+                                          .creator  = creator,
+                                          .name     = a,
+                                          .active   = authority( get_public_key( a, "active" ) )
+                                  });
+
+        trx.actions.emplace_back( get_action( config::system_account_name, "buyrambytes"_n, vector<permission_level>{{creator,config::active_name}},
+                                              mvo()
+                                                      ("payer", creator)
+                                                      ("receiver", a)
+                                                      ("bytes", ram_bytes) )
+        );
+        trx.actions.emplace_back( get_action( config::system_account_name, "delegatebw"_n, vector<permission_level>{{creator,config::active_name}},
+                                              mvo()
+                                                      ("from", creator)
+                                                      ("receiver", a)
+                                                      ("stake_net_quantity", core_from_string("10.0000") )
+                                                      ("stake_cpu_quantity", core_from_string("10.0000") )
+                                                      ("transfer", 0 )
+                                  )
+        );
+
+        set_transaction_headers(trx);
+        trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
+        return push_transaction( trx );
+    }
+
     transaction_trace_ptr create_account_with_resources( account_name a, account_name creator, asset ramfunds, bool multisig,
                                                         asset net = core_from_string("10.0000"), asset cpu = core_from_string("10.0000") ) {
       signed_transaction trx;
@@ -501,4 +533,21 @@ BOOST_FIXTURE_TEST_CASE(account_results_rex_info_test, chain_plugin_tester) { tr
 
 } FC_LOG_AND_RETHROW() }
 
+
+BOOST_FIXTURE_TEST_CASE(slim_account_results_total_resources_test, chain_plugin_tester) { try {
+
+    produce_blocks(10);
+    setup_system_accounts();
+    produce_blocks();
+    create_slim_account_with_resources("slim11111111"_n, config::system_account_name);
+    //stake more than 15% of total EOS supply to activate chain
+    transfer( name("eosio"), name("slim11111111"), core_from_string("650000000.0000"), name("eosio") );
+
+    read_only::get_account_results results = get_account_info(name("slim11111111"));
+    BOOST_CHECK(results.total_resources.get_type() != fc::variant::type_id::null_type);
+    BOOST_CHECK_EQUAL(core_from_string("10.0000"), results.total_resources["net_weight"].as<asset>());
+    BOOST_CHECK_EQUAL(core_from_string("10.0000"), results.total_resources["cpu_weight"].as<asset>());
+    BOOST_CHECK_EQUAL(results.total_resources["ram_bytes"].as_int64() > 0, true);
+
+} FC_LOG_AND_RETHROW() }
 BOOST_AUTO_TEST_SUITE_END()

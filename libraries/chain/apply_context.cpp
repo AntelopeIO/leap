@@ -82,8 +82,8 @@ void apply_context::exec_one()
       try {
          action_return_value.clear();
          receiver_account = &db.get<account_object,by_name>( receiver );
-         receiver_account_metadata = &db.get<account_metadata_object,by_name>( receiver );
-         if( !(context_free && control.skip_trx_checks()) ) {
+         receiver_account_metadata = db.find<account_metadata_object,by_name>( receiver );
+         if( receiver_account_metadata != nullptr && !(context_free && control.skip_trx_checks()) ) {
             privileged = receiver_account_metadata->is_privileged();
             auto native = control.find_apply_handler( receiver, act->account, act->name );
             if( native ) {
@@ -176,11 +176,11 @@ void apply_context::exec_one()
    if( act->account == receiver ) {
       first_receiver_account_metadata = receiver_account_metadata;
    } else {
-      first_receiver_account_metadata = &db.get<account_metadata_object, by_name>(act->account);
+      first_receiver_account_metadata = db.find<account_metadata_object, by_name>(act->account);
    }
 
-   r.code_sequence    = first_receiver_account_metadata->code_sequence; // could be modified by action execution above
-   r.abi_sequence     = first_receiver_account_metadata->abi_sequence;  // could be modified by action execution above
+   r.code_sequence    = first_receiver_account_metadata != nullptr ? first_receiver_account_metadata->code_sequence : 0; // could be modified by action execution above
+   r.abi_sequence     = first_receiver_account_metadata != nullptr ? first_receiver_account_metadata->abi_sequence: 0;  // could be modified by action execution above
 
    for( const auto& auth : act->authorization ) {
       r.auth_sequence[auth.actor] = next_auth_sequence( auth.actor );
