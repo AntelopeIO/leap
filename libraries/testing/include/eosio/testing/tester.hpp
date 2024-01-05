@@ -65,8 +65,7 @@ namespace eosio { namespace testing {
       preactivate_feature_and_new_bios,
       old_wasm_parser,
       full_except_do_not_disable_deferred_trx,
-      full,
-      full_with_slim_account
+      full   
    };
 
    std::ostream& operator<<(std::ostream& os, setup_policy p);
