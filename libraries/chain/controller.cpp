@@ -2799,8 +2799,13 @@ struct controller_impl {
       uint32_t hs_lib = hs_irreversible_block_num.load();
       const bool hs_active = hs_lib > 0;
       auto trx_mroot = calculate_trx_merkle( b->transactions, hs_active );
-      EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
-                  "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
+      if( b->transaction_mroot != trx_mroot ) {
+         // Call of create_block_state_i can happen right before hs_irreversible_block_num
+         // is set. Fall back to verify in the other way.
+         trx_mroot = calculate_trx_merkle( b->transactions, !hs_active );
+         EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
+                     "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
+      }
 
       const bool skip_validate_signee = false;
       auto bsp = std::make_shared<block_state_legacy>(
