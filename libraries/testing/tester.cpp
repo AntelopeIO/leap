@@ -1023,9 +1023,9 @@ namespace eosio { namespace testing {
 
    bool base_tester::is_code_cached( eosio::chain::account_name name ) const {
       const auto& db  = control->db();
-      const account_metadata_object* receiver_account = &db.template get<account_metadata_object,by_name>( name );
-      if ( receiver_account->code_hash == digest_type() ) return false;
-      return control->get_wasm_interface().is_code_cached( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version );
+      const account_metadata_object* receiver_account_metadata = db.template find<account_metadata_object,by_name>( name );
+      if ( receiver_account_metadata == nullptr || receiver_account_metadata->code_hash == digest_type() ) return false;
+      return control->get_wasm_interface().is_code_cached( receiver_account_metadata->code_hash, receiver_account_metadata->vm_type, receiver_account_metadata->vm_version );
    }
 
 
