@@ -83,7 +83,6 @@ set(CHAIN_HOTSTUFF_SOURCES
    hotstuff/chain_pacemaker.cpp
    hotstuff/instant_finality_extension.cpp
    hotstuff/qc_chain.cpp
-   hotstuff/finalizer_policy.cpp
    hotstuff/hotstuff.cpp
 )
 
