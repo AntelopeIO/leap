@@ -2804,7 +2804,7 @@ struct controller_impl {
       const bool instant_finality_active = instant_finality_lib > 0;
       auto trx_mroot = calculate_trx_merkle( b->transactions, instant_finality_active );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
-                     "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
+                  "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
       const bool skip_validate_signee = false;
       auto bsp = std::make_shared<block_state_legacy>(
