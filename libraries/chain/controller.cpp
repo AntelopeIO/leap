@@ -2796,17 +2796,13 @@ struct controller_impl {
 
    // thread safe, expected to be called from thread other than the main thread
    block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
-      bool hs_active = false;
-      if (!b->header_extensions.empty()) {
-         std::optional<block_header_extension> instant_finality_ext = b->extract_header_extension(instant_finality_extension::extension_id());
-#warning change to use instant_finality_ext https://github.com/AntelopeIO/leap/issues/1508
-         if (instant_finality_ext) {
-            const auto& ext = std::get<instant_finality_extension>(*instant_finality_ext);
-            hs_active = !!ext.new_proposer_policy;
-         }
-      }
-
-      auto trx_mroot = calculate_trx_merkle( b->transactions, hs_active );
+      // There is a small race condition at time of activation where create_block_state_i
+      // is called right before hs_irreversible_block_num is set. If that happens,
+      // the block is considered invalid, and the node will attempt to sync the block
+      // in the future and succeed
+      uint32_t instant_finality_lib = hs_irreversible_block_num.load();
+      const bool instant_finality_active = instant_finality_lib > 0;
+      auto trx_mroot = calculate_trx_merkle( b->transactions, instant_finality_active );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
