@@ -690,8 +690,7 @@ struct building_block {
                         v);
    }
 
-   assembled_block assemble_block(const building_block_input &input,
-                                  boost::asio::io_context& ioc,
+   assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
                                   const block_data_t& block_data) {
       digests_t& action_receipts = action_receipt_digests();
@@ -752,9 +751,16 @@ struct building_block {
                uint32_t last_qc_block_num{0};
                bool     is_last_qc_strong{false};
 
+               building_block_input bb_input {
+                  .parent_id = parent_id(),
+                  .timestamp = timestamp(),
+                  .producer  = producer(),
+                  .new_protocol_feature_activations = new_protocol_feature_activations()
+               };
+
                block_header_state_input bhs_input{
-                  input, transaction_mroot, action_mroot,     bb.new_proposer_policy, bb.new_finalizer_policy,
-                  qc,    last_qc_block_num, is_last_qc_strong};
+                  bb_input, transaction_mroot, action_mroot,     bb.new_proposer_policy, bb.new_finalizer_policy,
+                  qc,       last_qc_block_num, is_last_qc_strong};
 
                assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
                                                       bb.pending_trx_metas, bb.pending_trx_receipts, qc};
@@ -2532,15 +2538,8 @@ struct controller_impl {
       );
       resource_limits.process_block_usage(bb.block_num());
 
-      building_block_input bb_input {
-         .parent_id = bb.parent_id(),
-         .timestamp = bb.timestamp(),
-         .producer  = bb.producer(),
-         .new_protocol_feature_activations = bb.new_protocol_feature_activations()
-      };
-
       auto assembled_block = 
-         bb.assemble_block(bb_input, thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
+         bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
 
       // Update TaPoS table:
       create_block_summary(  assembled_block.id() );
