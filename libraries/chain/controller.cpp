@@ -116,6 +116,158 @@ class maybe_session {
       std::optional<database::session>     _session;
 };
 
+template<class bsp, class bhsp>
+struct block_data_gen_t {
+public:
+   using bs        = bsp::element_type;
+   using bhs       = bhsp::element_type;
+   using fork_db_t = fork_database<bsp, bhsp>;
+
+   bsp       head;
+   fork_db_t fork_db;
+
+   block_data_gen_t(const std::filesystem::path& path) : fork_db(path) {}
+      
+   bsp fork_db_head(bool irreversible_mode) const {
+      if (irreversible_mode) {
+         // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
+         // fork_db.head() returns irreversible block
+         // Use pending_head since this method should return the chain head and not last irreversible.
+         return fork_db.pending_head();
+      } else {
+         return fork_db.head();
+      }
+   }
+
+   bsp fork_db_root() const { return fork_db.root(); }
+
+   bsp fork_db_head() const { return fork_db.head(); }
+
+   void fork_db_open(validator_t& validator) { return fork_db.open(validator); }
+
+   void fork_db_reset_to_head() { return fork_db.reset(*head); }
+
+   template<class R, class F>
+   R apply(F &f) { if constexpr (std::is_same_v<void, R>) f(fork_db, head); else return f(fork_db, head); }
+
+   uint32_t pop_block() {
+      auto prev = fork_db.get_block( head->previous() );
+
+      if( !prev ) {
+         EOS_ASSERT( fork_db.root()->id() == head->previous(), block_validate_exception, "attempt to pop beyond last irreversible block" );
+         prev = fork_db.root();
+      }
+
+      EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
+      head = prev;
+         
+      return prev->block_num();
+   }
+};
+
+using block_data_legacy_t = block_data_gen_t<block_state_legacy_ptr, block_header_state_legacy_ptr>;
+using block_data_new_t    = block_data_gen_t<block_state_ptr,        block_header_state_ptr>;
+   
+struct block_data_t {
+   using block_data_variant  = std::variant<block_data_legacy_t, block_data_new_t>;
+
+   block_data_variant v;
+
+   uint32_t             head_block_num()  const { return std::visit([](const auto& bd) { return bd.head->block_num(); }, v); }
+   block_timestamp_type head_block_time() const { return std::visit([](const auto& bd) { return bd.head->timestamp(); }, v); }
+   account_name         head_block_producer() const { return std::visit([](const auto& bd) { return bd.head->producer(); }, v); }
+      
+   protocol_feature_activation_set_ptr head_activated_protocol_features() const { return std::visit([](const auto& bd) {
+      return bd.head->get_activated_protocol_features(); }, v);
+   }
+
+   const producer_authority_schedule& head_active_schedule_auth() {
+      return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->active_schedule_auth(); }, v);
+   }
+      
+   const producer_authority_schedule& head_pending_schedule_auth() {
+      return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->pending_schedule_auth(); }, v);
+   }
+      
+   const block_id_type& head_block_id()   const {
+      return std::visit([](const auto& bd) -> const block_id_type& { return bd.head->id(); }, v);
+   }
+      
+   const block_header&  head_block_header() const {
+      return std::visit([](const auto& bd) -> const  block_header& { return bd.head->header; }, v);
+   }
+
+   const signed_block_ptr& head_block() const {
+      return std::visit([](const auto& bd) -> const signed_block_ptr& { return bd.head->block; }, v);
+   }
+
+   // --------------- access fork_db head ----------------------------------------------------------------------
+   bool fork_db_has_head() const {
+      return std::visit([&](const auto& bd) { return !!bd.fork_db_head(); }, v);
+   }
+      
+   uint32_t fork_db_head_block_num(bool irreversible_mode) const {
+      return std::visit([&](const auto& bd) { return bd.fork_db_head(irreversible_mode)->block_num(); }, v);
+   }
+      
+   const block_id_type& fork_db_head_block_id(bool irreversible_mode) const {
+      return std::visit([&](const auto& bd) -> const block_id_type& { return bd.fork_db_head(irreversible_mode)->id(); }, v);
+   }
+
+   uint32_t fork_db_head_irreversible_blocknum(bool irreversible_mode) const {
+      return std::visit([&](const auto& bd) { return bd.fork_db_head(irreversible_mode)->irreversible_blocknum(); }, v);
+   }
+
+   // --------------- access fork_db root ----------------------------------------------------------------------
+   bool fork_db_has_root() const {
+      return std::visit([&](const auto& bd) { return !!bd.fork_db_root(); }, v);
+   }
+      
+   const block_id_type& fork_db_root_block_id() const {
+      return std::visit([&](const auto& bd) -> const block_id_type& { return bd.fork_db_root()->id(); }, v);
+   }
+
+   uint32_t fork_db_root_block_num() const {
+      return std::visit([&](const auto& bd) { return bd.fork_db_root()->block_num(); }, v);
+   }
+
+   block_timestamp_type  fork_db_root_timestamp() const {
+      return std::visit([&](const auto& bd) { return bd.fork_db_root()->timestamp(); }, v);
+   }
+
+   // ---------------  fork_db APIs ----------------------------------------------------------------------
+   uint32_t pop_block() { return std::visit([](auto& bd) { return bd.pop_block(); }, v); }
+
+   void fork_db_open(validator_t& validator) { return std::visit([&](auto& bd) { bd.fork_db_open(validator); }, v); }
+
+   void fork_db_reset_to_head() { return std::visit([&](auto& bd) { bd.fork_db_reset_to_head(); }, v); }
+
+   signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
+      return std::visit([&](const auto& bd) -> signed_block_ptr {
+         auto bsp = bd.fork_db.get_block(id);
+         return bsp ? bsp->block : nullptr;
+      }, v);
+   }
+
+   template<class R, class F>
+   R apply(F &f) {
+      if constexpr (std::is_same_v<void, R>)
+         std::visit([&](auto& bd) { bd.template apply<R>(f); }, v);
+      else
+         return std::visit([&](auto& bd) -> R { return bd.template apply<R>(f); }, v);
+   }
+
+   template <class R, class F>
+   R apply_dpos(F& f) {
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); },
+                  [&](block_data_new_t& bd) {}}, v);
+      else
+         return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
+                  [&](block_data_new_t& bd)    -> R { return {}; }}, v);
+   }
+};
+
 struct completed_block {
    std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
 
@@ -541,7 +693,8 @@ struct building_block {
    assembled_block assemble_block(const building_block_input &input,
                                   digest_type transaction_mroot,
                                   digest_type action_mroot,
-                                  const protocol_feature_set& pfs) {
+                                  const protocol_feature_set& pfs,
+                                  const block_data_t& block_data) {
       return std::visit(
          overloaded{[&](building_block_dpos& bb) -> assembled_block {
             // in dpos, we create a signed_block here. In IF mode, we do it later (when we are ready to sign it)
@@ -560,6 +713,10 @@ struct building_block {
                                                      std::move(bb.new_pending_producer_schedule)}};
          },
          [&](building_block_if& bb)  -> assembled_block {
+            assert(std::holds_alternative<block_data_new_t>(block_data.v));
+            const block_data_new_t& bd = std::get<block_data_new_t>(block_data.v);
+            const auto& fork_db = bd.fork_db; // fork_db<block_state_ptr, block_header_state_ptr>
+            
             // [greg todo] retrieve qc, and fill the following two variables accurately
             std::optional<quorum_certificate> qc; // Comes from traversing branch from parent and calling get_best_qc()
                                                   // assert(qc->block_num <= num_from_id(previous));
@@ -691,159 +848,6 @@ struct controller_impl {
    // and not just abort.
    struct reset_new_handler {
       reset_new_handler() { std::set_new_handler([](){ throw std::bad_alloc(); }); }
-   };
-
-   template<class bsp, class bhsp>
-   struct block_data_gen_t {
-   public:
-      using bs        = bsp::element_type;
-      using bhs       = bhsp::element_type;
-      using fork_db_t = fork_database<bsp, bhsp>;
-
-      bsp       head;
-      fork_db_t fork_db;
-
-      block_data_gen_t(const std::filesystem::path& path) : fork_db(path) {}
-      
-      bsp fork_db_head(bool irreversible_mode) const {
-         if (irreversible_mode) {
-            // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
-            // fork_db.head() returns irreversible block
-            // Use pending_head since this method should return the chain head and not last irreversible.
-            return fork_db.pending_head();
-         } else {
-            return fork_db.head();
-         }
-      }
-
-      bsp fork_db_root() const { return fork_db.root(); }
-
-      bsp fork_db_head() const { return fork_db.head(); }
-
-      void fork_db_open(validator_t& validator) { return fork_db.open(validator); }
-
-      void fork_db_reset_to_head() { return fork_db.reset(*head); }
-
-      template<class R, class F>
-      R apply(F &f) { if constexpr (std::is_same_v<void, R>) f(fork_db, head); else return f(fork_db, head); }
-
-      uint32_t pop_block() {
-         auto prev = fork_db.get_block( head->previous() );
-
-         if( !prev ) {
-            EOS_ASSERT( fork_db.root()->id() == head->previous(), block_validate_exception, "attempt to pop beyond last irreversible block" );
-            prev = fork_db.root();
-         }
-
-         EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
-         head = prev;
-         
-         return prev->block_num();
-      }
-   };
-
-   using block_data_legacy_t = block_data_gen_t<block_state_legacy_ptr, block_header_state_legacy_ptr>;
-   using block_data_new_t    = block_data_gen_t<block_state_ptr,        block_header_state_ptr>;
-   
-   
-   struct block_data_t {
-      using block_data_variant  = std::variant<block_data_legacy_t, block_data_new_t>;
-
-      block_data_variant v;
-
-      uint32_t             head_block_num()  const { return std::visit([](const auto& bd) { return bd.head->block_num(); }, v); }
-      block_timestamp_type head_block_time() const { return std::visit([](const auto& bd) { return bd.head->timestamp(); }, v); }
-      account_name         head_block_producer() const { return std::visit([](const auto& bd) { return bd.head->producer(); }, v); }
-      
-      protocol_feature_activation_set_ptr head_activated_protocol_features() const { return std::visit([](const auto& bd) {
-         return bd.head->get_activated_protocol_features(); }, v);
-      }
-
-      const producer_authority_schedule& head_active_schedule_auth() {
-         return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->active_schedule_auth(); }, v);
-      }
-      
-      const producer_authority_schedule& head_pending_schedule_auth() {
-         return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->pending_schedule_auth(); }, v);
-      }
-      
-      const block_id_type& head_block_id()   const {
-         return std::visit([](const auto& bd) -> const block_id_type& { return bd.head->id(); }, v);
-      }
-      
-      const block_header&  head_block_header() const {
-         return std::visit([](const auto& bd) -> const  block_header& { return bd.head->header; }, v);
-      }
-
-      const signed_block_ptr& head_block() const {
-         return std::visit([](const auto& bd) -> const signed_block_ptr& { return bd.head->block; }, v);
-      }
-
-      // --------------- access fork_db head ----------------------------------------------------------------------
-      bool fork_db_has_head() const {
-         return std::visit([&](const auto& bd) { return !!bd.fork_db_head(); }, v);
-      }
-      
-      uint32_t fork_db_head_block_num(bool irreversible_mode) const {
-         return std::visit([&](const auto& bd) { return bd.fork_db_head(irreversible_mode)->block_num(); }, v);
-      }
-      
-      const block_id_type& fork_db_head_block_id(bool irreversible_mode) const {
-         return std::visit([&](const auto& bd) -> const block_id_type& { return bd.fork_db_head(irreversible_mode)->id(); }, v);
-      }
-
-      uint32_t fork_db_head_irreversible_blocknum(bool irreversible_mode) const {
-         return std::visit([&](const auto& bd) { return bd.fork_db_head(irreversible_mode)->irreversible_blocknum(); }, v);
-      }
-
-      // --------------- access fork_db root ----------------------------------------------------------------------
-      bool fork_db_has_root() const {
-         return std::visit([&](const auto& bd) { return !!bd.fork_db_root(); }, v);
-      }
-      
-      const block_id_type& fork_db_root_block_id() const {
-         return std::visit([&](const auto& bd) -> const block_id_type& { return bd.fork_db_root()->id(); }, v);
-      }
-
-      uint32_t fork_db_root_block_num() const {
-         return std::visit([&](const auto& bd) { return bd.fork_db_root()->block_num(); }, v);
-      }
-
-      block_timestamp_type  fork_db_root_timestamp() const {
-         return std::visit([&](const auto& bd) { return bd.fork_db_root()->timestamp(); }, v);
-      }
-
-      // ---------------  fork_db APIs ----------------------------------------------------------------------
-      uint32_t pop_block() { return std::visit([](auto& bd) { return bd.pop_block(); }, v); }
-
-      void fork_db_open(validator_t& validator) { return std::visit([&](auto& bd) { bd.fork_db_open(validator); }, v); }
-
-      void fork_db_reset_to_head() { return std::visit([&](auto& bd) { bd.fork_db_reset_to_head(); }, v); }
-
-      signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
-         return std::visit([&](const auto& bd) -> signed_block_ptr {
-            auto bsp = bd.fork_db.get_block(id);
-            return bsp ? bsp->block : nullptr;
-         }, v);
-      }
-
-      template<class R, class F>
-      R apply(F &f) {
-         if constexpr (std::is_same_v<void, R>)
-            std::visit([&](auto& bd) { bd.template apply<R>(f); }, v);
-         else
-            return std::visit([&](auto& bd) -> R { return bd.template apply<R>(f); }, v);
-      }
-
-      template <class R, class F>
-      R apply_dpos(F& f) {
-         if constexpr (std::is_same_v<void, R>)
-            std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); },
-                                  [&](block_data_new_t& bd) {}}, v);
-         else
-            return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
-                                         [&](block_data_new_t& bd)    -> R { return {}; }}, v);
-      }
    };
 
    reset_new_handler               rnh; // placed here to allow for this to be set before constructing the other fields
@@ -2545,7 +2549,8 @@ struct controller_impl {
          bb.assemble_block(bb_input,
                            calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb.trx_mroot_or_receipt_digests()),
                            action_merkle_fut.get(),
-                           protocol_features.get_protocol_feature_set());
+                           protocol_features.get_protocol_feature_set(),
+                           block_data);
 
       
       // Update TaPoS table:
