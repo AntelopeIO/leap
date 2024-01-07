@@ -2543,7 +2543,8 @@ struct controller_impl {
          .parent_id = bb.parent_id(),
          .timestamp =  bb.timestamp(),
          .producer  = bb.producer(),
-         .new_protocol_feature_activations = bb.new_protocol_feature_activations()};
+         .new_protocol_feature_activations = bb.new_protocol_feature_activations()
+      };
 
       auto assembled_block = 
          bb.assemble_block(bb_input,
@@ -2571,13 +2572,6 @@ struct controller_impl {
         ("np",block_ptr->new_producers)
         );
       */
-
-         
-#if 0
-      // [greg todo] see https://github.com/AntelopeIO/leap/issues/1911
-      bb.apply_hs<void>([&](building_block::building_block_if& bb) {
-      });
-#endif
 
       }
       FC_CAPTURE_AND_RETHROW()
