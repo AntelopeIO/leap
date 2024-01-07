@@ -691,115 +691,92 @@ struct building_block {
    }
 
    assembled_block assemble_block(const building_block_input &input,
-                                  auto& thread_pool,
+                                  boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
                                   const block_data_t& block_data) {
+      digests_t& action_receipts = action_receipt_digests();
       return std::visit(
-         overloaded{[&](building_block_dpos& bb) -> assembled_block {
-            // compute the action_mroot and transaction_mroot
-            digest_type transaction_mroot;
-            digest_type action_mroot;
-            
-            if ( !std::holds_alternative<checksum256_type>(trx_mroot_or_receipt_digests()) ) {
-               // calculate the two merkle roots in separate threads
-               auto trx_merkle_fut    = post_async_task( thread_pool.get_executor(),
-                                                         [ids{std::move( std::get<digests_t>(trx_mroot_or_receipt_digests()) )}]() mutable {
-                                                            return canonical_merkle(std::move(ids));  });
-               auto action_merkle_fut = post_async_task(thread_pool.get_executor(),
-                                                        [ids{std::move( action_receipt_digests() )}]() mutable {
-                                                           return canonical_merkle(std::move(ids) );  });
-               transaction_mroot = trx_merkle_fut.get();
-               action_mroot      = action_merkle_fut.get();
-            } else {
-               transaction_mroot = std::get<checksum256_type>(trx_mroot_or_receipt_digests());
-               action_mroot      = canonical_merkle(std::move(action_receipt_digests()));
-            }
+         overloaded{
+            [&](building_block_dpos& bb) -> assembled_block {
+               // compute the action_mroot and transaction_mroot
+               auto [transaction_mroot, action_mroot] = std::visit(
+                  overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
+                                auto trx_merkle_fut =
+                                   post_async_task(ioc, [&]() { return canonical_merkle(std::move(trx_receipts)); });
+                                auto action_merkle_fut =
+                                   post_async_task(ioc, [&]() { return canonical_merkle(std::move(action_receipts)); });
+                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
+                             },
+                             [&](const checksum256_type& trx_checksum) {
+                                return std::make_pair(trx_checksum, canonical_merkle(std::move(action_receipts)));
+                             }},
+                  trx_mroot_or_receipt_digests());
 
-            // in dpos, we create a signed_block here. In IF mode, we do it later (when we are ready to sign it)
-            auto block_ptr = std::make_shared<signed_block>(
-               bb.pending_block_header_state.make_block_header(transaction_mroot, action_mroot, bb.new_pending_producer_schedule,
-                                                               vector<digest_type>(bb.new_protocol_feature_activations), 
-                                                               pfs));
+               // in dpos, we create a signed_block here. In IF mode, we do it later (when we are ready to sign it)
+               auto block_ptr = std::make_shared<signed_block>(bb.pending_block_header_state.make_block_header(
+                  transaction_mroot, action_mroot, bb.new_pending_producer_schedule,
+                  vector<digest_type>(bb.new_protocol_feature_activations), pfs));
 
-            block_ptr->transactions = std::move(bb.pending_trx_receipts);
-            
-            return assembled_block{
-               .v = assembled_block::assembled_block_dpos{block_ptr->calculate_id(),
-                                                     std::move(bb.pending_block_header_state),
-                                                     std::move(bb.pending_trx_metas),
-                                                     std::move(block_ptr),
-                                                     std::move(bb.new_pending_producer_schedule)}};
-         },
-         [&](building_block_if& bb)  -> assembled_block {
-            // compute the action_mroot and transaction_mroot
-            digest_type transaction_mroot;
-            digest_type action_mroot;
-            
-            if ( !std::holds_alternative<checksum256_type>(trx_mroot_or_receipt_digests()) ) {
-               // calculate the two merkle roots in separate threads
-               auto trx_merkle_fut    = post_async_task( thread_pool.get_executor(),
-                                                         [ids{std::move( std::get<digests_t>(trx_mroot_or_receipt_digests()) )}]() mutable {
-                                                            return calculate_merkle(std::move(ids));  });
-               auto action_merkle_fut = post_async_task(thread_pool.get_executor(),
-                                                        [ids{std::move( action_receipt_digests() )}]() mutable {
-                                                           return calculate_merkle(std::move(ids) );  });
-               transaction_mroot = trx_merkle_fut.get();
-               action_mroot      = action_merkle_fut.get();
-            } else {
-               transaction_mroot = std::get<checksum256_type>(trx_mroot_or_receipt_digests());
-               action_mroot      = calculate_merkle(std::move(action_receipt_digests()));
-            }
+               block_ptr->transactions = std::move(bb.pending_trx_receipts);
 
-            // get fork_database so that we can search for the best qc to include in this block.
-            assert(std::holds_alternative<block_data_new_t>(block_data.v));
-            const block_data_new_t& bd = std::get<block_data_new_t>(block_data.v);
-            const auto& fork_db = bd.fork_db; // fork_db<block_state_ptr, block_header_state_ptr>
+               return assembled_block{
+                  .v = assembled_block::assembled_block_dpos{block_ptr->calculate_id(),
+                                                             std::move(bb.pending_block_header_state),
+                                                             std::move(bb.pending_trx_metas), std::move(block_ptr),
+                                                             std::move(bb.new_pending_producer_schedule)}
+               };
+            },
+            [&](building_block_if& bb) -> assembled_block {
+               // compute the action_mroot and transaction_mroot
+               auto [transaction_mroot, action_mroot] = std::visit(
+                  overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
+                                auto trx_merkle_fut =
+                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(trx_receipts)); });
+                                auto action_merkle_fut =
+                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(action_receipts)); });
+                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
+                             },
+                             [&](const checksum256_type& trx_checksum) {
+                                return std::make_pair(trx_checksum, calculate_merkle(std::move(action_receipts)));
+                             }},
+                  trx_mroot_or_receipt_digests());
 
-            // [greg todo] retrieve qc, and fill the following two variables accurately
-            std::optional<quorum_certificate> qc; // Comes from traversing branch from parent and calling get_best_qc()
-                                                  // assert(qc->block_num <= num_from_id(previous));
-            uint32_t last_qc_block_num {0}; 
-            bool     is_last_qc_strong {false};
+               // get fork_database so that we can search for the best qc to include in this block.
+               assert(std::holds_alternative<block_data_new_t>(block_data.v));
+               const block_data_new_t& bd      = std::get<block_data_new_t>(block_data.v);
+               const auto&             fork_db = bd.fork_db; // fork_db<block_state_ptr, block_header_state_ptr>
 
-            block_header_state_input bhs_input {
-               input,
-               transaction_mroot,
-               action_mroot,
-               bb.new_proposer_policy,
-               bb.new_finalizer_policy,
-               qc,
-               last_qc_block_num,
-               is_last_qc_strong
-            };
-            
-            assembled_block::assembled_block_if ab {
-               bb.active_producer_authority,
-               bb.parent.next(bhs_input),
-               bb.pending_trx_metas,
-               bb.pending_trx_receipts,
-               qc
-            };
+               // [greg todo] retrieve qc, and fill the following two variables accurately
+               std::optional<quorum_certificate> qc; // Comes from traversing branch from parent and calling
+                                                     // get_best_qc() assert(qc->block_num <= num_from_id(previous));
+               uint32_t last_qc_block_num{0};
+               bool     is_last_qc_strong{false};
 
-            // [greg todo]: move these to the ` block_header_state next(const block_header_state_input& data) const` function
-            block_header_state* bhs = &ab.get_bhs();
+               block_header_state_input bhs_input{
+                  input, transaction_mroot, action_mroot,     bb.new_proposer_policy, bb.new_finalizer_policy,
+                  qc,    last_qc_block_num, is_last_qc_strong};
 
-            std::optional<proposer_policy>&  new_proposer_policy  = bhs_input.new_proposer_policy;
-            std::optional<finalizer_policy>& new_finalizer_policy = bhs_input.new_finalizer_policy;
+               assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
+                                                      bb.pending_trx_metas, bb.pending_trx_receipts, qc};
 
-            if (new_finalizer_policy) 
-               new_finalizer_policy->generation = bhs->increment_finalizer_policy_generation();
-            
-            emplace_extension(
-               bhs->header.header_extensions,
-               instant_finality_extension::extension_id(),
-               fc::raw::pack( instant_finality_extension{ last_qc_block_num,
-                                                          is_last_qc_strong,
-                                                          std::move(bb.new_finalizer_policy),
-                                                          std::move(bb.new_proposer_policy) }));
-            // [end move]
-            
-            return assembled_block{ .v = std::move(ab) }; 
-         }},
+               // [greg todo]: move these to the ` block_header_state next(const block_header_state_input& data) const`
+               // function
+               block_header_state* bhs = &ab.get_bhs();
+
+               std::optional<proposer_policy>&  new_proposer_policy  = bhs_input.new_proposer_policy;
+               std::optional<finalizer_policy>& new_finalizer_policy = bhs_input.new_finalizer_policy;
+
+               if (new_finalizer_policy)
+                  new_finalizer_policy->generation = bhs->increment_finalizer_policy_generation();
+
+               emplace_extension(bhs->header.header_extensions, instant_finality_extension::extension_id(),
+                                 fc::raw::pack(instant_finality_extension{last_qc_block_num, is_last_qc_strong,
+                                                                          std::move(bb.new_finalizer_policy),
+                                                                          std::move(bb.new_proposer_policy)}));
+               // [end move]
+
+               return assembled_block{.v = std::move(ab)};
+            }},
          v);
    }
 };
@@ -2563,7 +2540,7 @@ struct controller_impl {
       };
 
       auto assembled_block = 
-         bb.assemble_block(bb_input, thread_pool, protocol_features.get_protocol_feature_set(), block_data);
+         bb.assemble_block(bb_input, thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
 
       // Update TaPoS table:
       create_block_summary(  assembled_block.id() );
