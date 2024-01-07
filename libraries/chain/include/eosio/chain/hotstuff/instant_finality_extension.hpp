@@ -10,8 +10,14 @@ struct instant_finality_extension : fc::reflect_init {
    static constexpr bool     enforce_unique() { return true; }
 
    instant_finality_extension() = default;
-   instant_finality_extension( uint32_t last_qc_block_num, bool is_last_qc_strong, std::optional<finalizer_policy> new_finalizer_policy, std::optional<proposer_policy> new_proposer_policy)
-   :last_qc_block_num( last_qc_block_num ), is_last_qc_strong( is_last_qc_strong ), new_finalizer_policy( std::move(new_finalizer_policy) ), new_proposer_policy( std::move(new_proposer_policy) )
+   instant_finality_extension( uint32_t last_qc_block_num,
+                               bool is_last_qc_strong,
+                               std::optional<finalizer_policy> new_finalizer_policy,
+                               std::optional<proposer_policy> new_proposer_policy )
+   : last_qc_block_num( last_qc_block_num ),
+     is_last_qc_strong( is_last_qc_strong ),
+     new_finalizer_policy( std::move(new_finalizer_policy) ),
+     new_proposer_policy( std::move(new_proposer_policy) )
    {}
 
    void reflector_init();

@@ -129,6 +129,10 @@ struct completed_block {
       return std::visit([](const auto& bsp) -> const flat_set<digest_type>& {
             return bsp->get_activated_protocol_features()->protocol_features; }, bsp);
    }
+
+   const block_id_type& id() const  {
+      return std::visit([](const auto& bsp) -> const block_id_type& { return bsp->id(); }, bsp);
+   }
    
    uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
 
@@ -154,13 +158,9 @@ struct completed_block {
    }
 
    const block_signing_authority& pending_block_signing_authority() const {
-      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) -> const block_signing_authority& {
-                                      return bsp->valid_block_signing_authority;
-                                   },
-                                   [](const block_state_ptr& bsp) -> const block_signing_authority& {
-                                      static block_signing_authority bsa; return bsa; //return bsp->header.producer; [greg todo]
-                                   }},
-                        bsp);
+      // this should never be called on completed_block because `controller::is_building_block()` returns false
+      assert(0); 
+      static block_signing_authority bsa; return bsa; // just so it builds
    }
 };
 
@@ -185,6 +185,8 @@ struct assembled_block {
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
       std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
+
+      block_header_state& get_bhs() { return bhs; }
    };
 
    std::variant<assembled_block_dpos, assembled_block_if> v;
@@ -368,10 +370,10 @@ struct building_block {
 
    // --------------------------------------------------------------------------------
    struct building_block_if : public building_block_common {
+      const block_header_state&                  parent;
       const block_id_type                        parent_id;                        // Comes from building_block_input::parent_id
       const block_timestamp_type                 timestamp;                        // Comes from building_block_input::timestamp
       const producer_authority                   active_producer_authority;        // Comes from parent.get_scheduled_producer(timestamp)
-      const vector<digest_type>                  new_protocol_feature_activations; // Comes from building_block_input::new_protocol_feature_activations
       const protocol_feature_activation_set_ptr  prev_activated_protocol_features; // Cached: parent.activated_protocol_features()
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
@@ -382,6 +384,7 @@ struct building_block {
 
       building_block_if(const block_header_state& parent, const building_block_input& input)
          : building_block_common(input.new_protocol_feature_activations)
+         , parent (parent)
          , parent_id(input.parent_id)
          , timestamp(input.timestamp)
          , active_producer_authority{input.producer,
@@ -416,7 +419,7 @@ struct building_block {
    bool is_dpos() const { return std::holds_alternative<building_block_dpos>(v); }
 
    // if constructor
-   building_block(const block_header_state& prev, const building_block_input& bbi) :
+   building_block(const block_header_state& prev, const building_block_input bbi) :
       v(building_block_if(prev, bbi))
    {}
 
@@ -460,6 +463,13 @@ struct building_block {
       return std::visit(
          overloaded{[](const building_block_dpos& bb)  { return bb.pending_block_header_state.timestamp; },
                     [](const building_block_if& bb)    { return bb.timestamp; }},
+         v);
+   }
+
+   block_id_type parent_id() const {
+      return std::visit(
+         overloaded{[](const building_block_dpos& bb)  { return bb.pending_block_header_state.previous; },
+                    [](const building_block_if& bb)    { return bb.parent_id; }},
          v);
    }
 
@@ -527,6 +537,76 @@ struct building_block {
                                    }},
                         v);
    }
+
+   assembled_block assemble_block(const building_block_input &input,
+                                  digest_type transaction_mroot,
+                                  digest_type action_mroot,
+                                  const protocol_feature_set& pfs) {
+      return std::visit(
+         overloaded{[&](building_block_dpos& bb) -> assembled_block {
+            // in dpos, we create a signed_block here. In IF mode, we do it later (when we are ready to sign it)
+            auto block_ptr = std::make_shared<signed_block>(
+               bb.pending_block_header_state.make_block_header(transaction_mroot, action_mroot, bb.new_pending_producer_schedule,
+                                                               vector<digest_type>(bb.new_protocol_feature_activations), 
+                                                               pfs));
+            
+            block_ptr->transactions = std::move(bb.pending_trx_receipts);
+            
+            return assembled_block{
+               .v = assembled_block::assembled_block_dpos{block_ptr->calculate_id(),
+                                                     std::move(bb.pending_block_header_state),
+                                                     std::move(bb.pending_trx_metas),
+                                                     std::move(block_ptr),
+                                                     std::move(bb.new_pending_producer_schedule)}};
+         },
+         [&](building_block_if& bb)  -> assembled_block {
+            // [greg todo] retrieve qc, and fill the following two variables accurately
+            std::optional<quorum_certificate> qc; // Comes from traversing branch from parent and calling get_best_qc()
+                                                  // assert(qc->block_num <= num_from_id(previous));
+            uint32_t last_qc_block_num {0}; 
+            bool     is_last_qc_strong {false};
+
+            block_header_state_input bhs_input {
+               input,
+               transaction_mroot,
+               action_mroot,
+               bb.new_proposer_policy,
+               bb.new_finalizer_policy,
+               qc,
+               last_qc_block_num,
+               is_last_qc_strong
+            };
+            
+            assembled_block::assembled_block_if ab {
+               bb.active_producer_authority,
+               bb.parent.next(bhs_input),
+               bb.pending_trx_metas,
+               bb.pending_trx_receipts,
+               qc
+            };
+
+            // [greg todo]: move these to the ` block_header_state next(const block_header_state_input& data) const` function
+            block_header_state* bhs = &ab.get_bhs();
+
+            std::optional<proposer_policy>&  new_proposer_policy  = bhs_input.new_proposer_policy;
+            std::optional<finalizer_policy>& new_finalizer_policy = bhs_input.new_finalizer_policy;
+
+            if (new_finalizer_policy) 
+               new_finalizer_policy->generation = bhs->increment_finalizer_policy_generation();
+            
+            emplace_extension(
+               bhs->header.header_extensions,
+               instant_finality_extension::extension_id(),
+               fc::raw::pack( instant_finality_extension{ last_qc_block_num,
+                                                          is_last_qc_strong,
+                                                          std::move(bb.new_finalizer_policy),
+                                                          std::move(bb.new_proposer_policy) }));
+            // [end move]
+            
+            return assembled_block{ .v = std::move(ab) }; 
+         }},
+         v);
+   }
 };
 
 
@@ -559,7 +639,7 @@ struct pending_state {
    block_timestamp_type timestamp() const {
       return std::visit([](const auto& stage) { return stage.timestamp(); }, _block_stage);
    }
-
+   
    uint32_t block_num() const {
       return std::visit([](const auto& stage) { return stage.block_num(); }, _block_stage);
    }
@@ -2455,66 +2535,45 @@ struct controller_impl {
       );
       resource_limits.process_block_usage(bb.block_num());
 
+      building_block_input bb_input {
+         .parent_id = bb.parent_id(),
+         .timestamp =  bb.timestamp(),
+         .producer  = bb.producer(),
+         .new_protocol_feature_activations = bb.new_protocol_feature_activations()};
+
+      auto assembled_block = 
+         bb.assemble_block(bb_input,
+                           calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb.trx_mroot_or_receipt_digests()),
+                           action_merkle_fut.get(),
+                           protocol_features.get_protocol_feature_set());
+
+      
+      // Update TaPoS table:
+      create_block_summary(  assembled_block.id() );
+
+      pending->_block_stage = std::move(assembled_block);
+      
+      /*
+        ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
+        ("n",pbhs.block_num())
+        ("id",id)
+        ("t",pbhs.timestamp)
+        ("p",pbhs.producer)
+        ("signing_key", pbhs.block_signing_key)
+        ("v",pbhs.active_schedule_version)
+        ("lib",pbhs.dpos_irreversible_blocknum)
+        ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
+        ("np",block_ptr->new_producers)
+        );
+      */
+
+         
 #if 0
       // [greg todo] see https://github.com/AntelopeIO/leap/issues/1911
       bb.apply_hs<void>([&](building_block::building_block_if& bb) {
-         auto proposed_fin_pol = bb.new_finalizer_policy;
-         if (proposed_fin_pol) {
-            // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
-            finalizer_policy fin_pol = std::move(*proposed_fin_pol);
-            fin_pol.generation = bb.apply_hs<uint32_t>([&](building_block_if& h) {
-               return h._bhs.increment_finalizer_policy_generation(); });
-#warning set last_qc_block_num, is_last_qc_strong, and new_proposer_policy correctly
-            uint32_t last_qc_block_num {0};
-            bool is_last_qc_strong {false};
-            std::optional<proposer_policy> new_proposer_policy {std::nullopt};
-            emplace_extension(
-               block_ptr->header_extensions,
-               instant_finality_extension::extension_id(),
-               fc::raw::pack( instant_finality_extension{ last_qc_block_num, is_last_qc_strong, std::move(fin_pol), std::move(new_proposer_policy) } )
-               );
-      }
-#endif
-      
-      // Create (unsigned) block in dpos mode.    [greg todo] do it in IF mode later when we are ready to sign it
-      bb.apply_dpos<void>([&](building_block::building_block_dpos& bb) {
-         auto block_ptr = std::make_shared<signed_block>(
-            bb.pending_block_header_state.make_block_header(
-               calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb.trx_mroot_or_receipt_digests),
-               action_merkle_fut.get(),
-               bb.new_pending_producer_schedule,
-               vector<digest_type>(bb.new_protocol_feature_activations), // have to copy as member declared `const`
-               protocol_features.get_protocol_feature_set()));
-
-         block_ptr->transactions = std::move(bb.pending_trx_receipts);
-
-         auto id = block_ptr->calculate_id();
-
-         // Update TaPoS table:
-         create_block_summary( id );
-
-         /*
-           ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
-           ("n",pbhs.block_num())
-           ("id",id)
-           ("t",pbhs.timestamp)
-           ("p",pbhs.producer)
-           ("signing_key", pbhs.block_signing_key)
-           ("v",pbhs.active_schedule_version)
-           ("lib",pbhs.dpos_irreversible_blocknum)
-           ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
-           ("np",block_ptr->new_producers)
-           );
-         */
-
-         pending->_block_stage = assembled_block{assembled_block::assembled_block_dpos{
-            id,
-            std::move( bb.pending_block_header_state ),
-            std::move( bb.pending_trx_metas ),
-            std::move( block_ptr ),
-            std::move( bb.new_pending_producer_schedule )
-            }};
       });
+#endif
+
       }
       FC_CAPTURE_AND_RETHROW()
    } /// finalize_block
