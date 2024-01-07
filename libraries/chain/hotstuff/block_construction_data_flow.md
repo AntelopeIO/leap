@@ -144,6 +144,7 @@ In addition, in IF `pending_state._block_stage` will still contain the three sta
 
 ```c++
 struct building_block {
+   const block_header_state&                        parent;                           // Needed for block_header_state::next()
    const block_id_type                              parent_id;                        // Comes from building_block_input::parent_id
    const block_timestamp_type                       timestamp;                        // Comes from building_block_input::timestamp
    const account_name                               producer;                         // Comes from building_block_input::producer
@@ -197,6 +198,8 @@ struct block_header_state_input : public building_block_input {
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
    std::optional<quorum_certificate> qc;                   // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
+   uint32_t                          last_qc_block_num;
+   bool                              is_last_qc_strong;
    // ... ?
 };
 ```

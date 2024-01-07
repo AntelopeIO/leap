@@ -33,12 +33,12 @@ struct block_header_state_input : public building_block_input {
 };
 
 struct block_header_state_core {
-   uint32_t                last_final_block_height = 0;     // last irreversible (final) block.
-   std::optional<uint32_t> final_on_strong_qc_block_height; // will become final if this header achives a strong QC.
-   std::optional<uint32_t> last_qc_block_height;            //
-   uint32_t                finalizer_policy_generation;     // 
+   uint32_t                last_final_block_num = 0;       // last irreversible (final) block.
+   std::optional<uint32_t> final_on_strong_qc_block_num;   // will become final if this header achives a strong QC.
+   std::optional<uint32_t> last_qc_block_num;              //
+   uint32_t                finalizer_policy_generation;    // 
 
-   block_header_state_core next(uint32_t last_qc_block_height, bool is_last_qc_strong) const;
+   block_header_state_core next(uint32_t last_qc_block_num, bool is_last_qc_strong) const;
 };
 
 struct block_header_state {
@@ -70,7 +70,7 @@ struct block_header_state {
    
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
-      return !core.last_qc_block_height || qc.block_height > *core.last_qc_block_height;
+      return !core.last_qc_block_num || qc.block_height > *core.last_qc_block_num;
    }
 
    protocol_feature_activation_set_ptr  get_prev_activated_protocol_features() const { return {}; } //  [greg todo] 

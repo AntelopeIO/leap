@@ -23,7 +23,7 @@ struct instant_finality_extension : fc::reflect_init {
    void reflector_init();
 
    uint32_t                         last_qc_block_num {0};  // The block height of the most recent ancestor block that has a QC justification
-   bool                             is_last_qc_strong {false}; // Whether the QC for the block referenced by last_qc_block_height is strong or weak.
+   bool                             is_last_qc_strong {false}; // Whether the QC for the block referenced by last_qc_block_num is strong or weak.
    std::optional<finalizer_policy>  new_finalizer_policy;
    std::optional<proposer_policy>   new_proposer_policy;
 };

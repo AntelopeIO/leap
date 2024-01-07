@@ -4,49 +4,51 @@
 
 namespace eosio::chain {
 
-block_header_state_core block_header_state_core::next(uint32_t last_qc_block_height, bool is_last_qc_strong) const {
-   // no state change if last_qc_block_height is the same
-   if (last_qc_block_height == this->last_qc_block_height) {
+block_header_state_core block_header_state_core::next(uint32_t last_qc_block_num, bool is_last_qc_strong) const {
+   // no state change if last_qc_block_num is the same
+   if (last_qc_block_num == this->last_qc_block_num) {
       return {*this};
    }
 
-   EOS_ASSERT(last_qc_block_height > this->last_qc_block_height, block_validate_exception,
-              "new last_qc_block_height must be greater than old last_qc_block_height");
+   EOS_ASSERT(last_qc_block_num > this->last_qc_block_num, block_validate_exception,
+              "new last_qc_block_num must be greater than old last_qc_block_num");
 
-   auto old_last_qc_block_height            = this->last_qc_block_height;
-   auto old_final_on_strong_qc_block_height = this->final_on_strong_qc_block_height;
+   auto old_last_qc_block_num            = this->last_qc_block_num;
+   auto old_final_on_strong_qc_block_num = this->final_on_strong_qc_block_num;
 
    block_header_state_core result{*this};
 
    if (is_last_qc_strong) {
       // last QC is strong. We can progress forward.
 
-      // block with old final_on_strong_qc_block_height becomes irreversible
-      if (old_final_on_strong_qc_block_height.has_value()) {
-         result.last_final_block_height = *old_final_on_strong_qc_block_height;
+      // block with old final_on_strong_qc_block_num becomes irreversible
+      if (old_final_on_strong_qc_block_num.has_value()) {
+         result.last_final_block_num = *old_final_on_strong_qc_block_num;
       }
 
       // next block which can become irreversible is the block with
-      // old last_qc_block_height
-      if (old_last_qc_block_height.has_value()) {
-         result.final_on_strong_qc_block_height = *old_last_qc_block_height;
+      // old last_qc_block_num
+      if (old_last_qc_block_num.has_value()) {
+         result.final_on_strong_qc_block_num = *old_last_qc_block_num;
       }
    } else {
-      // new final_on_strong_qc_block_height should not be present
-      result.final_on_strong_qc_block_height.reset();
+      // new final_on_strong_qc_block_num should not be present
+      result.final_on_strong_qc_block_num.reset();
 
-      // new last_final_block_height should be the same as the old last_final_block_height
+      // new last_final_block_num should be the same as the old last_final_block_num
    }
 
-   // new last_qc_block_height is always the input last_qc_block_height.
-   result.last_qc_block_height = last_qc_block_height;
+   // new last_qc_block_num is always the input last_qc_block_num.
+   result.last_qc_block_num = last_qc_block_num;
 
    return result;
 }
 
 
-block_header_state block_header_state::next(const block_header_state_input& data) const {
+block_header_state block_header_state::next(const block_header_state_input& input) const {
    block_header_state result;
+
+   result.core = core.next(input.last_qc_block_num, input.is_last_qc_strong);
 
 #if 0
    if (when != block_timestamp_type()) {
