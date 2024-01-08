@@ -5,8 +5,8 @@
 namespace eosio::chain::detail {
 
    inline bool is_builtin_activated(const protocol_feature_activation_set_ptr& pfa,
-                             const protocol_feature_set& pfs,
-                             builtin_protocol_feature_t feature_codename) {
+                                    const protocol_feature_set& pfs,
+                                    builtin_protocol_feature_t feature_codename) {
       auto digest = pfs.get_builtin_digest(feature_codename);
       const auto& protocol_features = pfa->protocol_features;
       return digest && protocol_features.find(*digest) != protocol_features.end();
