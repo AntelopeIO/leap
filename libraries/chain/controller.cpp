@@ -336,7 +336,7 @@ struct assembled_block {
       deque<transaction_metadata_ptr>   trx_metas;                 // Comes from building_block::pending_trx_metas
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
-      std::optional<qc_data_t>          qc_data;                   // QC to add as block extension to new block
+      std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
 
       block_header_state& get_bhs() { return bhs; }
    };
@@ -761,7 +761,8 @@ struct building_block {
                   qc_data ? qc_data->qc_info : std::optional<qc_info_t>{} };
 
                assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
-                                                      bb.pending_trx_metas, bb.pending_trx_receipts, qc_data};
+                                                      bb.pending_trx_metas, bb.pending_trx_receipts,
+                                                      qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}};
 
                return assembled_block{.v = std::move(ab)};
             }},
