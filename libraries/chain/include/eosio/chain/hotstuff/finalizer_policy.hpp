@@ -6,15 +6,6 @@
 namespace eosio::chain {
 
    struct finalizer_policy {
-      finalizer_policy();
-      ~finalizer_policy();
-
-      finalizer_policy(const finalizer_policy&);
-      finalizer_policy(finalizer_policy&&) noexcept;
-
-      finalizer_policy& operator=(const finalizer_policy&);
-      finalizer_policy& operator=(finalizer_policy&&) noexcept;
-
       uint32_t                         generation = 0; ///< sequentially incrementing version number
       uint64_t                         threshold = 0;  ///< vote weight threshold to finalize blocks
       std::vector<finalizer_authority> finalizers; ///< Instant Finality voter set
