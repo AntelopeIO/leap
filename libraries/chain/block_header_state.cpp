@@ -4,6 +4,16 @@
 
 namespace eosio::chain {
 
+#warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
+
+   namespace detail {
+      uint32_t get_next_next_round_block_num( block_timestamp_type t, uint32_t block_num ) {
+         auto index = t.slot % config::producer_repetitions; // current index in current round
+         //                 (increment to the end of this round  ) + next round
+         return block_num + (config::producer_repetitions - index) + config::producer_repetitions;
+      }
+   }
+
 block_header_state_core block_header_state_core::next(uint32_t last_qc_block_height, bool is_last_qc_strong) const {
    // no state change if last_qc_block_height is the same
    if (last_qc_block_height == this->last_qc_block_height) {
