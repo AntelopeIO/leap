@@ -12,7 +12,7 @@ producer_authority block_header_state::get_scheduled_producer(block_timestamp_ty
 
 #warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
    
-block_header_state_core block_header_state_core::next(uint32_t last_qc_block_num, bool is_last_qc_strong) const {
+block_header_state_core block_header_state_core::next(const uint32_t last_qc_block_num, bool is_last_qc_strong) const {
    // no state change if last_qc_block_num is the same
    if (last_qc_block_num == this->last_qc_block_num) {
       return {*this};
@@ -70,19 +70,24 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 
    // core
    // ----
-   result.core = core.next(input.last_qc_block_num, input.is_last_qc_strong);
+   if (input.qc_info)
+      result.core = core.next(input.qc_info->last_qc_block_num, input.qc_info->is_last_qc_strong);
+   else
+      result.core = core;
 
    // add block header extensions
    // ---------------------------
-   auto& new_finalizer_policy = input.new_finalizer_policy;
+   if (input.new_finalizer_policy)
+      ++input.new_finalizer_policy->generation;
 
-   if (new_finalizer_policy)
-      ++new_finalizer_policy->generation;
-
+   std::optional<qc_info_t> qc_info = input.qc_info;
+   if (!qc_info) {
+      // [greg todo]: copy the one from the previous block (look in header.header_extensions)
+   }
+   
    emplace_extension(result.header.header_extensions, instant_finality_extension::extension_id(),
-                     fc::raw::pack(instant_finality_extension{core.last_qc_block_num ? *core.last_qc_block_num : 0,
-                                                              input.is_last_qc_strong,
-                                                              std::move(new_finalizer_policy),
+                     fc::raw::pack(instant_finality_extension{qc_info,
+                                                              std::move(input.new_finalizer_policy),
                                                               std::move(input.new_proposer_policy)}));
                
    return result;

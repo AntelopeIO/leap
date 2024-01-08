@@ -336,7 +336,7 @@ struct assembled_block {
       deque<transaction_metadata_ptr>   trx_metas;                 // Comes from building_block::pending_trx_metas
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
-      std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
+      std::optional<qc_data_t>          qc_data;                   // QC to add as block extension to new block
 
       block_header_state& get_bhs() { return bhs; }
    };
@@ -745,11 +745,9 @@ struct building_block {
                const block_data_new_t& bd      = std::get<block_data_new_t>(block_data.v);
                const auto&             fork_db = bd.fork_db; // fork_db<block_state_ptr, block_header_state_ptr>
 
-               // [greg todo] retrieve qc, and fill the following two variables accurately
-               std::optional<quorum_certificate> qc; // Comes from traversing branch from parent and calling
-                                                     // get_best_qc() assert(qc->block_num <= num_from_id(previous));
-               uint32_t last_qc_block_num{0};
-               bool     is_last_qc_strong{false};
+               // [greg todo] retrieve qc, and fill the following struct accurately
+               std::optional<qc_data_t> qc_data; // Comes from traversing branch from parent and calling
+                                                 // get_best_qc() assert(qc->block_num <= num_from_id(previous));
 
                building_block_input bb_input {
                   .parent_id = parent_id(),
@@ -759,11 +757,11 @@ struct building_block {
                };
 
                block_header_state_input bhs_input{
-                  bb_input, transaction_mroot, action_mroot,     bb.new_proposer_policy, bb.new_finalizer_policy,
-                  qc,       last_qc_block_num, is_last_qc_strong};
+                  bb_input, transaction_mroot, action_mroot, bb.new_proposer_policy, bb.new_finalizer_policy,
+                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{} };
 
                assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
-                                                      bb.pending_trx_metas, bb.pending_trx_receipts, qc};
+                                                      bb.pending_trx_metas, bb.pending_trx_receipts, qc_data};
 
                return assembled_block{.v = std::move(ab)};
             }},

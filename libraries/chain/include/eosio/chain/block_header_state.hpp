@@ -4,6 +4,7 @@
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>
+#include <eosio/chain/hotstuff/instant_finality_extension.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
 #include <future>
 
@@ -17,6 +18,12 @@ struct building_block_input {
    account_name                      producer;
    vector<digest_type>               new_protocol_feature_activations;
 };
+
+struct qc_data_t {
+   quorum_certificate qc;                                  // Comes from traversing branch from parent and calling get_best_qc()
+                                                           // assert(qc->block_num <= num_from_id(previous));
+   qc_info_t          qc_info;                             // describes the above qc
+};
       
 // this struct can be extracted from a building block
 struct block_header_state_input : public building_block_input {
@@ -24,10 +31,8 @@ struct block_header_state_input : public building_block_input {
    digest_type                       action_mroot;         // Compute root from  building_block::action_receipt_digests
    std::optional<proposer_policy>    new_proposer_policy;  // Comes from building_block::new_proposer_policy
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
-   std::optional<quorum_certificate> qc;                   // Comes from traversing branch from parent and calling get_best_qc()
+   std::optional<qc_info_t>          qc_info;              // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
-   uint32_t                          last_qc_block_num;
-   bool                              is_last_qc_strong;
 };
 
 struct block_header_state_core {
