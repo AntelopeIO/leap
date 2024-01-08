@@ -11,8 +11,6 @@ namespace eosio::chain {
 
 namespace detail { struct schedule_info; };
 
-using proposer_policy_ptr = std::shared_ptr<proposer_policy>;
-
 struct building_block_input {
    block_id_type                     parent_id;
    block_timestamp_type              timestamp;
@@ -66,16 +64,16 @@ struct block_header_state {
    const producer_authority_schedule& active_schedule_auth()  const { return proposer_policy->proposer_schedule; }
    const producer_authority_schedule& pending_schedule_auth() const { return proposer_policies.rbegin()->second->proposer_schedule; } // [greg todo]
    
-   block_header_state next(const block_header_state_input& data) const;
+   block_header_state next(block_header_state_input& data) const;
    
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
       return !core.last_qc_block_num || qc.block_height > *core.last_qc_block_num;
    }
 
-   protocol_feature_activation_set_ptr  get_prev_activated_protocol_features() const { return {}; } //  [greg todo] 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    detail::schedule_info prev_pending_schedule() const;
+   producer_authority get_scheduled_producer(block_timestamp_type t) const;
    uint32_t active_schedule_version() const;
    std::optional<producer_authority_schedule>& new_pending_producer_schedule() { static std::optional<producer_authority_schedule> x; return x; } //  [greg todo] 
    signed_block_header make_block_header(const checksum256_type& transaction_mroot,

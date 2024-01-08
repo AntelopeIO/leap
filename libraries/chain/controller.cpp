@@ -765,22 +765,6 @@ struct building_block {
                assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
                                                       bb.pending_trx_metas, bb.pending_trx_receipts, qc};
 
-               // [greg todo]: move these to the ` block_header_state next(const block_header_state_input& data) const`
-               // function
-               block_header_state* bhs = &ab.get_bhs();
-
-               std::optional<proposer_policy>&  new_proposer_policy  = bhs_input.new_proposer_policy;
-               std::optional<finalizer_policy>& new_finalizer_policy = bhs_input.new_finalizer_policy;
-
-               if (new_finalizer_policy)
-                  new_finalizer_policy->generation = bhs->increment_finalizer_policy_generation();
-
-               emplace_extension(bhs->header.header_extensions, instant_finality_extension::extension_id(),
-                                 fc::raw::pack(instant_finality_extension{last_qc_block_num, is_last_qc_strong,
-                                                                          std::move(bb.new_finalizer_policy),
-                                                                          std::move(bb.new_proposer_policy)}));
-               // [end move]
-
                return assembled_block{.v = std::move(ab)};
             }},
          v);

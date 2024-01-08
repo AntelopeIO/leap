@@ -13,6 +13,8 @@ struct proposer_policy {
    producer_authority_schedule proposer_schedule;
 };
 
+using proposer_policy_ptr = std::shared_ptr<proposer_policy>;
+
 } /// eosio::chain
 
 FC_REFLECT( eosio::chain::proposer_policy, (schema_version)(active_time)(proposer_schedule) )
