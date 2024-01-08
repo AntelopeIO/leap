@@ -571,7 +571,7 @@ struct building_block {
    bool is_dpos() const { return std::holds_alternative<building_block_dpos>(v); }
 
    // if constructor
-   building_block(const block_header_state& prev, const building_block_input bbi) :
+   building_block(const block_header_state& prev, const building_block_input& bbi) :
       v(building_block_if(prev, bbi))
    {}
 
