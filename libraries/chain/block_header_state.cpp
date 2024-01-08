@@ -74,8 +74,8 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    // ---------------------------
    auto& new_finalizer_policy = input.new_finalizer_policy;
 
-   //if (new_finalizer_policy)
-   //   new_finalizer_policy->generation = increment_finalizer_policy_generation();
+   if (new_finalizer_policy)
+      ++new_finalizer_policy->generation;
 
    emplace_extension(result.header.header_extensions, instant_finality_extension::extension_id(),
                      fc::raw::pack(instant_finality_extension{core.last_qc_block_num ? *core.last_qc_block_num : 0,

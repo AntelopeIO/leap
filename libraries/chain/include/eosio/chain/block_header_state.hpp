@@ -81,7 +81,6 @@ struct block_header_state {
                                          const std::optional<producer_authority_schedule>& new_producers,
                                          vector<digest_type>&& new_protocol_feature_activations,
                                          const protocol_feature_set& pfs) const;
-   uint32_t increment_finalizer_policy_generation() { return ++core.finalizer_policy_generation; }
 };
 
 using block_header_state_ptr = std::shared_ptr<block_header_state>;
