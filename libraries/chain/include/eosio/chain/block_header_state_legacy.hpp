@@ -2,7 +2,6 @@
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/incremental_merkle.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
-#include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
 #include <future>
 
@@ -58,7 +57,6 @@ namespace detail {
       uint32_t                          dpos_proposed_irreversible_blocknum = 0;
       uint32_t                          dpos_irreversible_blocknum = 0;
       producer_authority_schedule       active_schedule;
-      uint32_t                          last_proposed_finalizer_policy_generation = 0; // TODO: Add to snapshot_block_header_state_v3
       incremental_canonical_merkle_tree blockroot_merkle;
       flat_map<account_name,uint32_t>   producer_to_last_produced;
       flat_map<account_name,uint32_t>   producer_to_last_implied_irb;
@@ -195,7 +193,6 @@ FC_REFLECT( eosio::chain::detail::block_header_state_legacy_common,
             (dpos_proposed_irreversible_blocknum)
             (dpos_irreversible_blocknum)
             (active_schedule)
-            (last_proposed_finalizer_policy_generation)
             (blockroot_merkle)
             (producer_to_last_produced)
             (producer_to_last_implied_irb)
