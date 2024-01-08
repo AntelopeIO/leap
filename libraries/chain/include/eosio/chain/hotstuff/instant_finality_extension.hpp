@@ -15,16 +15,15 @@ struct instant_finality_extension : fc::reflect_init {
    static constexpr bool     enforce_unique() { return true; }
 
    instant_finality_extension() = default;
-   instant_finality_extension( std::optional<qc_info_t> qc_info,
-                               std::optional<finalizer_policy> new_finalizer_policy,
-                               std::optional<proposer_policy> new_proposer_policy ) :
+   instant_finality_extension(std::optional<qc_info_t> qc_info,
+                              std::optional<finalizer_policy> new_finalizer_policy,
+                              std::optional<proposer_policy> new_proposer_policy) :
       qc_info(qc_info),
-      new_finalizer_policy( std::move(new_finalizer_policy) ),
-      new_proposer_policy( std::move(new_proposer_policy) )
+      new_finalizer_policy(std::move(new_finalizer_policy)),
+      new_proposer_policy(std::move(new_proposer_policy))
    {}
 
    void reflector_init();
-
 
    std::optional<qc_info_t>         qc_info;
    std::optional<finalizer_policy>  new_finalizer_policy;
