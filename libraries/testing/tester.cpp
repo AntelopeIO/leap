@@ -437,7 +437,7 @@ namespace eosio { namespace testing {
 
    void base_tester::_start_block(fc::time_point block_time) {
       auto head_block_number = control->head_block_num();
-      auto producer = control->active_producers().get_scheduled_producer(block_time);
+      auto producer = control->head_active_producers().get_scheduled_producer(block_time);
 
       auto last_produced_block_num = control->last_irreversible_block_num();
       auto itr = last_produced_block.find(producer.producer_name);
