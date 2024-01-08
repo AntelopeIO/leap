@@ -5,8 +5,6 @@
 
 namespace eosio::chain {
 
-#warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
-
    uint32_t block_header_state_legacy::calc_dpos_last_irreversible( account_name producer_of_next_block )const {
       vector<uint32_t> blocknums; blocknums.reserve( producer_to_last_implied_irb.size() );
       for( auto& i : producer_to_last_implied_irb ) {
@@ -25,9 +23,6 @@ namespace eosio::chain {
       return detail::get_scheduled_producer(active_schedule.producers, t);
    }
 
-   // create pending_block_header_state from this for `when`
-   // If hotstuff_activated then use new consensus values and simpler active schedule update.
-   // If notstuff is not activated then use previous pre-hotstuff consensus logic.
    pending_block_header_state_legacy  block_header_state_legacy::next( block_timestamp_type when,
                                                                        uint16_t num_prev_blocks_to_confirm )const
    {
@@ -39,40 +34,36 @@ namespace eosio::chain {
         (when = header.timestamp).slot++;
       }
 
+      auto proauth = get_scheduled_producer(when);
+
+      auto itr = producer_to_last_produced.find( proauth.producer_name );
+      if( itr != producer_to_last_produced.end() ) {
+        EOS_ASSERT( itr->second < (block_num+1) - num_prev_blocks_to_confirm, producer_double_confirm,
+                    "producer ${prod} double-confirming known range",
+                    ("prod", proauth.producer_name)("num", block_num+1)
+                    ("confirmed", num_prev_blocks_to_confirm)("last_produced", itr->second) );
+      }
+
       result.block_num                                       = block_num + 1;
       result.previous                                        = id;
       result.timestamp                                       = when;
+      result.confirmed                                       = num_prev_blocks_to_confirm;
       result.active_schedule_version                         = active_schedule.version;
       result.prev_activated_protocol_features                = activated_protocol_features;
 
-      auto proauth = get_scheduled_producer(when);
-
       result.valid_block_signing_authority                   = proauth.authority;
       result.producer                                        = proauth.producer_name;
-      result.last_proposed_finalizer_policy_generation       = last_proposed_finalizer_policy_generation;
 
       result.blockroot_merkle = blockroot_merkle;
       result.blockroot_merkle.append( id );
 
-      result.prev_pending_schedule                  = pending_schedule;
-
-      auto itr = producer_to_last_produced.find( proauth.producer_name );
-      if( itr != producer_to_last_produced.end() ) {
-         EOS_ASSERT( itr->second < (block_num+1) - num_prev_blocks_to_confirm, producer_double_confirm,
-                     "producer ${prod} double-confirming known range",
-                     ("prod", proauth.producer_name)("num", block_num+1)
-                     ("confirmed", num_prev_blocks_to_confirm)("last_produced", itr->second) );
-      }
-      
-      result.confirmed = num_prev_blocks_to_confirm;
-      
       /// grow the confirmed count
       static_assert(std::numeric_limits<uint8_t>::max() >= (config::max_producers * 2 / 3) + 1, "8bit confirmations may not be able to hold all of the needed confirmations");
 
       // This uses the previous block active_schedule because thats the "schedule" that signs and therefore confirms _this_ block
       auto num_active_producers = active_schedule.producers.size();
       uint32_t required_confs = (uint32_t)(num_active_producers * 2 / 3) + 1;
-      
+
       if( confirm_count.size() < config::maximum_tracked_dpos_confirmations ) {
          result.confirm_count.reserve( confirm_count.size() + 1 );
          result.confirm_count  = confirm_count;
@@ -89,37 +80,39 @@ namespace eosio::chain {
       int32_t i = (int32_t)(result.confirm_count.size() - 1);
       uint32_t blocks_to_confirm = num_prev_blocks_to_confirm + 1; /// confirm the head block too
       while( i >= 0 && blocks_to_confirm ) {
-         --result.confirm_count[i];
-         //idump((confirm_count[i]));
-         if( result.confirm_count[i] == 0 )
-         {
+        --result.confirm_count[i];
+        //idump((confirm_count[i]));
+        if( result.confirm_count[i] == 0 )
+        {
             uint32_t block_num_for_i = result.block_num - (uint32_t)(result.confirm_count.size() - 1 - i);
             new_dpos_proposed_irreversible_blocknum = block_num_for_i;
             //idump((dpos2_lib)(block_num)(dpos_irreversible_blocknum));
-            
+
             if (i == static_cast<int32_t>(result.confirm_count.size() - 1)) {
                result.confirm_count.resize(0);
             } else {
                memmove( &result.confirm_count[0], &result.confirm_count[i + 1], result.confirm_count.size() - i  - 1);
                result.confirm_count.resize( result.confirm_count.size() - i - 1 );
             }
-            
+
             break;
-         }
-         --i;
-         --blocks_to_confirm;
+        }
+        --i;
+        --blocks_to_confirm;
       }
-      
+
       result.dpos_proposed_irreversible_blocknum   = new_dpos_proposed_irreversible_blocknum;
       result.dpos_irreversible_blocknum            = calc_dpos_last_irreversible( proauth.producer_name );
-      
+
+      result.prev_pending_schedule                 = pending_schedule;
+
       if( pending_schedule.schedule.producers.size() &&
           result.dpos_irreversible_blocknum >= pending_schedule.schedule_lib_num )
       {
          result.active_schedule = pending_schedule.schedule;
-         
+
          flat_map<account_name,uint32_t> new_producer_to_last_produced;
-         
+
          for( const auto& pro : result.active_schedule.producers ) {
             if( pro.producer_name == proauth.producer_name ) {
                new_producer_to_last_produced[pro.producer_name] = result.block_num;
@@ -133,7 +126,7 @@ namespace eosio::chain {
             }
          }
          new_producer_to_last_produced[proauth.producer_name] = result.block_num;
-         
+
          result.producer_to_last_produced = std::move( new_producer_to_last_produced );
 
          flat_map<account_name,uint32_t> new_producer_to_last_implied_irb;
@@ -150,9 +143,9 @@ namespace eosio::chain {
                }
             }
          }
-         
+
          result.producer_to_last_implied_irb = std::move( new_producer_to_last_implied_irb );
-         
+
          result.was_pending_promoted = true;
       } else {
          result.active_schedule                  = active_schedule;

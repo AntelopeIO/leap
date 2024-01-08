@@ -4015,6 +4015,10 @@ const producer_authority_schedule& controller::active_producers()const {
    return my->pending->active_producers();
 }
 
+const producer_authority_schedule& controller::head_active_producers()const {
+   return my->block_data.head_active_schedule_auth();
+}
+
 const producer_authority_schedule& controller::pending_producers()const {
    if( !(my->pending) ) 
       return  my->block_data.head_pending_schedule_auth();    // [greg todo] implement pending_producers correctly for IF mode

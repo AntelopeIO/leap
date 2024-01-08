@@ -9,6 +9,8 @@ namespace eosio::chain {
 producer_authority block_header_state::get_scheduled_producer(block_timestamp_type t) const {
    return detail::get_scheduled_producer(proposer_policy->proposer_schedule.producers, t);
 }
+
+#warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
    
 block_header_state_core block_header_state_core::next(uint32_t last_qc_block_num, bool is_last_qc_strong) const {
    // no state change if last_qc_block_num is the same
