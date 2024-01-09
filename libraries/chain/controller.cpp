@@ -689,8 +689,9 @@ struct building_block {
                                       return bb.pending_block_header_state.prev_pending_schedule.schedule;
                                    },
                                    [](const building_block_if& bb) -> const producer_authority_schedule& {
+#warning todo: support pending_producers correctly when in IF mode
                                       static producer_authority_schedule empty;
-                                      return empty; // [greg todo]
+                                      return empty;
                                    }},
                         v);
    }
@@ -840,7 +841,7 @@ struct pending_state {
    }
    
 #if 0
-   // [greg todo] maybe we don't need this and we can have the implementation in controller::pending_producers()
+#warning todo: maybe we don't need this and we can have the implementation in controller::pending_producers()
    const producer_authority_schedule& pending_producers() const {
       return std::visit(
          overloaded{
@@ -2592,8 +2593,8 @@ struct controller_impl {
             
             emit( self.accepted_block, std::tie(bsp->block, bsp->id()) );
 
-            if constexpr (std::is_same_v<block_state_legacy_ptr,std::decay_t<decltype(head)>>) {\
-               // [greg todo] support deep_mind_logger even when in IF mode
+            if constexpr (std::is_same_v<block_state_legacy_ptr,std::decay_t<decltype(head)>>) {
+#warning todo: support deep_mind_logger even when in IF mode
                // at block level, no transaction specific logging is possible
                if (auto* dm_logger = get_deep_mind_logger(false)) {
                   dm_logger->on_accepted_block(bsp);
@@ -4027,6 +4028,7 @@ const producer_authority_schedule& controller::active_producers()const {
    if( !(my->pending) )
       return  my->block_data.head_active_schedule_auth();
 
+#warning todo: support active/pending_producers correctly when in IF mode (see assembled_block and completed_block stages)
    return my->pending->active_producers();
 }
 
@@ -4035,9 +4037,9 @@ const producer_authority_schedule& controller::head_active_producers()const {
 }
 
 const producer_authority_schedule& controller::pending_producers()const {
-   if( !(my->pending) ) 
-      return  my->block_data.head_pending_schedule_auth();    // [greg todo] implement pending_producers correctly for IF mode
-
+#warning todo: support active/pending_producers correctly when in IF mode
+   if( !(my->pending) )
+      return  my->block_data.head_pending_schedule_auth();
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage).pending_producers();
 
@@ -4422,7 +4424,8 @@ void controller::replace_producer_keys( const public_key_type& key ) {
       }
    };
 
-   my->block_data.apply_dpos<void>(replace_keys); // [greg todo]: make it work with `apply` instead of `apply_dpos`
+#warning todo: support active/pending_producers correctly when in IF mode
+   my->block_data.apply_dpos<void>(replace_keys); // make it work with `apply` instead of `apply_dpos`
 }
 
 void controller::replace_account_keys( name account, name permission, const public_key_type& key ) {
