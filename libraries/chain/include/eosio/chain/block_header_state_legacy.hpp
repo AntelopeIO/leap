@@ -90,6 +90,7 @@ struct pending_block_header_state_legacy : public detail::block_header_state_leg
    signed_block_header make_block_header( const checksum256_type& transaction_mroot,
                                           const checksum256_type& action_mroot,
                                           const std::optional<producer_authority_schedule>& new_producers,
+                                          std::optional<finalizer_policy>&& new_finalizer_policy,
                                           vector<digest_type>&& new_protocol_feature_activations,
                                           const protocol_feature_set& pfs)const;
 
