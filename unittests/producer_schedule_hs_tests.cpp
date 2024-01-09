@@ -352,4 +352,9 @@ BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, validating_tester ) try {
 } FC_LOG_AND_RETHROW()
 
 **/
+
+BOOST_FIXTURE_TEST_CASE( tmp_placeholder, validating_tester ) try {
+   // avoid: Test setup error: no test cases matching filter or all test cases were disabled
+} FC_LOG_AND_RETHROW()
+
 BOOST_AUTO_TEST_SUITE_END()
