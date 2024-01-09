@@ -260,11 +260,12 @@ struct block_data_t {
    template <class R, class F>
    R apply_dpos(F& f) {
       if constexpr (std::is_same_v<void, R>)
-         std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); },
-                  [&](block_data_new_t& bd) {}}, v);
+         std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); }, [&](block_data_new_t& bd) {}},
+                    v);
       else
          return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
-                  [&](block_data_new_t& bd)    -> R { return {}; }}, v);
+                                      [&](block_data_new_t& bd) -> R { return {}; }},
+                           v);
    }
 };
 
@@ -411,7 +412,7 @@ struct assembled_block {
                                       return ab.pending_block_header_state.active_schedule;
                                    },
                                    [](const assembled_block_if& ab) -> const producer_authority_schedule& {
-                                      static producer_authority_schedule pas; return pas; // [greg todo]
+                                      return ab.bhs.active_schedule_auth();
                                    }},
                         v);
    }
@@ -421,9 +422,9 @@ struct assembled_block {
    opt_pas& pending_producers() const {
       return std::visit(
          overloaded{[](const assembled_block_dpos& ab) -> opt_pas& { return ab.new_producer_authority_cache; },
-                    [](const assembled_block_if& ab) -> opt_pas& {
+                    [](const assembled_block_if& ab) -> opt_pas& {  // return ab.bhs.pending_schedule_auth(); // not an optional ref!
                        static opt_pas empty;
-                       return empty; // [greg todo]
+                       return empty; // [areg] pending_producers() not needed in IF. proposed_proposers() sufficient.
                     }},
          v);
    }
@@ -568,12 +569,12 @@ struct building_block {
       v(building_block_dpos(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
    {}
 
-   bool is_dpos() const { return std::holds_alternative<building_block_dpos>(v); }
-
    // if constructor
-   building_block(const block_header_state& prev, const building_block_input& bbi) :
-      v(building_block_if(prev, bbi))
+   building_block(const block_header_state& prev, const building_block_input& input) :
+      v(building_block_if(prev, input))
    {}
+
+   bool is_dpos() const { return std::holds_alternative<building_block_dpos>(v); }
 
    template <class R, class F>
    R apply_dpos(F&& f) {
@@ -778,20 +779,27 @@ struct building_block {
 using block_stage_type = std::variant<building_block, assembled_block, completed_block>;
       
 struct pending_state {
-   pending_state( maybe_session&& s,
-                  const block_header_state_legacy& prev,
-                  block_timestamp_type when,
-                  uint16_t num_prev_blocks_to_confirm,
-                  const vector<digest_type>& new_protocol_feature_activations )
-   :_db_session( std::move(s) )
-   ,_block_stage( building_block( prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
-   {}
-
    maybe_session                  _db_session;
    block_stage_type               _block_stage;
    controller::block_status       _block_status = controller::block_status::ephemeral;
    std::optional<block_id_type>   _producer_block_id;
    controller::block_report       _block_report{};
+
+   pending_state(maybe_session&& s,
+                 const block_header_state_legacy& prev,
+                 block_timestamp_type when,
+                 uint16_t num_prev_blocks_to_confirm,
+                 const vector<digest_type>& new_protocol_feature_activations)
+   :_db_session(std::move(s))
+   ,_block_stage(building_block(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
+   {}
+
+   pending_state(maybe_session&& s,
+                 const block_header_state& prev,
+                 const building_block_input& input) :
+      _db_session(std::move(s)),
+      _block_stage(building_block(prev, input))
+   {}
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& stage) { return stage.extract_trx_metas(); }, _block_stage);
@@ -817,7 +825,7 @@ struct pending_state {
       _db_session.push();
    }
 
-   bool is_dpos() const { return std::visit([](const auto& stage) { return stage.is_dpos(); }, _block_stage); }
+   //bool is_dpos() const { return std::visit([](const auto& stage) { return stage.is_dpos(); }, _block_stage); }
    
    const block_signing_authority& pending_block_signing_authority() const {
       return std::visit(
@@ -2349,21 +2357,21 @@ struct controller_impl {
          pending.reset();
       });
 
-      //building_block_input bbi{ head->id(), when, head->get_scheduled_producer(when), std::move(new_protocol_feature_activations) };
-      // [greg todo] build IF `building_block` below if not in dpos mode.
-      //             we'll need a different `building_block` constructor for IF mode
-      auto update_pending = [&](auto& fork_db, auto& head) {
-         if (!self.skip_db_sessions(s)) {
-            EOS_ASSERT( db.revision() == head_block_num(), database_exception, "db revision is not on par with head block",
+      auto update_pending = [&]<class fork_db_t, class bsp>(fork_db_t& fork_db, bsp& head) {
+         EOS_ASSERT( self.skip_db_sessions(s) ||
+                     db.revision() == head_block_num(), database_exception, "db revision is not on par with head block",
                         ("db.revision()", db.revision())("controller_head_block", head_block_num())("fork_db_head_block", fork_db_head_block_num()) );
-
-            pending.emplace( maybe_session(db), *head, when, confirm_block_count, new_protocol_feature_activations );
-         } else {
-            pending.emplace( maybe_session(), *head, when, confirm_block_count, new_protocol_feature_activations );
+         maybe_session session = self.skip_db_sessions(s) ? maybe_session() : maybe_session(db);
+         if constexpr (std::is_same_v<bsp, block_state_legacy_ptr>)
+            pending.emplace(std::move(session), *head, when, confirm_block_count, new_protocol_feature_activations);
+         else {
+            building_block_input bbi{ head->id(), when, head->get_scheduled_producer(when).producer_name,
+                                      new_protocol_feature_activations };
+            pending.emplace(std::move(session), *head, bbi);
          }
       };
 
-      block_data.apply_dpos<void>(update_pending);
+      block_data.apply<void>(update_pending);
 
       pending->_block_status = s;
       pending->_producer_block_id = producer_block_id;
@@ -2440,6 +2448,7 @@ struct controller_impl {
          const auto& gpo = self.get_global_properties();
 
          if (!hs_active) {
+#warning todo: how do we update the producer_schedule after the switch to IF?
             bb.apply_dpos<void>([&](building_block::building_block_dpos& bb_dpos) {
                pending_block_header_state_legacy& pbhs = bb_dpos.pending_block_header_state;
                
