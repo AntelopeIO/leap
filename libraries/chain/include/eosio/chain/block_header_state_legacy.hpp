@@ -73,9 +73,6 @@ namespace detail {
       producer_authority_schedule       schedule;
    };
 
-   bool is_builtin_activated( const protocol_feature_activation_set_ptr& pfa,
-                              const protocol_feature_set& pfs,
-                              builtin_protocol_feature_t feature_codename );
 }
 
 using validator_t = const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>;

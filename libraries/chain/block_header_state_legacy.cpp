@@ -1,25 +1,9 @@
 #include <eosio/chain/block_header_state_legacy.hpp>
+#include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <limits>
 
-namespace eosio { namespace chain {
-
-   namespace detail {
-      bool is_builtin_activated( const protocol_feature_activation_set_ptr& pfa,
-                                 const protocol_feature_set& pfs,
-                                 builtin_protocol_feature_t feature_codename )
-      {
-         auto digest = pfs.get_builtin_digest(feature_codename);
-         const auto& protocol_features = pfa->protocol_features;
-         return digest && protocol_features.find(*digest) != protocol_features.end();
-      }
-   }
-
-   producer_authority block_header_state_legacy::get_scheduled_producer( block_timestamp_type t )const {
-      auto index = t.slot % (active_schedule.producers.size() * config::producer_repetitions);
-      index /= config::producer_repetitions;
-      return active_schedule.producers[index];
-   }
+namespace eosio::chain {
 
    uint32_t block_header_state_legacy::calc_dpos_last_irreversible( account_name producer_of_next_block )const {
       vector<uint32_t> blocknums; blocknums.reserve( producer_to_last_implied_irb.size() );
@@ -33,6 +17,10 @@ namespace eosio { namespace chain {
       std::size_t index = (blocknums.size()-1) / 3;
       std::nth_element( blocknums.begin(),  blocknums.begin() + index, blocknums.end() );
       return blocknums[ index ];
+   }
+
+   producer_authority block_header_state_legacy::get_scheduled_producer( block_timestamp_type t ) const {
+      return detail::get_scheduled_producer(active_schedule.producers, t);
    }
 
    pending_block_header_state_legacy  block_header_state_legacy::next( block_timestamp_type when,
@@ -466,4 +454,4 @@ namespace eosio { namespace chain {
    }
 
 
-} } /// namespace eosio::chain
+} /// namespace eosio::chain

@@ -69,9 +69,6 @@ namespace eosio { namespace chain {
       new_producers_type                new_producers;
       extensions_type                   header_extensions;
 
-
-      block_header() = default;
-
       digest_type       digest()const;
       block_id_type     calculate_id() const;
       uint32_t          block_num() const { return num_from_id(previous) + 1; }
