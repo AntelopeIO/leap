@@ -464,6 +464,7 @@ struct building_block {
       deque<transaction_receipt>          pending_trx_receipts;
       checksum_or_digests                 trx_mroot_or_receipt_digests {digests_t{}};
       digests_t                           action_receipt_digests;
+      std::optional<finalizer_policy>     new_finalizer_policy;
 
       building_block_common(const vector<digest_type>& new_protocol_feature_activations) :
          new_protocol_feature_activations(new_protocol_feature_activations)
@@ -532,7 +533,6 @@ struct building_block {
 
       // Members below (as well as non-const members of building_block_common) start from initial state and are mutated as the block is built.
       std::optional<proposer_policy>             new_proposer_policy;
-      std::optional<finalizer_policy>            new_finalizer_policy;
 
       building_block_if(const block_header_state& parent, const building_block_input& input)
          : building_block_common(input.new_protocol_feature_activations)
@@ -593,6 +593,10 @@ struct building_block {
       else
          return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return {}; },
                                       [&](building_block_if& bb)   -> R { return std::forward<F>(f)(bb); }}, v);
+   }
+
+   void set_proposed_finalizer_policy(const finalizer_policy& fin_pol) {
+      std::visit([&](auto& bb) { return bb.new_finalizer_policy = fin_pol; }, v);
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -713,7 +717,7 @@ struct building_block {
 
                // in dpos, we create a signed_block here. In IF mode, we do it later (when we are ready to sign it)
                auto block_ptr = std::make_shared<signed_block>(bb.pending_block_header_state.make_block_header(
-                  transaction_mroot, action_mroot, bb.new_pending_producer_schedule,
+                  transaction_mroot, action_mroot, bb.new_pending_producer_schedule, std::move(bb.new_finalizer_policy),
                   vector<digest_type>(bb.new_protocol_feature_activations), pfs));
 
                block_ptr->transactions = std::move(bb.pending_trx_receipts);
@@ -2605,7 +2609,7 @@ struct controller_impl {
    void set_proposed_finalizers(const finalizer_policy& fin_pol) {
       assert(pending); // has to exist and be building_block since called from host function
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.apply_hs<void>([&](building_block::building_block_if& bb) { bb.new_finalizer_policy.emplace(fin_pol); });
+      bb.set_proposed_finalizer_policy(fin_pol);
    }
 
    /**

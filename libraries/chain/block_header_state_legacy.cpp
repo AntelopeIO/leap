@@ -162,6 +162,7 @@ namespace eosio::chain {
                                                       const checksum256_type& transaction_mroot,
                                                       const checksum256_type& action_mroot,
                                                       const std::optional<producer_authority_schedule>& new_producers,
+                                                      std::optional<finalizer_policy>&& new_finalizer_policy,
                                                       vector<digest_type>&& new_protocol_feature_activations,
                                                       const protocol_feature_set& pfs
    )const
@@ -204,6 +205,12 @@ namespace eosio::chain {
             }
             h.new_producers = std::move(downgraded_producers);
          }
+      }
+
+      if (new_finalizer_policy) {
+         new_finalizer_policy->generation = 1; // TODO: do we allow more than one set during transition
+         emplace_extension(h.header_extensions, instant_finality_extension::extension_id(),
+                           fc::raw::pack(instant_finality_extension{ {}, std::move(new_finalizer_policy), {} }));
       }
 
       return h;
