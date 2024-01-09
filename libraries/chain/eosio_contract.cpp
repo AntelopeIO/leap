@@ -177,7 +177,7 @@ void apply_eosio_newslimacc(apply_context& context) {
    context.control.get_mutable_resource_limits_manager().initialize_account(create.name, context.trx_context.is_transient());
 
    if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {
-      dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newaccount");
+      dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newslimacc");
    }
 
    context.add_ram_usage(create.name, ram_delta);
@@ -202,8 +202,16 @@ void apply_eosio_setcode(apply_context& context) {
      wasm_interface::validate(context.control, act.code);
    }
 
-   const auto& account = db.get<account_metadata_object,by_name>(act.account);
-   bool existing_code = (account.code_hash != digest_type());
+   const auto* account_metadata = db.find<account_metadata_object,by_name>(act.account);
+   if(account_metadata == nullptr){
+      // to do: charge RAM
+      account_metadata = &db.create<account_metadata_object>([&](auto& a) {
+         a.name = act.account;
+         a.abi_sequence += 1;
+      });
+   }
+
+   bool existing_code = (account_metadata->code_hash != digest_type());
 
    EOS_ASSERT( code_size > 0 || existing_code, set_exact_code, "contract is already cleared" );
 
@@ -211,13 +219,13 @@ void apply_eosio_setcode(apply_context& context) {
    int64_t new_size  = code_size * config::setcode_ram_bytes_multiplier;
 
    if( existing_code ) {
-      const code_object& old_code_entry = db.get<code_object, by_code_hash>(boost::make_tuple(account.code_hash, account.vm_type, account.vm_version));
+      const code_object& old_code_entry = db.get<code_object, by_code_hash>(boost::make_tuple(account_metadata->code_hash, account_metadata->vm_type, account_metadata->vm_version));
       EOS_ASSERT( old_code_entry.code_hash != code_hash, set_exact_code,
                   "contract is already running this version of code" );
       old_size  = (int64_t)old_code_entry.code.size() * config::setcode_ram_bytes_multiplier;
       if( old_code_entry.code_ref_count == 1 ) {
          db.remove(old_code_entry);
-         context.control.code_block_num_last_used(account.code_hash, account.vm_type, account.vm_version, context.control.head_block_num() + 1);
+         context.control.code_block_num_last_used(account_metadata->code_hash, account_metadata->vm_type, account_metadata->vm_version, context.control.head_block_num() + 1);
       } else {
          db.modify(old_code_entry, [](code_object& o) {
             --o.code_ref_count;
@@ -244,7 +252,7 @@ void apply_eosio_setcode(apply_context& context) {
       }
    }
 
-   db.modify( account, [&]( auto& a ) {
+   db.modify( *account_metadata, [&]( auto& a ) {
       a.code_sequence += 1;
       a.code_hash = code_hash;
       a.vm_type = act.vmtype;
@@ -286,10 +294,18 @@ void apply_eosio_setabi(apply_context& context) {
       a.abi.assign(act.abi.data(), abi_size);
    });
 
-   const auto& account_metadata = db.get<account_metadata_object, by_name>(act.account);
-   db.modify( account_metadata, [&]( auto& a ) {
-      a.abi_sequence += 1;
-   });
+   const auto* account_metadata = db.find<account_metadata_object, by_name>(act.account);
+   if(account_metadata == nullptr){
+       // to do: charge RAM
+      db.create<account_metadata_object>([&](auto& a) {
+         a.name = act.account;
+         a.abi_sequence += 1;
+      });
+   }else{
+      db.modify( *account_metadata, [&]( auto& a ) {
+         a.abi_sequence += 1;
+      });
+   }
 
    if (new_size != old_size) {
       if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {
