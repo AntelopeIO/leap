@@ -596,7 +596,7 @@ struct building_block {
    }
 
    void set_proposed_finalizer_policy(const finalizer_policy& fin_pol) {
-      std::visit([&](auto& bb) { return bb.new_finalizer_policy = fin_pol; }, v);
+      std::visit([&](auto& bb) { bb.new_finalizer_policy = fin_pol; }, v);
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {

@@ -305,8 +305,6 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
 
 } FC_LOG_AND_RETHROW()
 
-**/
-
 BOOST_FIXTURE_TEST_CASE( producer_one_of_n_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
@@ -353,4 +351,5 @@ BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, validating_tester ) try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
+**/
 BOOST_AUTO_TEST_SUITE_END()
