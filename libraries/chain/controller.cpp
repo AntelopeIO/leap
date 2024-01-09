@@ -2352,7 +2352,7 @@ struct controller_impl {
          dm_logger->on_start_block(head_block_num() + 1);
       }
 
-      auto guard_pending = fc::make_scoped_exit([this, head_block_num=head_block_num()](){
+      auto guard_pending = fc::make_scoped_exit([this, head_block_num=head_block_num()]() {
          protocol_features.popped_blocks_to( head_block_num );
          pending.reset();
       });
@@ -2380,8 +2380,7 @@ struct controller_impl {
 
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
       // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
-      if ( pending->_block_status != controller::block_status::ephemeral )
-      {
+      if ( pending->_block_status != controller::block_status::ephemeral ) {
          const auto& pso = db.get<protocol_state_object>();
 
          auto num_preactivated_protocol_features = pso.preactivated_protocol_features.size();
@@ -2521,40 +2520,44 @@ struct controller_impl {
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finalize_block");
 
       try {
-      // [greg todo] move the merkle computation inside assemble_block.
-      auto& bb = std::get<building_block>(pending->_block_stage);
+         auto& bb = std::get<building_block>(pending->_block_stage);
 
-      // Update resource limits:
-      resource_limits.process_account_limit_updates();
-      const auto& chain_config = self.get_global_properties().configuration;
-      uint64_t CPU_TARGET = EOS_PERCENT(chain_config.max_block_cpu_usage, chain_config.target_block_cpu_usage_pct);
-      resource_limits.set_block_parameters(
-         { CPU_TARGET, chain_config.max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
-         {EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct), chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
-      );
-      resource_limits.process_block_usage(bb.block_num());
+         // Update resource limits:
+         resource_limits.process_account_limit_updates();
+         const auto& chain_config = self.get_global_properties().configuration;
+         resource_limits.set_block_parameters(
+            { EOS_PERCENT(chain_config.max_block_cpu_usage, chain_config.target_block_cpu_usage_pct),
+              chain_config.max_block_cpu_usage,
+              config::block_cpu_usage_average_window_ms / config::block_interval_ms,
+              config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
+            { EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct),
+              chain_config.max_block_net_usage,
+              config::block_size_average_window_ms / config::block_interval_ms,
+              config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
+            );
+         resource_limits.process_block_usage(bb.block_num());
 
-      auto assembled_block = 
-         bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
+         auto assembled_block =
+            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
 
-      // Update TaPoS table:
-      create_block_summary(  assembled_block.id() );
+         // Update TaPoS table:
+         create_block_summary(  assembled_block.id() );
 
-      pending->_block_stage = std::move(assembled_block);
+         pending->_block_stage = std::move(assembled_block);
       
-      /*
-        ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
-        ("n",pbhs.block_num())
-        ("id",id)
-        ("t",pbhs.timestamp)
-        ("p",pbhs.producer)
-        ("signing_key", pbhs.block_signing_key)
-        ("v",pbhs.active_schedule_version)
-        ("lib",pbhs.dpos_irreversible_blocknum)
-        ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
-        ("np",block_ptr->new_producers)
-        );
-      */
+         /*
+           ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
+           ("n",pbhs.block_num())
+           ("id",id)
+           ("t",pbhs.timestamp)
+           ("p",pbhs.producer)
+           ("signing_key", pbhs.block_signing_key)
+           ("v",pbhs.active_schedule_version)
+           ("lib",pbhs.dpos_irreversible_blocknum)
+           ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
+           ("np",block_ptr->new_producers)
+           );
+         */
 
       }
       FC_CAPTURE_AND_RETHROW()
