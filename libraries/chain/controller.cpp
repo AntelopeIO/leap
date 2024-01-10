@@ -280,17 +280,6 @@ struct block_data_t {
          return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
                   [&](block_data_new_t& bd)    -> R { return {}; }}, v);
    }
-  
-   template <class R, class F>
-   R apply_block_data_new(F& f) {
-      if constexpr (std::is_same_v<void, R>)
-         std::visit(overloaded{[&](block_data_legacy_t& bd) {},
-                  [&](block_data_new_t& bd) { bd.template apply<R>(f); }}, v);
-      else
-         return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return {}; },
-                         [&](block_data_new_t& bd)    -> R { return bd.template apply<R>(f); }}, v);
-   }
-
 };
 
 struct completed_block {
@@ -3914,10 +3903,10 @@ std::optional<signed_block_header> controller::fetch_block_header_by_number( uin
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 
-block_state_ptr controller::fetch_block_state_by_id( block_id_type id )const {
-   // returns nullptr when in legacy mode
-   auto get_block_state = [&](auto& fork_db, auto& head) -> block_state_ptr { return fork_db.get_block(id); };
-   return my->block_data.apply_block_data_new<block_state_ptr>(get_block_state);
+block_state_legacy_ptr controller::fetch_block_state_by_id( block_id_type id )const {
+   // returns nullptr when in in mode
+   auto get_block_state = [&](auto& fork_db, auto& head) -> block_state_legacy_ptr { return fork_db.get_block(id); };
+   return my->block_data.apply_dpos<block_state_legacy_ptr>(get_block_state);
 }
 
 block_state_legacy_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  {
