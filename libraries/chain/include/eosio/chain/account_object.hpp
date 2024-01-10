@@ -98,6 +98,13 @@ namespace eosio { namespace chain {
       >
    >;
 
+   namespace config {
+      template<>
+      struct billable_size<account_metadata_object> {
+         static const uint64_t overhead = overhead_per_row_per_index_ram_bytes * 2; ///< 2x indices id, name
+         static const uint64_t value = 54 + overhead; ///< fixed field + overhead
+      };
+   }
 } } // eosio::chain
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::account_object, eosio::chain::account_index)

@@ -6,20 +6,9 @@
 
 namespace eosio { namespace chain {
 
-   class permission_usage_object : public chainbase::object<permission_usage_object_type, permission_usage_object> {
-      OBJECT_CTOR(permission_usage_object)
-
-      id_type           id;
+   struct permission_usage_object {
       time_point        last_used;   ///< when this permission was last used
    };
-
-   struct by_account_permission;
-   using permission_usage_index = chainbase::shared_multi_index_container<
-      permission_usage_object,
-      indexed_by<
-         ordered_unique<tag<by_id>, member<permission_usage_object, permission_usage_object::id_type, &permission_usage_object::id>>
-      >
-   >;
 
 
    class permission_object : public chainbase::object<permission_object_type, permission_object> {
@@ -110,6 +99,10 @@ namespace eosio { namespace chain {
 
    namespace config {
       template<>
+      // struct billable_size<permission_object> { // Also counts memory usage of the associated permission_usage_object
+      //    static const uint64_t  overhead = 4 * overhead_per_row_per_index_ram_bytes; ///< 4 indices internal ID, parent, owner, name
+      //    static const uint64_t  value = (config::billable_size_v<shared_authority> + 48) + overhead;  ///< fixed field size + overhead
+      // };
       struct billable_size<permission_object> { // Also counts memory usage of the associated permission_usage_object
          static const uint64_t  overhead = 5 * overhead_per_row_per_index_ram_bytes; ///< 5 indices 2x internal ID, parent, owner, name
          static const uint64_t  value = (config::billable_size_v<shared_authority> + 64) + overhead;  ///< fixed field size + overhead
@@ -118,7 +111,6 @@ namespace eosio { namespace chain {
 } } // eosio::chain
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::permission_object, eosio::chain::permission_index)
-CHAINBASE_SET_INDEX_TYPE(eosio::chain::permission_usage_object, eosio::chain::permission_usage_index)
 
 FC_REFLECT(eosio::chain::permission_object, (parent)(owner)(name)(last_updated)(last_used)(auth))
 FC_REFLECT(eosio::chain::snapshot_permission_object, (parent)(owner)(name)(last_updated)(last_used)(auth))

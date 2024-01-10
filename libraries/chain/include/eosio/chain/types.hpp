@@ -139,7 +139,6 @@ namespace eosio::chain {
       account_object_type,
       account_metadata_object_type,
       permission_object_type,
-      permission_usage_object_type,
       permission_link_object_type,
       UNUSED_action_code_object_type,
       key_value_object_type,
@@ -166,8 +165,8 @@ namespace eosio::chain {
       UNUSED_proxy_vote_object_type,
       UNUSED_scope_sequence_object_type,
       table_id_object_type,
-      resource_limits_object_type,
-      resource_usage_object_type,
+      resource_object_type,
+      resource_pending_object_type,
       resource_limits_state_object_type,
       resource_limits_config_object_type,
       account_history_object_type,              ///< Defined by history_plugin
@@ -177,8 +176,6 @@ namespace eosio::chain {
       account_ram_correction_object_type,
       code_object_type,
       database_header_object_type,
-      resource_object_type,
-      resource_pending_object_type,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 

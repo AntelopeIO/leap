@@ -17,7 +17,6 @@ namespace eosio { namespace chain {
 
    using authorization_index_set = index_set<
       permission_index,
-      permission_usage_index,
       permission_link_index
    >;
 

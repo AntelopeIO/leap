@@ -172,6 +172,7 @@ void apply_eosio_newslimacc(apply_context& context) {
    const auto& active_permission = authorization.create_permission( create.name, config::active_name, 0,
                                                                  std::move(create.active), context.trx_context.is_transient() );
    int64_t ram_delta = config::overhead_per_account_ram_bytes;
+   ram_delta -= config::billable_size_v<account_metadata_object>;
    ram_delta += config::billable_size_v<permission_object>;
    ram_delta += active_permission.auth.get_billable_size();
    context.control.get_mutable_resource_limits_manager().initialize_account(create.name, context.trx_context.is_transient());
@@ -203,8 +204,9 @@ void apply_eosio_setcode(apply_context& context) {
    }
 
    const auto* account_metadata = db.find<account_metadata_object,by_name>(act.account);
+   int64_t metadata_ram_delta  = 0;
    if(account_metadata == nullptr){
-      // to do: charge RAM
+      metadata_ram_delta -= config::billable_size_v<account_metadata_object>;
       account_metadata = &db.create<account_metadata_object>([&](auto& a) {
          a.name = act.account;
          a.abi_sequence += 1;
@@ -272,7 +274,7 @@ void apply_eosio_setcode(apply_context& context) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "code", operation, "setcode");
       }
 
-      context.add_ram_usage( act.account, new_size - old_size );
+      context.add_ram_usage( act.account, new_size - old_size + metadata_ram_delta );
    }
 }
 
@@ -295,8 +297,9 @@ void apply_eosio_setabi(apply_context& context) {
    });
 
    const auto* account_metadata = db.find<account_metadata_object, by_name>(act.account);
+   int64_t metadata_ram_delta  = 0;
    if(account_metadata == nullptr){
-       // to do: charge RAM
+      metadata_ram_delta -= config::billable_size_v<account_metadata_object>;
       db.create<account_metadata_object>([&](auto& a) {
          a.name = act.account;
          a.abi_sequence += 1;
@@ -319,7 +322,7 @@ void apply_eosio_setabi(apply_context& context) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "abi", operation, "setabi");
       }
 
-      context.add_ram_usage( act.account, new_size - old_size );
+      context.add_ram_usage( act.account, new_size - old_size + metadata_ram_delta );
    }
 }
 
