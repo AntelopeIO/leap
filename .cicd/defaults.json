@@ -1,6 +1,6 @@
 {
     "cdt":{
-       "target":"4",
+       "target":"hotstuff_integration",
        "prerelease":false
     },
     "referencecontracts":{
