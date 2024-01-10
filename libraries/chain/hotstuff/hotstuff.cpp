@@ -22,10 +22,14 @@ inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) {
 
 bool pending_quorum_certificate::votes_t::add_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
                                                    const bls_public_key& pubkey, const bls_signature& new_sig) {
-   if (_bitset[index])
+   if (_bitset[index]) {
+      wlog( "finalizer ${i} has already voted", ("i", index) );
       return false; // shouldn't be already present
-   if (!fc::crypto::blslib::verify(pubkey, proposal_digest, new_sig))
+   }
+   if (!fc::crypto::blslib::verify(pubkey, proposal_digest, new_sig)) {
+      wlog( "sinature from finalizer ${i} cannot be verified", ("i", index) );
       return false;
+   }
    _bitset.set(index);
    _sig = fc::crypto::blslib::aggregate({_sig, new_sig}); // works even if _sig is default initialized (fp2::zero())
    return true;
@@ -68,10 +72,10 @@ void pending_quorum_certificate::reset(const fc::sha256& proposal_id, const dige
    _state          = state_t::unrestricted;
 }
 
-bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
+bool pending_quorum_certificate::add_strong_vote(size_t index,
                                                  const bls_public_key& pubkey, const bls_signature& sig) {
    assert(index < _num_finalizers);
-   if (!_strong_votes.add_vote(proposal_digest, index, pubkey, sig))
+   if (!_strong_votes.add_vote(_proposal_digest, index, pubkey, sig))
       return false;
    size_t weak   = num_weak();
    size_t strong = num_strong();
@@ -99,10 +103,10 @@ bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& pro
    return true;
 }
 
-bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
+bool pending_quorum_certificate::add_weak_vote(size_t index,
                                                const bls_public_key& pubkey, const bls_signature& sig) {
    assert(index < _num_finalizers);
-   if (!_weak_votes.add_vote(proposal_digest, index, pubkey, sig))
+   if (!_weak_votes.add_vote(_proposal_digest, index, pubkey, sig))
       return false;
    size_t weak   = num_weak();
    size_t strong = num_strong();
@@ -134,10 +138,10 @@ bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& propo
    return true;
 }
 
-bool pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
+bool pending_quorum_certificate::add_vote(bool strong, size_t index,
                                           const bls_public_key& pubkey, const bls_signature& sig) {
-   return strong ? add_strong_vote(proposal_digest, index, pubkey, sig)
-                 : add_weak_vote(proposal_digest, index, pubkey, sig);
+   return strong ? add_strong_vote(index, pubkey, sig)
+                 : add_weak_vote(index, pubkey, sig);
 }
 
 // ================== begin compatibility functions =======================

@@ -160,18 +160,15 @@ namespace eosio::chain {
 
       void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum);
 
-      bool add_strong_vote(const std::vector<uint8_t>& proposal_digest,
-                           size_t index,
+      bool add_strong_vote(size_t index,
                            const bls_public_key& pubkey,
                            const bls_signature& sig);
 
-      bool add_weak_vote(const std::vector<uint8_t>& proposal_digest,
-                         size_t index,
+      bool add_weak_vote(size_t index,
                          const bls_public_key& pubkey,
                          const bls_signature& sig);
 
       bool add_vote(bool strong,
-                    const std::vector<uint8_t>& proposal_digest,
                     size_t index,
                     const bls_public_key& pubkey,
                     const bls_signature& sig);
