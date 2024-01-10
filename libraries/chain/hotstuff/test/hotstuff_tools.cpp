@@ -82,8 +82,11 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    using namespace fc::crypto::blslib;
    using state_t = pending_quorum_certificate::state_t;
 
+
    digest_type d(fc::sha256("0000000000000000000000000000001"));
    std::vector<uint8_t> digest(d.data(), d.data() + d.data_size());
+
+   fc::sha256 id(fc::sha256("0000000000000000000000000000002"));
 
    std::vector<bls_private_key> sk {
       bls_private_key("PVT_BLS_r4ZpChd87ooyzl6MIkw23k7PRX8xptp7TczLJHCIIW88h/hS"),
@@ -100,15 +103,15 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       pubkey.push_back(k.get_public_key());
 
    auto weak_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index) {
-      return qc.add_weak_vote(digest, index, pubkey[index], sk[index].sign(digest));
+      return qc.add_weak_vote(index, pubkey[index], sk[index].sign(digest));
    };
 
    auto strong_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index) {
-      return qc.add_strong_vote(digest, index, pubkey[index], sk[index].sign(digest));
+      return qc.add_strong_vote(index, pubkey[index], sk[index].sign(digest));
    };
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      pending_quorum_certificate qc(id, d, 2, 1); // 2 finalizers, quorum = 1
       BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
 
       // add one weak vote
@@ -131,7 +134,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      pending_quorum_certificate qc(id, d, 2, 1); // 2 finalizers, quorum = 1
       BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
 
       // add a weak vote
@@ -148,7 +151,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      pending_quorum_certificate qc(id, d, 2, 1); // 2 finalizers, quorum = 1
       BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
 
       // add a strong vote
@@ -165,7 +168,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      pending_quorum_certificate qc(id, d, 3, 2); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------
@@ -201,7 +204,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      pending_quorum_certificate qc(id, d, 3, 2); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------

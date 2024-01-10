@@ -359,7 +359,7 @@ namespace eosio::chain {
          digest_type digest = p->get_proposal_digest();
          for (size_t i=0; i<finalizers.size(); ++i) {
             if (finalizers[i].public_key == vote.finalizer_key) {
-               if (_current_qc.add_vote(vote.strong, std::vector<uint8_t>(digest.data(), digest.data() + 32),
+               if (_current_qc.add_vote(vote.strong,
                                         i, vote.finalizer_key, vote.sig)) {
                   // fc_tlog(_logger, " === update bitset ${value} ${finalizer_key}",
                   //         ("value", _current_qc.get_active_finalizers_string())("finalizer_key", vote.finalizer_key));
