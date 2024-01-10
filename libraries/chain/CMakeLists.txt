@@ -84,7 +84,6 @@ set(CHAIN_HOTSTUFF_SOURCES
    hotstuff/instant_finality_extension.cpp
    hotstuff/qc_chain.cpp
    hotstuff/hotstuff.cpp
-   hotstuff/finality_controller.cpp
 )
 
 add_library(eosio_rapidjson INTERFACE)

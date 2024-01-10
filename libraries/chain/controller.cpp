@@ -30,7 +30,6 @@
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/hotstuff/chain_pacemaker.hpp>
-#include <eosio/chain/hotstuff/finality_controller.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -880,7 +879,6 @@ struct controller_impl {
    std::optional<pending_state>    pending;
    block_data_t                    block_data;  // includes `head` aand `fork_db`
    std::optional<chain_pacemaker>  pacemaker;
-   finality_controller             finality_control;
    std::atomic<uint32_t>           hs_irreversible_block_num{0};
    resource_limits_manager         resource_limits;
    subjective_billing              subjective_bill;
