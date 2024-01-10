@@ -514,7 +514,7 @@ class cluster_generator:
             a(a(eosdcmd, '--plugin'), 'eosio::producer_plugin')
             producer_keys = list(sum([('--signature-provider', f'{key.pubkey}=KEY:{key.privkey}') for key in instance.keys], ()))
             eosdcmd.extend(producer_keys)
-            finalizer_keys = list(sum([('--signature-provider', f'{key.blspubkey}=KEY:{key.blsprivkey}') for key in instance.keys], ()))
+            finalizer_keys = list(sum([('--signature-provider', f'{key.blspubkey}=KEY:{key.blsprivkey}') for key in instance.keys if key.blspubkey is not None], ()))
             eosdcmd.extend(finalizer_keys)
             producer_names = list(sum([('--producer-name', p) for p in instance.producers], ()))
             eosdcmd.extend(producer_names)

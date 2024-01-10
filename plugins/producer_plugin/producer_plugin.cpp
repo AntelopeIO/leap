@@ -1139,10 +1139,13 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
             }
          } catch(secure_enclave_exception& e) {
             elog("Error with Secure Enclave signature provider: ${e}; ignoring ${val}", ("e", e.top_message())("val", key_spec_pair));
+            throw;
          } catch (fc::exception& e) {
             elog("Malformed signature provider: \"${val}\": ${e}, ignoring!", ("val", key_spec_pair)("e", e));
+            throw;
          } catch (...) {
             elog("Malformed signature provider: \"${val}\", ignoring!", ("val", key_spec_pair));
+            throw;
          }
       }
    }

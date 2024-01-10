@@ -42,6 +42,11 @@ class signature_provider_plugin_impl {
       std::tuple<std::string, std::string, std::string> parse_spec(const std::string& spec) const {
          auto delim = spec.find("=");
          EOS_ASSERT(delim != std::string::npos, chain::plugin_config_exception, "Missing \"=\" in the key spec pair");
+         // public_key can be base64 encoded with trailing `=`
+         // e.g. --signature-provider PUB_BLS_Fmgk<snip>iuA===KEY:PVT_BLS_NZhJ<snip>ZHFu
+         while( spec.size() > delim+1 && spec[delim+1] == '=' )
+            ++delim;
+         EOS_ASSERT(delim < spec.size() + 1, chain::plugin_config_exception, "Missing spec data in the key spec pair");
          auto pub_key_str = spec.substr(0, delim);
          auto spec_str = spec.substr(delim + 1);
 
