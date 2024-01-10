@@ -103,4 +103,21 @@ namespace eosio::chain {
    {}
 #endif
    
+   bool block_state::aggregate_vote(const hs_vote_message& vote) {
+      const auto& finalizers = finalizer_policy->finalizers;
+      auto it = std::find_if(finalizers.begin(),
+                             finalizers.end(),
+                             [&](const auto& finalizer) { return finalizer.public_key == vote.finalizer_key; });
+
+      if (it != finalizers.end()) {
+         auto index = std::distance(finalizers.begin(), it);
+         return pending_qc.add_vote( vote.strong,
+                                     index,
+                                     vote.finalizer_key,
+                                     vote.sig );
+      } else {
+         wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
+         return false;
+      }
+   }
 } /// eosio::chain

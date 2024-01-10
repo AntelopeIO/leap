@@ -32,6 +32,8 @@ namespace eosio::chain {
       
       protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
       deque<transaction_metadata_ptr>     extract_trxs_metas() { return {}; }; //  [greg todo] see impl in block_state_legacy.hpp
+
+      bool aggregate_vote(const hs_vote_message& vote); // aggregate vote into pending_qc
    };
 
 using block_state_ptr = std::shared_ptr<block_state>;
