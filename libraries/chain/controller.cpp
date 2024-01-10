@@ -250,6 +250,19 @@ struct block_data_t {
       }, v);
    }
 
+   bool aggregate_vote(const hs_vote_message& vote) {
+      EOS_ASSERT(std::holds_alternative<block_data_new_t>(v), misc_exception, "attempting to call aggregate_vote in legacy mode");
+
+      block_data_new_t& bd = std::get<block_data_new_t>(v);
+      auto bsp = bd.fork_db.get_block(vote.proposal_id);
+      if( bsp ) {
+         return bsp->aggregate_vote(vote);
+      } else {
+         wlog( "no block exists for the vote (proposal_id: ${id}", ("id", vote.proposal_id) );
+         return false;
+      }
+   }
+
    template<class R, class F>
    R apply(F &f) {
       if constexpr (std::is_same_v<void, R>)
@@ -4021,12 +4034,7 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 
 // called from net threads
 void controller::notify_vote_message( const hs_vote_message& vote ) {
-   auto bsp = fetch_block_state_by_id(vote.proposal_id);
-   if( bsp ) {
-      my->finality_control.aggregate_vote(bsp, vote);
-   } else {
-      wlog( "no block exists for the vote (proposal_id: ${id}", ("id", vote.proposal_id) );
-   }
+   my->block_data.aggregate_vote(vote);
 };
 
 const producer_authority_schedule& controller::active_producers()const {
