@@ -1,4 +1,4 @@
-#include <eosio/chain/hotstuff/finality_controller.hpp>
+#include <eosio/chain/block_state.hpp>
 
 #include <fc/exception/exception.hpp>
 #include <fc/crypto/bls_private_key.hpp>
@@ -6,7 +6,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_AUTO_TEST_SUITE(finality_controller_tests)
+BOOST_AUTO_TEST_SUITE(block_state_tests)
 
 BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
    using namespace eosio::chain;
@@ -34,8 +34,6 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       finalizers[i] = finalizer_authority{ "test", 1, public_key[i] };
    }
 
-   finality_controller finality_control;
-
    {  // all finalizers can aggregate votes
       block_state_ptr bsp = std::make_shared<block_state>();
       bsp->finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
@@ -44,7 +42,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       for (size_t i = 0; i < num_finalizers; ++i) {
          bool strong = (i % 2 == 0); // alternate strong and weak
          hs_vote_message vote {proposal_id, strong, public_key[i], private_key[i].sign(proposal_digest_data) };
-         BOOST_REQUIRE(finality_control.aggregate_vote(bsp, vote));
+         BOOST_REQUIRE(bsp->aggregate_vote(vote));
       }
    }
 
@@ -54,7 +52,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bsp->pending_qc = pending_quorum_certificate{ proposal_id, proposal_digest, num_finalizers, 1 };
 
       hs_vote_message vote {proposal_id, true, public_key[0], private_key[1].sign(proposal_digest_data) };
-      BOOST_REQUIRE(!finality_control.aggregate_vote(bsp, vote));
+      BOOST_REQUIRE(!bsp->aggregate_vote(vote));
    }
 
    {  // duplicate votes 
@@ -63,8 +61,8 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bsp->pending_qc = pending_quorum_certificate{ proposal_id, proposal_digest, num_finalizers, 1 };
 
       hs_vote_message vote {proposal_id, true, public_key[0], private_key[0].sign(proposal_digest_data) };
-      BOOST_REQUIRE(finality_control.aggregate_vote(bsp, vote));
-      BOOST_REQUIRE(!finality_control.aggregate_vote(bsp, vote));
+      BOOST_REQUIRE(bsp->aggregate_vote(vote));
+      BOOST_REQUIRE(!bsp->aggregate_vote(vote));
    }
 
    {  // public key does not exit in finalizer set
@@ -76,7 +74,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bls_public_key new_public_key{ new_private_key.get_public_key() };
 
       hs_vote_message vote {proposal_id, true, new_public_key, private_key[0].sign(proposal_digest_data) };
-      BOOST_REQUIRE(!finality_control.aggregate_vote(bsp, vote));
+      BOOST_REQUIRE(!bsp->aggregate_vote(vote));
    }
 } FC_LOG_AND_RETHROW();
 
