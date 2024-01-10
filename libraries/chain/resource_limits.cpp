@@ -95,12 +95,12 @@ void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& sna
 }
 
 void resource_limits_manager::initialize_account(const account_name& account, bool is_trx_transient) {
-   const auto& limits = _db.create<resource_object>([&]( resource_object& bl ) {
+   const auto& resource = _db.create<resource_object>([&]( resource_object& bl ) {
       bl.owner = account;
    });
-   // if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-   //    dm_logger->on_newaccount_resource_limits(limits, usage);
-   // }
+   if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+      dm_logger->on_newaccount_resource_limits(resource.get_limits(), resource.get_usage());
+   }
 }
 
 void resource_limits_manager::set_block_parameters(const elastic_limit_parameters& cpu_limit_parameters, const elastic_limit_parameters& net_limit_parameters ) {
@@ -148,9 +148,9 @@ void resource_limits_manager::add_transaction_usage(const flat_set<account_name>
           bu.net_usage.add( net_usage, time_slot, config.account_net_usage_average_window );
           bu.cpu_usage.add( cpu_usage, time_slot, config.account_cpu_usage_average_window );
 
-         // if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-         //    dm_logger->on_update_account_usage(bu);
-         // }
+         if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+            dm_logger->on_update_account_usage(bu.get_usage());
+         }
       });
 
       if( cpu_weight >= 0 && state.total_cpu_weight > 0 ) {
@@ -287,9 +287,9 @@ bool resource_limits_manager::set_account_limits( const account_name& account, i
       pending_limits.net_weight = net_weight;
       pending_limits.cpu_weight = cpu_weight;
 
-      // if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
-      //    dm_logger->on_set_account_limits(pending_limits);
-      // }
+      if (auto dm_logger = _get_deep_mind_logger(is_trx_transient)) {
+         dm_logger->on_set_account_limits(pending_limits.get_pending_limits());
+      }
    });
 
    return decreased_limit;

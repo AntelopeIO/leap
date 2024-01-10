@@ -13,14 +13,6 @@ bool include_delta(const chain::table_id_object& old, const chain::table_id_obje
    return old.payer != curr.payer;
 }
 
-bool include_delta(const chain::resource_limits::resource_limits_object& old,
-                   const chain::resource_limits::resource_limits_object& curr) {
-   return                                   //
-       old.net_weight != curr.net_weight || //
-       old.cpu_weight != curr.cpu_weight || //
-       old.ram_bytes != curr.ram_bytes;
-}
-
 bool include_delta(const chain::resource_limits::resource_limits_state_object& old,
                    const chain::resource_limits::resource_limits_state_object& curr) {
    return                                                                                       //
@@ -175,8 +167,8 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
    process_table(ds, "permission", db.get_index<chain::permission_index>(), pack_row);
    process_table(ds, "permission_link", db.get_index<chain::permission_link_index>(), pack_row);
 
-   // process_table(ds, "resource_limits", db.get_index<chain::resource_limits::resource_limits_index>(), pack_row);
-   // process_table(ds, "resource_usage", db.get_index<chain::resource_limits::resource_usage_index>(), pack_row);
+   process_table(ds, "resource", db.get_index<chain::resource_limits::resource_index>(), pack_row);
+   process_table(ds, "resource_pending_object", db.get_index<chain::resource_limits::resource_pending_index>(), pack_row);
    process_table(ds, "resource_limits_state", db.get_index<chain::resource_limits::resource_limits_state_index>(),
                  pack_row);
    process_table(ds, "resource_limits_config", db.get_index<chain::resource_limits::resource_limits_config_index>(),
