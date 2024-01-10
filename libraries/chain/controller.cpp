@@ -30,6 +30,7 @@
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/hotstuff/chain_pacemaker.hpp>
+#include <eosio/chain/hotstuff/finality_controller.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -764,6 +765,17 @@ struct controller_impl {
             return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
                                          [&](block_data_new_t& bd)    -> R { return {}; }}, v);
       }
+
+      template <class R, class F>
+      R apply_block_data_new(F& f) {
+         if constexpr (std::is_same_v<void, R>)
+            std::visit(overloaded{[&](block_data_legacy_t& bd) {},
+                                  [&](block_data_new_t& bd) { bd.template apply<R>(f); }}, v);
+         else
+            return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return {}; },
+                                         [&](block_data_new_t& bd)    -> R { return bd.template apply<R>(f); }}, v);
+      }
+
    };
 
    reset_new_handler               rnh; // placed here to allow for this to be set before constructing the other fields
@@ -774,6 +786,7 @@ struct controller_impl {
    std::optional<pending_state>    pending;
    block_data_t                    block_data;  // includes `head` aand `fork_db`
    std::optional<chain_pacemaker>  pacemaker;
+   finality_controller             finality_control;
    std::atomic<uint32_t>           hs_irreversible_block_num{0};
    resource_limits_manager         resource_limits;
    subjective_billing              subjective_bill;
@@ -3856,10 +3869,10 @@ std::optional<signed_block_header> controller::fetch_block_header_by_number( uin
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 
-block_state_legacy_ptr controller::fetch_block_state_by_id( block_id_type id )const {
-   // returns nullptr when in IF mode 
-   auto get_block_state = [&](auto& fork_db, auto& head) -> block_state_legacy_ptr { return fork_db.get_block(id); };
-   return my->block_data.apply_dpos<block_state_legacy_ptr>(get_block_state);
+block_state_ptr controller::fetch_block_state_by_id( block_id_type id )const {
+   // returns nullptr when in legacy mode
+   auto get_block_state = [&](auto& fork_db, auto& head) -> block_state_ptr { return fork_db.get_block(id); };
+   return my->block_data.apply_block_data_new<block_state_ptr>(get_block_state);
 }
 
 block_state_legacy_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  {
@@ -3975,8 +3988,13 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 }
 
 // called from net threads
-void controller::notify_hs_message( const uint32_t connection_id, const hs_message& msg ) {
-   my->pacemaker->on_hs_msg(connection_id, msg);
+void controller::notify_vote_message( const hs_vote_message& vote ) {
+   auto bsp = fetch_block_state_by_id(vote.proposal_id);
+   if( bsp ) {
+      my->finality_control.aggregate_vote(bsp, vote);
+   } else {
+      wlog( "no block exists for the vote (proposal_id: ${id}", ("id", vote.proposal_id) );
+   }
 };
 
 const producer_authority_schedule& controller::active_producers()const {

@@ -270,8 +270,8 @@ namespace eosio::chain {
          std::optional<signed_block_header> fetch_block_header_by_id( const block_id_type& id )const;
          // return block_state_legacy from forkdb, thread-safe
          block_state_legacy_ptr fetch_block_state_by_number( uint32_t block_num )const;
-         // return block_state_legacy from forkdb, thread-safe
-         block_state_legacy_ptr fetch_block_state_by_id( block_id_type id )const;
+         // return block_state_ptr from forkdb in IF mode and nullptr in legacy mode, thread-safe
+         block_state_ptr fetch_block_state_by_id( block_id_type id )const;
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
 
@@ -316,7 +316,7 @@ namespace eosio::chain {
          void set_proposed_finalizers( const finalizer_policy& fin_set );
          void get_finalizer_state( finalizer_state& fs ) const;
          // called from net threads
-         void notify_hs_message( const uint32_t connection_id, const hs_message& msg );
+         void notify_vote_message( const hs_vote_message& vote );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
