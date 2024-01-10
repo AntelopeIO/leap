@@ -27,7 +27,7 @@ bool pending_quorum_certificate::votes_t::add_vote(const std::vector<uint8_t>& p
       return false; // shouldn't be already present
    }
    if (!fc::crypto::blslib::verify(pubkey, proposal_digest, new_sig)) {
-      wlog( "sinature from finalizer ${i} cannot be verified", ("i", index) );
+      wlog( "signature from finalizer ${i} cannot be verified", ("i", index) );
       return false;
    }
    _bitset.set(index);
