@@ -117,6 +117,169 @@ class maybe_session {
       std::optional<database::session>     _session;
 };
 
+template<class bsp, class bhsp>
+struct block_data_gen_t {
+public:
+   using bs        = bsp::element_type;
+   using bhs       = bhsp::element_type;
+   using fork_db_t = fork_database<bsp, bhsp>;
+
+   bsp       head;
+   fork_db_t fork_db;
+
+   block_data_gen_t(const std::filesystem::path& path) : fork_db(path) {}
+      
+   bsp fork_db_head(bool irreversible_mode) const {
+      if (irreversible_mode) {
+         // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
+         // fork_db.head() returns irreversible block
+         // Use pending_head since this method should return the chain head and not last irreversible.
+         return fork_db.pending_head();
+      } else {
+         return fork_db.head();
+      }
+   }
+
+   bsp fork_db_root() const { return fork_db.root(); }
+
+   bsp fork_db_head() const { return fork_db.head(); }
+
+   void fork_db_open(validator_t& validator) { return fork_db.open(validator); }
+
+   void fork_db_reset_to_head() { return fork_db.reset(*head); }
+
+   template<class R, class F>
+   R apply(F &f) { if constexpr (std::is_same_v<void, R>) f(fork_db, head); else return f(fork_db, head); }
+
+   uint32_t pop_block() {
+      auto prev = fork_db.get_block( head->previous() );
+
+      if( !prev ) {
+         EOS_ASSERT( fork_db.root()->id() == head->previous(), block_validate_exception, "attempt to pop beyond last irreversible block" );
+         prev = fork_db.root();
+      }
+
+      EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
+      head = prev;
+         
+      return prev->block_num();
+   }
+};
+
+using block_data_legacy_t = block_data_gen_t<block_state_legacy_ptr, block_header_state_legacy_ptr>;
+using block_data_new_t    = block_data_gen_t<block_state_ptr,        block_header_state_ptr>;
+   
+struct block_data_t {
+   using block_data_variant  = std::variant<block_data_legacy_t, block_data_new_t>;
+
+   block_data_variant v;
+
+   uint32_t             head_block_num()  const { return std::visit([](const auto& bd) { return bd.head->block_num(); }, v); }
+   block_timestamp_type head_block_time() const { return std::visit([](const auto& bd) { return bd.head->timestamp(); }, v); }
+   account_name         head_block_producer() const { return std::visit([](const auto& bd) { return bd.head->producer(); }, v); }
+      
+   protocol_feature_activation_set_ptr head_activated_protocol_features() const { return std::visit([](const auto& bd) {
+      return bd.head->get_activated_protocol_features(); }, v);
+   }
+
+   const producer_authority_schedule& head_active_schedule_auth() {
+      return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->active_schedule_auth(); }, v);
+   }
+      
+   const producer_authority_schedule& head_pending_schedule_auth() {
+      return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->pending_schedule_auth(); }, v);
+   }
+      
+   const block_id_type& head_block_id()   const {
+      return std::visit([](const auto& bd) -> const block_id_type& { return bd.head->id(); }, v);
+   }
+      
+   const block_header&  head_block_header() const {
+      return std::visit([](const auto& bd) -> const  block_header& { return bd.head->header; }, v);
+   }
+
+   const signed_block_ptr& head_block() const {
+      return std::visit([](const auto& bd) -> const signed_block_ptr& { return bd.head->block; }, v);
+   }
+
+   // --------------- access fork_db head ----------------------------------------------------------------------
+   bool fork_db_has_head() const {
+      return std::visit([&](const auto& bd) { return !!bd.fork_db_head(); }, v);
+   }
+      
+   uint32_t fork_db_head_block_num(bool irreversible_mode) const {
+      return std::visit([&](const auto& bd) { return bd.fork_db_head(irreversible_mode)->block_num(); }, v);
+   }
+      
+   const block_id_type& fork_db_head_block_id(bool irreversible_mode) const {
+      return std::visit([&](const auto& bd) -> const block_id_type& { return bd.fork_db_head(irreversible_mode)->id(); }, v);
+   }
+
+   uint32_t fork_db_head_irreversible_blocknum(bool irreversible_mode) const {
+      return std::visit([&](const auto& bd) { return bd.fork_db_head(irreversible_mode)->irreversible_blocknum(); }, v);
+   }
+
+   // --------------- access fork_db root ----------------------------------------------------------------------
+   bool fork_db_has_root() const {
+      return std::visit([&](const auto& bd) { return !!bd.fork_db_root(); }, v);
+   }
+      
+   const block_id_type& fork_db_root_block_id() const {
+      return std::visit([&](const auto& bd) -> const block_id_type& { return bd.fork_db_root()->id(); }, v);
+   }
+
+   uint32_t fork_db_root_block_num() const {
+      return std::visit([&](const auto& bd) { return bd.fork_db_root()->block_num(); }, v);
+   }
+
+   block_timestamp_type  fork_db_root_timestamp() const {
+      return std::visit([&](const auto& bd) { return bd.fork_db_root()->timestamp(); }, v);
+   }
+
+   // ---------------  fork_db APIs ----------------------------------------------------------------------
+   uint32_t pop_block() { return std::visit([](auto& bd) { return bd.pop_block(); }, v); }
+
+   void fork_db_open(validator_t& validator) { return std::visit([&](auto& bd) { bd.fork_db_open(validator); }, v); }
+
+   void fork_db_reset_to_head() { return std::visit([&](auto& bd) { bd.fork_db_reset_to_head(); }, v); }
+
+   signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
+      return std::visit([&](const auto& bd) -> signed_block_ptr {
+         auto bsp = bd.fork_db.get_block(id);
+         return bsp ? bsp->block : nullptr;
+      }, v);
+   }
+
+   template<class R, class F>
+   R apply(F &f) {
+      if constexpr (std::is_same_v<void, R>)
+         std::visit([&](auto& bd) { bd.template apply<R>(f); }, v);
+      else
+         return std::visit([&](auto& bd) -> R { return bd.template apply<R>(f); }, v);
+   }
+
+   template <class R, class F>
+   R apply_dpos(F& f) {
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); },
+                  [&](block_data_new_t& bd) {}}, v);
+      else
+         return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
+                  [&](block_data_new_t& bd)    -> R { return {}; }}, v);
+   }
+  
+   template <class R, class F>
+   R apply_block_data_new(F& f) {
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](block_data_legacy_t& bd) {},
+                  [&](block_data_new_t& bd) { bd.template apply<R>(f); }}, v);
+      else
+         return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return {}; },
+                         [&](block_data_new_t& bd)    -> R { return bd.template apply<R>(f); }}, v);
+   }
+
+};
+
 struct completed_block {
    std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
 
@@ -129,6 +292,10 @@ struct completed_block {
    const flat_set<digest_type>& get_activated_protocol_features() const {
       return std::visit([](const auto& bsp) -> const flat_set<digest_type>& {
             return bsp->get_activated_protocol_features()->protocol_features; }, bsp);
+   }
+
+   const block_id_type& id() const  {
+      return std::visit([](const auto& bsp) -> const block_id_type& { return bsp->id(); }, bsp);
    }
    
    uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
@@ -155,13 +322,9 @@ struct completed_block {
    }
 
    const block_signing_authority& pending_block_signing_authority() const {
-      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) -> const block_signing_authority& {
-                                      return bsp->valid_block_signing_authority;
-                                   },
-                                   [](const block_state_ptr& bsp) -> const block_signing_authority& {
-                                      static block_signing_authority bsa; return bsa; //return bsp->header.producer; [greg todo]
-                                   }},
-                        bsp);
+      // this should never be called on completed_block because `controller::is_building_block()` returns false
+      assert(0); 
+      static block_signing_authority bsa; return bsa; // just so it builds
    }
 };
 
@@ -186,6 +349,8 @@ struct assembled_block {
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
       std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
+
+      block_header_state& get_bhs() { return bhs; }
    };
 
    std::variant<assembled_block_dpos, assembled_block_if> v;
@@ -311,6 +476,7 @@ struct building_block {
       deque<transaction_receipt>          pending_trx_receipts;
       checksum_or_digests                 trx_mroot_or_receipt_digests {digests_t{}};
       digests_t                           action_receipt_digests;
+      std::optional<finalizer_policy>     new_finalizer_policy;
 
       building_block_common(const vector<digest_type>& new_protocol_feature_activations) :
          new_protocol_feature_activations(new_protocol_feature_activations)
@@ -369,20 +535,20 @@ struct building_block {
 
    // --------------------------------------------------------------------------------
    struct building_block_if : public building_block_common {
+      const block_header_state&                  parent;
       const block_id_type                        parent_id;                        // Comes from building_block_input::parent_id
       const block_timestamp_type                 timestamp;                        // Comes from building_block_input::timestamp
       const producer_authority                   active_producer_authority;        // Comes from parent.get_scheduled_producer(timestamp)
-      const vector<digest_type>                  new_protocol_feature_activations; // Comes from building_block_input::new_protocol_feature_activations
       const protocol_feature_activation_set_ptr  prev_activated_protocol_features; // Cached: parent.activated_protocol_features()
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
       // Members below (as well as non-const members of building_block_common) start from initial state and are mutated as the block is built.
       std::optional<proposer_policy>             new_proposer_policy;
-      std::optional<finalizer_policy>            new_finalizer_policy;
 
       building_block_if(const block_header_state& parent, const building_block_input& input)
          : building_block_common(input.new_protocol_feature_activations)
+         , parent (parent)
          , parent_id(input.parent_id)
          , timestamp(input.timestamp)
          , active_producer_authority{input.producer,
@@ -441,6 +607,10 @@ struct building_block {
                                       [&](building_block_if& bb)   -> R { return std::forward<F>(f)(bb); }}, v);
    }
 
+   void set_proposed_finalizer_policy(const finalizer_policy& fin_pol) {
+      std::visit([&](auto& bb) { bb.new_finalizer_policy = fin_pol; }, v);
+   }
+
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& bb) { return std::move(bb.pending_trx_metas); }, v);
    }
@@ -461,6 +631,13 @@ struct building_block {
       return std::visit(
          overloaded{[](const building_block_dpos& bb)  { return bb.pending_block_header_state.timestamp; },
                     [](const building_block_if& bb)    { return bb.timestamp; }},
+         v);
+   }
+
+   block_id_type parent_id() const {
+      return std::visit(
+         overloaded{[](const building_block_dpos& bb)  { return bb.pending_block_header_state.previous; },
+                    [](const building_block_if& bb)    { return bb.parent_id; }},
          v);
    }
 
@@ -528,6 +705,85 @@ struct building_block {
                                    }},
                         v);
    }
+
+   assembled_block assemble_block(boost::asio::io_context& ioc,
+                                  const protocol_feature_set& pfs,
+                                  const block_data_t& block_data) {
+      digests_t& action_receipts = action_receipt_digests();
+      return std::visit(
+         overloaded{
+            [&](building_block_dpos& bb) -> assembled_block {
+               // compute the action_mroot and transaction_mroot
+               auto [transaction_mroot, action_mroot] = std::visit(
+                  overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
+                                auto trx_merkle_fut =
+                                   post_async_task(ioc, [&]() { return canonical_merkle(std::move(trx_receipts)); });
+                                auto action_merkle_fut =
+                                   post_async_task(ioc, [&]() { return canonical_merkle(std::move(action_receipts)); });
+                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
+                             },
+                             [&](const checksum256_type& trx_checksum) {
+                                return std::make_pair(trx_checksum, canonical_merkle(std::move(action_receipts)));
+                             }},
+                  trx_mroot_or_receipt_digests());
+
+               // in dpos, we create a signed_block here. In IF mode, we do it later (when we are ready to sign it)
+               auto block_ptr = std::make_shared<signed_block>(bb.pending_block_header_state.make_block_header(
+                  transaction_mroot, action_mroot, bb.new_pending_producer_schedule, std::move(bb.new_finalizer_policy),
+                  vector<digest_type>(bb.new_protocol_feature_activations), pfs));
+
+               block_ptr->transactions = std::move(bb.pending_trx_receipts);
+
+               return assembled_block{
+                  .v = assembled_block::assembled_block_dpos{block_ptr->calculate_id(),
+                                                             std::move(bb.pending_block_header_state),
+                                                             std::move(bb.pending_trx_metas), std::move(block_ptr),
+                                                             std::move(bb.new_pending_producer_schedule)}
+               };
+            },
+            [&](building_block_if& bb) -> assembled_block {
+               // compute the action_mroot and transaction_mroot
+               auto [transaction_mroot, action_mroot] = std::visit(
+                  overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
+                                auto trx_merkle_fut =
+                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(trx_receipts)); });
+                                auto action_merkle_fut =
+                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(action_receipts)); });
+                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
+                             },
+                             [&](const checksum256_type& trx_checksum) {
+                                return std::make_pair(trx_checksum, calculate_merkle(std::move(action_receipts)));
+                             }},
+                  trx_mroot_or_receipt_digests());
+
+               // get fork_database so that we can search for the best qc to include in this block.
+               assert(std::holds_alternative<block_data_new_t>(block_data.v));
+               const block_data_new_t& bd      = std::get<block_data_new_t>(block_data.v);
+               const auto&             fork_db = bd.fork_db; // fork_db<block_state_ptr, block_header_state_ptr>
+
+               // [greg todo] retrieve qc, and fill the following struct accurately
+               std::optional<qc_data_t> qc_data; // Comes from traversing branch from parent and calling
+                                                 // get_best_qc() assert(qc->block_num <= num_from_id(previous));
+
+               building_block_input bb_input {
+                  .parent_id = parent_id(),
+                  .timestamp = timestamp(),
+                  .producer  = producer(),
+                  .new_protocol_feature_activations = new_protocol_feature_activations()
+               };
+
+               block_header_state_input bhs_input{
+                  bb_input, transaction_mroot, action_mroot, bb.new_proposer_policy, bb.new_finalizer_policy,
+                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{} };
+
+               assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
+                                                      bb.pending_trx_metas, bb.pending_trx_receipts,
+                                                      qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}};
+
+               return assembled_block{.v = std::move(ab)};
+            }},
+         v);
+   }
 };
 
 
@@ -560,7 +816,7 @@ struct pending_state {
    block_timestamp_type timestamp() const {
       return std::visit([](const auto& stage) { return stage.timestamp(); }, _block_stage);
    }
-
+   
    uint32_t block_num() const {
       return std::visit([](const auto& stage) { return stage.block_num(); }, _block_stage);
    }
@@ -612,170 +868,6 @@ struct controller_impl {
    // and not just abort.
    struct reset_new_handler {
       reset_new_handler() { std::set_new_handler([](){ throw std::bad_alloc(); }); }
-   };
-
-   template<class bsp, class bhsp>
-   struct block_data_gen_t {
-   public:
-      using bs        = bsp::element_type;
-      using bhs       = bhsp::element_type;
-      using fork_db_t = fork_database<bsp, bhsp>;
-
-      bsp       head;
-      fork_db_t fork_db;
-
-      block_data_gen_t(const std::filesystem::path& path) : fork_db(path) {}
-      
-      bsp fork_db_head(bool irreversible_mode) const {
-         if (irreversible_mode) {
-            // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
-            // fork_db.head() returns irreversible block
-            // Use pending_head since this method should return the chain head and not last irreversible.
-            return fork_db.pending_head();
-         } else {
-            return fork_db.head();
-         }
-      }
-
-      bsp fork_db_root() const { return fork_db.root(); }
-
-      bsp fork_db_head() const { return fork_db.head(); }
-
-      void fork_db_open(validator_t& validator) { return fork_db.open(validator); }
-
-      void fork_db_reset_to_head() { return fork_db.reset(*head); }
-
-      template<class R, class F>
-      R apply(F &f) { if constexpr (std::is_same_v<void, R>) f(fork_db, head); else return f(fork_db, head); }
-
-      uint32_t pop_block() {
-         auto prev = fork_db.get_block( head->previous() );
-
-         if( !prev ) {
-            EOS_ASSERT( fork_db.root()->id() == head->previous(), block_validate_exception, "attempt to pop beyond last irreversible block" );
-            prev = fork_db.root();
-         }
-
-         EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
-         head = prev;
-         
-         return prev->block_num();
-      }
-   };
-
-   using block_data_legacy_t = block_data_gen_t<block_state_legacy_ptr, block_header_state_legacy_ptr>;
-   using block_data_new_t    = block_data_gen_t<block_state_ptr,        block_header_state_ptr>;
-   
-   
-   struct block_data_t {
-      using block_data_variant  = std::variant<block_data_legacy_t, block_data_new_t>;
-
-      block_data_variant v;
-
-      uint32_t             head_block_num()  const { return std::visit([](const auto& bd) { return bd.head->block_num(); }, v); }
-      block_timestamp_type head_block_time() const { return std::visit([](const auto& bd) { return bd.head->timestamp(); }, v); }
-      account_name         head_block_producer() const { return std::visit([](const auto& bd) { return bd.head->producer(); }, v); }
-      
-      protocol_feature_activation_set_ptr head_activated_protocol_features() const { return std::visit([](const auto& bd) {
-         return bd.head->get_activated_protocol_features(); }, v);
-      }
-
-      const producer_authority_schedule& head_active_schedule_auth() {
-         return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->active_schedule_auth(); }, v);
-      }
-      
-      const producer_authority_schedule& head_pending_schedule_auth() {
-         return std::visit([](const auto& bd) -> const producer_authority_schedule& { return bd.head->pending_schedule_auth(); }, v);
-      }
-      
-      const block_id_type& head_block_id()   const {
-         return std::visit([](const auto& bd) -> const block_id_type& { return bd.head->id(); }, v);
-      }
-      
-      const block_header&  head_block_header() const {
-         return std::visit([](const auto& bd) -> const  block_header& { return bd.head->header; }, v);
-      }
-
-      const signed_block_ptr& head_block() const {
-         return std::visit([](const auto& bd) -> const signed_block_ptr& { return bd.head->block; }, v);
-      }
-
-      // --------------- access fork_db head ----------------------------------------------------------------------
-      bool fork_db_has_head() const {
-         return std::visit([&](const auto& bd) { return !!bd.fork_db_head(); }, v);
-      }
-      
-      uint32_t fork_db_head_block_num(bool irreversible_mode) const {
-         return std::visit([&](const auto& bd) { return bd.fork_db_head(irreversible_mode)->block_num(); }, v);
-      }
-      
-      const block_id_type& fork_db_head_block_id(bool irreversible_mode) const {
-         return std::visit([&](const auto& bd) -> const block_id_type& { return bd.fork_db_head(irreversible_mode)->id(); }, v);
-      }
-
-      uint32_t fork_db_head_irreversible_blocknum(bool irreversible_mode) const {
-         return std::visit([&](const auto& bd) { return bd.fork_db_head(irreversible_mode)->irreversible_blocknum(); }, v);
-      }
-
-      // --------------- access fork_db root ----------------------------------------------------------------------
-      bool fork_db_has_root() const {
-         return std::visit([&](const auto& bd) { return !!bd.fork_db_root(); }, v);
-      }
-      
-      const block_id_type& fork_db_root_block_id() const {
-         return std::visit([&](const auto& bd) -> const block_id_type& { return bd.fork_db_root()->id(); }, v);
-      }
-
-      uint32_t fork_db_root_block_num() const {
-         return std::visit([&](const auto& bd) { return bd.fork_db_root()->block_num(); }, v);
-      }
-
-      block_timestamp_type  fork_db_root_timestamp() const {
-         return std::visit([&](const auto& bd) { return bd.fork_db_root()->timestamp(); }, v);
-      }
-
-      // ---------------  fork_db APIs ----------------------------------------------------------------------
-      uint32_t pop_block() { return std::visit([](auto& bd) { return bd.pop_block(); }, v); }
-
-      void fork_db_open(validator_t& validator) { return std::visit([&](auto& bd) { bd.fork_db_open(validator); }, v); }
-
-      void fork_db_reset_to_head() { return std::visit([&](auto& bd) { bd.fork_db_reset_to_head(); }, v); }
-
-      signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
-         return std::visit([&](const auto& bd) -> signed_block_ptr {
-            auto bsp = bd.fork_db.get_block(id);
-            return bsp ? bsp->block : nullptr;
-         }, v);
-      }
-
-      template<class R, class F>
-      R apply(F &f) {
-         if constexpr (std::is_same_v<void, R>)
-            std::visit([&](auto& bd) { bd.template apply<R>(f); }, v);
-         else
-            return std::visit([&](auto& bd) -> R { return bd.template apply<R>(f); }, v);
-      }
-
-      template <class R, class F>
-      R apply_dpos(F& f) {
-         if constexpr (std::is_same_v<void, R>)
-            std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); },
-                                  [&](block_data_new_t& bd) {}}, v);
-         else
-            return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
-                                         [&](block_data_new_t& bd)    -> R { return {}; }}, v);
-      }
-
-      template <class R, class F>
-      R apply_block_data_new(F& f) {
-         if constexpr (std::is_same_v<void, R>)
-            std::visit(overloaded{[&](block_data_legacy_t& bd) {},
-                                  [&](block_data_new_t& bd) { bd.template apply<R>(f); }}, v);
-         else
-            return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return {}; },
-                                         [&](block_data_new_t& bd)    -> R { return bd.template apply<R>(f); }}, v);
-      }
-
    };
 
    reset_new_handler               rnh; // placed here to allow for this to be set before constructing the other fields
@@ -2433,30 +2525,8 @@ struct controller_impl {
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finalize_block");
 
       try {
-
+      // [greg todo] move the merkle computation inside assemble_block.
       auto& bb = std::get<building_block>(pending->_block_stage);
-      const bool if_active = !bb.is_dpos();
-
-      auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
-                                                [ids{std::move( bb.action_receipt_digests() )}, if_active]() mutable {
-                                                   if (if_active) {
-                                                      return calculate_merkle( std::move( ids ) );
-                                                   } else {
-                                                      return canonical_merkle( std::move( ids ) );
-                                                   }
-                                                });
-      const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb.trx_mroot_or_receipt_digests());
-      std::future<checksum256_type> trx_merkle_fut;
-      if( calc_trx_merkle ) {
-         trx_merkle_fut = post_async_task( thread_pool.get_executor(),
-                                           [ids{std::move( std::get<digests_t>(bb.trx_mroot_or_receipt_digests()) )}, if_active]() mutable {
-                                              if (if_active) {
-                                                 return calculate_merkle( std::move( ids ) );
-                                              } else {
-                                                 return canonical_merkle( std::move( ids ) );
-                                              }
-                                           } );
-      }
 
       // Update resource limits:
       resource_limits.process_account_limit_updates();
@@ -2468,66 +2538,28 @@ struct controller_impl {
       );
       resource_limits.process_block_usage(bb.block_num());
 
-#if 0
-      // [greg todo] see https://github.com/AntelopeIO/leap/issues/1911
-      bb.apply_hs<void>([&](building_block::building_block_if& bb) {
-         auto proposed_fin_pol = bb.new_finalizer_policy;
-         if (proposed_fin_pol) {
-            // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
-            finalizer_policy fin_pol = std::move(*proposed_fin_pol);
-            fin_pol.generation = bb.apply_hs<uint32_t>([&](building_block_if& h) {
-               return h._bhs.increment_finalizer_policy_generation(); });
-#warning set last_qc_block_num, is_last_qc_strong, and new_proposer_policy correctly
-            uint32_t last_qc_block_num {0};
-            bool is_last_qc_strong {false};
-            std::optional<proposer_policy> new_proposer_policy {std::nullopt};
-            emplace_extension(
-               block_ptr->header_extensions,
-               instant_finality_extension::extension_id(),
-               fc::raw::pack( instant_finality_extension{ last_qc_block_num, is_last_qc_strong, std::move(fin_pol), std::move(new_proposer_policy) } )
-               );
-      }
-#endif
+      auto assembled_block = 
+         bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
+
+      // Update TaPoS table:
+      create_block_summary(  assembled_block.id() );
+
+      pending->_block_stage = std::move(assembled_block);
       
-      // Create (unsigned) block in dpos mode.    [greg todo] do it in IF mode later when we are ready to sign it
-      bb.apply_dpos<void>([&](building_block::building_block_dpos& bb) {
-         auto block_ptr = std::make_shared<signed_block>(
-            bb.pending_block_header_state.make_block_header(
-               calc_trx_merkle ? trx_merkle_fut.get() : std::get<checksum256_type>(bb.trx_mroot_or_receipt_digests),
-               action_merkle_fut.get(),
-               bb.new_pending_producer_schedule,
-               vector<digest_type>(bb.new_protocol_feature_activations), // have to copy as member declared `const`
-               protocol_features.get_protocol_feature_set()));
+      /*
+        ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
+        ("n",pbhs.block_num())
+        ("id",id)
+        ("t",pbhs.timestamp)
+        ("p",pbhs.producer)
+        ("signing_key", pbhs.block_signing_key)
+        ("v",pbhs.active_schedule_version)
+        ("lib",pbhs.dpos_irreversible_blocknum)
+        ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
+        ("np",block_ptr->new_producers)
+        );
+      */
 
-         block_ptr->transactions = std::move(bb.pending_trx_receipts);
-
-         auto id = block_ptr->calculate_id();
-
-         // Update TaPoS table:
-         create_block_summary( id );
-
-         /*
-           ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
-           ("n",pbhs.block_num())
-           ("id",id)
-           ("t",pbhs.timestamp)
-           ("p",pbhs.producer)
-           ("signing_key", pbhs.block_signing_key)
-           ("v",pbhs.active_schedule_version)
-           ("lib",pbhs.dpos_irreversible_blocknum)
-           ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
-           ("np",block_ptr->new_producers)
-           );
-         */
-
-         pending->_block_stage = assembled_block{assembled_block::assembled_block_dpos{
-            id,
-            std::move( bb.pending_block_header_state ),
-            std::move( bb.pending_trx_metas ),
-            std::move( block_ptr ),
-            std::move( bb.new_pending_producer_schedule )
-            }};
-      });
       }
       FC_CAPTURE_AND_RETHROW()
    } /// finalize_block
@@ -2590,7 +2622,7 @@ struct controller_impl {
    void set_proposed_finalizers(const finalizer_policy& fin_pol) {
       assert(pending); // has to exist and be building_block since called from host function
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.apply_hs<void>([&](building_block::building_block_if& bb) { bb.new_finalizer_policy.emplace(fin_pol); });
+      bb.set_proposed_finalizer_policy(fin_pol);
    }
 
    /**
@@ -4004,6 +4036,10 @@ const producer_authority_schedule& controller::active_producers()const {
    return my->pending->active_producers();
 }
 
+const producer_authority_schedule& controller::head_active_producers()const {
+   return my->block_data.head_active_schedule_auth();
+}
+
 const producer_authority_schedule& controller::pending_producers()const {
    if( !(my->pending) ) 
       return  my->block_data.head_pending_schedule_auth();    // [greg todo] implement pending_producers correctly for IF mode
@@ -4140,7 +4176,7 @@ void controller::check_key_list( const public_key_type& key )const {
 }
 
 bool controller::is_building_block()const {
-   return my->pending.has_value();
+   return my->pending.has_value() && !std::holds_alternative<completed_block>(my->pending->_block_stage);
 }
 
 bool controller::is_speculative_block()const {

@@ -3858,9 +3858,6 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
    check("test"_n, 3);
 } FC_LOG_AND_RETHROW() }
 
-#if 0
-// [greg todo]  re-implement the test after https://github.com/AntelopeIO/leap/issues/1911 is done
-
 // test set_finalizer host function serialization and tester set_finalizers
 BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    validating_tester t;
@@ -3888,7 +3885,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    BOOST_TEST(fin_policy->finalizers.size() == finalizers.size());
    BOOST_TEST(fin_policy->generation == 1);
    BOOST_TEST(fin_policy->threshold == finalizers.size() / 3 * 2 + 1);
-
+#if 0 // update after transition is complete: https://github.com/AntelopeIO/leap/issues/1911
    // old dpos still in affect until block is irreversible
    BOOST_TEST(block->confirmed == 0);
    block_state_legacy_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
@@ -3906,10 +3903,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    block_state = t.control->fetch_block_state_by_id(block->calculate_id());
    BOOST_REQUIRE(!!block_state);
    BOOST_TEST(block_state->dpos_irreversible_blocknum == hs_dpos_irreversible_blocknum);
-
-} FC_LOG_AND_RETHROW() }
-
 #endif
-
+} FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -249,6 +249,7 @@ namespace eosio::chain {
          uint32_t                       pending_block_num()const;
 
          const producer_authority_schedule&         active_producers()const;
+         const producer_authority_schedule&         head_active_producers()const;
          const producer_authority_schedule&         pending_producers()const;
          std::optional<producer_authority_schedule> proposed_producers()const;
 

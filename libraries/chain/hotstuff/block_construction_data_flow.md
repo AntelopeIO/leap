@@ -144,6 +144,7 @@ In addition, in IF `pending_state._block_stage` will still contain the three sta
 
 ```c++
 struct building_block {
+   const block_header_state&                        parent;                           // Needed for block_header_state::next()
    const block_id_type                              parent_id;                        // Comes from building_block_input::parent_id
    const block_timestamp_type                       timestamp;                        // Comes from building_block_input::timestamp
    const account_name                               producer;                         // Comes from building_block_input::producer
@@ -189,14 +190,17 @@ struct building_block_input {
 When done with building the block, from `building_block` we can extract:
 
 ```c++
+struct qc_info_t {
+   uint32_t last_qc_block_num; // The block height of the most recent ancestor block that has a QC justification
+   bool     is_last_qc_strong; // Whether the QC for the block referenced by last_qc_block_height is strong or weak.
+};
 
 struct block_header_state_input : public building_block_input {
    digest_type                       transaction_mroot;    // Comes from std::get<checksum256_type>(building_block::trx_mroot_or_receipt_digests)
    digest_type                       action_mroot;         // Compute root from  building_block::action_receipt_digests
    std::optional<proposer_policy>    new_proposer_policy;  // Comes from building_block::new_proposer_policy
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
-   std::optional<quorum_certificate> qc;                   // Comes from traversing branch from parent and calling get_best_qc()
-                                                           // assert(qc->block_num <= num_from_id(previous));
+   std::optional<qc_info_t>          qc_info; 
    // ... ?
 };
 ```
