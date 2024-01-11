@@ -249,6 +249,23 @@ struct block_data_t {
       }, v);
    }
 
+	bool aggregate_vote(const hs_vote_message& vote) {
+	   return std::visit(
+	      overloaded{[](const block_data_legacy_t&) {
+	                    EOS_ASSERT(false, misc_exception, "attempting to call aggregate_vote in legacy mode");
+	                    return false; },
+	                 [&](const block_data_new_t& bd) {
+	                    auto bsp = bd.fork_db.get_block(vote.proposal_id);
+	                    if (bsp) {
+	                       return bsp->aggregate_vote(vote);
+	                    } else {
+	                       wlog("no block exists for the vote (proposal_id: ${id}", ("id", vote.proposal_id));
+	                       return false;
+	                    }}
+                   },
+	      v);
+	}
+
    template<class R, class F>
    R apply(F &f) {
       if constexpr (std::is_same_v<void, R>)
@@ -4007,8 +4024,8 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 }
 
 // called from net threads
-void controller::notify_hs_message( const uint32_t connection_id, const hs_message& msg ) {
-   my->pacemaker->on_hs_msg(connection_id, msg);
+void controller::process_vote_message( const hs_vote_message& vote ) {
+   my->block_data.aggregate_vote(vote);
 };
 
 const producer_authority_schedule& controller::active_producers()const {
