@@ -29,6 +29,7 @@ namespace eosio::chain {
       bool                   is_valid()          const { return validated; } 
       void                   set_valid(bool b)         { validated = b; }
       uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
+      std::optional<qc_data_t> get_best_qc()     const; 
       
       protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
       deque<transaction_metadata_ptr>     extract_trxs_metas() { return {}; }; //  [greg todo] see impl in block_state_legacy.hpp
