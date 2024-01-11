@@ -939,7 +939,7 @@ struct controller_impl {
         cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
     block_data(block_data_t::block_data_variant{
-         std::in_place_type<block_data_legacy_t>, // [greg todo] create correct type depending on whether IF activated
+         std::in_place_type<block_data_legacy_t>, // initial state is always dpos
          std::filesystem::path{cfg.blocks_dir / config::reversible_blocks_dir_name}}),
     resource_limits( db, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
     authorization( s, db ),
@@ -1508,7 +1508,7 @@ struct controller_impl {
          section.add_row(chain_snapshot_header(), db);
       });
 
-      // [greg todo] add snapshot support for new (IF) block_state section
+#warning todo: add snapshot support for new (IF) block_state section
       auto write_block_state_section = [&](auto& fork_db, auto& head) {
          snapshot->write_section("eosio::chain::block_state", [&]( auto &section ) {
             section.template add_row<block_header_state_legacy>(*head, db);
@@ -1562,7 +1562,7 @@ struct controller_impl {
          header.validate();
       });
 
-      // [greg todo] add snapshot support for new (IF) block_state section
+#warning todo: add snapshot support for new (IF) block_state section
       auto read_block_state_section = [&](auto& fork_db, auto& head) { /// load and upgrade the block header state
          block_header_state_legacy head_header_state;
          using v2 = legacy::snapshot_block_header_state_v2;
@@ -2690,9 +2690,9 @@ struct controller_impl {
    void report_block_header_diff( const block_header& b, const block_header& ab ) {
 
 #define EOS_REPORT(DESC,A,B) \
-   if( A != B ) { \
-      elog("${desc}: ${bv} != ${abv}", ("desc", DESC)("bv", A)("abv", B)); \
-   }
+      if( A != B ) {                                                    \
+         elog("${desc}: ${bv} != ${abv}", ("desc", DESC)("bv", A)("abv", B)); \
+      }
 
       EOS_REPORT( "timestamp", b.timestamp, ab.timestamp )
       EOS_REPORT( "producer", b.producer, ab.producer )
