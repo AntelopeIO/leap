@@ -28,6 +28,12 @@ bool include_delta(const chain::resource_limits::resource_limits_state_object& o
        old.virtual_net_limit != curr.virtual_net_limit ||                                       //
        old.virtual_cpu_limit != curr.virtual_cpu_limit;
 }
+bool include_delta(const chain::account_object& old, const chain::account_object& curr) {
+   return                                               //
+       old.name != curr.name ||                         //
+       old.creation_date != curr.creation_date ||       //
+       old.abi != curr.abi;
+}
 
 bool include_delta(const chain::account_metadata_object& old, const chain::account_metadata_object& curr) {
    return                                               //

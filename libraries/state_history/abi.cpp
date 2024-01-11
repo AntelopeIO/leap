@@ -482,6 +482,16 @@ extern const char* const state_history_plugin_abi = R"({
             ]
         },
         {
+            "name": "permission_v1", "fields": [
+                { "type": "name", "name": "owner" },
+                { "type": "name", "name": "name" },
+                { "type": "name", "name": "parent" },
+                { "type": "time_point", "name": "last_updated" },
+                { "type": "time_point", "name": "last_used" },
+                { "type": "authority", "name": "auth" }
+            ]
+        },
+        {
             "name": "permission_link_v0", "fields": [
                 { "type": "name", "name": "account" },
                 { "type": "name", "name": "code" },
@@ -578,7 +588,7 @@ extern const char* const state_history_plugin_abi = R"({
         { "name": "generated_transaction", "types": ["generated_transaction_v0"] },
         { "name": "activated_protocol_feature", "types": ["activated_protocol_feature_v0"] },
         { "name": "protocol_state", "types": ["protocol_state_v0"] },
-        { "name": "permission", "types": ["permission_v0"] },
+        { "name": "permission", "types": ["permission_v0", "permission_v1"] },
         { "name": "permission_link", "types": ["permission_link_v0"] },
         { "name": "resource_limits", "types": ["resource_limits_v0"] },
         { "name": "usage_accumulator", "types": ["usage_accumulator_v0"] },

@@ -15,8 +15,8 @@ namespace eosio { namespace chain {
       id_type              id;
       account_name         name; //< name should not be changed within a chainbase modifier lambda
       block_timestamp_type creation_date;
-      uint64_t              recv_sequence = 0;
-      uint64_t              auth_sequence = 0;
+      uint64_t             recv_sequence = 0;
+      uint64_t             auth_sequence = 0;
       shared_blob          abi;
 
       void set_abi( const eosio::chain::abi_def& a ) {
