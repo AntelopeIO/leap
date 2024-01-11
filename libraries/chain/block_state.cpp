@@ -102,5 +102,32 @@ namespace eosio::chain {
    ,_cached_trxs( std::move(trx_metas) )
    {}
 #endif
+
+   bool block_state::aggregate_vote(const hs_vote_message& vote) {
+      const auto& finalizers = finalizer_policy->finalizers;
+      auto it = std::find_if(finalizers.begin(),
+                             finalizers.end(),
+                             [&](const auto& finalizer) { return finalizer.public_key == vote.finalizer_key; });
+
+      if (it != finalizers.end()) {
+         auto index = std::distance(finalizers.begin(), it);
+         if( vote.strong ) {
+            std::vector<uint8_t> d(strong_finalizer_digest.data(), strong_finalizer_digest.data() + strong_finalizer_digest.data_size());
+            return pending_qc.add_strong_vote( d,
+                                               index,
+                                               vote.finalizer_key,
+                                               vote.sig );
+         } else {
+            std::vector<uint8_t> d(weak_finalizer_digest.data(), weak_finalizer_digest.data() + weak_finalizer_digest.data_size());
+            return pending_qc.add_weak_vote( d,
+                                             index,
+                                             vote.finalizer_key,
+                                             vote.sig );
+         }
+      } else {
+         wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
+         return false;
+      }
+   }
    
 } /// eosio::chain
