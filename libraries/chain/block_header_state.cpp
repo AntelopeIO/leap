@@ -1,13 +1,14 @@
 #include <eosio/chain/block_header_state.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/hotstuff/instant_finality_extension.hpp>
+#include <eosio/chain/hotstuff/proposer_policy.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <limits>
 
 namespace eosio::chain {
 
 producer_authority block_header_state::get_scheduled_producer(block_timestamp_type t) const {
-   return detail::get_scheduled_producer(proposer_policy->proposer_schedule.producers, t);
+   return detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, t);
 }
 
 #warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
@@ -61,12 +62,28 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    result.header = block_header {
       .timestamp         = input.timestamp, // [greg todo] do we have to do the slot++ stuff from the legacy version?
       .producer          = input.producer,
+      .confirmed         = hs_block_confirmed, // todo: consider 0 instead
       .previous          = input.parent_id,
       .transaction_mroot = input.transaction_mroot,
       .action_mroot      = input.action_mroot,
-      //.schedule_version = ?, [greg todo]
-      //.new_producers = ?     [greg todo]
+      .schedule_version  = header.schedule_version
    };
+
+   if(!proposer_policies.empty()) {
+      auto it = proposer_policies.begin();
+      if (it->first <= input.timestamp) {
+         result.active_proposer_policy = it->second;
+         result.header.schedule_version = header.schedule_version + 1;
+         result.active_proposer_policy->proposer_schedule.version = result.header.schedule_version;
+         result.proposer_policies = { ++it, proposer_policies.end() };
+      } else {
+         result.proposer_policies = proposer_policies;
+      }
+   }
+   if (input.new_proposer_policy) {
+      // called when assembling the block
+      result.proposer_policies[result.header.timestamp] = input.new_proposer_policy;
+   }
 
    // core
    // ----

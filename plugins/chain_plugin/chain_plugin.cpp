@@ -1800,9 +1800,9 @@ read_only::get_producers( const read_only::get_producers_params& params, const f
 read_only::get_producer_schedule_result read_only::get_producer_schedule( const read_only::get_producer_schedule_params& p, const fc::time_point& ) const {
    read_only::get_producer_schedule_result result;
    to_variant(db.active_producers(), result.active);
-   if(!db.pending_producers().producers.empty())
-      to_variant(db.pending_producers(), result.pending);
-   auto proposed = db.proposed_producers();
+   if (const auto* pending = db.next_producers()) // not applicable for instant-finality
+      to_variant(*pending, result.pending);
+   auto proposed = db.proposed_producers_legacy(); // empty for instant-finality
    if(proposed && !proposed->producers.empty())
       to_variant(*proposed, result.proposed);
    return result;

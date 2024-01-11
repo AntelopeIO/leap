@@ -29,7 +29,7 @@ struct qc_data_t {
 struct block_header_state_input : public building_block_input {
    digest_type                       transaction_mroot;    // Comes from std::get<checksum256_type>(building_block::trx_mroot_or_receipt_digests)
    digest_type                       action_mroot;         // Compute root from  building_block::action_receipt_digests
-   std::optional<proposer_policy>    new_proposer_policy;  // Comes from building_block::new_proposer_policy
+   std::shared_ptr<proposer_policy>  new_proposer_policy;  // Comes from building_block::new_proposer_policy
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
    std::optional<qc_info_t>          qc_info;              // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
@@ -54,10 +54,11 @@ struct block_header_state {
    incremental_merkle_tree             proposal_mtree;
    incremental_merkle_tree             finality_mtree;
 
-   finalizer_policy_ptr                finalizer_policy; // finalizer set + threshold + generation, supports `digest()`
-   proposer_policy_ptr                 proposer_policy;  // producer authority schedule, supports `digest()`
+   finalizer_policy_ptr                active_finalizer_policy; // finalizer set + threshold + generation, supports `digest()`
+   proposer_policy_ptr                 active_proposer_policy;  // producer authority schedule, supports `digest()`
 
-   flat_map<uint32_t, proposer_policy_ptr>  proposer_policies;
+   // block time when proposer_policy will become active
+   flat_map<block_timestamp_type, proposer_policy_ptr>  proposer_policies;
    flat_map<uint32_t, finalizer_policy_ptr> finalizer_policies;
 
    // ------ functions -----------------------------------------------------------------
@@ -66,9 +67,8 @@ struct block_header_state {
    account_name          producer() const  { return header.producer; }
    const block_id_type&  previous() const  { return header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
-   const producer_authority_schedule& active_schedule_auth()  const { return proposer_policy->proposer_schedule; }
-   const producer_authority_schedule& pending_schedule_auth() const { return proposer_policies.rbegin()->second->proposer_schedule; } // [greg todo]
-   
+   const producer_authority_schedule& active_schedule_auth()  const { return active_proposer_policy->proposer_schedule; }
+
    block_header_state next(block_header_state_input& data) const;
    
    // block descending from this need the provided qc in the block extension
@@ -77,10 +77,8 @@ struct block_header_state {
    }
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
-   detail::schedule_info prev_pending_schedule() const;
    producer_authority get_scheduled_producer(block_timestamp_type t) const;
    uint32_t active_schedule_version() const;
-   std::optional<producer_authority_schedule>& new_pending_producer_schedule() { static std::optional<producer_authority_schedule> x; return x; } //  [greg todo] 
    signed_block_header make_block_header(const checksum256_type& transaction_mroot,
                                          const checksum256_type& action_mroot,
                                          const std::optional<producer_authority_schedule>& new_producers,
