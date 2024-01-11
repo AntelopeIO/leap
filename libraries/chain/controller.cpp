@@ -121,7 +121,7 @@ struct block_data_gen_t {
 public:
    using bs        = bsp::element_type;
    using bhs       = bhsp::element_type;
-   using fork_db_t = fork_database<bsp, bhsp>;
+   using fork_db_t = fork_database<bsp>;
 
    bsp       head;
    fork_db_t fork_db;
@@ -249,8 +249,8 @@ struct block_data_t {
       }, v);
    }
 
-   template<class R, class F>
-   R apply(F &f) {
+   template <class R, class F>
+   R apply(F& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit([&](auto& bd) { bd.template apply<R>(f); }, v);
       else
@@ -446,7 +446,7 @@ struct assembled_block {
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
                                          std::move(ab.trx_metas), pfs, validator, signer);
 
-                                      return completed_block{block_state_legacy_ptr{std::move(bsp)}};
+                                      return completed_block{std::move(bsp)};
                                    },
                                    [&](assembled_block_if& ab) {
                                       return completed_block{}; /* [greg todo] */
@@ -1156,12 +1156,13 @@ struct controller_impl {
       std::exception_ptr except_ptr;
 
       auto replay_blog = [&](auto& fork_db, auto& head) {
+         using BSP = std::decay_t<decltype(head)>;
          if( blog_head && start_block_num <= blog_head->block_num() ) {
             ilog( "existing block log, attempting to replay from ${s} to ${n} blocks",
                   ("s", start_block_num)("n", blog_head->block_num()) );
             try {
                while( auto next = blog.read_block_by_num( head->block_num() + 1 ) ) {
-                  replay_push_block( next, controller::block_status::irreversible );
+                  replay_push_block<BSP>( next, controller::block_status::irreversible );
                   if( check_shutdown() ) break;
                   if( next->block_num() % 500 == 0 ) {
                      ilog( "${n} of ${head}", ("n", next->block_num())("head", blog_head->block_num()) );
@@ -1208,7 +1209,7 @@ struct controller_impl {
                if( check_shutdown() ) break;
                if( (*i)->block_num() <= head_block_num ) continue;
                ++rev;
-               replay_push_block( (*i)->block, controller::block_status::validated );
+               replay_push_block<BSP>( (*i)->block, controller::block_status::validated );
             }
             ilog( "${n} reversible blocks replayed", ("n",rev) );
          }
@@ -1410,7 +1411,7 @@ struct controller_impl {
                ) {
                wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
                controller::block_report br;
-               maybe_switch_forks( br, pending_head, controller::block_status::complete, forked_branch_callback{}, trx_meta_cache_lookup{} );
+               maybe_switch_forks( br, pending_head, controller::block_status::complete, {}, trx_meta_cache_lookup{} );
             }
          }
       };
@@ -2820,7 +2821,7 @@ struct controller_impl {
                commit_block(s);
                br.total_time = fc::time_point::now() - start;
             };
-            block_data.apply_dpos<void>(do_the_work);
+            block_data.apply<void>(do_the_work);
          }
          return;
       } catch ( const std::bad_alloc& ) {
@@ -2856,7 +2857,6 @@ struct controller_impl {
             prev,
             b,
             protocol_features.get_protocol_feature_set(),
-            b->confirmed == hs_block_confirmed, // is hotstuff enabled for block
             [this]( block_timestamp_type timestamp,
                     const flat_set<digest_type>& cur_features,
                     const vector<digest_type>& new_features )
@@ -2908,9 +2908,10 @@ struct controller_impl {
       return block_data.apply_dpos<block_state_legacy_ptr>(f); 
    }
 
+   template <class BSP>
    void push_block( controller::block_report& br,
-                    const block_state_legacy_ptr& bsp,
-                    const forked_branch_callback& forked_branch_cb,
+                    const BSP& bsp,
+                    const forked_branch_callback_t<BSP>& forked_branch_cb,
                     const trx_meta_cache_lookup& trx_lookup )
    {
       controller::block_status s = controller::block_status::complete;
@@ -2930,7 +2931,8 @@ struct controller_impl {
          }
          
          auto do_push = [&](auto& fork_db, auto& head) {
-            fork_db.add( bsp );
+            if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>)
+               fork_db.add( bsp );
 
             if (self.is_trusted_producer(b->producer)) {
                trusted_producer_light_validation = true;
@@ -2939,18 +2941,19 @@ struct controller_impl {
             emit( self.accepted_block_header, std::tie(bsp->block, bsp->id()) );
 
             if( read_mode != db_read_mode::IRREVERSIBLE ) {
-               maybe_switch_forks( br, fork_db.pending_head(), s, forked_branch_cb, trx_lookup );
+               if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>)
+                  maybe_switch_forks( br, fork_db.pending_head(), s, forked_branch_cb, trx_lookup );
             } else {
                log_irreversible();
             }
          };
 
-         block_data.apply_dpos<void>(do_push); // [greg todo] make it work with apply() - `push_block` taking block_state_legacy_ptr
-                                               // and forked_branch_callback
+         block_data.apply<void>(do_push);
 
       } FC_LOG_AND_RETHROW( )
    }
 
+   template <class BSP>
    void replay_push_block( const signed_block_ptr& b, controller::block_status s ) {
       self.validate_db_available_size();
 
@@ -2968,53 +2971,49 @@ struct controller_impl {
          }
 
          const bool skip_validate_signee = !conf.force_all_checks;
+         validator_t validator = [this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
+                                        const vector<digest_type>& new_features) {
+            check_protocol_features(timestamp, cur_features, new_features);
+         };
 
          auto do_push = [&](auto& fork_db, auto& head) {
-            auto bsp = std::make_shared<block_state_legacy>(
-               *head,
-               b,
-               protocol_features.get_protocol_feature_set(),
-               b->confirmed == hs_block_confirmed, // is hotstuff enabled for block
-               [this]( block_timestamp_type timestamp,
-                       const flat_set<digest_type>& cur_features,
-                       const vector<digest_type>& new_features )
-               { check_protocol_features( timestamp, cur_features, new_features ); },
-               skip_validate_signee
-               );
+            if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>) {
+               auto bsp = std::make_shared<typename BSP::element_type>(
+                  *head, b, protocol_features.get_protocol_feature_set(), validator, skip_validate_signee);
 
-            if( s != controller::block_status::irreversible ) {
-               fork_db.add( bsp, true );
-            }
-
-            emit( self.accepted_block_header, std::tie(bsp->block, bsp->id()) );
-
-            controller::block_report br;
-            if( s == controller::block_status::irreversible ) {
-               apply_block( br, bsp, s, trx_meta_cache_lookup{} );
-
-               // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
-               // So emit it explicitly here.
-               emit( self.irreversible_block, std::tie(bsp->block, bsp->id()) );
-
-               if (!self.skip_db_sessions(s)) {
-                  db.commit(bsp->block_num());
+               if (s != controller::block_status::irreversible) {
+                  fork_db.add(bsp, true);
                }
 
-            } else {
-               EOS_ASSERT( read_mode != db_read_mode::IRREVERSIBLE, block_validate_exception,
-                           "invariant failure: cannot replay reversible blocks while in irreversible mode" );
-               maybe_switch_forks( br, bsp, s, forked_branch_callback{}, trx_meta_cache_lookup{} );
+               emit(self.accepted_block_header, std::tie(bsp->block, bsp->id()));
+
+               controller::block_report br;
+               if (s == controller::block_status::irreversible) {
+                  apply_block(br, bsp, s, trx_meta_cache_lookup{});
+
+                  // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
+                  // So emit it explicitly here.
+                  emit(self.irreversible_block, std::tie(bsp->block, bsp->id()));
+
+                  if (!self.skip_db_sessions(s)) {
+                     db.commit(bsp->block_num());
+                  }
+               } else {
+                  EOS_ASSERT(read_mode != db_read_mode::IRREVERSIBLE, block_validate_exception,
+                             "invariant failure: cannot replay reversible blocks while in irreversible mode");
+                  maybe_switch_forks(br, bsp, s, {}, trx_meta_cache_lookup{});
+               }
             }
          };
-         
-         block_data.apply_dpos<void>(do_push); // [greg todo] make it work with apply() - need block_state constructor
+
+         block_data.apply<void>(do_push);
 
       } FC_LOG_AND_RETHROW( )
    }
 
    template<class BSP>
    void maybe_switch_forks( controller::block_report& br, const BSP& new_head, controller::block_status s,
-                            const forked_branch_callback& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
+                            const forked_branch_callback_t<BSP>& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
    {
       auto do_maybe_switch_forks = [&](auto& fork_db, auto& head) {
          bool head_changed = true;
@@ -3043,7 +3042,9 @@ struct controller_impl {
                EOS_ASSERT( self.head_block_id() == branches.second.back()->header.previous, fork_database_exception,
                            "loss of sync between fork_db and chainbase during fork switch" ); // _should_ never fail
 
-               if( forked_branch_cb ) forked_branch_cb( branches.second );
+               if( forked_branch_cb )
+                  if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>)
+                     forked_branch_cb(branches.second);
             }
 
             for( auto ritr = branches.first.rbegin(); ritr != branches.first.rend(); ++ritr ) {
@@ -3107,7 +3108,7 @@ struct controller_impl {
             log_irreversible();
       };
 
-      block_data.apply_dpos<void>(do_maybe_switch_forks); // [greg todo] 
+      block_data.apply<void>(do_maybe_switch_forks);
 
    } /// push_block
 
@@ -3693,12 +3694,22 @@ block_state_legacy_ptr controller::create_block_state( const block_id_type& id, 
 
 void controller::push_block( controller::block_report& br,
                              const block_state_legacy_ptr& bsp,
+                             const forked_branch_callback_legacy& forked_branch_cb,
+                             const trx_meta_cache_lookup& trx_lookup )
+{
+   validate_db_available_size();
+   my->push_block( br, bsp, forked_branch_cb, trx_lookup );
+}
+
+void controller::push_block( controller::block_report& br,
+                             const block_state_ptr& bsp,
                              const forked_branch_callback& forked_branch_cb,
                              const trx_meta_cache_lookup& trx_lookup )
 {
    validate_db_available_size();
    my->push_block( br, bsp, forked_branch_cb, trx_lookup );
 }
+
 
 transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,

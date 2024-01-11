@@ -70,7 +70,9 @@ struct block_header_state {
    const producer_authority_schedule& pending_schedule_auth() const { return proposer_policies.rbegin()->second->proposer_schedule; } // [greg todo]
    
    block_header_state next(block_header_state_input& data) const;
-   
+
+   block_header_state next(const signed_block_header& h, const protocol_feature_set& pfs, validator_t& validator) const;
+
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
       return !core.last_qc_block_num || qc.block_height > *core.last_qc_block_num;

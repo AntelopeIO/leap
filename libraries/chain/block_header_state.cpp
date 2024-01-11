@@ -75,6 +75,13 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    else
       result.core = core;
 
+   if (!input.new_protocol_feature_activations.empty()) {
+      result.activated_protocol_features = std::make_shared<protocol_feature_activation_set>(
+         *activated_protocol_features, input.new_protocol_feature_activations);
+   } else {
+      result.activated_protocol_features = activated_protocol_features;
+   }
+
    // add block header extensions
    // ---------------------------
    if (input.new_finalizer_policy)
@@ -93,5 +100,50 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    return result;
 }
 
+/**
+ *  Transitions the current header state into the next header state given the supplied signed block header.
+ *
+ *  Given a signed block header, generate the expected template based upon the header time,
+ *  then validate that the provided header matches the template.
+ *
+ *  If the header specifies new_producers then apply them accordingly.
+ */
+block_header_state block_header_state::next(const signed_block_header& h, const protocol_feature_set& pfs,
+                                            validator_t& validator) const {
+   auto producer = detail::get_scheduled_producer(proposer_policy->proposer_schedule.producers, h.timestamp).producer_name;
+   
+   EOS_ASSERT( h.previous == id, unlinkable_block_exception, "previous mismatch" );
+   EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
+
+   auto exts = h.validate_and_extract_header_extensions();
+
+   // handle protocol_feature_activation from incoming block
+   // ------------------------------------------------------
+   vector<digest_type> new_protocol_feature_activations;
+   if( exts.count(protocol_feature_activation::extension_id() > 0) ) {
+      const auto& entry = exts.lower_bound(protocol_feature_activation::extension_id());
+      new_protocol_feature_activations = std::move(std::get<protocol_feature_activation>(entry->second).protocol_features);
+   }
+
+   // retrieve instant_finality_extension data from block extension
+   // -------------------------------------------------------------
+   EOS_ASSERT(exts.count(instant_finality_extension::extension_id() > 0), misc_exception,
+              "Instant Finality Extension is expected to be present in all block headers after switch to IF");
+   const auto& if_entry = exts.lower_bound(instant_finality_extension::extension_id());
+   const auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+
+   building_block_input bb_input{
+      .parent_id = id,
+      .timestamp = h.timestamp,
+      .producer  = producer,
+      .new_protocol_feature_activations = std::move(new_protocol_feature_activations)
+   };
+
+   block_header_state_input bhs_input{
+      bb_input,      h.transaction_mroot, h.action_mroot, if_ext.new_proposer_policy, if_ext.new_finalizer_policy,
+      if_ext.qc_info};
+
+   return next(bhs_input);
+}
 
 } // namespace eosio::chain

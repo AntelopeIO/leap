@@ -269,7 +269,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    auto bad_block_bsf = c.control->create_block_state_future( bad_id, std::make_shared<signed_block>(std::move(bad_block)) );
    c.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(c.control->push_block( br, bad_block_bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(c.control->push_block( br, bad_block_bsf.get(), {}, trx_meta_cache_lookup{} ), fc::exception,
       [] (const fc::exception &ex)->bool {
          return ex.to_detail_string().find("block signed by unexpected key") != std::string::npos;
       });
