@@ -111,19 +111,13 @@ namespace eosio::chain {
 
       if (it != finalizers.end()) {
          auto index = std::distance(finalizers.begin(), it);
-         if( vote.strong ) {
-            std::vector<uint8_t> d(strong_finalizer_digest.data(), strong_finalizer_digest.data() + strong_finalizer_digest.data_size());
-            return pending_qc.add_strong_vote( d,
-                                               index,
-                                               vote.finalizer_key,
-                                               vote.sig );
-         } else {
-            std::vector<uint8_t> d(weak_finalizer_digest.data(), weak_finalizer_digest.data() + weak_finalizer_digest.data_size());
-            return pending_qc.add_weak_vote( d,
-                                             index,
-                                             vote.finalizer_key,
-                                             vote.sig );
-         }
+         const digest_type& digest = vote.strong ? strong_finalizer_digest : weak_finalizer_digest;
+
+         return pending_qc.add_vote(vote.strong,
+                                    std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()},
+                                    index,
+                                    vote.finalizer_key,
+                                    vote.sig);
       } else {
          wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
          return false;
