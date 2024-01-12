@@ -254,7 +254,7 @@ public:
 
    beast_http_session(Socket&& socket, std::shared_ptr<http_plugin_state> plugin_state, std::string remote_endpoint,
                       api_category_set categories, const std::string& local_address)
-       : plugin_state_(plugin_state), socket_(std::move(socket)), categories_(categories),
+       : plugin_state_(std::move(plugin_state)), socket_(std::move(socket)), categories_(categories),
          remote_endpoint_(std::move(remote_endpoint)), local_address_(local_address) {
       plugin_state_->requests_in_flight += 1;
       req_parser_.emplace();
