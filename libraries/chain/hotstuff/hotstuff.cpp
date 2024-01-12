@@ -23,7 +23,6 @@ inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) {
 bool pending_quorum_certificate::votes_t::add_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
                                                    const bls_public_key& pubkey, const bls_signature& new_sig) {
    if (_bitset[index]) {
-      wlog( "finalizer ${i} has already voted", ("i", index) );
       return false; // shouldn't be already present
    }
    if (!fc::crypto::blslib::verify(pubkey, proposal_digest, new_sig)) {
