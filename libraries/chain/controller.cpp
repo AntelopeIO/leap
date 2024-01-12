@@ -915,7 +915,7 @@ struct pending_state {
       _db_session.push();
    }
 
-   //bool is_dpos() const { return std::visit([](const auto& stage) { return stage.is_dpos(); }, _block_stage); }
+   bool is_dpos() const { return std::visit([](const auto& stage) { return stage.is_dpos(); }, _block_stage); }
    
    const block_signing_authority& pending_block_signing_authority() const {
       return std::visit(

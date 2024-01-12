@@ -127,7 +127,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
  */
 block_header_state block_header_state::next(const signed_block_header& h, const protocol_feature_set& pfs,
                                             validator_t& validator) const {
-   auto producer = detail::get_scheduled_producer(proposer_policy->proposer_schedule.producers, h.timestamp).producer_name;
+   auto producer = detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, h.timestamp).producer_name;
    
    EOS_ASSERT( h.previous == id, unlinkable_block_exception, "previous mismatch" );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
