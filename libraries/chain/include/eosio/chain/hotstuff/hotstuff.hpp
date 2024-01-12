@@ -157,7 +157,6 @@ namespace eosio::chain {
       size_t num_strong() const { return _strong_votes.count(); }
 
       bool   is_quorum_met() const;
-      bool   is_valid()      const { return _state == state_t::strong || _state == state_t::weak_achieved || _state == state_t::weak_final; }
 
       void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum);
 
@@ -212,7 +211,11 @@ namespace eosio::chain {
       bool is_weak()   const { return !!_weak_votes; }
       bool is_strong() const { return !_weak_votes; }
 
-      uint32_t accumulated_weight() const { return (_strong_votes ? _strong_votes.value().count() : 0) + (_weak_votes ? _weak_votes.value().count() : 0); }
+      bool     operator<(const valid_quorum_certificate& other) const;
+
+      // When it is strong, _weak_votes does not exist. No need to have a separate
+      // calculation for strong
+      uint32_t accumulated_weight() const { return (_strong_votes ? _strong_votes->count() : 0) + (_weak_votes ? _weak_votes->count() : 0); }
 
       // ================== begin compatibility functions =======================
       // these are present just to make the tests still work. will be removed.

@@ -107,10 +107,10 @@ namespace eosio::chain {
       auto block_number = block_num();
 
       // if pending_qc does not have a valid QC, consider valid_qc only
-      if( !pending_qc.is_valid() ) {
+      if( !pending_qc.is_quorum_met() ) {
          if( valid_qc ) {
-            return qc_data_t{ quorum_certificate{ block_number, valid_qc.value() },
-                              qc_info_t{ block_number, valid_qc.value().is_strong() }};
+            return qc_data_t{ quorum_certificate{ block_number, *valid_qc },
+                              qc_info_t{ block_number, valid_qc->is_strong() }};
          } else {
             return std::nullopt;;
          }
@@ -127,20 +127,9 @@ namespace eosio::chain {
 
       // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
       // Strong beats weak. Break tie with highest accumulated weight.
-      auto valid_qc_is_better = false;
-      if( valid_qc.value().is_strong() && !valid_qc_from_pending.is_strong() ) {
-         valid_qc_is_better = true;
-      } else if( !valid_qc.value().is_strong() && valid_qc_from_pending.is_strong() ) {
-         valid_qc_is_better = false;
-      } else if( valid_qc.value().accumulated_weight() >= valid_qc_from_pending.accumulated_weight() ) {
-         valid_qc_is_better = true;
-      } else {
-         valid_qc_is_better = false;
-      }
-
-      const auto& qc = valid_qc_is_better ? valid_qc.value() : valid_qc_from_pending;
-      return qc_data_t{ quorum_certificate{ block_number, qc },
-                        qc_info_t{ block_number, qc.is_strong() }};
+      const auto& best_qc = std::max(*valid_qc, valid_qc_from_pending);
+      return qc_data_t{ quorum_certificate{ block_number, best_qc },
+                        qc_info_t{ block_number, best_qc.is_strong() }};
    }
    
 } /// eosio::chain
