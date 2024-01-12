@@ -2257,7 +2257,7 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    controller::block_report br;
 
    // The block is invalidated
-   BOOST_REQUIRE_EXCEPTION(tester2.control->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ),
+   BOOST_REQUIRE_EXCEPTION(tester2.control->push_block( br, bsf.get(), {}, trx_meta_cache_lookup{} ),
       fc::exception,
       fc_exception_message_starts_with("transaction cannot be delayed")
    );

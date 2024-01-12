@@ -205,32 +205,32 @@ namespace eosio { namespace testing {
    }
 
    void base_tester::init(controller::config config, const snapshot_reader_ptr& snapshot) {
-      cfg = config;
+      cfg = std::move(config);
       open(snapshot);
    }
 
    void base_tester::init(controller::config config, const genesis_state& genesis) {
-      cfg = config;
+      cfg = std::move(config);
       open(genesis);
    }
 
    void base_tester::init(controller::config config) {
-      cfg = config;
+      cfg = std::move(config);
       open(default_genesis().compute_chain_id());
    }
 
    void base_tester::init(controller::config config, protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot) {
-      cfg = config;
+      cfg = std::move(config);
       open(std::move(pfs), snapshot);
    }
 
    void base_tester::init(controller::config config, protocol_feature_set&& pfs, const genesis_state& genesis) {
-      cfg = config;
+      cfg = std::move(config);
       open(std::move(pfs), genesis);
    }
 
    void base_tester::init(controller::config config, protocol_feature_set&& pfs) {
-      cfg = config;
+      cfg = std::move(config);
       open(std::move(pfs), default_genesis().compute_chain_id());
    }
 
@@ -379,7 +379,7 @@ namespace eosio { namespace testing {
       auto bsf = control->create_block_state_future(b->calculate_id(), b);
       unapplied_transactions.add_aborted( control->abort_block() );
       controller::block_report br;
-      control->push_block( br, bsf.get(), [this]( const branch_type& forked_branch ) {
+      control->push_block( br, bsf.get(), [this]( const branch_type_legacy& forked_branch ) {
          unapplied_transactions.add_forked( forked_branch );
       }, [this]( const transaction_id_type& id ) {
          return unapplied_transactions.get_trx( id );
@@ -1118,7 +1118,7 @@ namespace eosio { namespace testing {
                auto bsf = b.control->create_block_state_future( block->calculate_id(), block );
                b.control->abort_block();
                controller::block_report br;
-               b.control->push_block(br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
+               b.control->push_block(br, bsf.get(), {}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
             }
          }
       };

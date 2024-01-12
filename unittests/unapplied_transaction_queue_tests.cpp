@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    auto bs1 = create_test_block_state( { trx1, trx2 } );
    auto bs2 = create_test_block_state( { trx3, trx4, trx5 } );
    auto bs3 = create_test_block_state( { trx6 } );
-   q.add_forked( { bs3, bs2, bs1, bs1 } ); // bs1 duplicate ignored
+   q.add_forked( branch_type_legacy{ bs3, bs2, bs1, bs1 } ); // bs1 duplicate ignored
    BOOST_CHECK( q.size() == 6u );
    BOOST_REQUIRE( next( q ) == trx1 );
    BOOST_CHECK( q.size() == 5u );
@@ -155,9 +155,9 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
 
    // fifo forked
    auto bs4 = create_test_block_state( { trx7 } );
-   q.add_forked( { bs1 } );
-   q.add_forked( { bs3, bs2 } );
-   q.add_forked( { bs4 } );
+   q.add_forked( branch_type_legacy{ bs1 } );
+   q.add_forked( branch_type_legacy{ bs3, bs2 } );
+   q.add_forked( branch_type_legacy{ bs4 } );
    BOOST_CHECK( q.size() == 7u );
    BOOST_REQUIRE( next( q ) == trx1 );
    BOOST_CHECK( q.size() == 6u );
@@ -189,10 +189,10 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    // fifo forked, multi forks
    auto bs5 = create_test_block_state( { trx11, trx12, trx13 } );
    auto bs6 = create_test_block_state( { trx11, trx15 } );
-   q.add_forked( { bs3, bs2, bs1 } );
-   q.add_forked( { bs4 } );
-   q.add_forked( { bs3, bs2 } ); // dups ignored
-   q.add_forked( { bs6, bs5 } );
+   q.add_forked( branch_type_legacy{ bs3, bs2, bs1 } );
+   q.add_forked( branch_type_legacy{ bs4 } );
+   q.add_forked( branch_type_legacy{ bs3, bs2 } ); // dups ignored
+   q.add_forked( branch_type_legacy{ bs6, bs5 } );
    BOOST_CHECK_EQUAL( q.size(), 11u );
    BOOST_REQUIRE( next( q ) == trx1 );
    BOOST_CHECK( q.size() == 10u );
@@ -220,10 +220,10 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    BOOST_CHECK( q.empty() );
 
    // altogether, order fifo: forked, aborted
-   q.add_forked( { bs3, bs2, bs1 } );
+   q.add_forked( branch_type_legacy{ bs3, bs2, bs1 } );
    q.add_aborted( { trx9, trx14 } );
    q.add_aborted( { trx18, trx19 } );
-   q.add_forked( { bs6, bs5, bs4 } );
+   q.add_forked( branch_type_legacy{ bs6, bs5, bs4 } );
    // verify order
    verify_order( q, q.begin(), 15 );
    // verify type order
@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    BOOST_REQUIRE( next( q ) == trx22 );
    BOOST_CHECK( q.empty() );
 
-   q.add_forked( { bs3, bs2, bs1 } );
+   q.add_forked( branch_type_legacy{ bs3, bs2, bs1 } );
    q.add_aborted( { trx9, trx11 } );
    q.clear();
    BOOST_CHECK( q.empty() );

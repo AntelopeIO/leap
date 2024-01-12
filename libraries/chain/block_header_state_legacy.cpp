@@ -293,7 +293,7 @@ namespace eosio::chain {
 
       if( maybe_new_producer_schedule ) {
          result.pending_schedule.schedule = std::move(*maybe_new_producer_schedule);
-         result.pending_schedule.schedule_hash = std::move(*maybe_new_producer_schedule_hash);
+         result.pending_schedule.schedule_hash = *maybe_new_producer_schedule_hash;
          result.pending_schedule.schedule_lib_num    = block_number;
       } else {
          if( was_pending_promoted ) {
@@ -301,7 +301,7 @@ namespace eosio::chain {
          } else {
             result.pending_schedule.schedule         = std::move( prev_pending_schedule.schedule );
          }
-         result.pending_schedule.schedule_hash       = std::move( prev_pending_schedule.schedule_hash );
+         result.pending_schedule.schedule_hash       = prev_pending_schedule.schedule_hash ;
          result.pending_schedule.schedule_lib_num    = prev_pending_schedule.schedule_lib_num;
       }
 
@@ -369,13 +369,12 @@ namespace eosio::chain {
     */
    block_header_state_legacy block_header_state_legacy::next(
                         const signed_block_header& h,
-                        vector<signature_type>&& _additional_signatures,
+                        vector<signature_type>&& additional_signatures,
                         const protocol_feature_set& pfs,
-                        bool hotstuff_activated,
                         validator_t& validator,
                         bool skip_validate_signee )const
    {
-      return next( h.timestamp, h.confirmed ).finish_next( h, std::move(_additional_signatures), pfs, validator, skip_validate_signee );
+      return next( h.timestamp, h.confirmed ).finish_next( h, std::move(additional_signatures), pfs, validator, skip_validate_signee );
    }
 
    digest_type   block_header_state_legacy::sig_digest()const {

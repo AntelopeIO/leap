@@ -1,6 +1,8 @@
 #pragma once
 #include "eosio/chain/protocol_feature_manager.hpp"
+#include <eosio/chain/block.hpp>
 #include <eosio/chain/block_header.hpp>
+
 
 namespace eosio::chain::detail {
 
@@ -22,6 +24,25 @@ namespace eosio::chain::detail {
       auto index = t.slot % (producers.size() * config::producer_repetitions);
       index /= config::producer_repetitions;
       return producers[index];
+   }
+
+   constexpr auto additional_sigs_eid = additional_block_signatures_extension::extension_id();
+
+   /**
+    * Given a complete signed block, extract the validated additional signatures if present;
+    *
+    * @param b complete signed block
+    * @return the list of additional signatures
+    */
+   inline vector<signature_type> extract_additional_signatures(const signed_block_ptr& b) {
+      auto exts = b->validate_and_extract_extensions();
+
+      if (exts.count(additional_sigs_eid) > 0) {
+         auto& additional_sigs = std::get<additional_block_signatures_extension>(exts.lower_bound(additional_sigs_eid)->second);
+         return std::move(additional_sigs.signatures);
+      }
+
+      return {};
    }
 
 } /// namespace eosio::chain

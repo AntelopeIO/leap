@@ -123,7 +123,7 @@ struct block_data_gen_t {
 public:
    using bs        = bsp::element_type;
    using bhs       = bhsp::element_type;
-   using fork_db_t = fork_database<bsp, bhsp>;
+   using fork_db_t = fork_database<bsp>;
 
    bsp       head;
    fork_db_t fork_db;
@@ -279,8 +279,8 @@ struct block_data_t {
       }, v);
    }
 
-   template<class R, class F>
-   R apply(F &f) {
+   template <class R, class F>
+   R apply(F& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit([&](auto& bd) { bd.template apply<R>(f); }, v);
       else
@@ -290,11 +290,12 @@ struct block_data_t {
    template <class R, class F>
    R apply_dpos(F& f) {
       if constexpr (std::is_same_v<void, R>)
-         std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); },
-                  [&](block_data_new_t& bd) {}}, v);
+         std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); }, [&](block_data_new_t& bd) {}},
+                    v);
       else
          return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
-                  [&](block_data_new_t& bd)    -> R { return {}; }}, v);
+                                      [&](block_data_new_t& bd) -> R { return {}; }},
+                           v);
    }
 };
 
@@ -453,7 +454,7 @@ struct assembled_block {
                                       return ab.pending_block_header_state.active_schedule;
                                    },
                                    [](const assembled_block_if& ab) -> const producer_authority_schedule& {
-                                      static producer_authority_schedule pas; return pas; // [greg todo]
+                                      return ab.bhs.active_schedule_auth();
                                    }},
                         v);
    }
@@ -499,7 +500,7 @@ struct assembled_block {
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
                                          std::move(ab.trx_metas), pfs, validator, signer);
 
-                                      return completed_block{block_state_legacy_ptr{std::move(bsp)}};
+                                      return completed_block{std::move(bsp)};
                                    },
                                    [&](assembled_block_if& ab) {
                                       return completed_block{}; /* [greg todo] */
@@ -630,12 +631,12 @@ struct building_block {
       v(building_block_dpos(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
    {}
 
-   bool is_dpos() const { return std::holds_alternative<building_block_dpos>(v); }
-
    // if constructor
-   building_block(const block_header_state& prev, const building_block_input& bbi) :
-      v(building_block_if(prev, bbi))
+   building_block(const block_header_state& prev, const building_block_input& input) :
+      v(building_block_if(prev, input))
    {}
+
+   bool is_dpos() const { return std::holds_alternative<building_block_dpos>(v); }
 
    template <class R, class F>
    R apply_dpos(F&& f) {
@@ -868,20 +869,27 @@ struct building_block {
 using block_stage_type = std::variant<building_block, assembled_block, completed_block>;
       
 struct pending_state {
-   pending_state( maybe_session&& s,
-                  const block_header_state_legacy& prev,
-                  block_timestamp_type when,
-                  uint16_t num_prev_blocks_to_confirm,
-                  const vector<digest_type>& new_protocol_feature_activations )
-   :_db_session( std::move(s) )
-   ,_block_stage( building_block( prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
-   {}
-
    maybe_session                  _db_session;
    block_stage_type               _block_stage;
    controller::block_status       _block_status = controller::block_status::ephemeral;
    std::optional<block_id_type>   _producer_block_id;
    controller::block_report       _block_report{};
+
+   pending_state(maybe_session&& s,
+                 const block_header_state_legacy& prev,
+                 block_timestamp_type when,
+                 uint16_t num_prev_blocks_to_confirm,
+                 const vector<digest_type>& new_protocol_feature_activations)
+   :_db_session(std::move(s))
+   ,_block_stage(building_block(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
+   {}
+
+   pending_state(maybe_session&& s,
+                 const block_header_state& prev,
+                 const building_block_input& input) :
+      _db_session(std::move(s)),
+      _block_stage(building_block(prev, input))
+   {}
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& stage) { return stage.extract_trx_metas(); }, _block_stage);
@@ -907,7 +915,7 @@ struct pending_state {
       _db_session.push();
    }
 
-   bool is_dpos() const { return std::visit([](const auto& stage) { return stage.is_dpos(); }, _block_stage); }
+   //bool is_dpos() const { return std::visit([](const auto& stage) { return stage.is_dpos(); }, _block_stage); }
    
    const block_signing_authority& pending_block_signing_authority() const {
       return std::visit(
@@ -1023,7 +1031,7 @@ struct controller_impl {
         cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
     block_data(block_data_t::block_data_variant{
-         std::in_place_type<block_data_legacy_t>, // [greg todo] create correct type depending on whether IF activated
+         std::in_place_type<block_data_legacy_t>, // initial state is always dpos
          std::filesystem::path{cfg.blocks_dir / config::reversible_blocks_dir_name}}),
     resource_limits( db, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
     authorization( s, db ),
@@ -1240,12 +1248,13 @@ struct controller_impl {
       std::exception_ptr except_ptr;
 
       auto replay_blog = [&](auto& fork_db, auto& head) {
+         using BSP = std::decay_t<decltype(head)>;
          if( blog_head && start_block_num <= blog_head->block_num() ) {
             ilog( "existing block log, attempting to replay from ${s} to ${n} blocks",
                   ("s", start_block_num)("n", blog_head->block_num()) );
             try {
                while( auto next = blog.read_block_by_num( head->block_num() + 1 ) ) {
-                  replay_push_block( next, controller::block_status::irreversible );
+                  replay_push_block<BSP>( next, controller::block_status::irreversible );
                   if( check_shutdown() ) break;
                   if( next->block_num() % 500 == 0 ) {
                      ilog( "${n} of ${head}", ("n", next->block_num())("head", blog_head->block_num()) );
@@ -1292,7 +1301,7 @@ struct controller_impl {
                if( check_shutdown() ) break;
                if( (*i)->block_num() <= head_block_num ) continue;
                ++rev;
-               replay_push_block( (*i)->block, controller::block_status::validated );
+               replay_push_block<BSP>( (*i)->block, controller::block_status::validated );
             }
             ilog( "${n} reversible blocks replayed", ("n",rev) );
          }
@@ -1494,7 +1503,7 @@ struct controller_impl {
                ) {
                wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
                controller::block_report br;
-               maybe_switch_forks( br, pending_head, controller::block_status::complete, forked_branch_callback{}, trx_meta_cache_lookup{} );
+               maybe_switch_forks( br, pending_head, controller::block_status::complete, {}, trx_meta_cache_lookup{} );
             }
          }
       };
@@ -1591,7 +1600,7 @@ struct controller_impl {
          section.add_row(chain_snapshot_header(), db);
       });
 
-      // [greg todo] add snapshot support for new (IF) block_state section
+#warning todo: add snapshot support for new (IF) block_state section
       auto write_block_state_section = [&](auto& fork_db, auto& head) {
          snapshot->write_section("eosio::chain::block_state", [&]( auto &section ) {
             section.template add_row<block_header_state_legacy>(*head, db);
@@ -1645,7 +1654,7 @@ struct controller_impl {
          header.validate();
       });
 
-      // [greg todo] add snapshot support for new (IF) block_state section
+#warning todo: add snapshot support for new (IF) block_state section
       auto read_block_state_section = [&](auto& fork_db, auto& head) { /// load and upgrade the block header state
          block_header_state_legacy head_header_state;
          using v2 = legacy::snapshot_block_header_state_v2;
@@ -2437,26 +2446,26 @@ struct controller_impl {
          dm_logger->on_start_block(head_block_num() + 1);
       }
 
-      auto guard_pending = fc::make_scoped_exit([this, head_block_num=head_block_num()](){
+      auto guard_pending = fc::make_scoped_exit([this, head_block_num=head_block_num()]() {
          protocol_features.popped_blocks_to( head_block_num );
          pending.reset();
       });
 
-      //building_block_input bbi{ head->id(), when, head->get_scheduled_producer(when), std::move(new_protocol_feature_activations) };
-      // [greg todo] build IF `building_block` below if not in dpos mode.
-      //             we'll need a different `building_block` constructor for IF mode
-      auto update_pending = [&](auto& fork_db, auto& head) {
-         if (!self.skip_db_sessions(s)) {
-            EOS_ASSERT( db.revision() == head_block_num(), database_exception, "db revision is not on par with head block",
+      auto update_pending = [&]<class fork_db_t, class bsp>(fork_db_t& fork_db, bsp& head) {
+         EOS_ASSERT( self.skip_db_sessions(s) ||
+                     db.revision() == head_block_num(), database_exception, "db revision is not on par with head block",
                         ("db.revision()", db.revision())("controller_head_block", head_block_num())("fork_db_head_block", fork_db_head_block_num()) );
-
-            pending.emplace( maybe_session(db), *head, when, confirm_block_count, new_protocol_feature_activations );
-         } else {
-            pending.emplace( maybe_session(), *head, when, confirm_block_count, new_protocol_feature_activations );
+         maybe_session session = self.skip_db_sessions(s) ? maybe_session() : maybe_session(db);
+         if constexpr (std::is_same_v<bsp, block_state_legacy_ptr>)
+            pending.emplace(std::move(session), *head, when, confirm_block_count, new_protocol_feature_activations);
+         else {
+            building_block_input bbi{ head->id(), when, head->get_scheduled_producer(when).producer_name,
+                                      new_protocol_feature_activations };
+            pending.emplace(std::move(session), *head, bbi);
          }
       };
 
-      block_data.apply_dpos<void>(update_pending);
+      block_data.apply<void>(update_pending);
 
       pending->_block_status = s;
       pending->_producer_block_id = producer_block_id;
@@ -2465,8 +2474,7 @@ struct controller_impl {
 
       // block status is either ephemeral or incomplete. Modify state of speculative block only if we are building a
       // speculative incomplete block (otherwise we need clean state for head mode, ephemeral block)
-      if ( pending->_block_status != controller::block_status::ephemeral )
-      {
+      if ( pending->_block_status != controller::block_status::ephemeral ) {
          const auto& pso = db.get<protocol_state_object>();
 
          auto num_preactivated_protocol_features = pso.preactivated_protocol_features.size();
@@ -2533,6 +2541,7 @@ struct controller_impl {
          const auto& gpo = self.get_global_properties();
 
          if (!hs_active) {
+#warning todo: how do we update the producer_schedule after the switch to IF?
             bb.apply_dpos<void>([&](building_block::building_block_dpos& bb_dpos) {
                pending_block_header_state_legacy& pbhs = bb_dpos.pending_block_header_state;
                
@@ -2605,40 +2614,44 @@ struct controller_impl {
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finalize_block");
 
       try {
-      // [greg todo] move the merkle computation inside assemble_block.
-      auto& bb = std::get<building_block>(pending->_block_stage);
+         auto& bb = std::get<building_block>(pending->_block_stage);
 
-      // Update resource limits:
-      resource_limits.process_account_limit_updates();
-      const auto& chain_config = self.get_global_properties().configuration;
-      uint64_t CPU_TARGET = EOS_PERCENT(chain_config.max_block_cpu_usage, chain_config.target_block_cpu_usage_pct);
-      resource_limits.set_block_parameters(
-         { CPU_TARGET, chain_config.max_block_cpu_usage, config::block_cpu_usage_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
-         {EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct), chain_config.max_block_net_usage, config::block_size_average_window_ms / config::block_interval_ms, config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
-      );
-      resource_limits.process_block_usage(bb.block_num());
+         // Update resource limits:
+         resource_limits.process_account_limit_updates();
+         const auto& chain_config = self.get_global_properties().configuration;
+         resource_limits.set_block_parameters(
+            { EOS_PERCENT(chain_config.max_block_cpu_usage, chain_config.target_block_cpu_usage_pct),
+              chain_config.max_block_cpu_usage,
+              config::block_cpu_usage_average_window_ms / config::block_interval_ms,
+              config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}},
+            { EOS_PERCENT(chain_config.max_block_net_usage, chain_config.target_block_net_usage_pct),
+              chain_config.max_block_net_usage,
+              config::block_size_average_window_ms / config::block_interval_ms,
+              config::maximum_elastic_resource_multiplier, {99, 100}, {1000, 999}}
+            );
+         resource_limits.process_block_usage(bb.block_num());
 
-      auto assembled_block = 
-         bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
+         auto assembled_block =
+            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
 
-      // Update TaPoS table:
-      create_block_summary(  assembled_block.id() );
+         // Update TaPoS table:
+         create_block_summary(  assembled_block.id() );
 
-      pending->_block_stage = std::move(assembled_block);
+         pending->_block_stage = std::move(assembled_block);
       
-      /*
-        ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
-        ("n",pbhs.block_num())
-        ("id",id)
-        ("t",pbhs.timestamp)
-        ("p",pbhs.producer)
-        ("signing_key", pbhs.block_signing_key)
-        ("v",pbhs.active_schedule_version)
-        ("lib",pbhs.dpos_irreversible_blocknum)
-        ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
-        ("np",block_ptr->new_producers)
-        );
-      */
+         /*
+           ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
+           ("n",pbhs.block_num())
+           ("id",id)
+           ("t",pbhs.timestamp)
+           ("p",pbhs.producer)
+           ("signing_key", pbhs.block_signing_key)
+           ("v",pbhs.active_schedule_version)
+           ("lib",pbhs.dpos_irreversible_blocknum)
+           ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
+           ("np",block_ptr->new_producers)
+           );
+         */
 
       }
       FC_CAPTURE_AND_RETHROW()
@@ -2673,8 +2686,8 @@ struct controller_impl {
             
             emit( self.accepted_block, std::tie(bsp->block, bsp->id()) );
 
-            if constexpr (std::is_same_v<block_state_legacy_ptr,std::decay_t<decltype(head)>>) {\
-               // [greg todo] support deep_mind_logger even when in IF mode
+            if constexpr (std::is_same_v<block_state_legacy_ptr,std::decay_t<decltype(head)>>) {
+#warning todo: support deep_mind_logger even when in IF mode
                // at block level, no transaction specific logging is possible
                if (auto* dm_logger = get_deep_mind_logger(false)) {
                   dm_logger->on_accepted_block(bsp);
@@ -2769,9 +2782,9 @@ struct controller_impl {
    void report_block_header_diff( const block_header& b, const block_header& ab ) {
 
 #define EOS_REPORT(DESC,A,B) \
-   if( A != B ) { \
-      elog("${desc}: ${bv} != ${abv}", ("desc", DESC)("bv", A)("abv", B)); \
-   }
+      if( A != B ) {                                                    \
+         elog("${desc}: ${bv} != ${abv}", ("desc", DESC)("bv", A)("abv", B)); \
+      }
 
       EOS_REPORT( "timestamp", b.timestamp, ab.timestamp )
       EOS_REPORT( "producer", b.producer, ab.producer )
@@ -2900,7 +2913,7 @@ struct controller_impl {
                commit_block(s);
                br.total_time = fc::time_point::now() - start;
             };
-            block_data.apply_dpos<void>(do_the_work);
+            block_data.apply<void>(do_the_work);
          }
          return;
       } catch ( const std::bad_alloc& ) {
@@ -2936,7 +2949,6 @@ struct controller_impl {
             prev,
             b,
             protocol_features.get_protocol_feature_set(),
-            b->confirmed == hs_block_confirmed, // is hotstuff enabled for block
             [this]( block_timestamp_type timestamp,
                     const flat_set<digest_type>& cur_features,
                     const vector<digest_type>& new_features )
@@ -2988,9 +3000,10 @@ struct controller_impl {
       return block_data.apply_dpos<block_state_legacy_ptr>(f); 
    }
 
+   template <class BSP>
    void push_block( controller::block_report& br,
-                    const block_state_legacy_ptr& bsp,
-                    const forked_branch_callback& forked_branch_cb,
+                    const BSP& bsp,
+                    const forked_branch_callback_t<BSP>& forked_branch_cb,
                     const trx_meta_cache_lookup& trx_lookup )
    {
       controller::block_status s = controller::block_status::complete;
@@ -3010,7 +3023,8 @@ struct controller_impl {
          }
          
          auto do_push = [&](auto& fork_db, auto& head) {
-            fork_db.add( bsp );
+            if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>)
+               fork_db.add( bsp );
 
             if (self.is_trusted_producer(b->producer)) {
                trusted_producer_light_validation = true;
@@ -3019,18 +3033,19 @@ struct controller_impl {
             emit( self.accepted_block_header, std::tie(bsp->block, bsp->id()) );
 
             if( read_mode != db_read_mode::IRREVERSIBLE ) {
-               maybe_switch_forks( br, fork_db.pending_head(), s, forked_branch_cb, trx_lookup );
+               if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>)
+                  maybe_switch_forks( br, fork_db.pending_head(), s, forked_branch_cb, trx_lookup );
             } else {
                log_irreversible();
             }
          };
 
-         block_data.apply_dpos<void>(do_push); // [greg todo] make it work with apply() - `push_block` taking block_state_legacy_ptr
-                                               // and forked_branch_callback
+         block_data.apply<void>(do_push);
 
       } FC_LOG_AND_RETHROW( )
    }
 
+   template <class BSP>
    void replay_push_block( const signed_block_ptr& b, controller::block_status s ) {
       self.validate_db_available_size();
 
@@ -3048,53 +3063,49 @@ struct controller_impl {
          }
 
          const bool skip_validate_signee = !conf.force_all_checks;
+         validator_t validator = [this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
+                                        const vector<digest_type>& new_features) {
+            check_protocol_features(timestamp, cur_features, new_features);
+         };
 
          auto do_push = [&](auto& fork_db, auto& head) {
-            auto bsp = std::make_shared<block_state_legacy>(
-               *head,
-               b,
-               protocol_features.get_protocol_feature_set(),
-               b->confirmed == hs_block_confirmed, // is hotstuff enabled for block
-               [this]( block_timestamp_type timestamp,
-                       const flat_set<digest_type>& cur_features,
-                       const vector<digest_type>& new_features )
-               { check_protocol_features( timestamp, cur_features, new_features ); },
-               skip_validate_signee
-               );
+            if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>) {
+               auto bsp = std::make_shared<typename BSP::element_type>(
+                  *head, b, protocol_features.get_protocol_feature_set(), validator, skip_validate_signee);
 
-            if( s != controller::block_status::irreversible ) {
-               fork_db.add( bsp, true );
-            }
-
-            emit( self.accepted_block_header, std::tie(bsp->block, bsp->id()) );
-
-            controller::block_report br;
-            if( s == controller::block_status::irreversible ) {
-               apply_block( br, bsp, s, trx_meta_cache_lookup{} );
-
-               // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
-               // So emit it explicitly here.
-               emit( self.irreversible_block, std::tie(bsp->block, bsp->id()) );
-
-               if (!self.skip_db_sessions(s)) {
-                  db.commit(bsp->block_num());
+               if (s != controller::block_status::irreversible) {
+                  fork_db.add(bsp, true);
                }
 
-            } else {
-               EOS_ASSERT( read_mode != db_read_mode::IRREVERSIBLE, block_validate_exception,
-                           "invariant failure: cannot replay reversible blocks while in irreversible mode" );
-               maybe_switch_forks( br, bsp, s, forked_branch_callback{}, trx_meta_cache_lookup{} );
+               emit(self.accepted_block_header, std::tie(bsp->block, bsp->id()));
+
+               controller::block_report br;
+               if (s == controller::block_status::irreversible) {
+                  apply_block(br, bsp, s, trx_meta_cache_lookup{});
+
+                  // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
+                  // So emit it explicitly here.
+                  emit(self.irreversible_block, std::tie(bsp->block, bsp->id()));
+
+                  if (!self.skip_db_sessions(s)) {
+                     db.commit(bsp->block_num());
+                  }
+               } else {
+                  EOS_ASSERT(read_mode != db_read_mode::IRREVERSIBLE, block_validate_exception,
+                             "invariant failure: cannot replay reversible blocks while in irreversible mode");
+                  maybe_switch_forks(br, bsp, s, {}, trx_meta_cache_lookup{});
+               }
             }
          };
-         
-         block_data.apply_dpos<void>(do_push); // [greg todo] make it work with apply() - need block_state constructor
+
+         block_data.apply<void>(do_push);
 
       } FC_LOG_AND_RETHROW( )
    }
 
    template<class BSP>
    void maybe_switch_forks( controller::block_report& br, const BSP& new_head, controller::block_status s,
-                            const forked_branch_callback& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
+                            const forked_branch_callback_t<BSP>& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
    {
       auto do_maybe_switch_forks = [&](auto& fork_db, auto& head) {
          bool head_changed = true;
@@ -3123,7 +3134,9 @@ struct controller_impl {
                EOS_ASSERT( self.head_block_id() == branches.second.back()->header.previous, fork_database_exception,
                            "loss of sync between fork_db and chainbase during fork switch" ); // _should_ never fail
 
-               if( forked_branch_cb ) forked_branch_cb( branches.second );
+               if( forked_branch_cb )
+                  if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>)
+                     forked_branch_cb(branches.second);
             }
 
             for( auto ritr = branches.first.rbegin(); ritr != branches.first.rend(); ++ritr ) {
@@ -3187,7 +3200,7 @@ struct controller_impl {
             log_irreversible();
       };
 
-      block_data.apply_dpos<void>(do_maybe_switch_forks); // [greg todo] 
+      block_data.apply<void>(do_maybe_switch_forks);
 
    } /// push_block
 
@@ -3773,12 +3786,22 @@ block_state_legacy_ptr controller::create_block_state( const block_id_type& id, 
 
 void controller::push_block( controller::block_report& br,
                              const block_state_legacy_ptr& bsp,
+                             const forked_branch_callback_legacy& forked_branch_cb,
+                             const trx_meta_cache_lookup& trx_lookup )
+{
+   validate_db_available_size();
+   my->push_block( br, bsp, forked_branch_cb, trx_lookup );
+}
+
+void controller::push_block( controller::block_report& br,
+                             const block_state_ptr& bsp,
                              const forked_branch_callback& forked_branch_cb,
                              const trx_meta_cache_lookup& trx_lookup )
 {
    validate_db_available_size();
    my->push_block( br, bsp, forked_branch_cb, trx_lookup );
 }
+
 
 transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
@@ -4127,6 +4150,7 @@ const producer_authority_schedule& controller::active_producers()const {
    if( !(my->pending) )
       return  my->block_data.head_active_schedule_auth();
 
+#warning todo: support active/pending_producers correctly when in IF mode (see assembled_block and completed_block stages)
    return my->pending->active_producers();
 }
 
