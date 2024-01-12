@@ -130,7 +130,7 @@ namespace eosio { namespace chain {
          p.name         = name;
          p.last_updated = creation_time;
          p.auth         = auth;
-         p.last_used = creation_time;
+         p.last_used    = creation_time;
 
          if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_create_permission(p);
@@ -162,7 +162,7 @@ namespace eosio { namespace chain {
          p.name         = name;
          p.last_updated = creation_time;
          p.auth         = std::move(auth);
-         p.last_used = creation_time;
+         p.last_used    = creation_time;
 
          if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_create_permission(p);
