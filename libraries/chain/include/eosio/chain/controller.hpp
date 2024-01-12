@@ -183,7 +183,7 @@ namespace eosio::chain {
             fc::microseconds   total_time{};
          };
 
-         void finalize_block( block_report& br, const signer_callback_type& signer_callback );
+         void finish_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
          

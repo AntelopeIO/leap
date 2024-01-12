@@ -2608,7 +2608,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void finalize_block()
+   void finish_block()
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finalize_block");
@@ -2888,7 +2888,7 @@ struct controller_impl {
                               ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
                }
 
-               finalize_block();
+               finish_block();
 
                auto& ab = std::get<assembled_block>(pending->_block_stage);
 
@@ -3749,10 +3749,10 @@ void controller::start_block( block_timestamp_type when,
                     bs, std::optional<block_id_type>(), deadline );
 }
 
-void controller::finalize_block( block_report& br, const signer_callback_type& signer_callback ) {
+void controller::finish_block( block_report& br, const signer_callback_type& signer_callback ) {
    validate_db_available_size();
 
-   my->finalize_block();
+   my->finish_block();
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
    my->pending->_block_stage = ab.make_completed_block(

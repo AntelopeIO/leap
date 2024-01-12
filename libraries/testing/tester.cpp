@@ -487,7 +487,7 @@ namespace eosio { namespace testing {
       });
 
       controller::block_report br;
-      control->finalize_block( br, [&]( digest_type d ) {
+      control->finish_block( br, [&]( digest_type d ) {
          std::vector<signature_type> result;
          result.reserve(signing_keys.size());
          for (const auto& k: signing_keys)

@@ -2646,7 +2646,7 @@ void producer_plugin_impl::produce_block() {
 
    // idump( (fc::time_point::now() - chain.pending_block_time()) );
    controller::block_report br;
-   chain.finalize_block(br, [&](const digest_type& d) {
+   chain.finish_block(br, [&](const digest_type& d) {
       auto                   debug_logger = maybe_make_debug_time_logger();
       vector<signature_type> sigs;
       sigs.reserve(relevant_providers.size());
