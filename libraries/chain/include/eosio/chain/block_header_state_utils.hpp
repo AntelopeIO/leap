@@ -14,10 +14,10 @@ namespace eosio::chain::detail {
       return digest && protocol_features.find(*digest) != protocol_features.end();
    }
 
-   inline uint32_t get_next_next_round_block_num(block_timestamp_type t, uint32_t block_num) {
+   inline block_timestamp_type get_next_next_round_block_time( block_timestamp_type t) {
       auto index = t.slot % config::producer_repetitions; // current index in current round
-      //                 (increment to the end of this round  ) + next round
-      return block_num + (config::producer_repetitions - index) + config::producer_repetitions;
+      //                                   (increment to the end of this round  ) + next round
+      return block_timestamp_type{t.slot + (config::producer_repetitions - index) + config::producer_repetitions};
    }
 
    inline producer_authority get_scheduled_producer(const vector<producer_authority>& producers, block_timestamp_type t) {

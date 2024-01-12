@@ -137,12 +137,13 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, validating_tester ) t
                                };
    //wdump((fc::json::to_pretty_string(res)));
    wlog("set producer schedule to [alice,bob]");
-   BOOST_REQUIRE_EQUAL( true, control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *control->proposed_producers() ) );
-   BOOST_CHECK_EQUAL( control->pending_producers().version, 0u );
+   BOOST_REQUIRE_EQUAL( true, control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *control->proposed_producers_legacy() ) );
+   BOOST_REQUIRE(control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( control->pending_producers_legacy()->version, 0u );
    produce_block(); // Starts new block which promotes the proposed schedule to pending
-   BOOST_CHECK_EQUAL( control->pending_producers().version, 1u );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, control->pending_producers() ) );
+   BOOST_CHECK_EQUAL( control->pending_producers_legacy()->version, 1u );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *control->pending_producers_legacy() ) );
    BOOST_CHECK_EQUAL( control->active_producers().version, 0u );
    produce_block();
    produce_block(); // Starts new block which promotes the pending schedule to active
@@ -157,15 +158,16 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, validating_tester ) t
                                  producer_authority{"carol"_n, block_signing_authority_v0{1, {{get_public_key("carol"_n, "active"),1}}}}
                                };
    wlog("set producer schedule to [alice,bob,carol]");
-   BOOST_REQUIRE_EQUAL( true, control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *control->proposed_producers() ) );
+   BOOST_REQUIRE_EQUAL( true, control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *control->proposed_producers_legacy() ) );
 
    produce_block();
    produce_blocks(23); // Alice produces the last block of her first round.
                     // Bob's first block (which advances LIB to Alice's last block) is started but not finalized.
    BOOST_REQUIRE_EQUAL( control->head_block_producer(), "alice"_n );
    BOOST_REQUIRE_EQUAL( control->pending_block_producer(), "bob"_n );
-   BOOST_CHECK_EQUAL( control->pending_producers().version, 2u );
+   BOOST_REQUIRE(control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( control->pending_producers_legacy()->version, 2u );
 
    produce_blocks(12); // Bob produces his first 11 blocks
    BOOST_CHECK_EQUAL( control->active_producers().version, 1u );
@@ -202,12 +204,13 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_reduction, tester ) try {
                                  producer_authority{"carol"_n, block_signing_authority_v0{ 1, {{get_public_key("carol"_n, "active"),1}}}}
                                };
    wlog("set producer schedule to [alice,bob,carol]");
-   BOOST_REQUIRE_EQUAL( true, control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *control->proposed_producers() ) );
-   BOOST_CHECK_EQUAL( control->pending_producers().version, 0u );
+   BOOST_REQUIRE_EQUAL( true, control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *control->proposed_producers_legacy() ) );
+   BOOST_REQUIRE(control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( control->pending_producers_legacy()->version, 0u );
    produce_block(); // Starts new block which promotes the proposed schedule to pending
-   BOOST_CHECK_EQUAL( control->pending_producers().version, 1u );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, control->pending_producers() ) );
+   BOOST_CHECK_EQUAL( control->pending_producers_legacy()->version, 1u );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *control->pending_producers_legacy() ) );
    BOOST_CHECK_EQUAL( control->active_producers().version, 0u );
    produce_block();
    produce_block(); // Starts new block which promotes the pending schedule to active
@@ -221,13 +224,14 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_reduction, tester ) try {
                                  producer_authority{"bob"_n,   block_signing_authority_v0{ 1, {{ get_public_key("bob"_n,   "active"),1}}}}
                                };
    wlog("set producer schedule to [alice,bob]");
-   BOOST_REQUIRE_EQUAL( true, control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *control->proposed_producers() ) );
+   BOOST_REQUIRE_EQUAL( true, control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *control->proposed_producers_legacy() ) );
 
    produce_blocks(48);
    BOOST_REQUIRE_EQUAL( control->head_block_producer(), "bob"_n );
    BOOST_REQUIRE_EQUAL( control->pending_block_producer(), "carol"_n );
-   BOOST_CHECK_EQUAL( control->pending_producers().version, 2u );
+   BOOST_REQUIRE(control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( control->pending_producers_legacy()->version, 2u );
 
    produce_blocks(47);
    BOOST_CHECK_EQUAL( control->active_producers().version, 1u );
@@ -264,14 +268,16 @@ BOOST_AUTO_TEST_CASE( empty_producer_schedule_has_no_effect ) try {
                                  producer_authority{"bob"_n,   block_signing_authority_v0{ 1, {{ get_public_key("bob"_n,   "active"),1}}}}
                                };
    wlog("set producer schedule to [alice,bob]");
-   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *c.control->proposed_producers() ) );
-   BOOST_CHECK_EQUAL( c.control->pending_producers().producers.size(), 0u );
+   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *c.control->proposed_producers_legacy() ) );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->producers.size(), 0u );
 
    // Start a new block which promotes the proposed schedule to pending
    c.produce_block();
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 1u );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, c.control->pending_producers() ) );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 1u );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *c.control->pending_producers_legacy() ) );
    BOOST_CHECK_EQUAL( c.control->active_producers().version, 0u );
 
    // Start a new block which promotes the pending schedule to active
@@ -282,22 +288,25 @@ BOOST_AUTO_TEST_CASE( empty_producer_schedule_has_no_effect ) try {
 
    res = c.set_producers_legacy( {} );
    wlog("set producer schedule to []");
-   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( c.control->proposed_producers()->producers.size(), 0u );
-   BOOST_CHECK_EQUAL( c.control->proposed_producers()->version, 2u );
+   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( c.control->proposed_producers_legacy()->producers.size(), 0u );
+   BOOST_CHECK_EQUAL( c.control->proposed_producers_legacy()->version, 2u );
 
    c.produce_blocks(12);
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 1u );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 1u );
 
    // Empty producer schedule does get promoted from proposed to pending
    c.produce_block();
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 2u );
-   BOOST_CHECK_EQUAL( false, c.control->proposed_producers().has_value() );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 2u );
+   BOOST_CHECK_EQUAL( false, c.control->proposed_producers_legacy().has_value() );
 
    // However it should not get promoted from pending to active
    c.produce_blocks(24);
    BOOST_CHECK_EQUAL( c.control->active_producers().version, 1u );
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 2u );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 2u );
 
    // Setting a new producer schedule should still use version 2
    res = c.set_producers_legacy( {"alice"_n,"bob"_n,"carol"_n} );
@@ -307,15 +316,16 @@ BOOST_AUTO_TEST_CASE( empty_producer_schedule_has_no_effect ) try {
                                  producer_authority{"carol"_n, block_signing_authority_v0{ 1, {{get_public_key("carol"_n, "active"),1}}}}
                                };
    wlog("set producer schedule to [alice,bob,carol]");
-   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *c.control->proposed_producers() ) );
-   BOOST_CHECK_EQUAL( c.control->proposed_producers()->version, 2u );
+   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *c.control->proposed_producers_legacy() ) );
+   BOOST_CHECK_EQUAL( c.control->proposed_producers_legacy()->version, 2u );
 
    // Produce enough blocks to promote the proposed schedule to pending, which it can do because the existing pending has zero producers
    c.produce_blocks(24);
    BOOST_CHECK_EQUAL( c.control->active_producers().version, 1u );
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 2u );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, c.control->pending_producers() ) );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 2u );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *c.control->pending_producers_legacy() ) );
 
    // Produce enough blocks to promote the pending schedule to active
    c.produce_blocks(24);
@@ -342,12 +352,14 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
                                  producer_authority{"carol"_n, block_signing_authority_v0{ 1, {{c.get_public_key("carol"_n, "active"),1}}}}
                                };
    wlog("set producer schedule to [alice,bob,carol]");
-   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *c.control->proposed_producers() ) );
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 0u );
+   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *c.control->proposed_producers_legacy() ) );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 0u );
    c.produce_block(); // Starts new block which promotes the proposed schedule to pending
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 1u );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, c.control->pending_producers() ) );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 1u );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *c.control->pending_producers_legacy() ) );
    BOOST_CHECK_EQUAL( c.control->active_producers().version, 0u );
    c.produce_block();
    c.produce_block(); // Starts new block which promotes the pending schedule to active
@@ -364,16 +376,18 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
                                  producer_authority{"bob"_n,   block_signing_authority_v0{ 1, {{c.get_public_key("bob"_n,   "active"),1}}}}
                                };
    wlog("set producer schedule to [alice,bob]");
-   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *c.control->proposed_producers() ) );
+   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, *c.control->proposed_producers_legacy() ) );
 
    produce_until_transition( c, "bob"_n, "carol"_n );
    produce_until_transition( c, "alice"_n, "bob"_n );
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 2u );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 2u );
    BOOST_CHECK_EQUAL( c.control->active_producers().version, 1u );
 
    produce_until_transition( c, "carol"_n, "alice"_n );
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 2u );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 2u );
    BOOST_CHECK_EQUAL( c.control->active_producers().version, 1u );
 
    produce_until_transition( c, "bob"_n, "carol"_n );
@@ -388,8 +402,8 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
 
    res = c.set_producers( {"alice"_n,"bob"_n,"carol"_n} );
    wlog("set producer schedule to [alice,bob,carol]");
-   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers().has_value() );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *c.control->proposed_producers() ) );
+   BOOST_REQUIRE_EQUAL( true, c.control->proposed_producers_legacy().has_value() );
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch1, *c.control->proposed_producers_legacy() ) );
 
    produce_until_transition( c, "bob"_n, "alice"_n );
 
@@ -415,7 +429,8 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
       BOOST_CHECK_EQUAL( carol_itr->second, carol_last_produced_block_num );
    }
 
-   BOOST_CHECK_EQUAL( c.control->pending_producers().version, 3u );
+   BOOST_REQUIRE(c.control->pending_producers_legacy());
+   BOOST_CHECK_EQUAL( c.control->pending_producers_legacy()->version, 3u );
    BOOST_REQUIRE_EQUAL( c.control->active_producers().version, 2u );
 
    produce_until_transition( c, "bob"_n, "alice"_n );
@@ -495,7 +510,7 @@ BOOST_FIXTURE_TEST_CASE( satisfiable_msig_test, validating_tester ) try {
       fc_exception_message_is( "producer schedule includes an unsatisfiable authority for alice" )
    );
 
-   BOOST_REQUIRE_EQUAL( false, control->proposed_producers().has_value() );
+   BOOST_REQUIRE_EQUAL( false, control->proposed_producers_legacy().has_value() );
 
 } FC_LOG_AND_RETHROW()
 
@@ -514,7 +529,7 @@ BOOST_FIXTURE_TEST_CASE( duplicate_producers_test, validating_tester ) try {
       fc_exception_message_is( "duplicate producer name in producer schedule" )
    );
 
-   BOOST_REQUIRE_EQUAL( false, control->proposed_producers().has_value() );
+   BOOST_REQUIRE_EQUAL( false, control->proposed_producers_legacy().has_value() );
 
 } FC_LOG_AND_RETHROW()
 
@@ -532,7 +547,7 @@ BOOST_FIXTURE_TEST_CASE( duplicate_keys_test, validating_tester ) try {
       fc_exception_message_is( "producer schedule includes a duplicated key for alice" )
    );
 
-   BOOST_REQUIRE_EQUAL( false, control->proposed_producers().has_value() );
+   BOOST_REQUIRE_EQUAL( false, control->proposed_producers_legacy().has_value() );
 
    // ensure that multiple producers are allowed to share keys
    vector<producer_authority> sch2 = {
@@ -541,7 +556,7 @@ BOOST_FIXTURE_TEST_CASE( duplicate_keys_test, validating_tester ) try {
    };
 
    set_producer_schedule( sch2 );
-   BOOST_REQUIRE_EQUAL( true, control->proposed_producers().has_value() );
+   BOOST_REQUIRE_EQUAL( true, control->proposed_producers_legacy().has_value() );
 } FC_LOG_AND_RETHROW()
 
 BOOST_AUTO_TEST_CASE( large_authority_overflow_test ) try {
@@ -603,7 +618,7 @@ BOOST_AUTO_TEST_CASE( extra_signatures_test ) try {
    };
 
    main.set_producer_schedule( sch1 );
-   BOOST_REQUIRE_EQUAL( true, main.control->proposed_producers().has_value() );
+   BOOST_REQUIRE_EQUAL( true, main.control->proposed_producers_legacy().has_value() );
 
    main.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs1"), get_private_key("alice"_n, "bs1"));
    main.block_signing_private_keys.emplace(get_public_key("alice"_n, "bs2"), get_private_key("alice"_n, "bs2"));
