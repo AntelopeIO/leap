@@ -69,6 +69,9 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .schedule_version  = header.schedule_version
    };
 
+   result.active_finalizer_policy = active_finalizer_policy;
+   result.active_proposer_policy = active_proposer_policy;
+
    if(!proposer_policies.empty()) {
       auto it = proposer_policies.begin();
       if (it->first <= input.timestamp) {
