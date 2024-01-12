@@ -11,6 +11,10 @@ producer_authority block_header_state::get_scheduled_producer(block_timestamp_ty
    return detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, t);
 }
 
+const vector<digest_type>& block_header_state::get_new_protocol_feature_activations()const {
+   return detail::get_new_protocol_feature_activations(header_exts);
+}
+
 #warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
    
 block_header_state_core block_header_state_core::next(qc_info_t incoming) const {

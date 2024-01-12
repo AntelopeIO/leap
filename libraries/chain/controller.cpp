@@ -2800,11 +2800,10 @@ struct controller_impl {
 
    template<class BSP>
    void apply_block( controller::block_report& br, const BSP& bsp, controller::block_status s,
-                     const trx_meta_cache_lookup& trx_lookup )
-   { try {
+                     const trx_meta_cache_lookup& trx_lookup ) {
       try {
-         // [greg todo] remove `if`, `lambda` and `apply_dpos`, and make code work for both versions of BSP
-         if constexpr (std::is_same_v<block_state_legacy_ptr,BSP>) {
+         try {
+            // [greg todo] remove `if`, `lambda` and `apply_dpos`, and make code work for both versions of BSP
             auto do_the_work = [&](auto& fork_db, auto& head) {
                auto start = fc::time_point::now();
                const signed_block_ptr& b = bsp->block;
@@ -2840,7 +2839,8 @@ struct controller_impl {
                         } else {
                            packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
                            auto fut = transaction_metadata::start_recover_keys(
-                              std::move( ptrx ), thread_pool.get_executor(), chain_id, fc::microseconds::maximum(), transaction_metadata::trx_type::input  );
+                              std::move( ptrx ), thread_pool.get_executor(), chain_id, fc::microseconds::maximum(),
+                              transaction_metadata::trx_type::input  );
                            trx_metas.emplace_back( transaction_metadata_ptr{}, std::move( fut ) );
                         }
                      }
@@ -2854,37 +2854,39 @@ struct controller_impl {
                for( const auto& receipt : b->transactions ) {
                   auto num_pending_receipts = trx_receipts.size();
                   if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-                     const auto& trx_meta = ( use_bsp_cached ? bsp->trxs_metas().at( packed_idx )
-                                              : ( !!std::get<0>( trx_metas.at( packed_idx ) ) ?
-                                                  std::get<0>( trx_metas.at( packed_idx ) )
-                                                  : std::get<1>( trx_metas.at( packed_idx ) ).get() ) );
-                     trace = push_transaction( trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true, 0 );
+                     const auto& trx_meta = (use_bsp_cached ? bsp->trxs_metas().at(packed_idx)
+                                                            : (!!std::get<0>(trx_metas.at(packed_idx))
+                                                                  ? std::get<0>(trx_metas.at(packed_idx))
+                                                                  : std::get<1>(trx_metas.at(packed_idx)).get()));
+                     trace = push_transaction(trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(),
+                                              receipt.cpu_usage_us, true, 0);
                      ++packed_idx;
                   } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
-                     trace = push_scheduled_transaction( std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(), fc::microseconds::maximum(), receipt.cpu_usage_us, true );
+                     trace = push_scheduled_transaction(std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(),
+                                                        fc::microseconds::maximum(), receipt.cpu_usage_us, true);
                   } else {
                      EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
                   }
 
-                  bool transaction_failed =  trace && trace->except;
-                  bool transaction_can_fail = receipt.status == transaction_receipt_header::hard_fail && std::holds_alternative<transaction_id_type>(receipt.trx);
+                  bool transaction_failed   = trace && trace->except;
+                  bool transaction_can_fail = receipt.status == transaction_receipt_header::hard_fail &&
+                                              std::holds_alternative<transaction_id_type>(receipt.trx);
+
                   if( transaction_failed && !transaction_can_fail) {
                      edump((*trace));
                      throw *trace->except;
                   }
 
-                  EOS_ASSERT( trx_receipts.size() > 0,
-                              block_validate_exception, "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
-                              ("bn", b->block_num())("id", producer_block_id)("e", receipt)
-                     );
-                  EOS_ASSERT( trx_receipts.size() == num_pending_receipts + 1,
-                              block_validate_exception, "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
-                              ("bn", b->block_num())("id", producer_block_id)("e", receipt)
-                     );
+                  EOS_ASSERT(trx_receipts.size() > 0, block_validate_exception,
+                             "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
+                             ("bn", b->block_num())("id", producer_block_id)("e", receipt));
+                  EOS_ASSERT(trx_receipts.size() == num_pending_receipts + 1, block_validate_exception,
+                             "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
+                             ("bn", b->block_num())("id", producer_block_id)("e", receipt));
                   const transaction_receipt_header& r = trx_receipts.back();
-                  EOS_ASSERT( r == static_cast<const transaction_receipt_header&>(receipt),
-                              block_validate_exception, "receipt does not match, ${lhs} != ${rhs}",
-                              ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)) );
+                  EOS_ASSERT(r == static_cast<const transaction_receipt_header&>(receipt), block_validate_exception,
+                             "receipt does not match, ${lhs} != ${rhs}",
+                             ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
                }
 
                finalize_block();
@@ -2898,8 +2900,8 @@ struct controller_impl {
                   ab.apply_dpos<void>([&](assembled_block::assembled_block_dpos& ab) { report_block_header_diff( *b, *ab.unsigned_block ); });
             
                   // this implicitly asserts that all header fields (less the signature) are identical
-                  EOS_ASSERT( producer_block_id == ab.id(), block_validate_exception, "Block ID does not match",
-                              ("producer_block_id", producer_block_id)("validator_block_id", ab.id()) );
+                  EOS_ASSERT(producer_block_id == ab.id(), block_validate_exception, "Block ID does not match",
+                             ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
                }
 
                if( !use_bsp_cached ) {
@@ -2913,22 +2915,22 @@ struct controller_impl {
                br.total_time = fc::time_point::now() - start;
             };
             block_data.apply<void>(do_the_work);
+            return;
+         } catch ( const std::bad_alloc& ) {
+            throw;
+         } catch ( const boost::interprocess::bad_alloc& ) {
+            throw;
+         } catch ( const fc::exception& e ) {
+            edump((e.to_detail_string()));
+            abort_block();
+            throw;
+         } catch ( const std::exception& e ) {
+            edump((e.what()));
+            abort_block();
+            throw;
          }
-         return;
-      } catch ( const std::bad_alloc& ) {
-         throw;
-      } catch ( const boost::interprocess::bad_alloc& ) {
-         throw;
-      } catch ( const fc::exception& e ) {
-         edump((e.to_detail_string()));
-         abort_block();
-         throw;
-      } catch ( const std::exception& e ) {
-         edump((e.what()));
-         abort_block();
-         throw;
-      }
-   } FC_CAPTURE_AND_RETHROW() } /// apply_block
+      } FC_CAPTURE_AND_RETHROW();
+   } /// apply_block
 
 
    // thread safe, expected to be called from thread other than the main thread

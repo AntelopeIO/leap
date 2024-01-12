@@ -45,4 +45,16 @@ namespace eosio::chain::detail {
       return {};
    }
 
+   /**
+    *  Reference cannot outlive header_exts. Assumes header_exts is not mutated after instantiation.
+    */
+   inline const vector<digest_type>& get_new_protocol_feature_activations(const header_extension_multimap& header_exts) {
+      static const vector<digest_type> no_activations{};
+
+      if( header_exts.count(protocol_feature_activation::extension_id()) == 0 )
+         return no_activations;
+
+      return std::get<protocol_feature_activation>(header_exts.lower_bound(protocol_feature_activation::extension_id())->second).protocol_features;
+   }
+
 } /// namespace eosio::chain
