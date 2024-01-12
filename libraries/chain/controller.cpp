@@ -448,6 +448,13 @@ struct assembled_block {
          v);
    }
 
+   const block_header& header() const {
+      return std::visit(
+         overloaded{[](const assembled_block_dpos& ab) -> const block_header& { return *ab.unsigned_block; },
+                    [](const assembled_block_if& ab)   -> const block_header& { return ab.bhs.header; }},
+         v);
+   }
+
    const producer_authority_schedule& active_producers() const {
       return std::visit(overloaded{[](const assembled_block_dpos& ab) -> const producer_authority_schedule& {
                                       return ab.pending_block_header_state.active_schedule;
@@ -2803,7 +2810,6 @@ struct controller_impl {
                      const trx_meta_cache_lookup& trx_lookup ) {
       try {
          try {
-            // [greg todo] remove `if`, `lambda` and `apply_dpos`, and make code work for both versions of BSP
             auto do_the_work = [&](auto& fork_db, auto& head) {
                auto start = fc::time_point::now();
                const signed_block_ptr& b = bsp->block;
@@ -2896,8 +2902,7 @@ struct controller_impl {
                if( producer_block_id != ab.id() ) {
                   elog( "Validation block id does not match producer block id" );
 
-                  // [greg todo] also call `report_block_header_diff in IF mode once we have a signed_block
-                  ab.apply_dpos<void>([&](assembled_block::assembled_block_dpos& ab) { report_block_header_diff( *b, *ab.unsigned_block ); });
+                  report_block_header_diff(*b, ab.header());
             
                   // this implicitly asserts that all header fields (less the signature) are identical
                   EOS_ASSERT(producer_block_id == ab.id(), block_validate_exception, "Block ID does not match",
