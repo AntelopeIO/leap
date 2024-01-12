@@ -169,16 +169,17 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
    // ------------------------------------------------------
    vector<digest_type> new_protocol_feature_activations;
    if( exts.count(protocol_feature_activation::extension_id() > 0) ) {
-      const auto& entry = exts.lower_bound(protocol_feature_activation::extension_id());
-      new_protocol_feature_activations = std::move(std::get<protocol_feature_activation>(entry->second).protocol_features);
+      auto  pfa_entry = exts.lower_bound(protocol_feature_activation::extension_id());
+      auto& pfa_ext   = std::get<protocol_feature_activation>(pfa_entry->second);
+      new_protocol_feature_activations = std::move(pfa_ext.protocol_features);
    }
 
    // retrieve instant_finality_extension data from block extension
    // -------------------------------------------------------------
    EOS_ASSERT(exts.count(instant_finality_extension::extension_id() > 0), misc_exception,
               "Instant Finality Extension is expected to be present in all block headers after switch to IF");
-   const auto& if_entry = exts.lower_bound(instant_finality_extension::extension_id());
-   const auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+   auto  if_entry = exts.lower_bound(instant_finality_extension::extension_id());
+   auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
 
    building_block_input bb_input{
       .parent_id = id,
