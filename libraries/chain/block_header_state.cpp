@@ -19,7 +19,7 @@ block_header_state_core block_header_state_core::next(qc_info_t incoming) const 
       return {*this};
    }
 
-   EOS_ASSERT(last_qc_block_num > this->last_qc_block_num, block_validate_exception,
+   EOS_ASSERT(incoming.last_qc_block_num > this->last_qc_block_num, block_validate_exception,
               "new last_qc_block_num must be greater than old last_qc_block_num");
 
    auto old_last_qc_block_num            = this->last_qc_block_num;
@@ -48,7 +48,7 @@ block_header_state_core block_header_state_core::next(qc_info_t incoming) const 
    }
 
    // new last_qc_block_num is always the input last_qc_block_num.
-   result.last_qc_block_num = last_qc_block_num;
+   result.last_qc_block_num = incoming.last_qc_block_num;
 
    return result;
 }
