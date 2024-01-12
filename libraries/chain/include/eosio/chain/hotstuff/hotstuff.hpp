@@ -211,12 +211,6 @@ namespace eosio::chain {
       bool is_weak()   const { return !!_weak_votes; }
       bool is_strong() const { return !_weak_votes; }
 
-      bool     operator<(const valid_quorum_certificate& other) const;
-
-      // When it is strong, _weak_votes does not exist. No need to have a separate
-      // calculation for strong
-      uint32_t accumulated_weight() const { return (_strong_votes ? _strong_votes->count() : 0) + (_weak_votes ? _weak_votes->count() : 0); }
-
       // ================== begin compatibility functions =======================
       // these are present just to make the tests still work. will be removed.
       // these assume *only* strong votes.

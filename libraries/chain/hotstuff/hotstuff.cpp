@@ -184,18 +184,6 @@ valid_quorum_certificate::valid_quorum_certificate(
       _weak_votes = vector_to_bitset(weak_votes);
 }
 
-// Strong beats weak. Break tie with highest accumulated weight.
-bool valid_quorum_certificate::operator<(const valid_quorum_certificate& other) const {
-   if( is_strong() != other.is_strong() ) {
-      return other.is_strong();
-   }
-   if( accumulated_weight() != other.accumulated_weight() ) {
-      return accumulated_weight() < other.accumulated_weight();
-   }
-
-   return false;
-}
-
 quorum_certificate_message valid_quorum_certificate::to_msg() const {
    return {
       .proposal_id    = _proposal_id,
