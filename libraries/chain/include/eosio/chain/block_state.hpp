@@ -19,7 +19,6 @@ struct block_state : public block_header_state {     // block_header_state provi
    
    // ------ data members caching information available elsewhere ----------------------
    block_id_type              cached_id;            // cache of block_header_state::header.calculate_id() (indexed on this field)
-   header_extension_multimap  header_exts;          // redundant with the data stored in header
 
    // ------ functions -----------------------------------------------------------------
    const block_id_type&   id()                const { return cached_id; }

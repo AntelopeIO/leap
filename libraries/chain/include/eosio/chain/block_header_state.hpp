@@ -60,6 +60,11 @@ struct block_header_state {
    flat_map<uint32_t, proposer_policy_ptr>  proposer_policies;
    flat_map<uint32_t, finalizer_policy_ptr> finalizer_policies;
 
+
+   // ------ data members caching information available elsewhere ----------------------
+   header_extension_multimap           header_exts;     // redundant with the data stored in header
+
+
    // ------ functions -----------------------------------------------------------------
    digest_type           compute_finalizer_digest() const;
    block_timestamp_type  timestamp() const { return header.timestamp; }
