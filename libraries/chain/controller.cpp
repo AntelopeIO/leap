@@ -249,6 +249,7 @@ struct block_data_t {
       }, v);
    }
 
+   // called from net thread
 	bool aggregate_vote(const hs_vote_message& vote) {
 	   return std::visit(
 	      overloaded{[](const block_data_legacy_t&) {
@@ -259,9 +260,8 @@ struct block_data_t {
 	                    if (bsp) {
 	                       return bsp->aggregate_vote(vote);
 	                    } else {
-	                       wlog("no block exists for the vote (proposal_id: ${id}", ("id", vote.proposal_id));
 	                       return false;
-	                    }}
+                       }; }
                    },
 	      v);
 	}

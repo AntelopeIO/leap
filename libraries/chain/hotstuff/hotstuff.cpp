@@ -44,7 +44,8 @@ void pending_quorum_certificate::votes_t::reset(size_t num_finalizers) {
 
 pending_quorum_certificate::pending_quorum_certificate(size_t num_finalizers, size_t quorum)
    : _num_finalizers(num_finalizers)
-   , _quorum(quorum) {
+   , _quorum(quorum)
+   , _mtx(std::make_unique<std::mutex>()) {
    _weak_votes.resize(num_finalizers);
    _strong_votes.resize(num_finalizers);
 }
@@ -72,6 +73,7 @@ void pending_quorum_certificate::reset(const fc::sha256& proposal_id, const dige
    _state          = state_t::unrestricted;
 }
 
+// called by add_vote, already protected by mutex
 bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
                                                  const bls_public_key& pubkey, const bls_signature& sig) {
    assert(index < _num_finalizers);
@@ -103,6 +105,7 @@ bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& pro
    return true;
 }
 
+// called by add_vote, already protected by mutex
 bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
                                                const bls_public_key& pubkey, const bls_signature& sig) {
    assert(index < _num_finalizers);
@@ -138,8 +141,10 @@ bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& propo
    return true;
 }
 
+// thread safe
 bool pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
                                           const bls_public_key& pubkey, const bls_signature& sig) {
+   std::lock_guard g(*_mtx);
    return strong ? add_strong_vote(proposal_digest, index, pubkey, sig)
                  : add_weak_vote(proposal_digest, index, pubkey, sig);
 }

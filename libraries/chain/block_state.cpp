@@ -114,6 +114,7 @@ namespace eosio::chain {
          const digest_type& digest = vote.strong ? strong_finalizer_digest : weak_finalizer_digest;
 
          return pending_qc.add_vote(vote.strong,
+#warning TODO change to use std::span if possible
                                     std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()},
                                     index,
                                     vote.finalizer_key,
