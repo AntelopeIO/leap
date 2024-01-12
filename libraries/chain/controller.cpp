@@ -103,7 +103,7 @@ class maybe_session {
             _session->push();
       }
 
-      maybe_session& operator = ( maybe_session&& mv ) {
+      maybe_session& operator=( maybe_session&& mv )  noexcept {
          if (mv._session) {
             _session.emplace(std::move(*mv._session));
             mv._session.reset();
@@ -118,11 +118,10 @@ class maybe_session {
       std::optional<database::session>     _session;
 };
 
-template<class bsp, class bhsp>
+template<class bsp>
 struct block_data_gen_t {
 public:
    using bs        = bsp::element_type;
-   using bhs       = bhsp::element_type;
    using fork_db_t = fork_database<bsp>;
 
    bsp       head;
@@ -167,8 +166,8 @@ public:
    }
 };
 
-using block_data_legacy_t = block_data_gen_t<block_state_legacy_ptr, block_header_state_legacy_ptr>;
-using block_data_new_t    = block_data_gen_t<block_state_ptr,        block_header_state_ptr>;
+using block_data_legacy_t = block_data_gen_t<block_state_legacy_ptr>;
+using block_data_new_t    = block_data_gen_t<block_state_ptr>;
    
 struct block_data_t {
    using block_data_variant  = std::variant<block_data_legacy_t, block_data_new_t>;
