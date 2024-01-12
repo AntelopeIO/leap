@@ -145,6 +145,10 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       result.header_exts.emplace(ext_id, std::move(pfa_ext));
    }
 
+   // Finally update block id from header
+   // -----------------------------------
+   result.id = result.header.calculate_id();
+
    return result;
 }
 
@@ -165,8 +169,8 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
 
    auto exts = h.validate_and_extract_header_extensions();
 
-   // handle protocol_feature_activation from incoming block
-   // ------------------------------------------------------
+   // retrieve protocol_feature_activation from incoming block header extension
+   // -------------------------------------------------------------------------
    vector<digest_type> new_protocol_feature_activations;
    if( exts.count(protocol_feature_activation::extension_id() > 0) ) {
       auto  pfa_entry = exts.lower_bound(protocol_feature_activation::extension_id());
@@ -174,8 +178,8 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
       new_protocol_feature_activations = std::move(pfa_ext.protocol_features);
    }
 
-   // retrieve instant_finality_extension data from block extension
-   // -------------------------------------------------------------
+   // retrieve instant_finality_extension data from block header extension
+   // --------------------------------------------------------------------
    EOS_ASSERT(exts.count(instant_finality_extension::extension_id() > 0), misc_exception,
               "Instant Finality Extension is expected to be present in all block headers after switch to IF");
    auto  if_entry = exts.lower_bound(instant_finality_extension::extension_id());
