@@ -27,11 +27,14 @@ BOOST_AUTO_TEST_CASE( replace_producer_keys ) try {
       }
    }
 
-   const auto old_pending_version = tester.control->pending_producers().version;
+   // TODO: Add test with instant-finality enabled
+   BOOST_REQUIRE(tester.control->pending_producers_legacy());
+   const auto old_pending_version = tester.control->pending_producers_legacy()->version;
    const auto old_version = tester.control->active_producers().version;
    BOOST_REQUIRE_NO_THROW(tester.control->replace_producer_keys(new_key));
    const auto new_version = tester.control->active_producers().version;
-   const auto pending_version = tester.control->pending_producers().version;
+   BOOST_REQUIRE(tester.control->pending_producers_legacy());
+   const auto pending_version = tester.control->pending_producers_legacy()->version;
    // make sure version not been changed
    BOOST_REQUIRE(old_version == new_version);
    BOOST_REQUIRE(old_version == pending_version);
@@ -44,7 +47,8 @@ BOOST_AUTO_TEST_CASE( replace_producer_keys ) try {
 
    const uint32_t expected_threshold = 1;
    const weight_type expected_key_weight = 1;
-   for(const auto& prod : tester.control->pending_producers().producers) {
+   BOOST_REQUIRE(tester.control->pending_producers_legacy());
+   for(const auto& prod : tester.control->pending_producers_legacy()->producers) {
       BOOST_REQUIRE_EQUAL(std::get<block_signing_authority_v0>(prod.authority).threshold, expected_threshold);
       for(const auto& key : std::get<block_signing_authority_v0>(prod.authority).keys){
          BOOST_REQUIRE_EQUAL(key.key, new_key);
