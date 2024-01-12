@@ -69,6 +69,30 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .schedule_version  = header.schedule_version
    };
 
+   // activated protocol features
+   // ---------------------------
+   if (!input.new_protocol_feature_activations.empty()) {
+      result.activated_protocol_features = std::make_shared<protocol_feature_activation_set>(
+         *activated_protocol_features, input.new_protocol_feature_activations);
+   } else {
+      result.activated_protocol_features = activated_protocol_features;
+   }
+
+   // core
+   // ----
+   if (input.qc_info)
+      result.core = core.next(input.qc_info->last_qc_block_num, input.qc_info->is_last_qc_strong);
+   else
+      result.core = core;
+
+
+   // proposal_mtree and finality_mtree
+   // [greg todo]
+
+   // proposer policy
+   // ---------------
+   result.active_proposer_policy = active_proposer_policy;
+
    if(!proposer_policies.empty()) {
       auto it = proposer_policies.begin();
       if (it->first <= input.timestamp) {
@@ -80,40 +104,47 @@ block_header_state block_header_state::next(block_header_state_input& input) con
          result.proposer_policies = proposer_policies;
       }
    }
+
    if (input.new_proposer_policy) {
       // called when assembling the block
       result.proposer_policies[result.header.timestamp] = input.new_proposer_policy;
    }
 
-   // core
-   // ----
-   if (input.qc_info)
-      result.core = core.next(input.qc_info->last_qc_block_num, input.qc_info->is_last_qc_strong);
-   else
-      result.core = core;
+   // finalizer policy
+   // ----------------
+   result.active_finalizer_policy = active_finalizer_policy;
 
-   if (!input.new_protocol_feature_activations.empty()) {
-      result.activated_protocol_features = std::make_shared<protocol_feature_activation_set>(
-         *activated_protocol_features, input.new_protocol_feature_activations);
-   } else {
-      result.activated_protocol_features = activated_protocol_features;
-   }
+   // [greg todo] correct support for new finalizer_policy activation using finalizer_policies map
 
-   // add block header extensions
-   // ---------------------------
    if (input.new_finalizer_policy)
       ++input.new_finalizer_policy->generation;
 
-   std::optional<qc_info_t> qc_info = input.qc_info;
-   if (!qc_info) {
-      // [greg todo]: copy the one from the previous block (look in header.header_extensions)
+
+   // add IF block header extension
+   // -----------------------------
+   uint16_t if_ext_id = instant_finality_extension::extension_id();
+   auto     if_entry  = header_exts.lower_bound(if_ext_id);
+   auto&    if_ext    = std::get<instant_finality_extension>(if_entry->second);
+
+   instant_finality_extension new_if_ext {if_ext.qc_info,
+                                          std::move(input.new_finalizer_policy),
+                                          std::move(input.new_proposer_policy)};
+   if (input.qc_info)
+      new_if_ext.qc_info = *input.qc_info;
+
+   emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
+   result.header_exts.emplace(if_ext_id, std::move(new_if_ext));
+
+   // add protocol_feature_activation extension
+   // -----------------------------------------
+   if (!input.new_protocol_feature_activations.empty()) {
+      uint16_t ext_id = protocol_feature_activation::extension_id();
+      protocol_feature_activation pfa_ext{.protocol_features = std::move(input.new_protocol_feature_activations)};
+
+      emplace_extension(result.header.header_extensions, ext_id, fc::raw::pack(pfa_ext));
+      result.header_exts.emplace(ext_id, std::move(pfa_ext));
    }
-   
-   emplace_extension(result.header.header_extensions, instant_finality_extension::extension_id(),
-                     fc::raw::pack(instant_finality_extension{qc_info,
-                                                              std::move(input.new_finalizer_policy),
-                                                              std::move(input.new_proposer_policy)}));
-               
+
    return result;
 }
 
