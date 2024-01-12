@@ -7,6 +7,8 @@
 
 #include <boost/dynamic_bitset.hpp>
 
+#include <mutex>
+
 namespace eosio::chain {
 
    using hs_bitset = boost::dynamic_bitset<uint32_t>;
@@ -160,16 +162,7 @@ namespace eosio::chain {
 
       void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum);
 
-      bool add_strong_vote(const std::vector<uint8_t>& proposal_digest,
-                           size_t index,
-                           const bls_public_key& pubkey,
-                           const bls_signature& sig);
-
-      bool add_weak_vote(const std::vector<uint8_t>& proposal_digest,
-                         size_t index,
-                         const bls_public_key& pubkey,
-                         const bls_signature& sig);
-
+      // thread safe
       bool add_vote(bool strong,
                     const std::vector<uint8_t>& proposal_digest,
                     size_t index,
@@ -190,8 +183,23 @@ namespace eosio::chain {
       state_t              _state { state_t::unrestricted };
       size_t               _num_finalizers {0};
       size_t               _quorum {0};
+      std::unique_ptr<std::mutex> _mtx;  // protect both _strong_votes and _weak_votes
       votes_t              _weak_votes;
       votes_t              _strong_votes;
+
+   private:
+#warning TODO move members above to private after unification. Currently they are used by qc_chain.cpp directly
+      // called by add_vote, already protected by mutex
+      bool add_strong_vote(const std::vector<uint8_t>& proposal_digest,
+                           size_t index,
+                           const bls_public_key& pubkey,
+                           const bls_signature& sig);
+
+      // called by add_vote, already protected by mutex
+      bool add_weak_vote(const std::vector<uint8_t>& proposal_digest,
+                         size_t index,
+                         const bls_public_key& pubkey,
+                         const bls_signature& sig);
    };
 
    // -------------------- valid_quorum_certificate -------------------------------------------------

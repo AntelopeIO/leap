@@ -3676,7 +3676,11 @@ namespace eosio {
    void connection::handle_message( const chain::hs_vote_message& msg ) {
       peer_dlog(this, "received vote: ${msg}", ("msg", msg));
       controller& cc = my_impl->chain_plug->chain();
-      cc.process_vote_message(msg);
+      if( cc.process_vote_message(msg) ) {
+#warning TDDO remove hs_message
+         hs_message hs_msg{msg};
+         my_impl->bcast_hs_message(connection_id, hs_msg);
+      }
    }
 
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {

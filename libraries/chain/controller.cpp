@@ -4024,8 +4024,8 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 }
 
 // called from net threads
-void controller::process_vote_message( const hs_vote_message& vote ) {
-   my->block_data.aggregate_vote(vote);
+bool controller::process_vote_message( const hs_vote_message& vote ) {
+   return my->block_data.aggregate_vote(vote);
 };
 
 const producer_authority_schedule& controller::active_producers()const {

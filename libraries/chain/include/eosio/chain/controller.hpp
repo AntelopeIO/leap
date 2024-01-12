@@ -317,7 +317,7 @@ namespace eosio::chain {
          void set_proposed_finalizers( const finalizer_policy& fin_set );
          void get_finalizer_state( finalizer_state& fs ) const;
          // called from net threads
-         void process_vote_message( const hs_vote_message& msg );
+         bool process_vote_message( const hs_vote_message& msg );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
