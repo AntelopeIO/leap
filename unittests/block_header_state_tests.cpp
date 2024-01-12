@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE(block_header_state_core_state_transition_test)
    // verifies the state is kept the same when old last_final_block_num
    // and new last_final_block_num are the same
    for (bool is_last_qc_strong: { true, false }) {
-      auto new_bhs_core = old_bhs_core.next(old_last_qc_block_num, is_last_qc_strong);
+      auto new_bhs_core = old_bhs_core.next({old_last_qc_block_num, is_last_qc_strong});
       BOOST_REQUIRE_EQUAL(new_bhs_core.last_final_block_num, old_bhs_core.last_final_block_num);
       BOOST_REQUIRE_EQUAL(*new_bhs_core.final_on_strong_qc_block_num, *old_bhs_core.final_on_strong_qc_block_num);
       BOOST_REQUIRE_EQUAL(*new_bhs_core.last_qc_block_num, *old_bhs_core.last_qc_block_num);
@@ -42,12 +42,12 @@ BOOST_AUTO_TEST_CASE(block_header_state_core_state_transition_test)
 
    // verifies state cannot be transitioned to a smaller last_qc_block_num
    for (bool is_last_qc_strong: { true, false }) {
-      BOOST_REQUIRE_THROW(old_bhs_core.next(old_last_qc_block_num - 1, is_last_qc_strong), block_validate_exception);
+      BOOST_REQUIRE_THROW(old_bhs_core.next({old_last_qc_block_num - 1, is_last_qc_strong}), block_validate_exception);
    }
 
    // verifies state transition works when is_last_qc_strong is true
    constexpr auto input_last_qc_block_num = 4u;
-   auto new_bhs_core = old_bhs_core.next(input_last_qc_block_num, true);
+   auto new_bhs_core = old_bhs_core.next({input_last_qc_block_num, true});
    // old final_on_strong_qc block became final
    BOOST_REQUIRE_EQUAL(new_bhs_core.last_final_block_num, old_final_on_strong_qc_block_num);
    // old last_qc block became final_on_strong_qc block
@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(block_header_state_core_state_transition_test)
    BOOST_REQUIRE_EQUAL(*new_bhs_core.last_qc_block_num, input_last_qc_block_num);
 
    // verifies state transition works when is_last_qc_strong is false
-   new_bhs_core = old_bhs_core.next(input_last_qc_block_num, false);
+   new_bhs_core = old_bhs_core.next({input_last_qc_block_num, false});
    // last_final_block_num should not change
    BOOST_REQUIRE_EQUAL(new_bhs_core.last_final_block_num, old_last_final_block_num);
    // new final_on_strong_qc_block_num should not be present
@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(block_header_state_core_3_chain_transition_test)
 
    // block2 --> block3
    constexpr auto block3_input_last_qc_block_num = 2u;
-   auto block3_bhs_core = block2_bhs_core.next(block3_input_last_qc_block_num, true);
+   auto block3_bhs_core = block2_bhs_core.next({block3_input_last_qc_block_num, true});
    // last_final_block_num should be the same as old one
    BOOST_REQUIRE_EQUAL(block3_bhs_core.last_final_block_num, block2_last_final_block_num);
    // final_on_strong_qc_block_num should be same as old one
@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(block_header_state_core_3_chain_transition_test)
 
    // block3 --> block4
    constexpr auto block4_input_last_qc_block_num = 3u;
-   auto block4_bhs_core = block3_bhs_core.next(block4_input_last_qc_block_num, true);
+   auto block4_bhs_core = block3_bhs_core.next({block4_input_last_qc_block_num, true});
    // last_final_block_num should not change
    BOOST_REQUIRE_EQUAL(block4_bhs_core.last_final_block_num, block2_last_final_block_num);
    // final_on_strong_qc_block_num should be block3's last_qc_block_num
@@ -98,7 +98,7 @@ BOOST_AUTO_TEST_CASE(block_header_state_core_3_chain_transition_test)
 
    // block4 --> block5
    constexpr auto block5_input_last_qc_block_num = 4u;
-   auto block5_bhs_core = block4_bhs_core.next(block5_input_last_qc_block_num, true);
+   auto block5_bhs_core = block4_bhs_core.next({block5_input_last_qc_block_num, true});
    // last_final_block_num should have a new value
    BOOST_REQUIRE_EQUAL(block5_bhs_core.last_final_block_num, block4_final_on_strong_qc_block_num);
    // final_on_strong_qc_block_num should be block4's last_qc_block_num

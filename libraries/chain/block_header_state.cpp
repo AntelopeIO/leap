@@ -13,9 +13,9 @@ producer_authority block_header_state::get_scheduled_producer(block_timestamp_ty
 
 #warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
    
-block_header_state_core block_header_state_core::next(const uint32_t last_qc_block_num, bool is_last_qc_strong) const {
+block_header_state_core block_header_state_core::next(qc_info_t incoming) const {
    // no state change if last_qc_block_num is the same
-   if (last_qc_block_num == this->last_qc_block_num) {
+   if (incoming.last_qc_block_num == this->last_qc_block_num) {
       return {*this};
    }
 
@@ -27,7 +27,7 @@ block_header_state_core block_header_state_core::next(const uint32_t last_qc_blo
 
    block_header_state_core result{*this};
 
-   if (is_last_qc_strong) {
+   if (incoming.is_last_qc_strong) {
       // last QC is strong. We can progress forward.
 
       // block with old final_on_strong_qc_block_num becomes irreversible
@@ -78,16 +78,13 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       result.activated_protocol_features = activated_protocol_features;
    }
 
-   // core
-   // ----
-   if (input.qc_info)
-      result.core = core.next(input.qc_info->last_qc_block_num, input.qc_info->is_last_qc_strong);
-   else
-      result.core = core;
-
+   // block_header_state_core
+   // -----------------------
+   result.core = input.qc_info ? core.next(*input.qc_info) : core;
 
    // proposal_mtree and finality_mtree
-   // [greg todo]
+   // ---------------------------------
+   // [greg todo] ??
 
    // proposer policy
    // ---------------

@@ -41,7 +41,7 @@ struct block_header_state_core {
    std::optional<uint32_t> last_qc_block_num;              //
    uint32_t                finalizer_policy_generation;    // 
 
-   block_header_state_core next(uint32_t last_qc_block_num, bool is_last_qc_strong) const;
+   block_header_state_core next(qc_info_t incoming) const;
 };
 
 struct block_header_state {
