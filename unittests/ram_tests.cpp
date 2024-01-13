@@ -95,8 +95,8 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
       tester->push_action( "testram11111"_n, "setentry"_n, "testram11111"_n, mvo()
                            ("payer", "testram11111")
                            ("from", 1)
-                           ("to", 10)
-                           ("size", 1790 /*1920*/)),
+                           ("to", 8)
+                           ("size", 1800 /*1920*/)),
                            ram_usage_exceeded,
                            fc_exception_message_starts_with("account testram11111 has insufficient ram"));
    wlog("ram_tests 2    %%%%%%");
@@ -155,7 +155,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
                            ("payer", "testram11111")
                            ("from", 12)
                            ("to", 12)
-                           ("size", 1780)),
+                           ("size", 1980)),
                            ram_usage_exceeded,
                            fc_exception_message_starts_with("account testram11111 has insufficient ram"));
    produce_blocks(1);
