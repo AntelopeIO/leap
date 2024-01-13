@@ -509,7 +509,9 @@ struct assembled_block {
                                       return completed_block{std::move(bsp)};
                                    },
                                    [&](assembled_block_if& ab) {
-                                      return completed_block{}; /* [greg todo] */
+                                      auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
+                                                                               std::move(ab.trx_receipts));
+                                      return completed_block{std::move(bsp)};
                                    }},
                         v);
    }

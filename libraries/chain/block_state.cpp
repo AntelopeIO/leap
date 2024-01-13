@@ -10,20 +10,13 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    , block(std::move(b))
 {}
 
-#if 0
-block_state::block_state(pending_block_header_state&& cur,
-                         signed_block_ptr&& b,
-                         deque<transaction_metadata_ptr>&& trx_metas,
-                         const protocol_feature_set& pfs,
-                         const validator_t& validator,
-                         const signer_callback_type& signer
-   )
-   :block_header_state( inject_additional_signatures( std::move(cur), *b, pfs, validator, signer ) )
-   ,block( std::move(b) )
-   ,_pub_keys_recovered( true ) // called by produce_block so signature recovery of trxs must have been done
-   ,cached_trxs( std::move(trx_metas) )
+block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
+                         deque<transaction_receipt>&& trx_receipts)
+   : block_header_state(bhs)
+   , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
+   , pub_keys_recovered(true) // probably not needed
+   , cached_trxs(std::move(trx_metas))
 {}
-#endif
 
 deque<transaction_metadata_ptr> block_state::extract_trxs_metas() {
    pub_keys_recovered = false;
