@@ -18,12 +18,11 @@ struct block_state : public block_header_state {     // block_header_state provi
 
    
    // ------ data members caching information available elsewhere ----------------------
-   block_id_type              cached_id;            // cache of block_header_state::header.calculate_id() (indexed on this field)
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
 
    // ------ functions -----------------------------------------------------------------
-   const block_id_type&   id()                const { return cached_id; }
+   const block_id_type&   id()                const { return block_header_state::id; }
    const block_id_type&   previous()          const { return block_header_state::previous(); }
    uint32_t               block_num()         const { return block_header_state::block_num(); }
    block_timestamp_type   timestamp()         const { return block_header_state::timestamp(); }
