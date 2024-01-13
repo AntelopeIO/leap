@@ -41,6 +41,10 @@ void pending_quorum_certificate::votes_t::reset(size_t num_finalizers) {
    _sig = bls_signature();
 }
 
+pending_quorum_certificate::pending_quorum_certificate()
+   : _mtx(std::make_unique<std::mutex>()) {
+}
+
 pending_quorum_certificate::pending_quorum_certificate(size_t num_finalizers, size_t quorum)
    : _num_finalizers(num_finalizers)
    , _quorum(quorum)

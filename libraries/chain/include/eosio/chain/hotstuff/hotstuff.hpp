@@ -146,7 +146,7 @@ namespace eosio::chain {
          void reset(size_t num_finalizers);
       };
 
-      pending_quorum_certificate() = default;
+      pending_quorum_certificate();
 
       explicit pending_quorum_certificate(size_t num_finalizers, size_t quorum);
 
