@@ -19,7 +19,8 @@ struct block_state : public block_header_state {     // block_header_state provi
    
    // ------ data members caching information available elsewhere ----------------------
    block_id_type              cached_id;            // cache of block_header_state::header.calculate_id() (indexed on this field)
-   header_extension_multimap  header_exts;          // redundant with the data stored in header
+   bool                       pub_keys_recovered = false;
+   deque<transaction_metadata_ptr> cached_trxs;
 
    // ------ functions -----------------------------------------------------------------
    const block_id_type&   id()                const { return cached_id; }
@@ -32,7 +33,10 @@ struct block_state : public block_header_state {     // block_header_state provi
    uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
       
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
-   deque<transaction_metadata_ptr>     extract_trxs_metas() { return {}; }; //  [greg todo] see impl in block_state_legacy.hpp
+   bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
+   deque<transaction_metadata_ptr>     extract_trxs_metas();
+   void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);
+   const deque<transaction_metadata_ptr>& trxs_metas()  const { return cached_trxs; }
 
    using bhs_t  = block_header_state;
    using bhsp_t = block_header_state_ptr;

@@ -41,7 +41,7 @@ struct block_header_state_core {
    std::optional<uint32_t> last_qc_block_num;              //
    uint32_t                finalizer_policy_generation;    // 
 
-   block_header_state_core next(uint32_t last_qc_block_num, bool is_last_qc_strong) const;
+   block_header_state_core next(qc_info_t incoming) const;
 };
 
 struct block_header_state {
@@ -61,6 +61,11 @@ struct block_header_state {
    flat_map<block_timestamp_type, proposer_policy_ptr>  proposer_policies;
    flat_map<uint32_t, finalizer_policy_ptr> finalizer_policies;
 
+
+   // ------ data members caching information available elsewhere ----------------------
+   header_extension_multimap           header_exts;     // redundant with the data stored in header
+
+
    // ------ functions -----------------------------------------------------------------
    digest_type           compute_finalizer_digest() const;
    block_timestamp_type  timestamp() const { return header.timestamp; }
@@ -79,6 +84,7 @@ struct block_header_state {
    }
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
+   const vector<digest_type>& get_new_protocol_feature_activations() const;
    producer_authority get_scheduled_producer(block_timestamp_type t) const;
    uint32_t active_schedule_version() const;
    signed_block_header make_block_header(const checksum256_type& transaction_mroot,
