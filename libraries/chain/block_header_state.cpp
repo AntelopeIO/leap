@@ -96,7 +96,8 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 
    if(!proposer_policies.empty()) {
       auto it = proposer_policies.begin();
-      if (it->first <= input.timestamp) {
+      // -1 since this is called after the block is built, this will be the active schedule for the next block
+      if (it->first.slot <= input.timestamp.slot - 1) {
          result.active_proposer_policy = it->second;
          result.header.schedule_version = header.schedule_version + 1;
          result.active_proposer_policy->proposer_schedule.version = result.header.schedule_version;
