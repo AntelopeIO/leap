@@ -7,10 +7,12 @@
 
 namespace eosio::chain {
 
+struct block_state_legacy;
+
 struct block_state : public block_header_state {     // block_header_state provides parent link
    // ------ data members -------------------------------------------------------------
    signed_block_ptr           block;
-   bool                       validated;             // We have executed the block's trxs and verified that action merkle root (block id) matches.
+   bool                       validated = false;     // We have executed the block's trxs and verified that action merkle root (block id) matches.
    digest_type                strong_digest;         // finalizer_digest (strong, cached so we can quickly validate votes)
    digest_type                weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
    pending_quorum_certificate pending_qc;            // where we accumulate votes we receive
@@ -47,6 +49,8 @@ struct block_state : public block_header_state {     // block_header_state provi
 
    block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
                deque<transaction_receipt>&& trx_receipts);
+
+   explicit block_state(const block_state_legacy& bsp);
 };
 
 using block_state_ptr = std::shared_ptr<block_state>;
