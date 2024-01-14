@@ -34,6 +34,8 @@ namespace eosio::chain {
       explicit fork_database( const std::filesystem::path& data_dir );
       ~fork_database();
 
+      std::filesystem::path get_data_dir() const;
+
       void open( validator_t& validator );
       void close();
 

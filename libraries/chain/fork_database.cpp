@@ -69,7 +69,7 @@ namespace eosio::chain {
       fork_multi_index_type  index;
       bsp                    root; // Only uses the block_header_state_legacy portion
       bsp                    head;
-      std::filesystem::path  datadir;
+      const std::filesystem::path  datadir;
 
       explicit         fork_database_impl( const std::filesystem::path& data_dir ) : datadir(data_dir) {}
 
@@ -100,6 +100,11 @@ namespace eosio::chain {
    void fork_database<bsp>::open( validator_t& validator ) {
       std::lock_guard g( my->mtx );
       my->open_impl( validator );
+   }
+
+   template<class bsp>
+   std::filesystem::path fork_database<bsp>::get_data_dir() const {
+      return my->datadir;
    }
 
    template<class bsp>
