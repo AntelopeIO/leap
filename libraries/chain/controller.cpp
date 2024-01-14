@@ -127,7 +127,7 @@ public:
    bsp       head;
    fork_db_t fork_db;
 
-   block_data_gen_t(const std::filesystem::path& path) : fork_db(path) {}
+   explicit block_data_gen_t(const std::filesystem::path& path) : fork_db(path) {}
       
    bsp fork_db_head(bool irreversible_mode) const {
       if (irreversible_mode) {
@@ -177,6 +177,19 @@ struct block_data_t {
    uint32_t             head_block_num()  const { return std::visit([](const auto& bd) { return bd.head->block_num(); }, v); }
    block_timestamp_type head_block_time() const { return std::visit([](const auto& bd) { return bd.head->timestamp(); }, v); }
    account_name         head_block_producer() const { return std::visit([](const auto& bd) { return bd.head->producer(); }, v); }
+
+   void transistion_fork_db_to_if(const auto& vbsp) {
+      std::visit([](auto& bd) { bd.fork_db.close(); }, v);
+      auto bsp = std::make_shared<block_state>(*std::get<block_state_legacy_ptr>(vbsp));
+      v.emplace<block_data_new_t>(std::visit([](const auto& bd) { return bd.fork_db.get_data_dir(); }, v));
+      std::visit(overloaded{
+                    [](block_data_legacy_t&) {},
+                    [&](block_data_new_t& bd) {
+                       bd.head = bsp;
+                       bd.fork_db.reset(*bd.head);
+                    }
+                 }, v);
+   }
       
    protocol_feature_activation_set_ptr head_activated_protocol_features() const { return std::visit([](const auto& bd) {
       return bd.head->get_activated_protocol_features(); }, v);
@@ -863,8 +876,8 @@ struct building_block {
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy), std::move(bb.new_finalizer_policy),
                   qc_data ? qc_data->qc_info : std::optional<qc_info_t>{} };
 
-               assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
-                                                      bb.pending_trx_metas, bb.pending_trx_receipts,
+               assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
+                                                      std::move(bb.pending_trx_metas), std::move(bb.pending_trx_receipts),
                                                       qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}};
 
                return assembled_block{.v = std::move(ab)};
@@ -2444,7 +2457,6 @@ struct controller_impl {
 
       // can change during start_block, so use same value throughout
       uint32_t hs_lib = hs_irreversible_block_num.load();
-      const bool hs_active = hs_lib > 0; // the transition from 0 to >0 cannot happen during start_block
 
       emit( self.block_start, head_block_num() + 1 );
 
@@ -2548,37 +2560,35 @@ struct controller_impl {
 
          const auto& gpo = self.get_global_properties();
 
-         if (!hs_active) {
-#warning todo: how do we update the producer_schedule after the switch to IF?
-            bb.apply_dpos<void>([&](building_block::building_block_dpos& bb_dpos) {
-               pending_block_header_state_legacy& pbhs = bb_dpos.pending_block_header_state;
-               
-               if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
-                   ( hs_active || *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible or hotstuff activated...
-                   pbhs.prev_pending_schedule.schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
-                  )
-               {
-                  // Promote proposed schedule to pending schedule; happens in next block after hotstuff activated
-                  EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
-                              producer_schedule_exception, "wrong producer schedule version specified" );
+         // instant finality uses alternative method for chaning producer schedule
+         bb.apply_dpos<void>([&](building_block::building_block_dpos& bb_dpos) {
+            pending_block_header_state_legacy& pbhs = bb_dpos.pending_block_header_state;
 
-                  bb_dpos.new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+            if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
+                ( *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible ...
+                pbhs.prev_pending_schedule.schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
+               )
+            {
+               // Promote proposed schedule to pending schedule; happens in next block after hotstuff activated
+               EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
+                           producer_schedule_exception, "wrong producer schedule version specified" );
 
-                  if( !replaying ) {
-                     ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
-                           ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
-                           ("lib", hs_active ? hs_lib : pbhs.dpos_irreversible_blocknum)
-                           ("schedule", bb_dpos.new_pending_producer_schedule ) );
-                  }
+               bb_dpos.new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
 
-                  db.modify( gpo, [&]( auto& gp ) {
-                     gp.proposed_schedule_block_num = std::optional<block_num_type>();
-                     gp.proposed_schedule.version=0;
-                     gp.proposed_schedule.producers.clear();
-                  });
+               if( !replaying ) {
+                  ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
+                        ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
+                        ("lib", pbhs.dpos_irreversible_blocknum)
+                        ("schedule", bb_dpos.new_pending_producer_schedule ) );
                }
-            });
-         }
+
+               db.modify( gpo, [&]( auto& gp ) {
+                  gp.proposed_schedule_block_num = std::optional<block_num_type>();
+                  gp.proposed_schedule.version=0;
+                  gp.proposed_schedule.producers.clear();
+               });
+            }
+         });
 
          try {
             transaction_metadata_ptr onbtrx =
@@ -2619,7 +2629,7 @@ struct controller_impl {
    void finish_block()
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
-      EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finalize_block");
+      EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
 
       try {
          auto& bb = std::get<building_block>(pending->_block_stage);
@@ -2646,24 +2656,9 @@ struct controller_impl {
          create_block_summary(  assembled_block.id() );
 
          pending->_block_stage = std::move(assembled_block);
-      
-         /*
-           ilog( "finalized block ${n} (${id}) at ${t} by ${p} (${signing_key}); schedule_version: ${v} lib: ${lib} #dtrxs: ${ndtrxs} ${np}",
-           ("n",pbhs.block_num())
-           ("id",id)
-           ("t",pbhs.timestamp)
-           ("p",pbhs.producer)
-           ("signing_key", pbhs.block_signing_key)
-           ("v",pbhs.active_schedule_version)
-           ("lib",pbhs.dpos_irreversible_blocknum)
-           ("ndtrxs",db.get_index<generated_transaction_multi_index,by_trx_id>().size())
-           ("np",block_ptr->new_producers)
-           );
-         */
-
       }
       FC_CAPTURE_AND_RETHROW()
-   } /// finalize_block
+   }
 
    /**
     * @post regardless of the success of commit block there is no active pending block
@@ -2707,8 +2702,28 @@ struct controller_impl {
 
          if( s == controller::block_status::incomplete ) {
             log_irreversible();
-            pacemaker->beat();
          }
+
+         // TODO: temp transistion to instant-finality, happens immediately after block with new_finalizer_policy
+         auto transition = [&](auto& fork_db, auto& head) -> bool {
+            const auto& bsp = std::get<std::decay_t<decltype(head)>>(cb.bsp);
+            std::optional<block_header_extension> ext = bsp->block->extract_header_extension(instant_finality_extension::extension_id());
+            if (ext) {
+               const auto& if_extension = std::get<instant_finality_extension>(*ext);
+               if (if_extension.new_finalizer_policy) {
+                  ilog("Transition to instant finality happening after block ${b}", ("b", bsp->block_num()));
+                  hs_irreversible_block_num = bsp->block_num();
+
+                  log_irreversible();
+                  return true;
+               }
+            }
+            return false;
+         };
+         if (block_data.apply_dpos<bool>(transition)) {
+            block_data.transistion_fork_db_to_if(cb.bsp);
+         }
+
       } catch (...) {
          // dont bother resetting pending, instead abort the block
          reset_pending_on_exit.cancel();
@@ -3994,39 +4009,31 @@ std::optional<signed_block_header> controller::fetch_block_header_by_id( const b
 }
 
 signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  { try {
-   auto blk_state = fetch_block_state_by_number( block_num );
-   if( blk_state ) {
-      return blk_state->block;
-   }
+   auto fetch_block = [&](auto& fork_db, auto& head) -> signed_block_ptr {
+      auto bsp = fork_db.search_on_branch( fork_db.head()->id(), block_num);
+      if (bsp) return bsp->block;
+      return {};
+   };
+   auto b = my->block_data.apply<signed_block_ptr>(fetch_block);
+   if (b)
+      return b;
 
    return my->blog.read_block_by_num(block_num);
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_number( uint32_t block_num )const  { try {
-   auto blk_state = fetch_block_state_by_number( block_num );
-   if( blk_state ) {
-      return blk_state->header;
-   }
+   auto fetch_block = [&](auto& fork_db, auto& head) -> signed_block_ptr {
+      auto bsp = fork_db.search_on_branch( fork_db.head()->id(), block_num);
+      if (bsp) return bsp->block;
+      return {};
+   };
+   auto b = my->block_data.apply<signed_block_ptr>(fetch_block);
+   if (b)
+      return *b;
 
    return my->blog.read_block_header_by_num(block_num);
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
-
-block_state_legacy_ptr controller::fetch_block_state_by_id( block_id_type id )const {
-   // returns nullptr when in IF mode 
-   auto get_block_state = [&](auto& fork_db, auto& head) -> block_state_legacy_ptr { return fork_db.get_block(id); };
-   return my->block_data.apply_dpos<block_state_legacy_ptr>(get_block_state);
-}
-
-block_state_legacy_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  {
-   try {
-      // returns nullptr when in IF mode
-      auto fetch_block_state = [&](auto& fork_db, auto& head) -> block_state_legacy_ptr {
-         return fork_db.search_on_branch( fork_db.head()->id(), block_num);
-      };
-      return  my->block_data.apply_dpos<block_state_legacy_ptr>(fetch_block_state);
-   } FC_CAPTURE_AND_RETHROW( (block_num) )
-}
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
    const auto& blog_head = my->blog.head();
@@ -4034,8 +4041,13 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
 
    if( !find_in_blog ) {
-      auto bsp = fetch_block_state_by_number( block_num );
-      if( bsp ) return bsp->id();
+      auto fetch_block_id = [&](auto& fork_db, auto& head) -> std::optional<block_id_type> {
+         auto bsp = fork_db.search_on_branch( fork_db.head()->id(), block_num);
+         if (bsp) return bsp->id();
+         return {};
+      };
+      auto id = my->block_data.apply<std::optional<block_id_type>>(fetch_block_id);
+      if (id) return *id;
    }
 
    auto id = my->blog.read_block_id_by_num(block_num);
