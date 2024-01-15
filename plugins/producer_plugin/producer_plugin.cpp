@@ -1340,6 +1340,9 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
+         chain.set_finalizer_keys_on_the_node(_finalizer_keys);
+
+#warning TODO remove create_pacemaker
          chain.create_pacemaker(_producers, std::move(_finalizer_keys), hotstuff_logger);
          _finalizer_keys.clear();
 
