@@ -13,7 +13,7 @@ Make sure you meet the following requirements:
 | The cleos tool is bundled with the Antelope software. [Installing Antelope](../../00_install/index.md) will also install the cleos tool.
 * Learn about [Antelope Accounts and Permissions](/protocol-guides/04_accounts_and_permissions.md)
 * Learn about Asymmetric Cryptography - [public key](/glossary.md#public-key) and [private key](/glossary.md#private-key) pairs.
-* Create public/private keypairs for the `owner` and `active` permissions of an account.
+* Create public/private keypair for the `active` permissions of an account.
 
 ## Command Reference
 
@@ -32,7 +32,7 @@ cleos create slimaccount eosio ted EOS87TQktA5RVse2EguhztfQVEh6XXxBmgkU8b4Y5YnGv
 **Where**:
 * `eosio` = the system account that authorizes the creation of a new account
 * `ted` = the name of the new account conforming to [account naming conventions](/protocol-guides/04_accounts_and_permissions.md#2-accounts)
-* `EOS87TQ...AoLGNN` = the owner public key or permission level for the new account (**required**)
+* `EOS87TQ...AoLGNN` = the active public key or permission level for the new account (**required**)
 [[info | Note]]
 | To create a new account in the Antelope blockchain, an existing account, also referred to as a creator account, is required to authorize the creation of a new account. For a newly created Antelope blockchain, the default system account used to create a new account is **eosio**.
 
