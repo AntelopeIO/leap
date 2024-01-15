@@ -61,7 +61,7 @@ struct block_header_state {
    flat_map<uint32_t, finalizer_policy_ptr> finalizer_policies;
 
    // ------ functions -----------------------------------------------------------------
-   digest_type           compute_finalizer_digest() const;
+   digest_type           compute_finalizer_digest() const { return id; };
    block_timestamp_type  timestamp() const { return header.timestamp; }
    account_name          producer() const  { return header.producer; }
    const block_id_type&  previous() const  { return header.previous; }

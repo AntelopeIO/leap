@@ -884,6 +884,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
+   bls_key_map_t                   finalizer_keys_on_the_node;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
@@ -2825,6 +2826,34 @@ struct controller_impl {
       }
    } FC_CAPTURE_AND_RETHROW() } /// apply_block
 
+   void create_and_send_vote_msg(const block_header_state& bhs) {
+#warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
+      bool strong = true;
+
+      // A vote is created and signed by each finalizer configured on the node that
+      // in active finalizer policy
+#warning possible optimization: when setting finalizer policy, update finalizer_keys_on_the_node to indicate if it is active to save going over bhs.finalizer_policy->finalizers
+      // go over each active finalizer and check if it is configured on the node
+      for (const auto& f: bhs.finalizer_policy->finalizers) {
+         auto it = finalizer_keys_on_the_node.find( f.public_key );
+         if( it != finalizer_keys_on_the_node.end() ) {
+            const auto& private_key = it->second;
+
+            // signing can take long time, do it asynchronously
+            auto sig_fut = post_async_task(thread_pool.get_executor(),
+                                           [&]() {
+                                              const auto& digest = bhs.compute_finalizer_digest();
+                                              return private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size())); });
+
+            // construct the vote message
+            hs_vote_message vote{ bhs.id, strong, private_key.get_public_key(), sig_fut.get() };
+
+            // net plugin subscribed this signal. it will broadcast the vote message
+            // on receiving the signal
+            emit( self.voted_block, vote );
+         }
+      }
+   }
 
    // thread safe, expected to be called from thread other than the main thread
    block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
@@ -3405,6 +3434,12 @@ struct controller_impl {
 
    void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
       wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+   }
+
+   void set_finalizer_keys_on_the_node(const bls_pub_priv_key_map_t finalizer_keys) {
+      for (const auto& k : finalizer_keys) {
+         finalizer_keys_on_the_node[bls_public_key{k.first}] = bls_private_key{k.second};
+      }
    }
 
    bool                 irreversible_mode()      const { return read_mode == db_read_mode::IRREVERSIBLE; }
@@ -4459,6 +4494,10 @@ bool controller::is_write_window() const {
 
 void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
    return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+}
+
+void controller::set_finalizer_keys_on_the_node(const bls_pub_priv_key_map_t finalizer_keys) {
+   my->set_finalizer_keys_on_the_node(finalizer_keys);
 }
 
 /// Protocol feature activation handlers:
