@@ -109,7 +109,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 
    if (input.new_proposer_policy) {
       // called when assembling the block
-      result.proposer_policies[result.header.timestamp] = input.new_proposer_policy;
+      result.proposer_policies[input.new_proposer_policy->active_time] = input.new_proposer_policy;
    }
 
    // finalizer policy
