@@ -207,6 +207,17 @@ struct block_data_t {
                            [](const block_data_new_t&) -> const producer_authority_schedule* { return nullptr; }
                         }, v);
    }
+
+   const producer_authority_schedule* next_producers() {
+      return std::visit(overloaded{
+                           [](const block_data_legacy_t& bd) -> const producer_authority_schedule* {
+                              return bd.head->pending_schedule_auth();
+                           },
+                           [](const block_data_new_t& bd) -> const producer_authority_schedule* {
+                              return bd.head->proposer_policies.empty() ? nullptr : &bd.head->proposer_policies.begin()->second->proposer_schedule;
+                           }
+                        }, v);
+   }
       
    const block_id_type& head_block_id()   const {
       return std::visit([](const auto& bd) -> const block_id_type& { return bd.head->id(); }, v);
@@ -4210,6 +4221,9 @@ std::optional<producer_authority_schedule> controller::proposed_producers_legacy
 }
 
 const producer_authority_schedule* controller::next_producers()const {
+   if( !(my->pending) )
+      return my->block_data.next_producers();
+
    return my->pending->next_producers();
 }
 
