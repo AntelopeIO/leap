@@ -1013,7 +1013,7 @@ struct controller_impl {
    std::optional<pending_state>    pending;
    block_data_t                    block_data;  // includes `head` aand `fork_db`
    std::optional<chain_pacemaker>  pacemaker;
-   std::atomic<uint32_t>           hs_irreversible_block_num{0};
+   std::atomic<uint32_t>           if_irreversible_block_num{0};
    resource_limits_manager         resource_limits;
    subjective_billing              subjective_bill;
    authorization_manager           authorization;
@@ -1196,8 +1196,8 @@ struct controller_impl {
                      ("lib_num", lib_num)("bn", fork_db_root_block_num()) );
       }
 
-      const uint32_t hs_lib = hs_irreversible_block_num;
-      const uint32_t new_lib = hs_lib > 0 ? hs_lib : fork_db_head_irreversible_blocknum();
+      const uint32_t if_lib = if_irreversible_block_num;
+      const uint32_t new_lib = if_lib > 0 ? if_lib : fork_db_head_irreversible_blocknum();
 
       if( new_lib <= lib_num )
          return;
@@ -2482,9 +2482,6 @@ struct controller_impl {
    {
       EOS_ASSERT( !pending, block_validate_exception, "pending block already exists" );
 
-      // can change during start_block, so use same value throughout
-      uint32_t hs_lib = hs_irreversible_block_num.load();
-
       emit( self.block_start, head_block_num() + 1 );
 
       // at block level, no transaction specific logging is possible
@@ -2739,7 +2736,7 @@ struct controller_impl {
                const auto& if_extension = std::get<instant_finality_extension>(*ext);
                if (if_extension.new_finalizer_policy) {
                   ilog("Transition to instant finality happening after block ${b}", ("b", bsp->block_num()));
-                  hs_irreversible_block_num = bsp->block_num();
+                  if_irreversible_block_num = bsp->block_num();
 
                   log_irreversible();
                   return true;
@@ -4000,10 +3997,10 @@ std::optional<block_id_type> controller::pending_producer_block_id()const {
    return my->pending->_producer_block_id;
 }
 
-void controller::set_hs_irreversible_block_num(uint32_t block_num) {
+void controller::set_if_irreversible_block_num(uint32_t block_num) {
    // needs to be set by qc_chain at startup and as irreversible changes
    assert(block_num > 0);
-   my->hs_irreversible_block_num = block_num;
+   my->if_irreversible_block_num = block_num;
 }
 
 uint32_t controller::last_irreversible_block_num() const {
@@ -4197,7 +4194,6 @@ const producer_authority_schedule& controller::active_producers()const {
    if( !(my->pending) )
       return  my->block_data.head_active_schedule_auth();
 
-#warning todo: support active/pending_producers correctly when in IF mode (see assembled_block and completed_block stages)
    return my->pending->active_producers();
 }
 

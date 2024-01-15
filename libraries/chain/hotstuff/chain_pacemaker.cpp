@@ -176,7 +176,7 @@ namespace eosio::chain {
                ilog("Switching to instant finality at block ${b}", ("b", block->block_num()));
                // switching from dpos to hotstuff, all nodes will switch at same block height
                // block header extension is set in finish_block to value set by host function set_finalizers
-               _chain->set_hs_irreversible_block_num(block->block_num()); // can be any value <= dpos lib
+               _chain->set_if_irreversible_block_num(block->block_num()); // can be any value <= dpos lib
             }
             auto if_extension = std::get<instant_finality_extension>(*ext);
 #warning Revisit after finalizer policy change design is complete as this is not necessarily when we will change active finalizer policy.
