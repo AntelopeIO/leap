@@ -57,4 +57,5 @@ using block_state_ptr = std::shared_ptr<block_state>;
    
 } // namespace eosio::chain
 
-FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(validated)(strong_digest)(weak_digest)(pending_qc)(valid_qc) )
+// not exporting pending_qc or valid_qc
+FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(validated)(strong_digest)(weak_digest) )
