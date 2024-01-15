@@ -115,6 +115,7 @@ namespace eosio { namespace chain {
       private:
          chainbase::database&         _db;
          std::function<deep_mind_handler*(bool is_trx_transient)> _get_deep_mind_logger;
+         void read_resource_object_from_snapshot_v1_to_v6( const snapshot_reader_ptr& snapshot );
    };
 } } } /// eosio::chain
 

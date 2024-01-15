@@ -844,6 +844,45 @@ struct controller_impl {
       });
    }
 
+   void read_account_object_from_snapshot_v1_to_v6( const snapshot_reader_ptr& snapshot ) {
+      snapshot->read_section("eosio::chain::account_object", [this]( auto& section ) {
+         bool more = !section.empty();
+         while (more) {
+            snapshot_account_object row;
+            more = section.read_row(row, db);
+            db.create<account_object>([&row](auto& value ){
+               value.name = row.name;
+               value.creation_date = row.creation_date;
+               value.abi = row.abi;
+            });
+         }
+      });
+
+      snapshot->read_section("eosio::chain::account_metadata_object", [this]( auto& section ) {
+         bool more = !section.empty();
+         while (more) {
+            snapshot_account_metadata_object row;
+            more = section.read_row(row, db);
+            const auto *acct_itr = db.find<account_object, by_name>( row.name );
+            EOS_ASSERT(acct_itr != nullptr, snapshot_exception, "Unexpected snapshot_account_metadata_object");
+            db.modify( *acct_itr, [&]( account_object& value ){
+               value.recv_sequence = row.recv_sequence;
+               value.auth_sequence = row.auth_sequence;
+            });
+            db.create<account_metadata_object>([&](auto& value) {
+               value.name = row.name;
+               value.code_sequence = row.code_sequence;
+               value.abi_sequence = row.abi_sequence;
+               value.code_hash = row.code_hash;
+               value.last_code_update = row.last_code_update;
+               value.flags = row.flags;
+               value.vm_type = row.vm_type;
+               value.vm_version = row.vm_version;
+            });
+         }
+      });
+   }
+
    void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
       // clear in case the previous call to clear did not finish in time of deadline
       clear_expired_input_transactions( fc::time_point::maximum() );
@@ -990,6 +1029,18 @@ struct controller_impl {
                   });
                });
                return; // early out to avoid default processing
+            }
+         }
+
+         if (header.version < 8){
+            // read account object from old snapshot
+            if (std::is_same<value_t, account_object>::value) {
+               read_account_object_from_snapshot_v1_to_v6(snapshot);
+               return;
+            }
+            // skip the account_metadata_object as its inlined with account_object section
+            if (std::is_same<value_t, account_metadata_object>::value){
+               return;
             }
          }
 

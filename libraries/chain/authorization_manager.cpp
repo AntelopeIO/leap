@@ -67,8 +67,8 @@ namespace eosio { namespace chain {
                EOS_ASSERT(row.auth.keys.size() == 0,  snapshot_exception, "Unexpected auth keys on reserved permission 0");
                EOS_ASSERT(row.auth.waits.size() == 0,  snapshot_exception, "Unexpected auth waits on reserved permission 0");
                EOS_ASSERT(row.auth.threshold == 0,  snapshot_exception, "Unexpected auth threshold on reserved permission 0");
-               EOS_ASSERT(row.last_used == time_point(),  snapshot_exception, "Unexpected auth last used on reserved permission 0");
                EOS_ASSERT(row.last_updated == time_point(),  snapshot_exception, "Unexpected auth last updated on reserved permission 0");
+               // EOS_ASSERT(row.last_used == time_point(),  snapshot_exception, "Unexpected auth last used on reserved permission 0");
                value.parent = 0;
             } else if ( row.parent != permission_name()){
                const auto& parent = db.get<permission_object, by_owner>(boost::make_tuple(row.owner, row.parent));

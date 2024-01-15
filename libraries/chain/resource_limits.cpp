@@ -6,6 +6,7 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
+#include <eosio/chain/chain_snapshot.hpp>
 #include <algorithm>
 
 namespace eosio { namespace chain { namespace resource_limits {
@@ -81,8 +82,69 @@ void resource_limits_manager::add_to_snapshot( const snapshot_writer_ptr& snapsh
    });
 }
 
+void resource_limits_manager::read_resource_object_from_snapshot_v1_to_v6( const snapshot_reader_ptr& snapshot ) {
+   snapshot->read_section<resource_limits_object>([&db=this->_db]( auto &section ) {
+      bool more = !section.empty();
+      while (more) {
+         resource_limits_object row;
+         more = section.read_row(row, db);
+         if(row.pending == false){
+            const auto* actual_limits = db.find<resource_object, by_owner>( row.owner );
+            EOS_ASSERT(actual_limits == nullptr, snapshot_exception, "Unexpected resource_limits_object");
+            db.create<resource_object>([&](auto& value) {
+               value.owner = row.owner;
+               value.net_weight = row.net_weight;
+               value.cpu_weight = row.cpu_weight;
+               value.ram_bytes = row.ram_bytes;
+            });
+         } else {
+            db.create<resource_pending_object>([&](auto& value) {
+               value.owner = row.owner;
+               value.net_weight = row.net_weight;
+               value.cpu_weight = row.cpu_weight;
+               value.ram_bytes = row.ram_bytes;
+            });
+         }
+      }
+   });
+   snapshot->read_section<resource_usage_object>([&db=this->_db]( auto &section ) {
+      bool more = !section.empty();
+      while (more) {
+         resource_usage_object row;
+         more = section.read_row(row, db);
+         const auto *actual_limits = db.find<resource_object, by_owner>( row.owner );
+         EOS_ASSERT(actual_limits != nullptr, snapshot_exception, "Unexpected resource_usage_object");
+         db.modify( *actual_limits, [&]( resource_object& value ){
+            value.net_usage = row.net_usage;
+            value.cpu_usage = row.cpu_usage;
+            value.ram_usage = row.ram_usage;
+         });
+      }
+   });
+}
+
 void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& snapshot ) {
-   resource_index_set::walk_indices([this, &snapshot]( auto utils ){
+   chain_snapshot_header header;
+   snapshot->read_section<chain_snapshot_header>([this, &header]( auto &section ){
+      section.read_row(header, _db);
+      header.validate();
+   });
+
+   resource_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
+      using value_t = typename decltype(utils)::index_t::value_type;
+
+      if (header.version < 8){
+         // read resource_object and resource_pending_object from old snapshot
+         if (std::is_same<value_t, resource_object>::value) {
+            read_resource_object_from_snapshot_v1_to_v6(snapshot);
+            return;
+         }
+         // skip the resource_pending_object as its inlined with resource_object section
+         if (std::is_same<value_t, resource_pending_object>::value){
+            return;
+         }
+      }
+
       snapshot->read_section<typename decltype(utils)::index_t::value_type>([this]( auto& section ) {
          bool more = !section.empty();
          while(more) {
