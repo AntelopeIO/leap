@@ -291,6 +291,22 @@ struct block_data_t {
       }, v);
    }
 
+   signed_block_ptr fork_db_fetch_block_by_num(uint32_t block_num) const {
+      return std::visit([&](const auto& bd) -> signed_block_ptr {
+         auto bsp = bd.fork_db.search_on_branch(bd.fork_db.head()->id(), block_num);
+         if (bsp) return bsp->block;
+         return {};
+      }, v);
+   }
+
+   std::optional<block_id_type> fork_db_fetch_block_id(uint32_t block_num) const {
+      return std::visit([&](const auto& bd) -> std::optional<block_id_type> {
+         auto bsp = bd.fork_db.search_on_branch(bd.fork_db.head()->id(), block_num);
+         if (bsp) return bsp->id();
+         return {};
+      }, v);
+   }
+
    template <class R, class F>
    R apply(F& f) {
       if constexpr (std::is_same_v<void, R>)
@@ -4016,26 +4032,15 @@ bool controller::block_exists(const block_id_type&id) const {
 }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_id( const block_id_type& id )const {
-#if 0
-   // [greg todo] is the below code equivalent??
-   auto state = my->fork_db.get_block(id);
-   if( state && state->block ) return state->header;
-#else
    auto sb_ptr = my->block_data.fork_db_fetch_block_by_id(id);
    if( sb_ptr ) return *static_cast<signed_block_header*>(sb_ptr.get());
-#endif
    auto result = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
    if( result && result->calculate_id() == id ) return result;
    return {};
 }
 
 signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  { try {
-   auto fetch_block = [&](auto& fork_db, auto& head) -> signed_block_ptr {
-      auto bsp = fork_db.search_on_branch( fork_db.head()->id(), block_num);
-      if (bsp) return bsp->block;
-      return {};
-   };
-   auto b = my->block_data.apply<signed_block_ptr>(fetch_block);
+   auto b = my->block_data.fork_db_fetch_block_by_num( block_num );
    if (b)
       return b;
 
@@ -4043,12 +4048,7 @@ signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  {
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_number( uint32_t block_num )const  { try {
-   auto fetch_block = [&](auto& fork_db, auto& head) -> signed_block_ptr {
-      auto bsp = fork_db.search_on_branch( fork_db.head()->id(), block_num);
-      if (bsp) return bsp->block;
-      return {};
-   };
-   auto b = my->block_data.apply<signed_block_ptr>(fetch_block);
+   auto b = my->block_data.fork_db_fetch_block_by_num(block_num);
    if (b)
       return *b;
 
@@ -4062,12 +4062,7 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
 
    if( !find_in_blog ) {
-      auto fetch_block_id = [&](auto& fork_db, auto& head) -> std::optional<block_id_type> {
-         auto bsp = fork_db.search_on_branch( fork_db.head()->id(), block_num);
-         if (bsp) return bsp->id();
-         return {};
-      };
-      auto id = my->block_data.apply<std::optional<block_id_type>>(fetch_block_id);
+      std::optional<block_id_type> id = my->block_data.fork_db_fetch_block_id(block_num);
       if (id) return *id;
    }
 

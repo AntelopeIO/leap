@@ -510,7 +510,7 @@ BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
    {
       auto b = irreversible.control->fetch_block_by_id( fork_first_block_id );
       BOOST_REQUIRE( !b );
-      BOOST_TEST( irreversible.control->block_exists(fork_first_block_id) );
+      BOOST_TEST( !irreversible.control->block_exists(fork_first_block_id) );
    }
 
 } FC_LOG_AND_RETHROW()
