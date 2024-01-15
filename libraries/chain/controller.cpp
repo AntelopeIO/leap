@@ -2832,21 +2832,16 @@ struct controller_impl {
 
       // A vote is created and signed by each finalizer configured on the node that
       // in active finalizer policy
-#warning possible optimization: when setting finalizer policy, update finalizer_keys_on_the_node to indicate if it is active to save going over bhs.finalizer_policy->finalizers
-      // go over each active finalizer and check if it is configured on the node
       for (const auto& f: bhs.finalizer_policy->finalizers) {
          auto it = finalizer_keys_on_the_node.find( f.public_key );
          if( it != finalizer_keys_on_the_node.end() ) {
             const auto& private_key = it->second;
+            const auto& digest = bhs.compute_finalizer_digest();
 
-            // signing can take long time, do it asynchronously
-            auto sig_fut = post_async_task(thread_pool.get_executor(),
-                                           [&]() {
-                                              const auto& digest = bhs.compute_finalizer_digest();
-                                              return private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size())); });
+            auto sig =  private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
 
             // construct the vote message
-            hs_vote_message vote{ bhs.id, strong, private_key.get_public_key(), sig_fut.get() };
+            hs_vote_message vote{ bhs.id, strong, private_key.get_public_key(), sig };
 
             // net plugin subscribed this signal. it will broadcast the vote message
             // on receiving the signal
@@ -3436,7 +3431,7 @@ struct controller_impl {
       wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
-   void set_finalizer_keys_on_the_node(const bls_pub_priv_key_map_t finalizer_keys) {
+   void set_finalizer_keys_on_the_node(const bls_pub_priv_key_map_t& finalizer_keys) {
       for (const auto& k : finalizer_keys) {
          finalizer_keys_on_the_node[bls_public_key{k.first}] = bls_private_key{k.second};
       }
@@ -4496,7 +4491,7 @@ void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t 
    return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
 }
 
-void controller::set_finalizer_keys_on_the_node(const bls_pub_priv_key_map_t finalizer_keys) {
+void controller::set_finalizer_keys_on_the_node(const bls_pub_priv_key_map_t& finalizer_keys) {
    my->set_finalizer_keys_on_the_node(finalizer_keys);
 }
 

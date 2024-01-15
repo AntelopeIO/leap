@@ -384,7 +384,7 @@ namespace eosio::chain {
       void set_to_read_window();
       bool is_write_window() const;
       void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num);
-      void set_finalizer_keys_on_the_node(const bls_pub_priv_key_map_t finalizer_keys);
+      void set_finalizer_keys_on_the_node(const bls_pub_priv_key_map_t& finalizer_keys);
 
       private:
          friend class apply_context;
