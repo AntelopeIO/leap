@@ -57,5 +57,4 @@ using block_state_ptr = std::shared_ptr<block_state>;
    
 } // namespace eosio::chain
 
-// [greg todo] which members need to be serialized to disk when saving fork_db
-FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(validated) )
+FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(validated)(strong_digest)(weak_digest)(pending_qc)(valid_qc) )

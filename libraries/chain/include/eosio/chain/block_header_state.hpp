@@ -98,6 +98,8 @@ using block_header_state_ptr = std::shared_ptr<block_header_state>;
 
 }
 
-// [greg todo] which members need to be serialized to disk when saving fork_db
-// obviously many are missing below.
-FC_REFLECT( eosio::chain::block_header_state,  (id))
+FC_REFLECT( eosio::chain::block_header_state_core,
+            (last_final_block_num)(final_on_strong_qc_block_num)(last_qc_block_num)(finalizer_policy_generation))
+FC_REFLECT( eosio::chain::block_header_state,
+            (id)(header)(activated_protocol_features)(core)(proposal_mtree)(finality_mtree)
+            (active_finalizer_policy)(active_proposer_policy)(proposer_policies)(finalizer_policies)(header_exts))
