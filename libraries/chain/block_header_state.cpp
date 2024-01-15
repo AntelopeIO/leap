@@ -182,7 +182,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
 
    // retrieve instant_finality_extension data from block header extension
    // --------------------------------------------------------------------
-   EOS_ASSERT(exts.count(instant_finality_extension::extension_id() > 0), misc_exception,
+   EOS_ASSERT(exts.count(instant_finality_extension::extension_id()) > 0, invalid_block_header_extension,
               "Instant Finality Extension is expected to be present in all block headers after switch to IF");
    auto  if_entry = exts.lower_bound(instant_finality_extension::extension_id());
    auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
