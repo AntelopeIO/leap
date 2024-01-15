@@ -51,22 +51,23 @@ namespace eosio::chain {
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
 
-   template<class bsp>
-   using branch_type_t = fork_database<bsp>::branch_type;
-
-   using branch_type_legacy = branch_type_t<block_state_legacy_ptr>;
-   using branch_type        = branch_type_t<block_state_ptr>;
-
-   template<class bsp>
-   using forked_branch_callback_t = std::function<void(const branch_type_t<bsp>&)>;
-
-   using forked_branch_callback_legacy = forked_branch_callback_t<block_state_legacy_ptr>;
-   using forked_branch_callback        = forked_branch_callback_t<block_state_ptr>;
+   using forked_callback_t = std::function<void(const transaction_metadata_ptr&)>;
 
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
    using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
+
+   // Created via create_block_token(const block_id_type& id, const signed_block_ptr& b)
+   // Valid to request id and signed_block_ptr it was created from.
+   // Avoid using internal block_state/block_state_legacy as those types are internal to controller.
+   struct block_token {
+      std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
+
+      uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
+      block_id_type id() const { return std::visit([](const auto& bsp) { return bsp->id(); }, bsp); }
+      signed_block_ptr block() const { return std::visit([](const auto& bsp) { return bsp->block; }, bsp); }
+   };
 
    enum class db_read_mode {
       HEAD,
@@ -186,26 +187,22 @@ namespace eosio::chain {
          void finish_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
-         
+
          // thread-safe
-         std::future<block_state_legacy_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
+         std::future<block_token> create_block_token_future( const block_id_type& id, const signed_block_ptr& b );
          // thread-safe
-         block_state_legacy_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) const;
+         // returns empty optional if block b is not immediately ready to be processed
+         std::optional<block_token> create_block_token( const block_id_type& id, const signed_block_ptr& b ) const;
 
          /**
           * @param br returns statistics for block
-          * @param bsp block to push
+          * @param bt block to push, created by create_block_token
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          const block_state_legacy_ptr& bsp,
-                          const forked_branch_callback_legacy& cb,
-                          const trx_meta_cache_lookup& trx_lookup );
-
-         void push_block( block_report& br,
-                          const block_state_ptr& bsp,
-                          const forked_branch_callback& cb,
+                          const block_token& bt,
+                          const forked_callback_t& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 
          boost::asio::io_context& get_thread_pool();
@@ -283,6 +280,8 @@ namespace eosio::chain {
          signed_block_ptr fetch_block_by_number( uint32_t block_num )const;
          // thread-safe
          signed_block_ptr fetch_block_by_id( const block_id_type& id )const;
+         // thread-safe
+         bool block_exists( const block_id_type& id)const;
          // thread-safe
          std::optional<signed_block_header> fetch_block_header_by_number( uint32_t block_num )const;
          // thread-safe

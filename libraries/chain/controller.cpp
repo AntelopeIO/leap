@@ -2835,7 +2835,7 @@ struct controller_impl {
                auto producer_block_id = bsp->id();
                start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
-               // validated in create_block_state_future()
+               // validated in create_block_token()
                std::get<building_block>(pending->_block_stage).trx_mroot_or_receipt_digests() = b->transaction_mroot;
 
                const bool existing_trxs_metas = !bsp->trxs_metas().empty();
@@ -2956,14 +2956,8 @@ struct controller_impl {
 
 
    // thread safe, expected to be called from thread other than the main thread
-   block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
-      // There is a small race condition at time of activation where create_block_state_i
-      // is called right before hs_irreversible_block_num is set. If that happens,
-      // the block is considered invalid, and the node will attempt to sync the block
-      // in the future and succeed
-      uint32_t instant_finality_lib = hs_irreversible_block_num.load();
-      const bool instant_finality_active = instant_finality_lib > 0;
-      auto trx_mroot = calculate_trx_merkle( b->transactions, instant_finality_active );
+   block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
+      auto trx_mroot = calculate_trx_merkle( b->transactions, false );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
@@ -2981,13 +2975,36 @@ struct controller_impl {
 
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
-      return bsp;
+      return block_token{bsp};
    }
 
-   std::future<block_state_legacy_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
+   // thread safe, expected to be called from thread other than the main thread
+   block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+      auto trx_mroot = calculate_trx_merkle( b->transactions, true );
+      EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
+                  "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
+
+      const bool skip_validate_signee = false;
+      auto bsp = std::make_shared<block_state>(
+            prev,
+            b,
+            protocol_features.get_protocol_feature_set(),
+            [this]( block_timestamp_type timestamp,
+                    const flat_set<digest_type>& cur_features,
+                    const vector<digest_type>& new_features )
+            { check_protocol_features( timestamp, cur_features, new_features ); },
+            skip_validate_signee
+      );
+
+      EOS_ASSERT( id == bsp->id(), block_validate_exception,
+                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
+      return block_token{bsp};
+   }
+
+   std::future<block_token> create_block_token_future( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
-      auto f = [&](auto& fork_db, auto& head) -> std::future<block_state_legacy_ptr> {
+      auto f = [&](auto& fork_db, auto& head) -> std::future<block_token> {
          return post_async_task( thread_pool.get_executor(), [b, id, &fork_db, control=this]() {
             // no reason for a block_state if fork_db already knows about block
             auto existing = fork_db.get_block( id );
@@ -3001,14 +3018,14 @@ struct controller_impl {
          } );
       };
 
-      return block_data.apply_dpos<std::future<block_state_legacy_ptr>>(f); // [greg todo] make it work with apply()
+      return block_data.apply<std::future<block_token>>(f); // [greg todo] make it work with apply()
    }
 
    // thread safe, expected to be called from thread other than the main thread
-   block_state_legacy_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) {
+   std::optional<block_token> create_block_token( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
       
-      auto f = [&](auto& fork_db, auto& head) -> block_state_legacy_ptr {
+      auto f = [&](auto& fork_db, auto& head) -> std::optional<block_token> {
          // no reason for a block_state if fork_db already knows about block
          auto existing = fork_db.get_block( id );
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
@@ -3017,16 +3034,16 @@ struct controller_impl {
          auto prev = fork_db.get_block_header( b->previous );
          if( !prev ) return {};
 
-         return create_block_state_i( id, b, *prev ); // [greg todo] make it work with apply() - if `create_block_state` needed
+         return create_block_state_i( id, b, *prev );
       };
 
-      return block_data.apply_dpos<block_state_legacy_ptr>(f); 
+      return block_data.apply<std::optional<block_token>>(f);
    }
 
    template <class BSP>
    void push_block( controller::block_report& br,
                     const BSP& bsp,
-                    const forked_branch_callback_t<BSP>& forked_branch_cb,
+                    const forked_callback_t& forked_branch_cb,
                     const trx_meta_cache_lookup& trx_lookup )
    {
       controller::block_status s = controller::block_status::complete;
@@ -3128,7 +3145,7 @@ struct controller_impl {
 
    template<class BSP>
    void maybe_switch_forks( controller::block_report& br, const BSP& new_head, controller::block_status s,
-                            const forked_branch_callback_t<BSP>& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
+                            const forked_callback_t& forked_cb, const trx_meta_cache_lookup& trx_lookup )
    {
       auto do_maybe_switch_forks = [&](auto& fork_db, auto& head) {
          bool head_changed = true;
@@ -3157,9 +3174,15 @@ struct controller_impl {
                EOS_ASSERT( self.head_block_id() == branches.second.back()->header.previous, fork_database_exception,
                            "loss of sync between fork_db and chainbase during fork switch" ); // _should_ never fail
 
-               if( forked_branch_cb )
-                  if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(head)>>)
-                     forked_branch_cb(branches.second);
+               if( forked_cb ) {
+                  // forked_branch is in reverse order, maintain execution order
+                  for( auto ritr = branches.second.rbegin(), rend = branches.second.rend(); ritr != rend; ++ritr ) {
+                     const auto& bsptr = *ritr;
+                     for( auto itr = bsptr->trxs_metas().begin(), end = bsptr->trxs_metas().end(); itr != end; ++itr ) {
+                        forked_cb(*itr);
+                     }
+                  }
+               }
             }
 
             for( auto ritr = branches.first.rbegin(); ritr != branches.first.rend(); ++ritr ) {
@@ -3799,32 +3822,22 @@ boost::asio::io_context& controller::get_thread_pool() {
    return my->thread_pool.get_executor();
 }
 
-std::future<block_state_legacy_ptr> controller::create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
-   return my->create_block_state_future( id, b );
+std::future<block_token> controller::create_block_token_future( const block_id_type& id, const signed_block_ptr& b ) {
+   return my->create_block_token_future( id, b );
 }
 
-block_state_legacy_ptr controller::create_block_state( const block_id_type& id, const signed_block_ptr& b ) const {
-   return my->create_block_state( id, b );
+std::optional<block_token> controller::create_block_token( const block_id_type& id, const signed_block_ptr& b ) const {
+   return my->create_block_token( id, b );
 }
 
-void controller::push_block( controller::block_report& br,
-                             const block_state_legacy_ptr& bsp,
-                             const forked_branch_callback_legacy& forked_branch_cb,
+void controller::push_block( block_report& br,
+                             const block_token& bt,
+                             const forked_callback_t& forked_cb,
                              const trx_meta_cache_lookup& trx_lookup )
 {
    validate_db_available_size();
-   my->push_block( br, bsp, forked_branch_cb, trx_lookup );
+   std::visit([&](const auto& bsp) { my->push_block( br, bsp, forked_cb, trx_lookup); }, bt.bsp);
 }
-
-void controller::push_block( controller::block_report& br,
-                             const block_state_ptr& bsp,
-                             const forked_branch_callback& forked_branch_cb,
-                             const trx_meta_cache_lookup& trx_lookup )
-{
-   validate_db_available_size();
-   my->push_block( br, bsp, forked_branch_cb, trx_lookup );
-}
-
 
 transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
                                                     fc::time_point block_deadline, fc::microseconds max_transaction_time,
@@ -3992,6 +4005,14 @@ signed_block_ptr controller::fetch_block_by_id( const block_id_type& id )const {
    auto bptr = my->blog.read_block_by_num( block_header::num_from_id(id) );
    if( bptr && bptr->calculate_id() == id ) return bptr;
    return signed_block_ptr();
+}
+
+bool controller::block_exists(const block_id_type&id) const {
+   auto sb_ptr = my->block_data.fork_db_fetch_block_by_id(id);
+   if( sb_ptr ) return true;
+   auto bptr = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
+   if( bptr && bptr->calculate_id() == id ) return true;
+   return false;
 }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_id( const block_id_type& id )const {
