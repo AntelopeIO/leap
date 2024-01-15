@@ -2,7 +2,7 @@
 
 This how-to guide provides instructions on how to create a new slim Antelope blockchain account using the `cleos` CLI tool. You can use accounts to deploy smart contracts and perform other related blockchain operations. Create one or multiple accounts as part of your development environment setup.
 
-The example in this how-to guide creates a new account named **alice**, authorized by the default system account **eosio**, using the `cleos` CLI tool.
+The example in this how-to guide creates a new account named **ted**, authorized by the default system account **eosio**, using the `cleos` CLI tool.
 
 ## Before you Begin
 
@@ -18,7 +18,7 @@ Make sure you meet the following requirements:
 ## Command Reference
 
 See the following reference guide for `cleos` command line usage and related options:
-* [`cleos create account`](../03_command-reference/create/slim_account.md) command and its parameters
+* [`cleos create slimaccount`](../03_command-reference/create/slim_account.md) command and its parameters
 
 ## Procedure
 

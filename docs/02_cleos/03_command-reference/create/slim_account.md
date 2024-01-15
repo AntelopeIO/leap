@@ -1,10 +1,10 @@
 ## Description
-Create a new account on the blockchain (assumes system contract does not restrict RAM usage)
+Create a new slim account on the blockchain (assumes system contract does not restrict RAM usage)
 
 ## Usage
 
 ```console
-Usage: cleos create account [OPTIONS] creator name ActiveKey
+Usage: cleos create slimaccount [OPTIONS] creator name ActiveKey
 
 Positionals:
   creator TEXT                The name of the account creating the new account (required)
