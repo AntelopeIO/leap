@@ -187,6 +187,7 @@ struct block_data_t {
                     [&](block_data_new_t& bd) {
                        bd.head = bsp;
                        bd.fork_db.reset(*bd.head);
+                       bd.fork_db.open({}); // no-op
                     }
                  }, v);
    }
@@ -310,7 +311,7 @@ struct block_data_t {
       }, v);
    }
 
-   std::optional<block_id_type> fork_db_fetch_block_id(uint32_t block_num) const {
+   std::optional<block_id_type> fork_db_fetch_block_id_by_num(uint32_t block_num) const {
       return std::visit([&](const auto& bd) -> std::optional<block_id_type> {
          auto bsp = bd.fork_db.search_on_branch(bd.fork_db.head()->id(), block_num);
          if (bsp) return bsp->id();
@@ -3038,11 +3039,11 @@ struct controller_impl {
             EOS_ASSERT( prev, unlinkable_block_exception,
                         "unlinkable block ${id}", ("id", id)("previous", b->previous) );
 
-            return control->create_block_state_i( id, b, *prev ); // [greg todo] make it work with apply() (if `create_block_state_future` needed)
+            return control->create_block_state_i( id, b, *prev );
          } );
       };
 
-      return block_data.apply<std::future<block_token>>(f); // [greg todo] make it work with apply()
+      return block_data.apply<std::future<block_token>>(f);
    }
 
    // thread safe, expected to be called from thread other than the main thread
@@ -4032,10 +4033,10 @@ signed_block_ptr controller::fetch_block_by_id( const block_id_type& id )const {
 }
 
 bool controller::block_exists(const block_id_type&id) const {
-   auto sb_ptr = my->block_data.fork_db_fetch_block_by_id(id);
+   signed_block_ptr sb_ptr = my->block_data.fork_db_fetch_block_by_id(id);
    if( sb_ptr ) return true;
-   auto bptr = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
-   if( bptr && bptr->calculate_id() == id ) return true;
+   std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
+   if( sbh && sbh->calculate_id() == id ) return true;
    return false;
 }
 
@@ -4070,7 +4071,7 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
 
    if( !find_in_blog ) {
-      std::optional<block_id_type> id = my->block_data.fork_db_fetch_block_id(block_num);
+      std::optional<block_id_type> id = my->block_data.fork_db_fetch_block_id_by_num(block_num);
       if (id) return *id;
    }
 
