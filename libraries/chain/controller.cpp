@@ -179,7 +179,7 @@ struct block_data_t {
    account_name         head_block_producer() const { return std::visit([](const auto& bd) { return bd.head->producer(); }, v); }
 
    void transition_fork_db_to_if(const auto& vbsp) {
-      std::visit([](auto& bd) { bd.fork_db.close(); }, v);
+      // no need to close fork_db because we don't want to write anything out, file is removed on open
       auto bsp = std::make_shared<block_state>(*std::get<block_state_legacy_ptr>(vbsp));
       v.emplace<block_data_new_t>(std::visit([](const auto& bd) { return bd.fork_db.get_data_dir(); }, v));
       std::visit(overloaded{
@@ -187,7 +187,6 @@ struct block_data_t {
                     [&](block_data_new_t& bd) {
                        bd.head = bsp;
                        bd.fork_db.reset(*bd.head);
-                       bd.fork_db.open({}); // no-op
                     }
                  }, v);
    }
