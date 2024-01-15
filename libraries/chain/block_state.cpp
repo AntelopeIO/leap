@@ -21,20 +21,20 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    block->transactions = std::move(trx_receipts);
 }
 
-// Used for transition from dbpos to instant-finality
+// Used for transition from dpos to instant-finality
 block_state::block_state(const block_state_legacy& bsp) {
    block_header_state::id = bsp.id();
    header = bsp.header;
    activated_protocol_features = bsp.activated_protocol_features;
    std::optional<block_header_extension> ext = bsp.block->extract_header_extension(instant_finality_extension::extension_id());
-   assert(ext); // required by current transistion mechanism
+   assert(ext); // required by current transition mechanism
    const auto& if_extension = std::get<instant_finality_extension>(*ext);
-   assert(if_extension.new_finalizer_policy); // required by current transistion mechanism
+   assert(if_extension.new_finalizer_policy); // required by current transition mechanism
    active_finalizer_policy = std::make_shared<finalizer_policy>(*if_extension.new_finalizer_policy);
    active_proposer_policy = std::make_shared<proposer_policy>();
    active_proposer_policy->active_time = bsp.timestamp();
    active_proposer_policy->proposer_schedule = bsp.active_schedule;
-   header_exts = bsp.header_exts; // not needed, but copy over just in case
+   header_exts = bsp.header_exts;
    block = bsp.block;
    validated = bsp.is_valid();
    pub_keys_recovered = bsp._pub_keys_recovered;

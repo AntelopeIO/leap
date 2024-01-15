@@ -178,7 +178,7 @@ struct block_data_t {
    block_timestamp_type head_block_time() const { return std::visit([](const auto& bd) { return bd.head->timestamp(); }, v); }
    account_name         head_block_producer() const { return std::visit([](const auto& bd) { return bd.head->producer(); }, v); }
 
-   void transistion_fork_db_to_if(const auto& vbsp) {
+   void transition_fork_db_to_if(const auto& vbsp) {
       std::visit([](auto& bd) { bd.fork_db.close(); }, v);
       auto bsp = std::make_shared<block_state>(*std::get<block_state_legacy_ptr>(vbsp));
       v.emplace<block_data_new_t>(std::visit([](const auto& bd) { return bd.fork_db.get_data_dir(); }, v));
@@ -2720,7 +2720,7 @@ struct controller_impl {
             log_irreversible();
          }
 
-         // TODO: temp transistion to instant-finality, happens immediately after block with new_finalizer_policy
+         // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
          auto transition = [&](auto& fork_db, auto& head) -> bool {
             const auto& bsp = std::get<std::decay_t<decltype(head)>>(cb.bsp);
             std::optional<block_header_extension> ext = bsp->block->extract_header_extension(instant_finality_extension::extension_id());
@@ -2737,7 +2737,7 @@ struct controller_impl {
             return false;
          };
          if (block_data.apply_dpos<bool>(transition)) {
-            block_data.transistion_fork_db_to_if(cb.bsp);
+            block_data.transition_fork_db_to_if(cb.bsp);
          }
 
       } catch (...) {
