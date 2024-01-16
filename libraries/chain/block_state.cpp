@@ -103,6 +103,7 @@ namespace eosio::chain {
    {}
 #endif
 
+   // Called from net threads
    bool block_state::aggregate_vote(const hs_vote_message& vote) {
       const auto& finalizers = finalizer_policy->finalizers;
       auto it = std::find_if(finalizers.begin(),

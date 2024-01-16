@@ -109,58 +109,58 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
 
    {
       pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
-      BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add one weak vote
       // -----------------
       weak_vote(qc, digest, 0);
-      BOOST_CHECK_EQUAL(qc._state, state_t::weak_achieved);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
       // add duplicate weak vote
       // -----------------------
       bool ok = weak_vote(qc, digest, 0);
       BOOST_CHECK(!ok); // vote was a duplicate
-      BOOST_CHECK_EQUAL(qc._state, state_t::weak_achieved);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
       // add another weak vote
       // ---------------------
       weak_vote(qc, digest, 1);
-      BOOST_CHECK_EQUAL(qc._state, state_t::weak_final);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::weak_final);
    }
 
    {
       pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
-      BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add a weak vote
       // ---------------
       weak_vote(qc, digest, 0);
-      BOOST_CHECK_EQUAL(qc._state, state_t::weak_achieved);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
       // add a strong vote
       // -----------------
       strong_vote(qc, digest, 1);
-      BOOST_CHECK_EQUAL(qc._state, state_t::strong);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::strong);
       BOOST_CHECK(qc.is_quorum_met());
    }
 
    {
       pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
-      BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add a strong vote
       // -----------------
       strong_vote(qc, digest, 1);
-      BOOST_CHECK_EQUAL(qc._state, state_t::strong);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::strong);
       BOOST_CHECK(qc.is_quorum_met());
 
       // add a strong vote
       // -----------------
       strong_vote(qc, digest, 1);
-      BOOST_CHECK_EQUAL(qc._state, state_t::strong);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::strong);
       BOOST_CHECK(qc.is_quorum_met());
    }
 
@@ -170,13 +170,13 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       // add a weak vote
       // ---------------
       weak_vote(qc, digest, 0);
-      BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
       BOOST_CHECK(!qc.is_quorum_met());
 
       // add a strong vote
       // -----------------
       strong_vote(qc, digest, 1);
-      BOOST_CHECK_EQUAL(qc._state, state_t::weak_achieved);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
       {
@@ -185,7 +185,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
          // add a weak vote
          // ---------------
          weak_vote(qc2, digest, 2);
-         BOOST_CHECK_EQUAL(qc2._state, state_t::weak_final);
+         BOOST_CHECK_EQUAL(qc2.state(), state_t::weak_final);
          BOOST_CHECK(qc2.is_quorum_met());
       }
    }
@@ -196,13 +196,13 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       // add a weak vote
       // ---------------
       weak_vote(qc, digest, 0);
-      BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
       BOOST_CHECK(!qc.is_quorum_met());
 
       // add a strong vote
       // -----------------
       strong_vote(qc, digest, 1);
-      BOOST_CHECK_EQUAL(qc._state, state_t::weak_achieved);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
       {
@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
          // add a strong vote
          // -----------------
          strong_vote(qc2, digest, 2);
-         BOOST_CHECK_EQUAL(qc2._state, state_t::strong);
+         BOOST_CHECK_EQUAL(qc2.state(), state_t::strong);
          BOOST_CHECK(qc2.is_quorum_met());
       }
    }
@@ -222,13 +222,13 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       // add a weak vote
       // ---------------
       weak_vote(qc, digest, 0);
-      BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
       BOOST_CHECK(!qc.is_quorum_met());
 
       // add a weak vote
       // ---------------
       weak_vote(qc, digest, 1);
-      BOOST_CHECK_EQUAL(qc._state, state_t::weak_final);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::weak_final);
       BOOST_CHECK(qc.is_quorum_met());
 
       {
@@ -237,7 +237,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
          // add a weak vote
          // ---------------
          weak_vote(qc2, digest, 2);
-         BOOST_CHECK_EQUAL(qc2._state, state_t::weak_final);
+         BOOST_CHECK_EQUAL(qc2.state(), state_t::weak_final);
          BOOST_CHECK(qc2.is_quorum_met());
       }
    }
@@ -248,13 +248,13 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       // add a weak vote
       // ---------------
       weak_vote(qc, digest, 0);
-      BOOST_CHECK_EQUAL(qc._state, state_t::unrestricted);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
       BOOST_CHECK(!qc.is_quorum_met());
 
       // add a weak vote
       // ---------------
       weak_vote(qc, digest, 1);
-      BOOST_CHECK_EQUAL(qc._state, state_t::weak_final);
+      BOOST_CHECK_EQUAL(qc.state(), state_t::weak_final);
       BOOST_CHECK(qc.is_quorum_met());
 
       {
@@ -263,7 +263,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
          // add a strong vote
          // -----------------
          strong_vote(qc2, digest, 2);
-         BOOST_CHECK_EQUAL(qc2._state, state_t::weak_final);
+         BOOST_CHECK_EQUAL(qc2.state(), state_t::weak_final);
          BOOST_CHECK(qc2.is_quorum_met());
       }
    }

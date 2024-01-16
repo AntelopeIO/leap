@@ -62,11 +62,13 @@ pending_quorum_certificate::pending_quorum_certificate(const fc::sha256&  propos
 }
 
 bool pending_quorum_certificate::is_quorum_met() const {
+   std::lock_guard g(*_mtx);
    return _state == state_t::weak_achieved || _state == state_t::weak_final || _state == state_t::strong;
 }
 
 void pending_quorum_certificate::reset(const fc::sha256& proposal_id, const digest_type& proposal_digest,
                                        size_t num_finalizers, size_t quorum) {
+   std::lock_guard g(*_mtx);
    _proposal_id = proposal_id;
    _proposal_digest.assign(proposal_digest.data(), proposal_digest.data() + 32);
    _quorum = quorum;
@@ -169,15 +171,15 @@ std::string pending_quorum_certificate::get_votes_string() const {
 
 
 valid_quorum_certificate::valid_quorum_certificate(const pending_quorum_certificate& qc)
-   : _proposal_id(qc._proposal_id)
-   , _proposal_digest(qc._proposal_digest) {
-   if (qc._state == pending_quorum_certificate::state_t::strong) {
-      _strong_votes = qc._strong_votes._bitset;
-      _sig          = qc._strong_votes._sig;
+   : _proposal_id(qc.proposal_id())
+   , _proposal_digest(qc.proposal_digest()) {
+   if (qc.state() == pending_quorum_certificate::state_t::strong) {
+      _strong_votes = qc.strong_votes()._bitset;
+      _sig          = qc.strong_votes()._sig;
    } else if (qc.is_quorum_met()) {
-      _strong_votes = qc._strong_votes._bitset;
-      _weak_votes   = qc._weak_votes._bitset;
-      _sig          = fc::crypto::blslib::aggregate({qc._strong_votes._sig, qc._weak_votes._sig});
+      _strong_votes = qc.strong_votes()._bitset;
+      _weak_votes   = qc.weak_votes()._bitset;
+      _sig          = fc::crypto::blslib::aggregate({qc.strong_votes()._sig, qc.weak_votes()._sig});
    } else
       assert(0); // this should be called only when we have a valid qc.
 }

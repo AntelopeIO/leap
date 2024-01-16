@@ -155,11 +155,10 @@ namespace eosio::chain {
                                           size_t num_finalizers,
                                           size_t quorum);
 
-      size_t num_weak()   const { return _weak_votes.count(); }
-      size_t num_strong() const { return _strong_votes.count(); }
-
+      // thread safe
       bool   is_quorum_met() const;
 
+      // thread safe
       void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum);
 
       // thread safe
@@ -169,6 +168,12 @@ namespace eosio::chain {
                     const bls_public_key& pubkey,
                     const bls_signature& sig);
 
+      fc::sha256 proposal_id()  const { std::lock_guard g(*_mtx); return _proposal_id; };
+      state_t    state()        const { std::lock_guard g(*_mtx); return _state; };
+      votes_t    weak_votes()   const { std::lock_guard g(*_mtx); return _weak_votes; };
+      votes_t    strong_votes() const { std::lock_guard g(*_mtx); return _strong_votes; };
+      std::vector<uint8_t> proposal_digest() const { std::lock_guard g(*_mtx); return _proposal_digest; };
+
       // ================== begin compatibility functions =======================
       // these are present just to make the tests still work. will be removed.
       // these assume *only* strong votes.
@@ -177,7 +182,9 @@ namespace eosio::chain {
       std::string                get_votes_string() const;
       // ================== end compatibility functions =======================
 
+   private:
       friend struct fc::reflector<pending_quorum_certificate>;
+      friend class qc_chain;
       fc::sha256           _proposal_id;     // only used in to_msg(). Remove eventually
       std::vector<uint8_t> _proposal_digest;
       state_t              _state { state_t::unrestricted };
@@ -187,8 +194,10 @@ namespace eosio::chain {
       votes_t              _weak_votes;
       votes_t              _strong_votes;
 
-   private:
-#warning TODO move members above to private after unification. Currently they are used by qc_chain.cpp directly
+      // num_weak and num_strong are protected by mutex by add_vote
+      size_t num_weak()   const { return _weak_votes.count(); }
+      size_t num_strong() const { return _strong_votes.count(); }
+
       // called by add_vote, already protected by mutex
       bool add_strong_vote(const std::vector<uint8_t>& proposal_digest,
                            size_t index,
