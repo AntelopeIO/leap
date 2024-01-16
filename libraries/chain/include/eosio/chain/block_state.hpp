@@ -48,7 +48,7 @@ struct block_state : public block_header_state {     // block_header_state provi
                const validator_t& validator, bool skip_validate_signee);
 
    block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-               deque<transaction_receipt>&& trx_receipts);
+               deque<transaction_receipt>&& trx_receipts, std::optional<quorum_certificate> qc);
 
    explicit block_state(const block_state_legacy& bsp);
 };

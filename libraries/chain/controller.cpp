@@ -548,8 +548,13 @@ struct assembled_block {
                                       return completed_block{std::move(bsp)};
                                    },
                                    [&](assembled_block_if& ab) {
+                                      std::optional<quorum_certificate> qc;
+                                      if( ab.qc && ab.bhs.is_needed(*ab.qc ) ) {
+                                         qc = *ab.qc;
+                                      }
+
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
-                                                                               std::move(ab.trx_receipts));
+                                                                               std::move(ab.trx_receipts), qc);
                                       return completed_block{std::move(bsp)};
                                    }},
                         v);
