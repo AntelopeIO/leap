@@ -7,7 +7,7 @@ namespace eosio::chain {
 
    using boost::signals2::signal;
 
-   template<class bsp, class bhsp>
+   template<class bsp>
    struct fork_database_impl;
 
    /**
@@ -21,11 +21,13 @@ namespace eosio::chain {
     *
     * An internal mutex is used to provide thread-safety.
     */
-   template<class bsp, class bhsp>  // either [block_state_legacy_ptr, block_state_ptr], same with block_header_state_ptr
+   template<class bsp>  // either block_state_legacy_ptr or block_state_ptr
    class fork_database {
    public:
       using bs               = bsp::element_type;
+      using bhsp             = bs::bhsp_t;
       using bhs              = bhsp::element_type;
+      using bsp_t            = bsp;
       using branch_type      = deque<bsp>;
       using branch_type_pair = pair<branch_type, branch_type>;
       
@@ -97,9 +99,9 @@ namespace eosio::chain {
       static const uint32_t max_supported_version;
 
    private:
-      unique_ptr<fork_database_impl<bsp, bhsp>> my;
+      unique_ptr<fork_database_impl<bsp>> my;
    };
 
-   using fork_database_legacy = fork_database<block_state_legacy_ptr, block_header_state_legacy_ptr>;
+   using fork_database_legacy = fork_database<block_state_legacy_ptr>;
    
 } /// eosio::chain

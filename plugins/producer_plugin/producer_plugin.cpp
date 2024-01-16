@@ -715,7 +715,7 @@ public:
          chain.push_block(
             br,
             bspr,
-            [this](const branch_type& forked_branch) { _unapplied_transactions.add_forked(forked_branch); },
+            [this](const branch_type_legacy& forked_branch) { _unapplied_transactions.add_forked(forked_branch); },
             [this](const transaction_id_type& id) { return _unapplied_transactions.get_trx(id); });
       } catch (const guard_exception& e) {
          chain_plugin::handle_guard_exception(e);

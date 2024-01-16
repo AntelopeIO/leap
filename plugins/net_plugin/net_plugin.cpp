@@ -3929,7 +3929,9 @@ namespace eosio {
    }
 
    void net_plugin_impl::on_accepted_block() {
-      on_pending_schedule(chain_plug->chain().pending_producers());
+      if (const auto* next_producers = chain_plug->chain().next_producers()) {
+         on_pending_schedule(*next_producers);
+      }
       on_active_schedule(chain_plug->chain().active_producers());
    }
 

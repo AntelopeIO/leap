@@ -51,10 +51,18 @@ namespace eosio::chain {
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
 
-   using fork_database_legacy = fork_database<block_state_legacy_ptr, block_header_state_legacy_ptr>;   
-   using branch_type = typename fork_database_legacy::branch_type;
-   
-   using forked_branch_callback = std::function<void(const branch_type&)>;
+   template<class bsp>
+   using branch_type_t = fork_database<bsp>::branch_type;
+
+   using branch_type_legacy = branch_type_t<block_state_legacy_ptr>;
+   using branch_type        = branch_type_t<block_state_ptr>;
+
+   template<class bsp>
+   using forked_branch_callback_t = std::function<void(const branch_type_t<bsp>&)>;
+
+   using forked_branch_callback_legacy = forked_branch_callback_t<block_state_legacy_ptr>;
+   using forked_branch_callback        = forked_branch_callback_t<block_state_ptr>;
+
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
@@ -192,6 +200,11 @@ namespace eosio::chain {
           */
          void push_block( block_report& br,
                           const block_state_legacy_ptr& bsp,
+                          const forked_branch_callback_legacy& cb,
+                          const trx_meta_cache_lookup& trx_lookup );
+
+         void push_block( block_report& br,
+                          const block_state_ptr& bsp,
                           const forked_branch_callback& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 
@@ -250,8 +263,13 @@ namespace eosio::chain {
 
          const producer_authority_schedule&         active_producers()const;
          const producer_authority_schedule&         head_active_producers()const;
-         const producer_authority_schedule&         pending_producers()const;
-         std::optional<producer_authority_schedule> proposed_producers()const;
+         // pending for pre-instant-finality, next proposed that will take affect, null if none are pending/proposed
+         const producer_authority_schedule*         next_producers()const;
+         // post-instant-finality this always returns empty std::optional
+         std::optional<producer_authority_schedule> proposed_producers_legacy()const;
+         // pre-instant-finality this always returns a valid producer_authority_schedule
+         // post-instant-finality this always returns nullptr
+         const producer_authority_schedule*         pending_producers_legacy()const;
 
          // Called by qc_chain to indicate the current irreversible block num
          // After hotstuff is activated, this should be called on startup by qc_chain
