@@ -17,8 +17,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    digest_type                weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
    pending_quorum_certificate pending_qc;            // where we accumulate votes we receive
    std::optional<valid_quorum_certificate> valid_qc; // best qc received from the network inside block extension
-
-   
+  
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
@@ -32,6 +31,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    bool                   is_valid()          const { return validated; }
    void                   set_valid(bool b)         { validated = b; }
    uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
+   std::optional<quorum_certificate> get_best_qc() const;
       
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
