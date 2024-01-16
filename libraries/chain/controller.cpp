@@ -1149,7 +1149,7 @@ struct controller_impl {
 
       db.create<dynamic_global_property_object>([](auto&){});
 
-      authorization.initialize_database();
+      authorization.initialize_database(genesis.initial_timestamp);
       resource_limits.initialize_database();
 
       authority system_auth(genesis.initial_key);

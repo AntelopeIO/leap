@@ -27,8 +27,10 @@ namespace eosio { namespace chain {
       authorization_index_set::add_indices(_db);
    }
 
-   void authorization_manager::initialize_database() {
-      _db.create<permission_object>([](auto&){}); /// reserve perm 0 (used else where)
+   void authorization_manager::initialize_database(const fc::time_point& initial_timestamp) {
+      _db.create<permission_object>([&](auto& value){
+         value.last_used = initial_timestamp;
+      }); /// reserve perm 0 (used else where)
    }
 
    namespace detail {
