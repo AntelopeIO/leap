@@ -39,9 +39,9 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
 
    {  // all finalizers can aggregate votes
       block_state_ptr bsp = std::make_shared<block_state>();
-      bsp->finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
-      bsp->strong_finalizer_digest = strong_digest;
-      bsp->weak_finalizer_digest = weak_digest;
+      bsp->active_finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
+      bsp->strong_digest = strong_digest;
+      bsp->weak_digest = weak_digest;
       bsp->pending_qc = pending_quorum_certificate{ num_finalizers, 1 };
 
       for (size_t i = 0; i < num_finalizers; ++i) {
@@ -54,8 +54,8 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
 
    {  // public and private keys mismatched
       block_state_ptr bsp = std::make_shared<block_state>();
-      bsp->finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
-      bsp->strong_finalizer_digest = strong_digest;
+      bsp->active_finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
+      bsp->strong_digest = strong_digest;
       bsp->pending_qc = pending_quorum_certificate{ num_finalizers, 1 };
 
       hs_vote_message vote {block_id, true, public_key[0], private_key[1].sign(strong_digest_data) };
@@ -64,8 +64,8 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
 
    {  // duplicate votes 
       block_state_ptr bsp = std::make_shared<block_state>();
-      bsp->finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
-      bsp->strong_finalizer_digest = strong_digest;
+      bsp->active_finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
+      bsp->strong_digest = strong_digest;
       bsp->pending_qc = pending_quorum_certificate{ num_finalizers, 1 };
 
       hs_vote_message vote {block_id, true, public_key[0], private_key[0].sign(strong_digest_data) };
@@ -75,8 +75,8 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
 
    {  // public key does not exit in finalizer set
       block_state_ptr bsp = std::make_shared<block_state>();
-      bsp->finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
-      bsp->strong_finalizer_digest = strong_digest;
+      bsp->active_finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
+      bsp->strong_digest = strong_digest;
       bsp->pending_qc = pending_quorum_certificate{ num_finalizers, 1 };
 
       bls_private_key new_private_key{ "PVT_BLS_warwI76e+pPX9wLFZKPFagngeFM8bm6J8D5w0iiHpxW7PiId" };
