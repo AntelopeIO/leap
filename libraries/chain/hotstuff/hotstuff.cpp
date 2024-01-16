@@ -154,6 +154,27 @@ bool pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t
                  : add_weak_vote(proposal_digest, index, pubkey, sig);
 }
 
+// thread safe
+valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate() const {
+   std::lock_guard g(*_mtx);
+
+   valid_quorum_certificate valid_qc;
+
+   valid_qc._proposal_id = _proposal_id;
+   valid_qc._proposal_digest = _proposal_digest;
+   if( _state == state_t::strong ) {
+      valid_qc._strong_votes = _strong_votes._bitset;
+      valid_qc._sig          = _strong_votes._sig;
+   } else if (is_quorum_met()) {
+      valid_qc._strong_votes = _strong_votes._bitset;
+      valid_qc._weak_votes   = _weak_votes._bitset;
+      valid_qc._sig          = fc::crypto::blslib::aggregate({_strong_votes._sig, _weak_votes._sig});
+   } else
+      assert(0); // this should be called only when we have a valid qc.
+
+   return valid_qc;
+}
+
 // ================== begin compatibility functions =======================
 // these are present just to make the tests still work. will be removed.
 // these assume *only* strong votes.
@@ -168,21 +189,6 @@ std::string pending_quorum_certificate::get_votes_string() const {
           bitset_to_string(_weak_votes._bitset) + "\"";
 }
 // ================== end compatibility functions =======================
-
-
-valid_quorum_certificate::valid_quorum_certificate(const pending_quorum_certificate& qc)
-   : _proposal_id(qc.proposal_id())
-   , _proposal_digest(qc.proposal_digest()) {
-   if (qc.state() == pending_quorum_certificate::state_t::strong) {
-      _strong_votes = qc.strong_votes()._bitset;
-      _sig          = qc.strong_votes()._sig;
-   } else if (qc.is_quorum_met()) {
-      _strong_votes = qc.strong_votes()._bitset;
-      _weak_votes   = qc.weak_votes()._bitset;
-      _sig          = fc::crypto::blslib::aggregate({qc.strong_votes()._sig, qc.weak_votes()._sig});
-   } else
-      assert(0); // this should be called only when we have a valid qc.
-}
 
 valid_quorum_certificate::valid_quorum_certificate(
    const fc::sha256& proposal_id, const std::vector<uint8_t>& proposal_digest,

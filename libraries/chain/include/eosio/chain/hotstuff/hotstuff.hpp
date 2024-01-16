@@ -122,6 +122,43 @@ namespace eosio::chain {
    using bls_signature   = fc::crypto::blslib::bls_signature;
    using bls_private_key = fc::crypto::blslib::bls_private_key;
 
+   // -------------------- valid_quorum_certificate -------------------------------------------------
+   class valid_quorum_certificate {
+   public:
+      valid_quorum_certificate(const fc::sha256& proposal_id,
+                               const std::vector<uint8_t>& proposal_digest,
+                               const std::vector<uint32_t>& strong_votes, //bitset encoding, following canonical order
+                               const std::vector<uint32_t>& weak_votes,   //bitset encoding, following canonical order
+                               const bls_signature& sig);
+
+      valid_quorum_certificate() = default;
+      valid_quorum_certificate(const valid_quorum_certificate&) = default;
+
+      bool is_weak()   const { return !!_weak_votes; }
+      bool is_strong() const { return !_weak_votes; }
+
+      // ================== begin compatibility functions =======================
+      // these are present just to make the tests still work. will be removed.
+      // these assume *only* strong votes.
+      quorum_certificate_message to_msg() const;
+      const fc::sha256&          get_proposal_id() const { return _proposal_id; }
+      // ================== end compatibility functions =======================
+
+      friend struct fc::reflector<valid_quorum_certificate>;
+      fc::sha256               _proposal_id;     // [todo] remove
+      std::vector<uint8_t>     _proposal_digest; // [todo] remove
+      std::optional<hs_bitset> _strong_votes;
+      std::optional<hs_bitset> _weak_votes;
+      bls_signature            _sig;
+   };
+
+   // -------------------- quorum_certificate -------------------------------------------------------
+   struct quorum_certificate {
+      uint32_t block_height;
+      valid_quorum_certificate qc;
+   };
+
+
    // -------------------- pending_quorum_certificate -------------------------------------------------
    class pending_quorum_certificate {
    public:
@@ -168,11 +205,8 @@ namespace eosio::chain {
                     const bls_public_key& pubkey,
                     const bls_signature& sig);
 
-      fc::sha256 proposal_id()  const { std::lock_guard g(*_mtx); return _proposal_id; };
-      state_t    state()        const { std::lock_guard g(*_mtx); return _state; };
-      votes_t    weak_votes()   const { std::lock_guard g(*_mtx); return _weak_votes; };
-      votes_t    strong_votes() const { std::lock_guard g(*_mtx); return _strong_votes; };
-      std::vector<uint8_t> proposal_digest() const { std::lock_guard g(*_mtx); return _proposal_digest; };
+      state_t state()  const { std::lock_guard g(*_mtx); return _state; };
+      valid_quorum_certificate to_valid_quorum_certificate() const;
 
       // ================== begin compatibility functions =======================
       // these are present just to make the tests still work. will be removed.
@@ -210,45 +244,6 @@ namespace eosio::chain {
                          const bls_public_key& pubkey,
                          const bls_signature& sig);
    };
-
-   // -------------------- valid_quorum_certificate -------------------------------------------------
-   class valid_quorum_certificate {
-   public:
-      valid_quorum_certificate(const pending_quorum_certificate& qc);
-
-      valid_quorum_certificate(const fc::sha256& proposal_id,
-                               const std::vector<uint8_t>& proposal_digest,
-                               const std::vector<uint32_t>& strong_votes, //bitset encoding, following canonical order
-                               const std::vector<uint32_t>& weak_votes,   //bitset encoding, following canonical order
-                               const bls_signature& sig);
-
-      valid_quorum_certificate() = default;
-      valid_quorum_certificate(const valid_quorum_certificate&) = default;
-
-      bool is_weak()   const { return !!_weak_votes; }
-      bool is_strong() const { return !_weak_votes; }
-
-      // ================== begin compatibility functions =======================
-      // these are present just to make the tests still work. will be removed.
-      // these assume *only* strong votes.
-      quorum_certificate_message to_msg() const;
-      const fc::sha256&          get_proposal_id() const { return _proposal_id; }
-      // ================== end compatibility functions =======================
-
-      friend struct fc::reflector<valid_quorum_certificate>;
-      fc::sha256               _proposal_id;     // [todo] remove
-      std::vector<uint8_t>     _proposal_digest; // [todo] remove
-      std::optional<hs_bitset> _strong_votes;
-      std::optional<hs_bitset> _weak_votes;
-      bls_signature            _sig;
-   };
-
-   // -------------------- quorum_certificate -------------------------------------------------------
-   struct quorum_certificate {
-      uint32_t block_height;
-      valid_quorum_certificate qc;
-   };
-
 } //eosio::chain
 
 
