@@ -55,14 +55,14 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 
 // Called from net threads
 bool block_state::aggregate_vote(const hs_vote_message& vote) {
-   const auto& finalizers = finalizer_policy->finalizers;
+   const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
                           finalizers.end(),
                           [&](const auto& finalizer) { return finalizer.public_key == vote.finalizer_key; });
 
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
-      const digest_type& digest = vote.strong ? strong_finalizer_digest : weak_finalizer_digest;
+      const digest_type& digest = vote.strong ? strong_digest : weak_digest;
       return pending_qc.add_vote(vote.strong,
 #warning TODO change to use std::span if possible
                                  std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()},
