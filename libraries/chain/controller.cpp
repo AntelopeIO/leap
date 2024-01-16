@@ -43,7 +43,6 @@
 #include <new>
 #include <shared_mutex>
 #include <utility>
-#include <boost/phoenix/core/nothing.hpp>
 
 namespace eosio::chain {
 
