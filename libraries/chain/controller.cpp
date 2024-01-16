@@ -2979,36 +2979,14 @@ struct controller_impl {
 
 
    // thread safe, expected to be called from thread other than the main thread
-   block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
-      auto trx_mroot = calculate_trx_merkle( b->transactions, false );
+   template<class bs>
+   block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const bs& prev ) {
+      auto trx_mroot = calculate_trx_merkle( b->transactions, std::is_same_v<bs, block_state> );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
       const bool skip_validate_signee = false;
-      auto bsp = std::make_shared<block_state_legacy>(
-            prev,
-            b,
-            protocol_features.get_protocol_feature_set(),
-            [this]( block_timestamp_type timestamp,
-                    const flat_set<digest_type>& cur_features,
-                    const vector<digest_type>& new_features )
-            { check_protocol_features( timestamp, cur_features, new_features ); },
-            skip_validate_signee
-      );
-
-      EOS_ASSERT( id == bsp->id(), block_validate_exception,
-                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
-      return block_token{bsp};
-   }
-
-   // thread safe, expected to be called from thread other than the main thread
-   block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
-      auto trx_mroot = calculate_trx_merkle( b->transactions, true );
-      EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
-                  "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
-
-      const bool skip_validate_signee = false;
-      auto bsp = std::make_shared<block_state>(
+      auto bsp = std::make_shared<bs>(
             prev,
             b,
             protocol_features.get_protocol_feature_set(),
@@ -3033,7 +3011,7 @@ struct controller_impl {
             auto existing = fork_db.get_block( id );
             EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
-            auto prev = fork_db.get_block_header( b->previous );
+            auto prev = fork_db.get_block( b->previous, true );
             EOS_ASSERT( prev, unlinkable_block_exception,
                         "unlinkable block ${id}", ("id", id)("previous", b->previous) );
 
@@ -3054,7 +3032,7 @@ struct controller_impl {
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
          // previous not found could mean that previous block not applied yet
-         auto prev = fork_db.get_block_header( b->previous );
+         auto prev = fork_db.get_block( b->previous, true );
          if( !prev ) return {};
 
          return create_block_state_i( id, b, *prev );

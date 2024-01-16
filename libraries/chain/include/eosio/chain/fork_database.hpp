@@ -39,8 +39,7 @@ namespace eosio::chain {
       void open( validator_t& validator );
       void close();
 
-      bhsp get_block_header( const block_id_type& id ) const;
-      bsp  get_block( const block_id_type& id ) const;
+      bsp  get_block( const block_id_type& id, bool check_root = false ) const;
 
       /**
        *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
