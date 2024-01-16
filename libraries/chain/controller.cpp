@@ -2984,7 +2984,7 @@ struct controller_impl {
 
       // A vote is created and signed by each finalizer configured on the node that
       // in active finalizer policy
-      for (const auto& f: bhs.finalizer_policy->finalizers) {
+      for (const auto& f: bhs.active_finalizer_policy->finalizers) {
          auto it = node_finalizer_keys.find( f.public_key );
          if( it != node_finalizer_keys.end() ) {
             const auto& private_key = it->second;
