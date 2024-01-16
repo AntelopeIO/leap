@@ -666,7 +666,7 @@ public:
       _time_tracker.clear();
    }
 
-   bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_legacy_ptr& bsp) {
+   bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const std::optional<block_token>& obt) {
       auto& chain = chain_plug->chain();
       if (in_producing_mode()) {
          fc_wlog(_log, "dropped incoming block #${num} id: ${id}", ("num", block->block_num())("id", block_id ? (*block_id).str() : "UNKNOWN"));
@@ -687,16 +687,15 @@ public:
 
       EOS_ASSERT(block->timestamp < (now + fc::seconds(7)), block_from_the_future, "received a block from the future, ignoring it: ${id}", ("id", id));
 
-      /* de-dupe here... no point in aborting block if we already know the block */
-      auto existing = chain.fetch_block_by_id(id);
-      if (existing) {
+      // de-dupe here... no point in aborting block if we already know the block
+      if (chain.block_exists(id)) {
          return true; // return true because the block is valid
       } 
 
       // start processing of block
-      std::future<block_state_legacy_ptr> bsf;
-      if (!bsp) {
-         bsf = chain.create_block_state_future(id, block);
+      std::future<block_token> btf;
+      if (!obt) {
+         btf = chain.create_block_token_future(id, block);
       }
 
       // abort the pending block
@@ -711,11 +710,11 @@ public:
 
       controller::block_report br;
       try {
-         const block_state_legacy_ptr& bspr = bsp ? bsp : bsf.get();
+         const block_token& bt = obt ? *obt : btf.get();
          chain.push_block(
             br,
-            bspr,
-            [this](const branch_type& forked_branch) { _unapplied_transactions.add_forked(forked_branch); },
+            bt,
+            [this](const transaction_metadata_ptr& trx) { _unapplied_transactions.add_forked(trx); },
             [this](const transaction_id_type& id) { return _unapplied_transactions.get_trx(id); });
       } catch (const guard_exception& e) {
          chain_plugin::handle_guard_exception(e);
@@ -1280,8 +1279,8 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
    _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
-      [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_legacy_ptr& bsp) {
-         return on_incoming_block(block, block_id, bsp);
+      [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const std::optional<block_token>& obt) {
+         return on_incoming_block(block, block_id, obt);
       });
 
    _incoming_transaction_async_provider =
@@ -2649,7 +2648,7 @@ void producer_plugin_impl::produce_block() {
 
    // idump( (fc::time_point::now() - chain.pending_block_time()) );
    controller::block_report br;
-   chain.finalize_block(br, [&](const digest_type& d) {
+   chain.finish_block(br, [&](const digest_type& d) {
       auto                   debug_logger = maybe_make_debug_time_logger();
       vector<signature_type> sigs;
       sigs.reserve(relevant_providers.size());

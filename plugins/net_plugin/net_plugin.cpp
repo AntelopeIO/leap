@@ -1101,7 +1101,7 @@ namespace eosio {
       // returns calculated number of blocks combined latency
       uint32_t calc_block_latency();
 
-      void process_signed_block( const block_id_type& id, signed_block_ptr block, block_state_legacy_ptr bsp );
+      void process_signed_block( const block_id_type& id, signed_block_ptr block, const std::optional<block_token>& obt );
 
       fc::variant_object get_logger_variant() const {
          fc::mutable_variant_object mvo;
@@ -3719,7 +3719,7 @@ namespace eosio {
          controller& cc = my_impl->chain_plug->chain();
 
          // may have come in on a different connection and posted into dispatcher strand before this one
-         if( my_impl->dispatcher->have_block( id ) || cc.fetch_block_by_id( id ) ) { // thread-safe
+         if( my_impl->dispatcher->have_block( id ) || cc.block_exists( id ) ) { // thread-safe
             my_impl->dispatcher->add_peer_block( id, c->connection_id );
             c->strand.post( [c, id]() {
                my_impl->sync_master->sync_recv_block( c, id, block_header::num_from_id(id), false );
@@ -3727,11 +3727,11 @@ namespace eosio {
             return;
          }
 
-         block_state_legacy_ptr bsp;
+         std::optional<block_token> obt;
          bool exception = false;
          try {
             // this may return null if block is not immediately ready to be processed
-            bsp = cc.create_block_state( id, ptr );
+            obt = cc.create_block_token( id, ptr );
          } catch( const fc::exception& ex ) {
             exception = true;
             fc_ilog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
@@ -3750,17 +3750,18 @@ namespace eosio {
          }
 
 
-         uint32_t block_num = bsp ? bsp->block_num() : 0;
+         uint32_t block_num = obt ? obt->block_num() : 0;
 
          if( block_num != 0 ) {
+            assert(obt);
             fc_dlog( logger, "validated block header, broadcasting immediately, connection ${cid}, blk num = ${num}, id = ${id}",
-                     ("cid", cid)("num", block_num)("id", bsp->id()) );
-            my_impl->dispatcher->add_peer_block( bsp->id(), cid ); // no need to send back to sender
-            my_impl->dispatcher->bcast_block( bsp->block, bsp->id() );
+                     ("cid", cid)("num", block_num)("id", obt->id()) );
+            my_impl->dispatcher->add_peer_block( obt->id(), cid ); // no need to send back to sender
+            my_impl->dispatcher->bcast_block( obt->block(), obt->id() );
          }
 
-         app().executor().post(priority::medium, exec_queue::read_write, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
-            c->process_signed_block( id, std::move(ptr), std::move(bsp) );
+         app().executor().post(priority::medium, exec_queue::read_write, [ptr{std::move(ptr)}, obt{std::move(obt)}, id, c{std::move(c)}]() mutable {
+            c->process_signed_block( id, std::move(ptr), obt );
          });
 
          if( block_num != 0 ) {
@@ -3771,14 +3772,14 @@ namespace eosio {
    }
 
    // called from application thread
-   void connection::process_signed_block( const block_id_type& blk_id, signed_block_ptr block, block_state_legacy_ptr bsp ) {
+   void connection::process_signed_block( const block_id_type& blk_id, signed_block_ptr block, const std::optional<block_token>& obt ) {
       controller& cc = my_impl->chain_plug->chain();
       uint32_t blk_num = block_header::num_from_id(blk_id);
       // use c in this method instead of this to highlight that all methods called on c-> must be thread safe
       connection_ptr c = shared_from_this();
 
       try {
-         if( blk_num <= cc.last_irreversible_block_num() || cc.fetch_block_by_id(blk_id) ) {
+         if( blk_num <= cc.last_irreversible_block_num() || cc.block_exists(blk_id) ) {
             c->strand.post( [sync_master = my_impl->sync_master.get(),
                              dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
                dispatcher->add_peer_block( blk_id, c->connection_id );
@@ -3795,12 +3796,12 @@ namespace eosio {
 
       fc::microseconds age( fc::time_point::now() - block->timestamp);
       fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection ${cid}, ${v}",
-               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", bsp ? "pre-validated" : "validation pending") );
+               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", obt ? "pre-validated" : "validation pending") );
 
       go_away_reason reason = no_reason;
       bool accepted = false;
       try {
-         accepted = my_impl->chain_plug->accept_block(block, blk_id, bsp);
+         accepted = my_impl->chain_plug->accept_block(block, blk_id, obt);
          my_impl->update_chain_info();
       } catch( const unlinkable_block_exception &ex) {
          fc_ilog(logger, "unlinkable_block_exception connection ${cid}: #${n} ${id}...: ${m}",
@@ -3930,7 +3931,9 @@ namespace eosio {
    }
 
    void net_plugin_impl::on_accepted_block() {
-      on_pending_schedule(chain_plug->chain().pending_producers());
+      if (const auto* next_producers = chain_plug->chain().next_producers()) {
+         on_pending_schedule(*next_producers);
+      }
       on_active_schedule(chain_plug->chain().active_producers());
    }
 

@@ -8,30 +8,6 @@ namespace eosio { namespace chain {
       constexpr auto additional_sigs_eid = additional_block_signatures_extension::extension_id();
 
       /**
-       * Given a complete signed block, extract the validated additional signatures if present;
-       *
-       * @param b complete signed block
-       * @param pfs protocol feature set for digest access
-       * @param pfa activated protocol feature set to determine if extensions are allowed
-       * @return the list of additional signatures
-       * @throws if additional signatures are present before being supported by protocol feature activations
-       */
-      vector<signature_type> extract_additional_signatures( const signed_block_ptr& b,
-                                                            const protocol_feature_set& pfs,
-                                                            const protocol_feature_activation_set_ptr& pfa )
-      {
-         auto exts = b->validate_and_extract_extensions();
-
-         if ( exts.count(additional_sigs_eid) > 0 ) {
-            auto& additional_sigs = std::get<additional_block_signatures_extension>(exts.lower_bound(additional_sigs_eid)->second);
-
-            return std::move(additional_sigs.signatures);
-         }
-
-         return {};
-      }
-
-      /**
        * Given a pending block header state, wrap the promotion to a block header state such that additional signatures
        * can be allowed based on activations *prior* to the promoted block and properly injected into the signed block
        * that is previously constructed and mutated by the promotion
@@ -78,11 +54,10 @@ namespace eosio { namespace chain {
    block_state_legacy::block_state_legacy( const block_header_state_legacy& prev,
                                            signed_block_ptr b,
                                            const protocol_feature_set& pfs,
-                                           bool hotstuff_activated,
                                            const validator_t& validator,
                                            bool skip_validate_signee
                            )
-   :block_header_state_legacy( prev.next( *b, extract_additional_signatures(b, pfs, prev.activated_protocol_features), pfs, hotstuff_activated, validator, skip_validate_signee ) )
+      :block_header_state_legacy( prev.next( *b, detail::extract_additional_signatures(b), pfs, validator, skip_validate_signee ) )
    ,block( std::move(b) )
    {}
 

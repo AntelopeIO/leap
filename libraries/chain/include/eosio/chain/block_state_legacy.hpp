@@ -5,13 +5,15 @@
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/action_receipt.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    struct block_state_legacy : public block_header_state_legacy {
+      using bhs_t  = block_header_state_legacy;
+      using bhsp_t = block_header_state_legacy_ptr;
+
       block_state_legacy( const block_header_state_legacy& prev,
                           signed_block_ptr b,
                           const protocol_feature_set& pfs,
-                          bool hotstuff_activated,
                           const validator_t& validator,
                           bool skip_validate_signee
                  );
@@ -42,7 +44,7 @@ namespace eosio { namespace chain {
       
       protocol_feature_activation_set_ptr    get_activated_protocol_features() const { return activated_protocol_features; }
       const producer_authority_schedule&     active_schedule_auth()  const { return block_header_state_legacy_common::active_schedule; }
-      const producer_authority_schedule&     pending_schedule_auth() const { return block_header_state_legacy::pending_schedule.schedule; }
+      const producer_authority_schedule*     pending_schedule_auth() const { return &block_header_state_legacy::pending_schedule.schedule; }
       const deque<transaction_metadata_ptr>& trxs_metas()            const { return _cached_trxs; }
 
       
@@ -50,6 +52,7 @@ namespace eosio { namespace chain {
       friend struct fc::reflector<block_state_legacy>;
       friend struct controller_impl;
       friend struct completed_block;
+      friend struct block_state;
 
       bool is_pub_keys_recovered()const { return _pub_keys_recovered; }
       
@@ -74,6 +77,6 @@ namespace eosio { namespace chain {
 
    using block_state_legacy_ptr = std::shared_ptr<block_state_legacy>;
 
-} } /// namespace eosio::chain
+} /// namespace eosio::chain
 
 FC_REFLECT_DERIVED( eosio::chain::block_state_legacy, (eosio::chain::block_header_state_legacy), (block)(validated) )

@@ -1183,8 +1183,8 @@ chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& ht
 }
 
 
-bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id, const block_state_legacy_ptr& bsp ) {
-   return my->incoming_block_sync_method(block, id, bsp);
+bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id, const std::optional<block_token>& obt ) {
+   return my->incoming_block_sync_method(block, id, obt);
 }
 
 void chain_plugin::accept_transaction(const chain::packed_transaction_ptr& trx, next_function<chain::transaction_trace_ptr> next) {
@@ -1800,9 +1800,9 @@ read_only::get_producers( const read_only::get_producers_params& params, const f
 read_only::get_producer_schedule_result read_only::get_producer_schedule( const read_only::get_producer_schedule_params& p, const fc::time_point& ) const {
    read_only::get_producer_schedule_result result;
    to_variant(db.active_producers(), result.active);
-   if(!db.pending_producers().producers.empty())
-      to_variant(db.pending_producers(), result.pending);
-   auto proposed = db.proposed_producers();
+   if (const auto* pending = db.next_producers()) // not applicable for instant-finality
+      to_variant(*pending, result.pending);
+   auto proposed = db.proposed_producers_legacy(); // empty for instant-finality
    if(proposed && !proposed->producers.empty())
       to_variant(*proposed, result.proposed);
    return result;
@@ -2013,7 +2013,7 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
 
 void read_write::push_block(read_write::push_block_params&& params, next_function<read_write::push_block_results> next) {
    try {
-      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, block_state_legacy_ptr{});
+      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, std::optional<block_token>{});
    } catch ( boost::interprocess::bad_alloc& ) {
       handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
