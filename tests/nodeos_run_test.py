@@ -787,6 +787,10 @@ try:
     assert(node.setCodeOrAbi(setCodeAbiAccount, "code", wasmFile))
     assert(node.setCodeOrAbi(setCodeAbiAccount, "abi", abiFile))
 
+    # verify lib advances
+    if not cluster.getNode(0).waitForLibToAdvance():
+        errorExit("LIB not advancing")
+
     testSuccessful=True
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)
