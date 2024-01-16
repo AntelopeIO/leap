@@ -293,7 +293,7 @@ namespace eosio::chain {
 
       if( maybe_new_producer_schedule ) {
          result.pending_schedule.schedule = std::move(*maybe_new_producer_schedule);
-         result.pending_schedule.schedule_hash = std::move(*maybe_new_producer_schedule_hash);
+         result.pending_schedule.schedule_hash = *maybe_new_producer_schedule_hash;
          result.pending_schedule.schedule_lib_num    = block_number;
       } else {
          if( was_pending_promoted ) {
@@ -301,7 +301,7 @@ namespace eosio::chain {
          } else {
             result.pending_schedule.schedule         = std::move( prev_pending_schedule.schedule );
          }
-         result.pending_schedule.schedule_hash       = std::move( prev_pending_schedule.schedule_hash );
+         result.pending_schedule.schedule_hash       = prev_pending_schedule.schedule_hash ;
          result.pending_schedule.schedule_lib_num    = prev_pending_schedule.schedule_lib_num;
       }
 
@@ -369,13 +369,12 @@ namespace eosio::chain {
     */
    block_header_state_legacy block_header_state_legacy::next(
                         const signed_block_header& h,
-                        vector<signature_type>&& _additional_signatures,
+                        vector<signature_type>&& additional_signatures,
                         const protocol_feature_set& pfs,
-                        bool hotstuff_activated,
                         validator_t& validator,
                         bool skip_validate_signee )const
    {
-      return next( h.timestamp, h.confirmed ).finish_next( h, std::move(_additional_signatures), pfs, validator, skip_validate_signee );
+      return next( h.timestamp, h.confirmed ).finish_next( h, std::move(additional_signatures), pfs, validator, skip_validate_signee );
    }
 
    digest_type   block_header_state_legacy::sig_digest()const {
@@ -430,15 +429,10 @@ namespace eosio::chain {
    }
 
    /**
-    *  Reference cannot outlive *this. Assumes header_exts is not mutated after instatiation.
+    *  Reference cannot outlive *this. Assumes header_exts is not mutated after instantiation.
     */
    const vector<digest_type>& block_header_state_legacy::get_new_protocol_feature_activations()const {
-      static const vector<digest_type> no_activations{};
-
-      if( header_exts.count(protocol_feature_activation::extension_id()) == 0 )
-         return no_activations;
-
-      return std::get<protocol_feature_activation>(header_exts.lower_bound(protocol_feature_activation::extension_id())->second).protocol_features;
+      return detail::get_new_protocol_feature_activations(header_exts);
    }
 
    block_header_state_legacy::block_header_state_legacy( legacy::snapshot_block_header_state_v2&& snapshot )
@@ -452,10 +446,10 @@ namespace eosio::chain {
       producer_to_last_implied_irb          = std::move(snapshot.producer_to_last_implied_irb);
       valid_block_signing_authority         = block_signing_authority_v0{ 1, {{std::move(snapshot.block_signing_key), 1}} };
       confirm_count                         = std::move(snapshot.confirm_count);
-      id                                    = std::move(snapshot.id);
+      id                                    = snapshot.id;
       header                                = std::move(snapshot.header);
       pending_schedule.schedule_lib_num     = snapshot.pending_schedule.schedule_lib_num;
-      pending_schedule.schedule_hash        = std::move(snapshot.pending_schedule.schedule_hash);
+      pending_schedule.schedule_hash        = snapshot.pending_schedule.schedule_hash;
       pending_schedule.schedule             = producer_authority_schedule( snapshot.pending_schedule.schedule );
       activated_protocol_features           = std::move(snapshot.activated_protocol_features);
    }

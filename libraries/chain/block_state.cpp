@@ -1,136 +1,85 @@
 #include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_header_state_utils.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/exceptions.hpp>
 
 namespace eosio::chain {
 
-   namespace {
-      constexpr auto additional_sigs_eid = additional_block_signatures_extension::extension_id();
+block_state::block_state(const block_header_state& prev, signed_block_ptr b, const protocol_feature_set& pfs,
+                         const validator_t& validator, bool skip_validate_signee)
+   : block_header_state(prev.next(*b, pfs, validator))
+   , block(std::move(b))
+{}
 
-      /**
-       * Given a complete signed block, extract the validated additional signatures if present;
-       *
-       * @param b complete signed block
-       * @param pfs protocol feature set for digest access
-       * @param pfa activated protocol feature set to determine if extensions are allowed
-       * @return the list of additional signatures
-       * @throws if additional signatures are present before being supported by protocol feature activations
-       */
-      vector<signature_type> extract_additional_signatures( const signed_block_ptr& b,
-                                                            const protocol_feature_set& pfs,
-                                                            const protocol_feature_activation_set_ptr& pfa )
-      {
-         auto exts = b->validate_and_extract_extensions();
+block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
+                         deque<transaction_receipt>&& trx_receipts)
+   : block_header_state(bhs)
+   , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
+   , pub_keys_recovered(true) // probably not needed
+   , cached_trxs(std::move(trx_metas))
+{
+   block->transactions = std::move(trx_receipts);
+}
 
-         if ( exts.count(additional_sigs_eid) > 0 ) {
-            auto& additional_sigs = std::get<additional_block_signatures_extension>(exts.lower_bound(additional_sigs_eid)->second);
+// Used for transition from dpos to instant-finality
+block_state::block_state(const block_state_legacy& bsp) {
+   block_header_state::id = bsp.id();
+   header = bsp.header;
+   activated_protocol_features = bsp.activated_protocol_features;
+   std::optional<block_header_extension> ext = bsp.block->extract_header_extension(instant_finality_extension::extension_id());
+   assert(ext); // required by current transition mechanism
+   const auto& if_extension = std::get<instant_finality_extension>(*ext);
+   assert(if_extension.new_finalizer_policy); // required by current transition mechanism
+   active_finalizer_policy = std::make_shared<finalizer_policy>(*if_extension.new_finalizer_policy);
+   active_proposer_policy = std::make_shared<proposer_policy>();
+   active_proposer_policy->active_time = bsp.timestamp();
+   active_proposer_policy->proposer_schedule = bsp.active_schedule;
+   header_exts = bsp.header_exts;
+   block = bsp.block;
+   validated = bsp.is_valid();
+   pub_keys_recovered = bsp._pub_keys_recovered;
+   cached_trxs = bsp._cached_trxs;
+}
 
-            return std::move(additional_sigs.signatures);
-         }
+deque<transaction_metadata_ptr> block_state::extract_trxs_metas() {
+   pub_keys_recovered = false;
+   auto result = std::move(cached_trxs);
+   cached_trxs.clear();
+   return result;
+}
 
-         return {};
+void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered ) {
+   pub_keys_recovered = keys_recovered;
+   cached_trxs = std::move( trxs_metas );
+}
+
+std::optional<quorum_certificate> block_state::get_best_qc() const {
+   auto block_number = block_num();
+
+   // if pending_qc does not have a valid QC, consider valid_qc only
+   if( !pending_qc.is_quorum_met() ) {
+      if( valid_qc ) {
+         return quorum_certificate{ block_number, *valid_qc };
+      } else {
+         return std::nullopt;;
       }
-
-      /**
-       * Given a pending block header state, wrap the promotion to a block header state such that additional signatures
-       * can be allowed based on activations *prior* to the promoted block and properly injected into the signed block
-       * that is previously constructed and mutated by the promotion
-       *
-       * This cleans up lifetime issues involved with accessing activated protocol features and moving from the
-       * pending block header state
-       *
-       * @param cur the pending block header state to promote
-       * @param b the signed block that will receive signatures during this process
-       * @param pfs protocol feature set for digest access
-       * @param extras all the remaining parameters that pass through
-       * @return the block header state
-       * @throws if the block was signed with multiple signatures before the extension is allowed
-       */
-
-      template<typename ...Extras>
-      block_header_state inject_additional_signatures(block_header_state&& cur,
-                                                      signed_block& b,
-                                                      const protocol_feature_set& pfs,
-                                                      Extras&& ... extras)
-      {
-         
-         block_header_state result;
-#if 0
-         result = std::move(cur).finish_next(b, pfs, std::forward<Extras>(extras)...);
-         auto pfa = cur.prev_activated_protocol_features;
-
-         if (!result.additional_signatures.empty()) {
-            bool wtmsig_enabled = detail::is_builtin_activated(pfa, pfs, builtin_protocol_feature_t::wtmsig_block_signatures);
-
-            EOS_ASSERT(wtmsig_enabled, block_validate_exception,
-                       "Block has multiple signatures before activation of WTMsig Block Signatures");
-
-            // as an optimization we don't copy this out into the legitimate extension structure as it serializes
-            // the same way as the vector of signatures
-            static_assert(fc::reflector<additional_block_signatures_extension>::total_member_count == 1);
-            static_assert(std::is_same_v<decltype(additional_block_signatures_extension::signatures), std::vector<signature_type>>);
-
-            emplace_extension(b.block_extensions, additional_sigs_eid, fc::raw::pack( result.additional_signatures ));
-         }
-#endif
-         return result;
-      }
-
    }
-#if 0
-
-   block_state::block_state(const block_header_state& prev,
-                                  signed_block_ptr b,
-                                  const protocol_feature_set& pfs,
-                                  bool hotstuff_activated,
-                                  const validator_t& validator,
-                                  bool skip_validate_signee
-                           )
-   :block_header_state( prev.next( *b, extract_additional_signatures(b, pfs, prev.activated_protocol_features), pfs, hotstuff_activated, validator, skip_validate_signee ) )
-   ,block( std::move(b) )
-   {}
-
-   block_state::block_state(pending_block_header_state&& cur,
-                            signed_block_ptr&& b,
-                            deque<transaction_metadata_ptr>&& trx_metas,
-                            const protocol_feature_set& pfs,
-                            const validator_t& validator,
-                            const signer_callback_type& signer
-      )
-   :block_header_state( inject_additional_signatures( std::move(cur), *b, pfs, validator, signer ) )
-   ,block( std::move(b) )
-   ,_pub_keys_recovered( true ) // called by produce_block so signature recovery of trxs must have been done
-   ,_cached_trxs( std::move(trx_metas) )
-   {}
-#endif
-
-   std::optional<quorum_certificate> block_state::get_best_qc() const {
-      auto block_number = block_num();
-
-      // if pending_qc does not have a valid QC, consider valid_qc only
-      if( !pending_qc.is_quorum_met() ) {
-         if( valid_qc ) {
-            return quorum_certificate{ block_number, *valid_qc };
-         } else {
-            return std::nullopt;;
-         }
-      }
 
 #warning TODO valid_quorum_certificate constructor can assert. Implement an extract method in pending_quorum_certificate for this.
-      // extract valid QC from pending_qc
-      valid_quorum_certificate valid_qc_from_pending(pending_qc);
+   // extract valid QC from pending_qc
+   valid_quorum_certificate valid_qc_from_pending(pending_qc);
 
-      // if valid_qc does not have value, consider valid_qc_from_pending only
-      if( !valid_qc ) {
-         return quorum_certificate{ block_number, valid_qc_from_pending };
-      }
-
-      // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
-      // Strong beats weak. Tie break by valid_qc.
-      const auto& best_qc =
-         valid_qc->is_strong() == valid_qc_from_pending.is_strong() ?
-         *valid_qc : // tie broke by valid_qc
-         valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
-      return quorum_certificate{ block_number, best_qc };
+   // if valid_qc does not have value, consider valid_qc_from_pending only
+   if( !valid_qc ) {
+      return quorum_certificate{ block_number, valid_qc_from_pending };
    }
-   
+
+   // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
+   // Strong beats weak. Tie break by valid_qc.
+   const auto& best_qc =
+      valid_qc->is_strong() == valid_qc_from_pending.is_strong() ?
+      *valid_qc : // tie broke by valid_qc
+      valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
+   return quorum_certificate{ block_number, best_qc };
+}   
 } /// eosio::chain

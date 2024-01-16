@@ -51,14 +51,23 @@ namespace eosio::chain {
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
 
-   using fork_database_legacy = fork_database<block_state_legacy_ptr, block_header_state_legacy_ptr>;   
-   using branch_type = typename fork_database_legacy::branch_type;
-   
-   using forked_branch_callback = std::function<void(const branch_type&)>;
+   using forked_callback_t = std::function<void(const transaction_metadata_ptr&)>;
+
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
    using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
+
+   // Created via create_block_token(const block_id_type& id, const signed_block_ptr& b)
+   // Valid to request id and signed_block_ptr it was created from.
+   // Avoid using internal block_state/block_state_legacy as those types are internal to controller.
+   struct block_token {
+      std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
+
+      uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
+      block_id_type id() const { return std::visit([](const auto& bsp) { return bsp->id(); }, bsp); }
+      signed_block_ptr block() const { return std::visit([](const auto& bsp) { return bsp->block; }, bsp); }
+   };
 
    enum class db_read_mode {
       HEAD,
@@ -175,24 +184,25 @@ namespace eosio::chain {
             fc::microseconds   total_time{};
          };
 
-         void finalize_block( block_report& br, const signer_callback_type& signer_callback );
+         void finish_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
-         
+
          // thread-safe
-         std::future<block_state_legacy_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
+         std::future<block_token> create_block_token_future( const block_id_type& id, const signed_block_ptr& b );
          // thread-safe
-         block_state_legacy_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) const;
+         // returns empty optional if block b is not immediately ready to be processed
+         std::optional<block_token> create_block_token( const block_id_type& id, const signed_block_ptr& b ) const;
 
          /**
           * @param br returns statistics for block
-          * @param bsp block to push
+          * @param bt block to push, created by create_block_token
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          const block_state_legacy_ptr& bsp,
-                          const forked_branch_callback& cb,
+                          const block_token& bt,
+                          const forked_callback_t& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 
          boost::asio::io_context& get_thread_pool();
@@ -250,12 +260,17 @@ namespace eosio::chain {
 
          const producer_authority_schedule&         active_producers()const;
          const producer_authority_schedule&         head_active_producers()const;
-         const producer_authority_schedule&         pending_producers()const;
-         std::optional<producer_authority_schedule> proposed_producers()const;
+         // pending for pre-instant-finality, next proposed that will take affect, null if none are pending/proposed
+         const producer_authority_schedule*         next_producers()const;
+         // post-instant-finality this always returns empty std::optional
+         std::optional<producer_authority_schedule> proposed_producers_legacy()const;
+         // pre-instant-finality this always returns a valid producer_authority_schedule
+         // post-instant-finality this always returns nullptr
+         const producer_authority_schedule*         pending_producers_legacy()const;
 
          // Called by qc_chain to indicate the current irreversible block num
          // After hotstuff is activated, this should be called on startup by qc_chain
-         void set_hs_irreversible_block_num(uint32_t block_num);
+         void set_if_irreversible_block_num(uint32_t block_num);
 
          uint32_t last_irreversible_block_num() const;
          block_id_type last_irreversible_block_id() const;
@@ -266,13 +281,11 @@ namespace eosio::chain {
          // thread-safe
          signed_block_ptr fetch_block_by_id( const block_id_type& id )const;
          // thread-safe
+         bool block_exists( const block_id_type& id)const;
+         // thread-safe
          std::optional<signed_block_header> fetch_block_header_by_number( uint32_t block_num )const;
          // thread-safe
          std::optional<signed_block_header> fetch_block_header_by_id( const block_id_type& id )const;
-         // return block_state_legacy from forkdb, thread-safe
-         block_state_legacy_ptr fetch_block_state_by_number( uint32_t block_num )const;
-         // return block_state_legacy from forkdb, thread-safe
-         block_state_legacy_ptr fetch_block_state_by_id( block_id_type id )const;
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
 

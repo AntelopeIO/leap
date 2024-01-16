@@ -3,13 +3,11 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include "fork_test_utilities.hpp"
-
 using namespace eosio::testing;
 using namespace eosio::chain;
 using mvo = fc::mutable_variant_object;
 
-BOOST_AUTO_TEST_SUITE(producer_schedule_hs_tests)
+BOOST_AUTO_TEST_SUITE(producer_schedule_if_tests)
 
 namespace {
 
@@ -20,19 +18,16 @@ inline account_name get_expected_producer(const vector<producer_authority>& sche
 };
 
 } // anonymous namespace
-#if 0
 
-// [greg todo] Enable test when https://github.com/AntelopeIO/leap/issues/1980 is completed
-
-BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, validating_tester ) try {
+BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activation, validating_tester ) try {
 
    // Utility function to ensure that producer schedule work as expected
    const auto& confirm_schedule_correctness = [&](const vector<producer_authority>& new_prod_schd, uint32_t expected_schd_ver, uint32_t expected_block_num = 0)  {
       const uint32_t check_duration = 100; // number of blocks
       bool scheduled_changed_to_new = false;
       for (uint32_t i = 0; i < check_duration; ++i) {
-         const auto current_schedule = control->head_block_state()->active_schedule.producers;
-         if (new_prod_schd == current_schedule) {
+         const auto current_schedule = control->active_producers();
+         if (new_prod_schd == current_schedule.producers) {
             scheduled_changed_to_new = true;
             if (expected_block_num != 0)
                BOOST_TEST(control->head_block_num() == expected_block_num);
@@ -42,7 +37,7 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, val
 
          // Check if the producer is the same as what we expect
          const auto block_time = control->head_block_time();
-         const auto& expected_producer = get_expected_producer(current_schedule, block_time);
+         const auto& expected_producer = get_expected_producer(current_schedule.producers, block_time);
          BOOST_TEST(control->head_block_producer() == expected_producer);
 
          if (scheduled_changed_to_new)
@@ -69,17 +64,17 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, val
    };
    create_accounts(producers);
 
-   // activate hotstuff
+   // activate instant_finality
    set_finalizers(producers);
    auto block = produce_block(); // this block contains the header extension of the finalizer set
-   BOOST_TEST(lib == 3);
+   BOOST_TEST(lib == 4); // TODO: currently lib advances immediately on set_finalizers
 
    // ---- Test first set of producers ----
    // Send set prods action and confirm schedule correctness
    set_producers(producers);
    const auto first_prod_schd = get_producer_authorities(producers);
-   // TODO: update expected when lib for hotstuff is working, will change from 22 at that time
-   confirm_schedule_correctness(first_prod_schd, 1, 22);
+   // TODO: update expected when lib for instant_finality is working, will change from 26 at that time, 4+12+12
+   confirm_schedule_correctness(first_prod_schd, 1, 26);
 
    // ---- Test second set of producers ----
    vector<account_name> second_set_of_producer = {
@@ -88,8 +83,8 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, val
    // Send set prods action and confirm schedule correctness
    set_producers(second_set_of_producer);
    const auto second_prod_schd = get_producer_authorities(second_set_of_producer);
-   // TODO: update expected when lib for hotstuff is working, will change from 44 at that time
-   confirm_schedule_correctness(second_prod_schd, 2, 44);
+   // TODO: update expected when lib for instant_finality is working, will change from 50 at that time, 26+12+12
+   confirm_schedule_correctness(second_prod_schd, 2, 50);
 
    // ---- Test deliberately miss some blocks ----
    const int64_t num_of_missed_blocks = 5000;
@@ -111,9 +106,7 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, val
 
 } FC_LOG_AND_RETHROW()
 
-#endif
-
-/** TODO: Enable tests after hotstuff LIB is working
+/** TODO: Enable tests after instant_finality LIB is working
 
 BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
@@ -121,7 +114,7 @@ BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, validating_tester ) t
       produce_block();
    }
 
-   // activate hotstuff
+   // activate instant_finality
    set_finalizers({"alice"_n,"bob"_n,"carol"_n});
    auto block = produce_block(); // this block contains the header extension of the finalizer set
 
@@ -190,7 +183,7 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
    c.create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
    c.produce_block();
 
-   // activate hotstuff
+   // activate instant_finality
    c.set_finalizers({"alice"_n,"bob"_n,"carol"_n});
    auto block = c.produce_block(); // this block contains the header extension of the finalizer set
 
@@ -309,7 +302,7 @@ BOOST_FIXTURE_TEST_CASE( producer_one_of_n_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
-   // activate hotstuff
+   // activate instant_finality
    set_finalizers({"alice"_n,"bob"_n});
    auto block = produce_block(); // this block contains the header extension of the finalizer set
 
@@ -331,7 +324,7 @@ BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
-   // activate hotstuff
+   // activate instant_finality
    set_finalizers({"alice"_n,"bob"_n});
    auto block = produce_block(); // this block contains the header extension of the finalizer set
 
