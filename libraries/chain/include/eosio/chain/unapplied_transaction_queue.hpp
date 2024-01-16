@@ -133,17 +133,9 @@ public:
       }
    }
 
-   template<class BRANCH_TYPE>
-   void add_forked( const BRANCH_TYPE& forked_branch ) {
-      // forked_branch is in reverse order
-      for( auto ritr = forked_branch.rbegin(), rend = forked_branch.rend(); ritr != rend; ++ritr ) {
-         const auto& bsptr = *ritr;
-         for( auto itr = bsptr->trxs_metas().begin(), end = bsptr->trxs_metas().end(); itr != end; ++itr ) {
-            const auto& trx = *itr;
-            auto insert_itr = queue.insert( { trx, trx_enum_type::forked } );
-            if( insert_itr.second ) added( insert_itr.first );
-         }
-      }
+   void add_forked( const transaction_metadata_ptr& trx ) {
+      auto insert_itr = queue.insert( { trx, trx_enum_type::forked } );
+      if( insert_itr.second ) added( insert_itr.first );
    }
 
    void add_aborted( deque<transaction_metadata_ptr> aborted_trxs ) {

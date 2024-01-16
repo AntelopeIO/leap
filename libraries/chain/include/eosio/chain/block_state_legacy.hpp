@@ -52,6 +52,7 @@ namespace eosio::chain {
       friend struct fc::reflector<block_state_legacy>;
       friend struct controller_impl;
       friend struct completed_block;
+      friend struct block_state;
 
       bool is_pub_keys_recovered()const { return _pub_keys_recovered; }
       

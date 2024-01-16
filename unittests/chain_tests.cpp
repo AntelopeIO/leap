@@ -161,6 +161,7 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
       auto block_num = block->block_num();
       BOOST_CHECK(block);
       BOOST_CHECK(chain.control->fetch_block_by_id(id) == block);
+      BOOST_CHECK(chain.control->block_exists(id));
       BOOST_CHECK(chain.control->fetch_block_by_number(block_num) == block);
       BOOST_REQUIRE(chain.control->fetch_block_header_by_number(block_num));
       BOOST_CHECK(chain.control->fetch_block_header_by_number(block_num)->calculate_id() == id);
@@ -176,6 +177,7 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
       auto block_num = block->block_num();
       BOOST_CHECK(block);
       BOOST_CHECK(validator.control->fetch_block_by_id(id) == block);
+      BOOST_CHECK(validator.control->block_exists(id));
       BOOST_CHECK(validator.control->fetch_block_by_number(block_num) == block);
       BOOST_REQUIRE(validator.control->fetch_block_header_by_number(block_num));
       BOOST_CHECK(validator.control->fetch_block_header_by_number(block_num)->calculate_id() == id);

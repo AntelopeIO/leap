@@ -120,7 +120,7 @@ protected:
  *     start_block -> (global_property_object.proposed_schedule_block_num == dpos_lib)
  *        building_block._new_pending_producer_schedule = producers
  *
- *     finalize_block ->
+ *     finish_block ->
  *        block_header.extensions.wtmsig_block_signatures = producers
  *        block_header.new_producers                      = producers
  *

@@ -376,11 +376,11 @@ namespace eosio { namespace testing {
    }
 
    void base_tester::push_block(signed_block_ptr b) {
-      auto bsf = control->create_block_state_future(b->calculate_id(), b);
+      auto btf = control->create_block_token_future(b->calculate_id(), b);
       unapplied_transactions.add_aborted( control->abort_block() );
       controller::block_report br;
-      control->push_block( br, bsf.get(), [this]( const branch_type_legacy& forked_branch ) {
-         unapplied_transactions.add_forked( forked_branch );
+      control->push_block( br, btf.get(), [this]( const transaction_metadata_ptr& trx ) {
+         unapplied_transactions.add_forked( trx );
       }, [this]( const transaction_id_type& id ) {
          return unapplied_transactions.get_trx( id );
       } );
@@ -487,7 +487,7 @@ namespace eosio { namespace testing {
       });
 
       controller::block_report br;
-      control->finalize_block( br, [&]( digest_type d ) {
+      control->finish_block( br, [&]( digest_type d ) {
          std::vector<signature_type> result;
          result.reserve(signing_keys.size());
          for (const auto& k: signing_keys)
@@ -1115,10 +1115,10 @@ namespace eosio { namespace testing {
 
             auto block = a.control->fetch_block_by_number(i);
             if( block ) { //&& !b.control->is_known_block(block->id()) ) {
-               auto bsf = b.control->create_block_state_future( block->calculate_id(), block );
+               auto btf = b.control->create_block_token_future( block->calculate_id(), block );
                b.control->abort_block();
                controller::block_report br;
-               b.control->push_block(br, bsf.get(), {}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
+               b.control->push_block(br, btf.get(), {}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
             }
          }
       };

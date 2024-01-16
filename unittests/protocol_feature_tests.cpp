@@ -2252,12 +2252,12 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    tester2.produce_block();
 
    // Push the block with delayed transaction to the second chain
-   auto bsf = tester2.control->create_block_state_future( copy_b->calculate_id(), copy_b );
+   auto btf = tester2.control->create_block_token_future( copy_b->calculate_id(), copy_b );
    tester2.control->abort_block();
    controller::block_report br;
 
    // The block is invalidated
-   BOOST_REQUIRE_EXCEPTION(tester2.control->push_block( br, bsf.get(), {}, trx_meta_cache_lookup{} ),
+   BOOST_REQUIRE_EXCEPTION(tester2.control->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} ),
       fc::exception,
       fc_exception_message_starts_with("transaction cannot be delayed")
    );

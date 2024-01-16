@@ -117,7 +117,7 @@ void resource_limits_manager::set_block_parameters(const elastic_limit_parameter
       c.cpu_limit_parameters = cpu_limit_parameters;
       c.net_limit_parameters = net_limit_parameters;
 
-      // set_block_parameters is called by controller::finalize_block,
+      // set_block_parameters is called by controller::finish_block,
       // where transaction specific logging is not possible
       if (auto dm_logger = _get_deep_mind_logger(false)) {
          dm_logger->on_update_resource_limits_config(c);
@@ -359,7 +359,7 @@ void resource_limits_manager::process_account_limit_updates() {
          multi_index.remove(*itr);
       }
 
-      // process_account_limit_updates is called by controller::finalize_block,
+      // process_account_limit_updates is called by controller::finish_block,
       // where transaction specific logging is not possible
       if (auto dm_logger = _get_deep_mind_logger(false)) {
          dm_logger->on_update_resource_limits_state(state);
@@ -381,7 +381,7 @@ void resource_limits_manager::process_block_usage(uint32_t block_num) {
       state.update_virtual_net_limit(config);
       state.pending_net_usage = 0;
 
-      // process_block_usage is called by controller::finalize_block,
+      // process_block_usage is called by controller::finish,
       // where transaction specific logging is not possible
       if (auto dm_logger = _get_deep_mind_logger(false)) {
          dm_logger->on_update_resource_limits_state(state);
