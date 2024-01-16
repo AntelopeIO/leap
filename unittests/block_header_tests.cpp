@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_empty_values_test)
    emplace_extension(
       header.header_extensions,
       instant_finality_extension::extension_id(),
-      fc::raw::pack( instant_finality_extension{qc_info_t{last_qc_block_num, is_last_qc_strong}, std::optional<finalizer_policy>{}, std::optional<proposer_policy>{}} )
+      fc::raw::pack( instant_finality_extension{qc_info_t{last_qc_block_num, is_last_qc_strong}, std::optional<finalizer_policy>{}, std::shared_ptr<proposer_policy>{}} )
    );
 
    std::optional<block_header_extension> ext = header.extract_header_extension(instant_finality_extension::extension_id());
@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_uniqueness_test)
    emplace_extension(
       header.header_extensions,
       instant_finality_extension::extension_id(),
-      fc::raw::pack( instant_finality_extension{qc_info_t{0, false}, {std::nullopt}, {std::nullopt}} )
+      fc::raw::pack( instant_finality_extension{qc_info_t{0, false}, {std::nullopt}, std::shared_ptr<proposer_policy>{}} )
    );
 
    std::vector<finalizer_authority> finalizers { {"test description", 50, fc::crypto::blslib::bls_public_key{"PUB_BLS_MPPeebAPxt/ibL2XPuZVGpADjGn+YEVPPoYmTZeBD6Ok2E19M8SnmDGSdZBf2qwSuJim+8H83EsTpEn3OiStWBiFeJYfVRLlEsZuSF0SYYwtVteY48n+KeE1IWzlSAkSyBqiGA==" }} };
@@ -54,7 +54,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_uniqueness_test)
    new_finalizer_policy.threshold = 100;
    new_finalizer_policy.finalizers = finalizers;
 
-   proposer_policy new_proposer_policy {1, block_timestamp_type{200}, {} };
+   proposer_policy_ptr new_proposer_policy = std::make_shared<proposer_policy>(1, block_timestamp_type{200}, producer_authority_schedule{} );
 
    emplace_extension(
       header.header_extensions,
@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_values_test)
    new_finalizer_policy.threshold = 100;
    new_finalizer_policy.finalizers = finalizers;
 
-   proposer_policy new_proposer_policy {1, block_timestamp_type{200}, {} };
+   proposer_policy_ptr new_proposer_policy = std::make_shared<proposer_policy>(1, block_timestamp_type{200}, producer_authority_schedule{} );
 
    emplace_extension(
       header.header_extensions,

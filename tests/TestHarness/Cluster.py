@@ -1187,6 +1187,10 @@ class Cluster(object):
         if not biosNode.waitForTransactionsInBlock(transIds):
             Utils.Print('ERROR: Failed to validate creation of system accounts')
             return None
+        #
+        # Could activate instant finality here, but have to wait for finality which with all the producers takes a long time
+        #         if activateIF:
+        #             self.activateInstantFinality(launcher)
 
         eosioTokenAccount = copy.deepcopy(eosioAccount)
         eosioTokenAccount.name = 'eosio.token'

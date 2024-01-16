@@ -7,7 +7,7 @@
 #include <optional>
 #include <type_traits>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    namespace detail {
       template<typename... Ts>
@@ -25,6 +25,8 @@ namespace eosio { namespace chain {
 
    using block_header_extension = block_header_extension_types::block_header_extension_t;
    using header_extension_multimap = flat_multimap<uint16_t, block_header_extension>;
+
+   using validator_t = const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>;
 
    // totem for block_header.confirmed that indicates hotstuff consensus is active
    constexpr uint16_t hs_block_confirmed = std::numeric_limits<uint16_t>::max();
@@ -84,7 +86,7 @@ namespace eosio { namespace chain {
       signature_type    producer_signature;
    };
 
-} } /// namespace eosio::chain
+} /// namespace eosio::chain
 
 FC_REFLECT(eosio::chain::block_header,
            (timestamp)(producer)(confirmed)(previous)

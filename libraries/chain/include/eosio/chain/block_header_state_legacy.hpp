@@ -75,8 +75,6 @@ namespace detail {
 
 }
 
-using validator_t = const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>;
-
 struct pending_block_header_state_legacy : public detail::block_header_state_legacy_common {
    protocol_feature_activation_set_ptr  prev_activated_protocol_features;
    detail::schedule_info                prev_pending_schedule;
@@ -122,7 +120,7 @@ protected:
  *     start_block -> (global_property_object.proposed_schedule_block_num == dpos_lib)
  *        building_block._new_pending_producer_schedule = producers
  *
- *     finalize_block ->
+ *     finish_block ->
  *        block_header.extensions.wtmsig_block_signatures = producers
  *        block_header.new_producers                      = producers
  *
@@ -167,7 +165,6 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
    block_header_state_legacy  next( const signed_block_header& h,
                                     vector<signature_type>&& additional_signatures,
                                     const protocol_feature_set& pfs,
-                                    bool hotstuff_activated,
                                     validator_t& validator,
                                     bool skip_validate_signee = false )const;
 
