@@ -98,11 +98,17 @@ namespace eosio { namespace chain {
    >;
 
    namespace config {
+      // To make it compatible with previous versions of snapshot unit-tests
       template<>
       struct billable_size<permission_object> { // Also counts memory usage of the associated permission_usage_object
-         static const uint64_t  overhead = 4 * overhead_per_row_per_index_ram_bytes; ///< 4 indices internal ID, parent, owner, name
-         static const uint64_t  value = (config::billable_size_v<shared_authority> + 48) + overhead;  ///< fixed field size + overhead
+         static const uint64_t  overhead = 5 * overhead_per_row_per_index_ram_bytes; ///< 5 indices 2x internal ID, parent, owner, name
+         static const uint64_t  value = (config::billable_size_v<shared_authority> + 64) + overhead;  ///< fixed field size + overhead
       };
+      // template<>
+      // struct billable_size<permission_object> { // Also counts memory usage of the associated permission_usage_object
+      //    static const uint64_t  overhead = 4 * overhead_per_row_per_index_ram_bytes; ///< 4 indices internal ID, parent, owner, name
+      //    static const uint64_t  value = (config::billable_size_v<shared_authority> + 48) + overhead;  ///< fixed field size + overhead
+      // };
    }
 } } // eosio::chain
 
