@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission) {
    BOOST_REQUIRE(result.first);
    auto &it_permission = result.second;
    BOOST_REQUIRE_EQUAL(it_permission->rows.obj.size(), 2u);
-   auto accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v1, eosio::ship_protocol::permission>(it_permission);
+   auto accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v0, eosio::ship_protocol::permission>(it_permission);
    for(size_t i = 0; i < accounts_permissions.size(); i++)
    {
       BOOST_REQUIRE_EQUAL(it_permission->rows.obj[i].first, true);
@@ -181,7 +181,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission_creation_and_deletion) {
    auto &it_permission = result.second;
    BOOST_REQUIRE_EQUAL(it_permission->rows.obj.size(), 3u);
    BOOST_REQUIRE_EQUAL(it_permission->rows.obj[2].first, true);
-   auto accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v1, eosio::ship_protocol::permission>(it_permission);
+   auto accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v0, eosio::ship_protocol::permission>(it_permission);
    BOOST_REQUIRE_EQUAL(accounts_permissions[2].owner.to_string(), "newacc");
    BOOST_REQUIRE_EQUAL(accounts_permissions[2].name.to_string(), "mypermission");
    BOOST_REQUIRE_EQUAL(accounts_permissions[2].parent.to_string(), "active");
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission_creation_and_deletion) {
    auto &it_permission_del = result.second;
    BOOST_REQUIRE_EQUAL(it_permission_del->rows.obj.size(), 1u);
    BOOST_REQUIRE_EQUAL(it_permission_del->rows.obj[0].first, false);
-   accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v1, eosio::ship_protocol::permission>(it_permission_del);
+   accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v0, eosio::ship_protocol::permission>(it_permission_del);
    BOOST_REQUIRE_EQUAL(accounts_permissions[0].owner.to_string(), "newacc");
    BOOST_REQUIRE_EQUAL(accounts_permissions[0].name.to_string(), "mypermission");
    BOOST_REQUIRE_EQUAL(accounts_permissions[0].parent.to_string(), "active");
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission_modification) {
 
       auto &it_permission = result.second;
       BOOST_REQUIRE_EQUAL(it_permission->rows.obj.size(), 1u);
-      auto accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v1, eosio::ship_protocol::permission>(it_permission);
+      auto accounts_permissions = chain.deserialize_data<eosio::ship_protocol::permission_v0, eosio::ship_protocol::permission>(it_permission);
       BOOST_REQUIRE_EQUAL(accounts_permissions[0].owner.to_string(), "newacc");
       BOOST_REQUIRE_EQUAL(accounts_permissions[0].name.to_string(), "active");
       BOOST_REQUIRE_EQUAL(accounts_permissions[0].auth.keys.size(), 1u);
