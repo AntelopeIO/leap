@@ -12,13 +12,17 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
 {}
 
 block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-                         deque<transaction_receipt>&& trx_receipts)
+                         deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
    , pub_keys_recovered(true) // probably not needed
    , cached_trxs(std::move(trx_metas))
 {
    block->transactions = std::move(trx_receipts);
+
+   if( qc && bhs.is_needed(*qc) ) {
+      emplace_extension(block->block_extensions, quorum_certificate_extension::extension_id(), fc::raw::pack( *qc ));
+   }
 }
 
 // Used for transition from dpos to instant-finality
@@ -75,4 +79,32 @@ bool block_state::aggregate_vote(const hs_vote_message& vote) {
    }
 }
    
+std::optional<quorum_certificate> block_state::get_best_qc() const {
+   auto block_number = block_num();
+
+   // if pending_qc does not have a valid QC, consider valid_qc only
+   if( !pending_qc.is_quorum_met() ) {
+      if( valid_qc ) {
+         return quorum_certificate{ block_number, *valid_qc };
+      } else {
+         return std::nullopt;;
+      }
+   }
+
+   // extract valid QC from pending_qc
+   valid_quorum_certificate valid_qc_from_pending = pending_qc.to_valid_quorum_certificate();
+
+   // if valid_qc does not have value, consider valid_qc_from_pending only
+   if( !valid_qc ) {
+      return quorum_certificate{ block_number, valid_qc_from_pending };
+   }
+
+   // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
+   // Strong beats weak. Tie break by valid_qc.
+   const auto& best_qc =
+      valid_qc->is_strong() == valid_qc_from_pending.is_strong() ?
+      *valid_qc : // tie broke by valid_qc
+      valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
+   return quorum_certificate{ block_number, best_qc };
+}   
 } /// eosio::chain

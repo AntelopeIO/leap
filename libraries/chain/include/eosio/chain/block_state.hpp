@@ -31,7 +31,8 @@ struct block_state : public block_header_state {     // block_header_state provi
    bool                   is_valid()          const { return validated; }
    void                   set_valid(bool b)         { validated = b; }
    uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
-   
+   std::optional<quorum_certificate> get_best_qc() const;
+
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();
@@ -48,7 +49,7 @@ struct block_state : public block_header_state {     // block_header_state provi
                const validator_t& validator, bool skip_validate_signee);
 
    block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-               deque<transaction_receipt>&& trx_receipts);
+               deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc);
 
    explicit block_state(const block_state_legacy& bsp);
 };
