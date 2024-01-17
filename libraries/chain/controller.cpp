@@ -887,9 +887,18 @@ struct building_block {
                const block_data_new_t& bd      = std::get<block_data_new_t>(block_data.v);
                const auto&             fork_db = bd.fork_db; // fork_db<block_state_ptr, block_header_state_ptr>
 
-               // [greg todo] retrieve qc, and fill the following struct accurately
-               std::optional<qc_data_t> qc_data; // Comes from traversing branch from parent and calling
-                                                 // get_best_qc() assert(qc->block_num <= num_from_id(previous));
+               // find most recent ancestor block that has a QC by traversing fork db
+               // branch from parent
+               std::optional<qc_data_t> qc_data;
+               auto branch = fork_db.fetch_branch(parent_id());
+               for( auto it = branch.begin(); it != branch.end(); ++it ) {
+                  auto qc = (*it)->get_best_qc();
+                  if( qc ) {
+                     EOS_ASSERT( qc->block_height <= block_header::num_from_id(parent_id()), block_validate_exception, "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})", ("a", qc->block_height)("p", block_header::num_from_id(parent_id())) );
+                     qc_data = qc_data_t{ *qc, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
+                     break;
+                  }
+               }
 
                building_block_input bb_input {
                   .parent_id = parent_id(),
