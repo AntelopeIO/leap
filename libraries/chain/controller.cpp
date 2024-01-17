@@ -317,6 +317,15 @@ struct block_data_t {
       }, v);
    }
 
+   block_state_ptr fork_db_fetch_bsp_by_num(uint32_t block_num) const {
+      return std::visit(overloaded{
+                           [](const block_data_legacy_t&) -> block_state_ptr { return nullptr; },
+                           [&](const block_data_new_t& bd) -> block_state_ptr {
+                              auto bsp = bd.fork_db.search_on_branch(bd.fork_db.head()->id(), block_num);
+                              return bsp; }
+                       }, v);
+   }
+
    template <class R, class F>
    R apply(F& f) {
       if constexpr (std::is_same_v<void, R>)
@@ -2978,22 +2987,22 @@ struct controller_impl {
       } FC_CAPTURE_AND_RETHROW();
    } /// apply_block
 
-   void create_and_send_vote_msg(const block_header_state& bhs) {
+   void create_and_send_vote_msg(const block_state_ptr& bsp) {
 #warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
       bool strong = true;
 
       // A vote is created and signed by each finalizer configured on the node that
       // in active finalizer policy
-      for (const auto& f: bhs.active_finalizer_policy->finalizers) {
+      for (const auto& f: bsp->active_finalizer_policy->finalizers) {
          auto it = node_finalizer_keys.find( f.public_key );
          if( it != node_finalizer_keys.end() ) {
             const auto& private_key = it->second;
-            const auto& digest = bhs.compute_finalizer_digest();
+            const auto& digest = bsp->compute_finalizer_digest();
 
             auto sig =  private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
 
             // construct the vote message
-            hs_vote_message vote{ bhs.id, strong, private_key.get_public_key(), sig };
+            hs_vote_message vote{ bsp->id(), strong, private_key.get_public_key(), sig };
 
             // net plugin subscribed this signal. it will broadcast the vote message
             // on receiving the signal
@@ -3025,6 +3034,17 @@ struct controller_impl {
       return block_token{bsp};
    }
 
+   void integrate_received_qc_to_block(const block_id_type& id, const signed_block_ptr& b) {
+#warning validate received QC before integrate it: https://github.com/AntelopeIO/leap/issues/2071
+      // extract QC from block extensions
+      auto block_exts = b->validate_and_extract_extensions();
+      if( block_exts.count(quorum_certificate_extension::extension_id()) > 0 ) {
+         const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
+         auto last_qc_block_bsp = block_data.fork_db_fetch_bsp_by_num( qc_ext.qc.block_height );
+         last_qc_block_bsp->valid_qc = qc_ext.qc.qc;
+      }
+   }
+
    // thread safe, expected to be called from thread other than the main thread
    block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
       auto trx_mroot = calculate_trx_merkle( b->transactions, true );
@@ -3045,6 +3065,12 @@ struct controller_impl {
 
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
+
+      create_and_send_vote_msg(bsp);
+
+      // integrate the received QC into the claimed block
+      integrate_received_qc_to_block(id, b);
+
       return block_token{bsp};
    }
 
