@@ -301,6 +301,20 @@ struct block_data_t {
       }, v);
    }
 
+    // called from net thread
+	 bool aggregate_vote(const hs_vote_message& vote) {
+	    return std::visit(
+	       overloaded{[](const block_data_legacy_t&) {
+                        // We can be late in switching to Instant Finality
+                        // and receive votes from those already having switched.
+	                     return false; },
+	                  [&](const block_data_new_t& bd) {
+	                     auto bsp = bd.fork_db.get_block(vote.proposal_id);
+	                     return bsp && bsp->aggregate_vote(vote); }
+                    },
+	       v);
+	 }
+
    signed_block_ptr fork_db_fetch_block_by_num(uint32_t block_num) const {
       return std::visit([&](const auto& bd) -> signed_block_ptr {
          auto bsp = bd.fork_db.search_on_branch(bd.fork_db.head()->id(), block_num);
@@ -549,7 +563,7 @@ struct assembled_block {
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
-                                                                               std::move(ab.trx_receipts));
+                                                                               std::move(ab.trx_receipts), ab.qc);
                                       return completed_block{std::move(bsp)};
                                    }},
                         v);
@@ -887,9 +901,18 @@ struct building_block {
                const block_data_new_t& bd      = std::get<block_data_new_t>(block_data.v);
                const auto&             fork_db = bd.fork_db; // fork_db<block_state_ptr, block_header_state_ptr>
 
-               // [greg todo] retrieve qc, and fill the following struct accurately
-               std::optional<qc_data_t> qc_data; // Comes from traversing branch from parent and calling
-                                                 // get_best_qc() assert(qc->block_num <= num_from_id(previous));
+               // find most recent ancestor block that has a QC by traversing fork db
+               // branch from parent
+               std::optional<qc_data_t> qc_data;
+               auto branch = fork_db.fetch_branch(parent_id());
+               for( auto it = branch.begin(); it != branch.end(); ++it ) {
+                  auto qc = (*it)->get_best_qc();
+                  if( qc ) {
+                     EOS_ASSERT( qc->block_height <= block_header::num_from_id(parent_id()), block_validate_exception, "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})", ("a", qc->block_height)("p", block_header::num_from_id(parent_id())) );
+                     qc_data = qc_data_t{ *qc, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
+                     break;
+                  }
+               }
 
                building_block_input bb_input {
                   .parent_id = parent_id(),
@@ -4185,8 +4208,8 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 }
 
 // called from net threads
-void controller::notify_hs_message( const uint32_t connection_id, const hs_message& msg ) {
-   my->pacemaker->on_hs_msg(connection_id, msg);
+bool controller::process_vote_message( const hs_vote_message& vote ) {
+   return my->block_data.aggregate_vote(vote);
 };
 
 const producer_authority_schedule& controller::active_producers()const {

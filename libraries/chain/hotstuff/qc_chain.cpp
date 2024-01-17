@@ -372,7 +372,7 @@ namespace eosio::chain {
                              ("id", _id));
                      
                      //fc_tlog(_logger, " === update_high_qc : _current_qc ===");
-                     update_high_qc(_current_qc);
+                     update_high_qc(_current_qc.to_valid_quorum_certificate());
                      fc_dlog(_logger, " === ${id} quorum met on #${block_num} ${phase_counter} ${proposal_id} ",
                              ("block_num", p->block_num())
                              ("phase_counter", p->phase_counter)
