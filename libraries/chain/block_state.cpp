@@ -12,13 +12,17 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
 {}
 
 block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-                         deque<transaction_receipt>&& trx_receipts)
+                         deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
    , pub_keys_recovered(true) // probably not needed
    , cached_trxs(std::move(trx_metas))
 {
    block->transactions = std::move(trx_receipts);
+
+   if( qc && bhs.is_needed(*qc) ) {
+      emplace_extension(block->block_extensions, quorum_certificate_extension::extension_id(), fc::raw::pack( *qc ));
+   }
 }
 
 // Used for transition from dpos to instant-finality
