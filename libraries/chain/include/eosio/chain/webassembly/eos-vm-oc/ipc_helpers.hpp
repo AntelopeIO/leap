@@ -6,7 +6,6 @@
 
 #include <vector>
 
-#include <sys/syscall.h>
 #include <linux/memfd.h>
 
 namespace eosio { namespace chain { namespace eosvmoc {
@@ -54,7 +53,7 @@ bool write_message_with_fds(int fd_to_send_to, const eosvmoc_message& message, c
 
 template<typename T>
 wrapped_fd memfd_for_bytearray(const T& bytes) {
-   int fd = syscall(SYS_memfd_create, "eosvmoc_code", MFD_CLOEXEC);
+   int fd = memfd_create("eosvmoc_code", MFD_CLOEXEC);
    FC_ASSERT(fd >= 0, "Failed to create memfd");
    FC_ASSERT(ftruncate(fd, bytes.size()) == 0, "failed to grow memfd");
    if(bytes.size()) {

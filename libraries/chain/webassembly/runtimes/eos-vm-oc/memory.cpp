@@ -5,7 +5,6 @@
 #include <fc/scoped_exit.hpp>
 
 #include <unistd.h>
-#include <sys/syscall.h>
 #include <sys/mman.h>
 #include <linux/memfd.h>
 
@@ -14,7 +13,7 @@ namespace eosio { namespace chain { namespace eosvmoc {
 memory::memory(uint64_t sliced_pages) {
    uint64_t number_slices = sliced_pages + 1;
    uint64_t wasm_memory_size = sliced_pages * wasm_constraints::wasm_page_size;
-   int fd = syscall(SYS_memfd_create, "eosvmoc_mem", MFD_CLOEXEC);
+   int fd = memfd_create("eosvmoc_mem", MFD_CLOEXEC);
    FC_ASSERT(fd >= 0, "Failed to create memory memfd");
    auto cleanup_fd = fc::make_scoped_exit([&fd](){close(fd);});
    int ret = ftruncate(fd, wasm_memory_size+memory_prologue_size);
