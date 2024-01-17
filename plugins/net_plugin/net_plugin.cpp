@@ -534,6 +534,7 @@ namespace eosio {
 
       void on_accepted_block_header( const signed_block_ptr& block, const block_id_type& id );
       void on_accepted_block();
+      void on_voted_block ( const hs_vote_message& vote );
 
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_id_type& id, uint32_t block_num );
@@ -3940,6 +3941,11 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
+   // called from application thread
+   void net_plugin_impl::on_voted_block(const hs_vote_message& vote) {
+      bcast_hs_message(std::nullopt, chain::hs_message{ vote });
+   }
+
    void net_plugin_impl::bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const chain::hs_message& msg ) {
       fc_dlog(logger, "sending hs msg: ${msg}", ("msg", msg));
 
@@ -4366,6 +4372,9 @@ namespace eosio {
             my->on_irreversible_block( id, block->block_num() );
          } );
 
+         cc.voted_block.connect( [my = shared_from_this()]( const hs_vote_message& vote ) {
+            my->on_voted_block(vote);
+         } );
       }
 
       {
