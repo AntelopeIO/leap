@@ -18,7 +18,6 @@ struct block_state : public block_header_state {     // block_header_state provi
    pending_quorum_certificate pending_qc;            // where we accumulate votes we receive
    std::optional<valid_quorum_certificate> valid_qc; // best qc received from the network inside block extension
 
-   
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
@@ -32,12 +31,14 @@ struct block_state : public block_header_state {     // block_header_state provi
    bool                   is_valid()          const { return validated; }
    void                   set_valid(bool b)         { validated = b; }
    uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
-      
+   std::optional<quorum_certificate> get_best_qc() const;
+
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);
    const deque<transaction_metadata_ptr>& trxs_metas()  const { return cached_trxs; }
+   bool                                aggregate_vote(const hs_vote_message& vote); // aggregate vote into pending_qc
 
    using bhs_t  = block_header_state;
    using bhsp_t = block_header_state_ptr;
@@ -48,7 +49,7 @@ struct block_state : public block_header_state {     // block_header_state provi
                const validator_t& validator, bool skip_validate_signee);
 
    block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-               deque<transaction_receipt>&& trx_receipts);
+               deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc);
 
    explicit block_state(const block_state_legacy& bsp);
 };

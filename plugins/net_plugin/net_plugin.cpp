@@ -1096,7 +1096,7 @@ namespace eosio {
       void handle_message( const block_id_type& id, signed_block_ptr ptr );
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr trx );
-      void handle_message( const chain::hs_message& msg );
+      void handle_message( const chain::hs_vote_message& msg );
 
       // returns calculated number of blocks combined latency
       uint32_t calc_block_latency();
@@ -1178,9 +1178,9 @@ namespace eosio {
          c->handle_message( msg );
       }
 
-      void operator()( const chain::hs_message& msg ) const {
+      void operator()( const chain::hs_vote_message& msg ) const {
          // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_message" );
+         peer_dlog( c, "handle hs_vote_message" );
          c->handle_message( msg );
       }
    };
@@ -3674,10 +3674,14 @@ namespace eosio {
       }
    }
 
-   void connection::handle_message( const chain::hs_message& msg ) {
-      peer_dlog(this, "received hs: ${msg}", ("msg", msg));
+   void connection::handle_message( const chain::hs_vote_message& msg ) {
+      peer_dlog(this, "received vote: ${msg}", ("msg", msg));
       controller& cc = my_impl->chain_plug->chain();
-      cc.notify_hs_message(connection_id, msg);
+      if( cc.process_vote_message(msg) ) {
+#warning TDDO remove hs_message
+         hs_message hs_msg{msg};
+         my_impl->bcast_hs_message(connection_id, hs_msg);
+      }
    }
 
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
