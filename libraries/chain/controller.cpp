@@ -3041,6 +3041,7 @@ struct controller_impl {
       if( block_exts.count(quorum_certificate_extension::extension_id()) > 0 ) {
          const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
          auto last_qc_block_bsp = block_data.fork_db_fetch_bsp_by_num( qc_ext.qc.block_height );
+#warning a mutex might be needed for updating valid_pc
          last_qc_block_bsp->valid_qc = qc_ext.qc.qc;
       }
    }
