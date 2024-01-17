@@ -301,19 +301,16 @@ struct block_data_t {
       }, v);
    }
 
-   // called from net thread
+    // called from net thread
 	 bool aggregate_vote(const hs_vote_message& vote) {
 	    return std::visit(
 	       overloaded{[](const block_data_legacy_t&) {
-	                     EOS_ASSERT(false, misc_exception, "attempting to call aggregate_vote in legacy mode");
+                        // We can be late in switching to Instant Finality
+                        // and receive votes from those already having switched.
 	                     return false; },
 	                  [&](const block_data_new_t& bd) {
 	                     auto bsp = bd.fork_db.get_block(vote.proposal_id);
-	                     if (bsp) {
-	                        return bsp->aggregate_vote(vote);
-	                     } else {
-	                        return false;
-                        }; }
+	                     return bsp && bsp->aggregate_vote(vote); }
                     },
 	       v);
 	 }
