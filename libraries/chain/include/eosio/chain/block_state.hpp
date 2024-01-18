@@ -30,7 +30,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    const extensions_type& header_extensions() const { return block_header_state::header.header_extensions; }
    bool                   is_valid()          const { return validated; }
    void                   set_valid(bool b)         { validated = b; }
-   uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
+   uint32_t               irreversible_blocknum() const { return core.last_final_block_num; }
    std::optional<quorum_certificate> get_best_qc() const;
 
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
