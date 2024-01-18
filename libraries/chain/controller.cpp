@@ -3072,7 +3072,9 @@ struct controller_impl {
             // on receiving the signal
             emit( self.voted_block, vote );
 
-            self.process_vote_message(vote);
+            boost::asio::post(thread_pool.get_executor(), [control=this, vote]() {
+               control->self.process_vote_message(vote);
+            });
          }
       }
       if (!found) {
