@@ -301,23 +301,6 @@ struct block_data_t {
       }, v);
    }
 
-    // called from net thread
-	 std::pair<bool, std::optional<uint32_t>> aggregate_vote(const hs_vote_message& vote) {
-	    return std::visit(
-	       overloaded{[](const block_data_legacy_t&) -> std::pair<bool, std::optional<uint32_t>> {
-                        // We can be late in switching to Instant Finality
-                        // and receive votes from those already having switched.
-	                     return {false, {}}; },
-	                  [&](const block_data_new_t& bd) -> std::pair<bool, std::optional<uint32_t>> {
-	                     auto bsp = bd.fork_db.get_block(vote.proposal_id);
-	                     if (bsp) {
-	                        return bsp->aggregate_vote(vote);
-	                     }
-	                     return {false, {}};
-                    }},
-	       v);
-	 }
-
    signed_block_ptr fork_db_fetch_block_by_num(uint32_t block_num) const {
       return std::visit([&](const auto& bd) -> signed_block_ptr {
          auto bsp = bd.fork_db.search_on_branch(bd.fork_db.head()->id(), block_num);
@@ -344,7 +327,7 @@ struct block_data_t {
    }
 
    template <class R, class F>
-   R apply(F& f) {
+   R apply(const F& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit([&](auto& bd) { bd.template apply<R>(f); }, v);
       else
@@ -352,13 +335,24 @@ struct block_data_t {
    }
 
    template <class R, class F>
-   R apply_dpos(F& f) {
+   R apply_dpos(const F& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); }, [&](block_data_new_t& bd) {}},
                     v);
       else
          return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
-                                      [&](block_data_new_t& bd) -> R { return {}; }},
+                                      [&](block_data_new_t& bd)    -> R { return {}; }},
+                           v);
+   }
+
+   template <class R, class F>
+   R apply_if(const F& f) {
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](block_data_legacy_t& bd) {}, [&](block_data_new_t& bd) { bd.template apply<R>(f); }},
+                    v);
+      else
+         return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return {}; },
+                                      [&](block_data_new_t& bd)    -> R { return bd.template apply<R>(f); }},
                            v);
    }
 };
@@ -2761,28 +2755,22 @@ struct controller_impl {
             head = bsp;
             
             emit( self.accepted_block, std::tie(bsp->block, bsp->id()) );
-
-            if constexpr (std::is_same_v<block_state_legacy_ptr,std::decay_t<decltype(head)>>) {
-#warning todo: support deep_mind_logger even when in IF mode
-               // at block level, no transaction specific logging is possible
-               if (auto* dm_logger = get_deep_mind_logger(false)) {
-                  dm_logger->on_accepted_block(bsp);
-               }
-            }
          };
 
          block_data.apply<void>(add_completed_block);
+
+         block_data.apply_dpos<void>([this](auto& fork_db, auto& head) {
+#warning todo: support deep_mind_logger even when in IF mode (use apply instead of apply_dpos)
+               // at block level, no transaction specific logging is possible
+               if (auto* dm_logger = get_deep_mind_logger(false)) {
+                  dm_logger->on_accepted_block(head);
+               }});
 
          if( s == controller::block_status::incomplete ) {
             log_irreversible();
          }
 
-         auto vote = [&](auto& fork_db, auto& head) {
-            if constexpr (std::is_same_v<block_state_ptr, typename std::decay_t<decltype(head)>>) {
-               create_and_send_vote_msg(head);
-            }
-         };
-         block_data.apply<void>(vote);
+         block_data.apply_if<void>([&](auto& fork_db, auto& head) { create_and_send_vote_msg(head); });
 
          // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
          auto transition = [&](auto& fork_db, auto& head) -> bool {
@@ -4322,7 +4310,13 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 
 // called from net threads
 bool controller::process_vote_message( const hs_vote_message& vote ) {
-   auto [valid, new_lib] = my->block_data.aggregate_vote(vote);
+   auto do_vote = [&vote](auto& fork_db, auto& head) -> std::pair<bool, std::optional<uint32_t>> {
+       auto bsp = fork_db.get_block(vote.proposal_id);
+       if (bsp)
+          return bsp->aggregate_vote(vote);
+       return {false, {}};
+   };
+   auto [valid, new_lib] = my->block_data.apply_if<std::pair<bool, std::optional<uint32_t>>>(do_vote);
    if (new_lib) {
       my->if_irreversible_block_num = *new_lib;
    }
