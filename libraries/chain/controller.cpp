@@ -3071,6 +3071,8 @@ struct controller_impl {
             // net plugin subscribed this signal. it will broadcast the vote message
             // on receiving the signal
             emit( self.voted_block, vote );
+
+            self.process_vote_message(vote);
          }
       }
       if (!found) {
