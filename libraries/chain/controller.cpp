@@ -302,16 +302,19 @@ struct block_data_t {
    }
 
     // called from net thread
-	 bool aggregate_vote(const hs_vote_message& vote) {
+	 std::pair<bool, std::optional<uint32_t>> aggregate_vote(const hs_vote_message& vote) {
 	    return std::visit(
-	       overloaded{[](const block_data_legacy_t&) {
+	       overloaded{[](const block_data_legacy_t&) -> std::pair<bool, std::optional<uint32_t>> {
                         // We can be late in switching to Instant Finality
                         // and receive votes from those already having switched.
-	                     return false; },
-	                  [&](const block_data_new_t& bd) {
+	                     return {false, {}}; },
+	                  [&](const block_data_new_t& bd) -> std::pair<bool, std::optional<uint32_t>> {
 	                     auto bsp = bd.fork_db.get_block(vote.proposal_id);
-	                     return bsp && bsp->aggregate_vote(vote); }
-                    },
+	                     if (bsp) {
+	                        return bsp->aggregate_vote(vote);
+	                     }
+	                     return {false, {}};
+                    }},
 	       v);
 	 }
 
@@ -857,7 +860,9 @@ struct building_block {
 
    assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
-                                  const block_data_t& block_data) {
+                                  const block_data_t& block_data,
+                                  bool validating,
+                                  std::optional<qc_info_t> validating_qc_info) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -913,13 +918,17 @@ struct building_block {
                // find most recent ancestor block that has a QC by traversing fork db
                // branch from parent
                std::optional<qc_data_t> qc_data;
-               auto branch = fork_db.fetch_branch(parent_id());
-               for( auto it = branch.begin(); it != branch.end(); ++it ) {
-                  auto qc = (*it)->get_best_qc();
-                  if( qc ) {
-                     EOS_ASSERT( qc->block_height <= block_header::num_from_id(parent_id()), block_validate_exception, "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})", ("a", qc->block_height)("p", block_header::num_from_id(parent_id())) );
-                     qc_data = qc_data_t{ *qc, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
-                     break;
+               if (!validating) {
+                  auto branch = fork_db.fetch_branch(parent_id());
+                  for( auto it = branch.begin(); it != branch.end(); ++it ) {
+                     auto qc = (*it)->get_best_qc();
+                     if( qc ) {
+                        EOS_ASSERT( qc->block_height <= block_header::num_from_id(parent_id()), block_validate_exception,
+                                    "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
+                                    ("a", qc->block_height)("p", block_header::num_from_id(parent_id())) );
+                        qc_data = qc_data_t{ *qc, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
+                        break;
+                     }
                   }
                }
 
@@ -930,9 +939,17 @@ struct building_block {
                   .new_protocol_feature_activations = new_protocol_feature_activations()
                };
 
+               std::optional<qc_info_t> qc_info;
+               if (validating) {
+                  qc_info = validating_qc_info;
+               } else if (qc_data) {
+                  qc_info = qc_data->qc_info;
+               }
                block_header_state_input bhs_input{
-                  bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy), std::move(bb.new_finalizer_policy),
-                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{} };
+                  bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
+                  std::move(bb.new_finalizer_policy),
+                  qc_info, validating
+               };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
                                                       std::move(bb.pending_trx_metas), std::move(bb.pending_trx_receipts),
@@ -2682,7 +2699,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void finish_block()
+   void finish_block(bool validating = false, std::optional<qc_info_t> validating_qc_info = {})
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -2705,8 +2722,8 @@ struct controller_impl {
             );
          resource_limits.process_block_usage(bb.block_num());
 
-         auto assembled_block =
-            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
+         auto assembled_block = bb.assemble_block(thread_pool.get_executor(),
+            protocol_features.get_protocol_feature_set(), block_data, validating, validating_qc_info);
 
          // Update TaPoS table:
          create_block_summary(  assembled_block.id() );
@@ -2875,6 +2892,23 @@ struct controller_impl {
       EOS_REPORT( "new_producers", b.new_producers, ab.new_producers )
       EOS_REPORT( "header_extensions", b.header_extensions, ab.header_extensions )
 
+      if (b.header_extensions != ab.header_extensions) {
+         {
+            flat_multimap<uint16_t, block_header_extension> bheader_exts = b.validate_and_extract_header_extensions();
+            if (bheader_exts.count(instant_finality_extension::extension_id())) {
+               const auto& if_extension =
+                       std::get<instant_finality_extension>(bheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
+               elog("b  if: ${i}", ("i", if_extension));
+            }
+         }
+         flat_multimap<uint16_t, block_header_extension> abheader_exts = ab.validate_and_extract_header_extensions();
+         if (abheader_exts.count(instant_finality_extension::extension_id())) {
+            const auto& if_extension =
+                    std::get<instant_finality_extension>(abheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
+            elog("ab if: ${i}", ("i", if_extension));
+         }
+      }
+
 #undef EOS_REPORT
    }
 
@@ -2968,7 +3002,13 @@ struct controller_impl {
                              ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
                }
 
-               finish_block();
+               std::optional<qc_info_t> qc_info;
+               auto exts = b->validate_and_extract_header_extensions();
+               if (auto if_entry = exts.lower_bound(instant_finality_extension::extension_id()); if_entry != exts.end()) {
+                  auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+                  qc_info = if_ext.qc_info;
+               }
+               finish_block(true, qc_info);
 
                auto& ab = std::get<assembled_block>(pending->_block_stage);
 
@@ -3016,21 +3056,30 @@ struct controller_impl {
 
       // A vote is created and signed by each finalizer configured on the node that
       // in active finalizer policy
+      bool found = false;
+      // TODO: remove dlog statements
+      dlog( "active finalizers ${n}, threshold ${t}",
+         ("n", bsp->active_finalizer_policy->finalizers.size())("t", bsp->active_finalizer_policy->threshold));
       for (const auto& f: bsp->active_finalizer_policy->finalizers) {
          auto it = node_finalizer_keys.find( f.public_key );
          if( it != node_finalizer_keys.end() ) {
+            found = true;
+            dlog("finalizer used: ${f}", ("f", f.public_key.to_string()));
             const auto& private_key = it->second;
             const auto& digest = bsp->compute_finalizer_digest();
 
             auto sig =  private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
 
             // construct the vote message
-            hs_vote_message vote{ bsp->id(), strong, private_key.get_public_key(), sig };
+            hs_vote_message vote{ bsp->id(), strong, f.public_key, sig };
 
             // net plugin subscribed this signal. it will broadcast the vote message
             // on receiving the signal
             emit( self.voted_block, vote );
          }
+      }
+      if (!found) {
+         dlog("No finalizer found on node for key, we have ${n} finalizers configured", ("n", node_finalizer_keys.size()));
       }
    }
 
@@ -3088,9 +3137,7 @@ struct controller_impl {
       );
 
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
-                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
-
-      create_and_send_vote_msg(bsp);
+                  "provided id ${id} does not match calculated block id ${bid}", ("id", id)("bid", bsp->id()) );
 
       // integrate the received QC into the claimed block
       integrate_received_qc_to_block(id, b);
@@ -3178,6 +3225,9 @@ struct controller_impl {
          };
 
          block_data.apply<void>(do_push);
+
+         if constexpr (std::is_same_v<block_state_ptr, typename std::decay_t<decltype(bsp)>>)
+            create_and_send_vote_msg(bsp);
 
       } FC_LOG_AND_RETHROW( )
    }
@@ -4266,7 +4316,11 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 
 // called from net threads
 bool controller::process_vote_message( const hs_vote_message& vote ) {
-   return my->block_data.aggregate_vote(vote);
+   auto [valid, new_lib] = my->block_data.aggregate_vote(vote);
+   if (new_lib) {
+      my->if_irreversible_block_num = *new_lib;
+   }
+   return valid;
 };
 
 const producer_authority_schedule& controller::active_producers()const {

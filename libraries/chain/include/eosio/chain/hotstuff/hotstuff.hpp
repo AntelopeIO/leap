@@ -199,11 +199,11 @@ namespace eosio::chain {
       void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum);
 
       // thread safe
-      bool add_vote(bool strong,
-                    const std::vector<uint8_t>& proposal_digest,
-                    size_t index,
-                    const bls_public_key& pubkey,
-                    const bls_signature& sig);
+      std::pair<bool, bool> add_vote(bool strong,
+                                     const std::vector<uint8_t>&proposal_digest,
+                                     size_t index,
+                                     const bls_public_key&pubkey,
+                                     const bls_signature&sig);
 
       state_t state()  const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;

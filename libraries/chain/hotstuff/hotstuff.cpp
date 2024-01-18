@@ -87,6 +87,9 @@ bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& pro
    size_t weak   = num_weak();
    size_t strong = num_strong();
 
+   // TODO: remove dlog statement
+   dlog( "strong ${n}, q ${q}", ("n", strong)("q", _quorum));
+
    switch (_state) {
    case state_t::unrestricted:
    case state_t::restricted:
@@ -146,12 +149,13 @@ bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& propo
    return true;
 }
 
-// thread safe
-bool pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
-                                          const bls_public_key& pubkey, const bls_signature& sig) {
+// thread safe, <valid, strong>
+std::pair<bool, bool> pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
+                                                           const bls_public_key& pubkey, const bls_signature& sig) {
    std::lock_guard g(*_mtx);
-   return strong ? add_strong_vote(proposal_digest, index, pubkey, sig)
-                 : add_weak_vote(proposal_digest, index, pubkey, sig);
+   bool valid = strong ? add_strong_vote(proposal_digest, index, pubkey, sig)
+                       : add_weak_vote(proposal_digest, index, pubkey, sig);
+   return {valid, _state == state_t::strong};
 }
 
 // thread safe

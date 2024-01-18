@@ -9,12 +9,18 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
                          const validator_t& validator, bool skip_validate_signee)
    : block_header_state(prev.next(*b, pfs, validator))
    , block(std::move(b))
+   , strong_digest(compute_finalizer_digest())
+   , weak_digest(compute_finalizer_digest())
+   , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold)
 {}
 
 block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
                          deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
+   , strong_digest(compute_finalizer_digest())
+   , weak_digest(compute_finalizer_digest())
+   , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold)
    , pub_keys_recovered(true) // probably not needed
    , cached_trxs(std::move(trx_metas))
 {
@@ -29,6 +35,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
 block_state::block_state(const block_state_legacy& bsp) {
    block_header_state::id = bsp.id();
    header = bsp.header;
+   core.last_final_block_num = bsp.block_num();
    activated_protocol_features = bsp.activated_protocol_features;
    std::optional<block_header_extension> ext = bsp.block->extract_header_extension(instant_finality_extension::extension_id());
    assert(ext); // required by current transition mechanism
@@ -58,7 +65,7 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 }
 
 // Called from net threads
-bool block_state::aggregate_vote(const hs_vote_message& vote) {
+std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const hs_vote_message& vote) {
    const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
                           finalizers.end(),
@@ -67,15 +74,16 @@ bool block_state::aggregate_vote(const hs_vote_message& vote) {
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
       const digest_type& digest = vote.strong ? strong_digest : weak_digest;
-      return pending_qc.add_vote(vote.strong,
+      auto [valid, strong] = pending_qc.add_vote(vote.strong,
 #warning TODO change to use std::span if possible
                                  std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()},
                                  index,
                                  vote.finalizer_key,
                                  vote.sig);
+      return {valid, strong ? core.final_on_strong_qc_block_num : std::optional<uint32_t>{}};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      return false;
+      return {false, {}};
    }
 }
    
