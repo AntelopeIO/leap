@@ -9,8 +9,12 @@
 
 namespace eosio::chain {
 
+   using bls_public_key  = fc::crypto::blslib::bls_public_key;
+   using bls_signature   = fc::crypto::blslib::bls_signature;
+   using bls_private_key = fc::crypto::blslib::bls_private_key;
+
    using hs_bitset = boost::dynamic_bitset<uint32_t>;
-   using bls_key_map_t = std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>;
+   using bls_key_map_t = std::map<bls_public_key, bls_private_key>;
 
    inline digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc) {
       digest_type h1 = digest_type::hash( std::make_pair( std::cref(block_id), phase_counter ) );
@@ -42,21 +46,21 @@ namespace eosio::chain {
 
    struct extended_schedule {
       producer_authority_schedule                          producer_schedule;
-      std::map<name, fc::crypto::blslib::bls_public_key>   bls_pub_keys;
+      std::map<name, bls_public_key>   bls_pub_keys;
    };
 
    struct quorum_certificate_message {
       fc::sha256                          proposal_id;
       std::vector<uint32_t>               strong_votes; //bitset encoding, following canonical order
       std::vector<uint32_t>               weak_votes;   //bitset encoding, following canonical order
-      fc::crypto::blslib::bls_signature   active_agg_sig;
+      bls_signature                       active_agg_sig;
    };
 
    struct hs_vote_message {
       fc::sha256                          proposal_id; //vote on proposal
       bool                                strong{false};
-      fc::crypto::blslib::bls_public_key  finalizer_key;
-      fc::crypto::blslib::bls_signature   sig;
+      bls_public_key                      finalizer_key;
+      bls_signature                       sig;
    };
 
    struct hs_proposal_message {
@@ -75,7 +79,7 @@ namespace eosio::chain {
       };
 
       uint32_t block_num() const { return block_header::num_from_id(block_id); }
-      uint64_t get_key() const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
+      uint64_t get_key()   const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
 
       view_number get_view_number() const { return view_number(block_header::num_from_id(block_id), phase_counter); };
    };
@@ -115,10 +119,6 @@ namespace eosio::chain {
          return & it->second;
       }
    };
-
-   using bls_public_key  = fc::crypto::blslib::bls_public_key;
-   using bls_signature   = fc::crypto::blslib::bls_signature;
-   using bls_private_key = fc::crypto::blslib::bls_private_key;
 
    // -------------------- pending_quorum_certificate -------------------------------------------------
    class pending_quorum_certificate {

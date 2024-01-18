@@ -112,6 +112,7 @@ add_library( eosio_chain
              chain_config.cpp
              chain_id_type.cpp
              genesis_state.cpp
+             finalizer.cpp
              ${CMAKE_CURRENT_BINARY_DIR}/genesis_state_root_key.cpp
 
               wast_to_wasm.cpp
