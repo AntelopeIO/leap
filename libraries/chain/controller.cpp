@@ -2777,6 +2777,13 @@ struct controller_impl {
             log_irreversible();
          }
 
+         auto vote = [&](auto& fork_db, auto& head) {
+            if constexpr (std::is_same_v<block_state_ptr, typename std::decay_t<decltype(head)>>) {
+               create_and_send_vote_msg(head);
+            }
+         };
+         block_data.apply<void>(vote);
+
          // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
          auto transition = [&](auto& fork_db, auto& head) -> bool {
             const auto& bsp = std::get<std::decay_t<decltype(head)>>(cb.bsp);
@@ -2796,13 +2803,6 @@ struct controller_impl {
          if (block_data.apply_dpos<bool>(transition)) {
             block_data.transition_fork_db_to_if(cb.bsp);
          }
-
-         auto vote = [&](auto& fork_db, auto& head) {
-            const auto& bsp = std::get<std::decay_t<decltype(head)>>(cb.bsp);
-            if constexpr (std::is_same_v<block_state_ptr, typename std::decay_t<decltype(bsp)>>)
-               create_and_send_vote_msg(bsp);
-         };
-         block_data.apply<void>(vote);
 
       } catch (...) {
          // dont bother resetting pending, instead abort the block
