@@ -3051,15 +3051,9 @@ struct controller_impl {
 
       // A vote is created and signed by each finalizer configured on the node that
       // in active finalizer policy
-      bool found = false;
-      // TODO: remove dlog statements
-      dlog( "active finalizers ${n}, threshold ${t}",
-         ("n", bsp->active_finalizer_policy->finalizers.size())("t", bsp->active_finalizer_policy->threshold));
       for (const auto& f: bsp->active_finalizer_policy->finalizers) {
          auto it = node_finalizer_keys.find( f.public_key );
          if( it != node_finalizer_keys.end() ) {
-            found = true;
-            dlog("finalizer used: ${f}", ("f", f.public_key.to_string()));
             const auto& private_key = it->second;
             const auto& digest = bsp->compute_finalizer_digest();
 
@@ -3076,9 +3070,6 @@ struct controller_impl {
                control->self.process_vote_message(vote);
             });
          }
-      }
-      if (!found) {
-         dlog("No finalizer found on node for key, we have ${n} finalizers configured", ("n", node_finalizer_keys.size()));
       }
    }
 

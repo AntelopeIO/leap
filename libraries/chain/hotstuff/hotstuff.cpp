@@ -87,9 +87,6 @@ bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& pro
    size_t weak   = num_weak();
    size_t strong = num_strong();
 
-   // TODO: remove dlog statement
-   dlog( "strong ${n}, q ${q}", ("n", strong)("q", _quorum));
-
    switch (_state) {
    case state_t::unrestricted:
    case state_t::restricted:
