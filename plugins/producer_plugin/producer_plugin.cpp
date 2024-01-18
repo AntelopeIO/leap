@@ -1214,7 +1214,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    } else if (_producers.empty()) {
       //appbase initializes configured plugins before auto-start plugins, so if chain_api_plugin is enabled it's
       // initialized before producer_plugin (i.e. before this code here)
-      if (app().get_plugin("eosio::chain_api_plugin").get_state() == abstract_plugin::initialized) {
+      if (abstract_plugin* capi = app().find_plugin("eosio::chain_api_plugin"); capi && capi->get_state() == abstract_plugin::initialized) {
          // default to 3 threads for non producer nodes running chain_api_plugin if not specified
          _ro_thread_pool_size = 3;
          ilog("chain_api_plugin configured, defaulting read-only-threads to ${t}", ("t", _ro_thread_pool_size));
