@@ -811,7 +811,7 @@ struct controller_impl {
    chainbase::database             db;
    block_log                       blog;
    std::optional<pending_state>    pending;
-   mutable fork_database           fork_db;
+   fork_database                   fork_db;
    std::optional<chain_pacemaker>  pacemaker;
    std::atomic<uint32_t>           if_irreversible_block_num{0};
    resource_limits_manager         resource_limits;

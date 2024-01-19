@@ -134,6 +134,15 @@ namespace eosio::chain {
       }
 
       template <class R, class F>
+      R apply(const F& f) const {
+         std::lock_guard g(m);
+         if constexpr (std::is_same_v<void, R>)
+            std::visit([&](const auto& forkdb) { f(forkdb); }, v);
+         else
+            return std::visit([&](const auto& forkdb) -> R { return f(forkdb); }, v);
+      }
+
+      template <class R, class F>
       R apply_if(const F& f) {
          if constexpr (std::is_same_v<void, R>)
             std::visit(overloaded{[&](fork_database_legacy_t&) {},
