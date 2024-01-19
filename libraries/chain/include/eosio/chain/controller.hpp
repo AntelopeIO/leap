@@ -209,8 +209,6 @@ namespace eosio::chain {
 
          const chainbase::database& db()const;
 
-         const fork_database_legacy& fork_db()const;
-
          const account_object&                 get_account( account_name n )const;
          const global_property_object&         get_global_properties()const;
          const dynamic_global_property_object& get_dynamic_global_properties()const;
@@ -249,7 +247,7 @@ namespace eosio::chain {
          block_state_legacy_ptr head_block_state_legacy()const;
 
          uint32_t             fork_db_head_block_num()const;
-         const block_id_type& fork_db_head_block_id()const;
+         block_id_type        fork_db_head_block_id()const;
 
          time_point                     pending_block_time()const;
          block_timestamp_type           pending_block_timestamp()const;

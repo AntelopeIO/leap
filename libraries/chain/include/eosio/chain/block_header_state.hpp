@@ -68,7 +68,6 @@ struct block_header_state {
 
 
    // ------ functions -----------------------------------------------------------------
-#warning TDDO https://github.com/AntelopeIO/leap/issues/2080
    digest_type           compute_finalizer_digest() const { return id; };
    block_timestamp_type  timestamp() const { return header.timestamp; }
    account_name          producer() const  { return header.producer; }

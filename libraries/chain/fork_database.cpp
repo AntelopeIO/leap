@@ -8,25 +8,16 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/composite_key.hpp>
 #include <fc/io/fstream.hpp>
+#include <fc/io/cfile.hpp>
 #include <fstream>
-#include <shared_mutex>
 
 namespace eosio::chain {
    using boost::multi_index_container;
    using namespace boost::multi_index;
 
-   template<class bsp>
-   const uint32_t fork_database<bsp>::magic_number = 0x30510FDB;
-
-   template<class bsp>
-   const uint32_t fork_database<bsp>::min_supported_version = 2;
-   template<class bsp>
-   const uint32_t fork_database<bsp>::max_supported_version = 2;
-
    /**
     * History:
     * Version 1: initial version of the new refactored fork database portable format
-    * Version 2: New format for block_state for hotstuff/instant-finality
     */
 
    struct by_block_id;
@@ -48,9 +39,9 @@ namespace eosio::chain {
       using bhsp             = bs::bhsp_t;
       using bhs              = bhsp::element_type;
       
-      using fork_database_t  = fork_database<bsp>;
-      using branch_type      = fork_database_t::branch_type;
-      using branch_type_pair = fork_database_t::branch_type_pair;
+      using fork_db_t  = fork_database_t<bsp>;
+      using branch_type      = fork_db_t::branch_type;
+      using branch_type_pair = fork_db_t::branch_type_pair;
 
       using fork_multi_index_type = multi_index_container<
          bsp,
@@ -65,16 +56,15 @@ namespace eosio::chain {
                                          BOOST_MULTI_INDEX_CONST_MEM_FUN(bs, const block_id_type&, id)>,
                            composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>, sha256_less>>>>;
 
-      std::shared_mutex      mtx;
       fork_multi_index_type  index;
       bsp                    root; // Only uses the block_header_state_legacy portion
       bsp                    head;
-      const std::filesystem::path  datadir;
+      const uint32_t         magic_number;
 
-      explicit         fork_database_impl( const std::filesystem::path& data_dir ) : datadir(data_dir) {}
+      explicit fork_database_impl(uint32_t magic_number) : magic_number(magic_number) {}
 
-      void             open_impl( validator_t& validator );
-      void             close_impl();
+      void             open_impl( const std::filesystem::path& fork_db_file, validator_t& validator );
+      void             close_impl( const std::filesystem::path& fork_db_file );
       void             add_impl( const bsp& n, bool ignore_duplicate, bool validate, validator_t& validator );
 
       bhsp             get_block_header_impl( const block_id_type& id ) const;
@@ -91,56 +81,44 @@ namespace eosio::chain {
    };
 
    template<class bsp>
-   fork_database<bsp>::fork_database( const std::filesystem::path& data_dir )
-      :my( new fork_database_impl<bsp>( data_dir ) )
+   fork_database_t<bsp>::fork_database_t(uint32_t magic_number)
+      :my( new fork_database_impl<bsp>(magic_number) )
    {}
 
 
    template<class bsp>
-   void fork_database<bsp>::open( validator_t& validator ) {
-      std::lock_guard g( my->mtx );
-      my->open_impl( validator );
+   void fork_database_t<bsp>::open( const std::filesystem::path& fork_db_file, validator_t& validator ) {
+      my->open_impl( fork_db_file, validator );
    }
 
    template<class bsp>
-   std::filesystem::path fork_database<bsp>::get_data_dir() const {
-      return my->datadir;
-   }
-
-   template<class bsp>
-   void fork_database_impl<bsp>::open_impl( validator_t& validator ) {
-      if (!std::filesystem::is_directory(datadir))
-         std::filesystem::create_directories(datadir);
-
-      auto fork_db_dat = datadir / config::forkdb_filename;
-      if( std::filesystem::exists( fork_db_dat ) ) {
+   void fork_database_impl<bsp>::open_impl( const std::filesystem::path& fork_db_file, validator_t& validator ) {
+      if( std::filesystem::exists( fork_db_file ) ) {
          try {
             string content;
-            fc::read_file_contents( fork_db_dat, content );
+            fc::read_file_contents( fork_db_file, content );
 
             fc::datastream<const char*> ds( content.data(), content.size() );
 
             // validate totem
             uint32_t totem = 0;
             fc::raw::unpack( ds, totem );
-            EOS_ASSERT( totem == fork_database_t::magic_number, fork_database_exception,
+            EOS_ASSERT( totem == magic_number, fork_database_exception,
                         "Fork database file '${filename}' has unexpected magic number: ${actual_totem}. Expected ${expected_totem}",
-                        ("filename", fork_db_dat)
-                        ("actual_totem", totem)
-                        ("expected_totem", fork_database_t::magic_number)
+                        ("filename", fork_db_file)("actual_totem", totem)("expected_totem", magic_number)
             );
 
             // validate version
             uint32_t version = 0;
             fc::raw::unpack( ds, version );
-            EOS_ASSERT( version >= fork_database_t::min_supported_version && version <= fork_database_t::max_supported_version,
+            EOS_ASSERT( version >= fork_database::min_supported_version && version <= fork_database::max_supported_version,
                         fork_database_exception,
                        "Unsupported version of fork database file '${filename}'. "
                        "Fork database version is ${version} while code supports version(s) [${min},${max}]",
-                       ("filename", fork_db_dat)
+                       ("filename", fork_db_file)
                        ("version", version)
-                       ("min", fork_database_t::min_supported_version)
-                       ("max", fork_database_t::max_supported_version)
+                       ("min", fork_database::min_supported_version)
+                       ("max", fork_database::max_supported_version)
             );
 
             bhs state;
@@ -164,39 +142,36 @@ namespace eosio::chain {
                head = get_block_impl( head_id );
                EOS_ASSERT( head, fork_database_exception,
                            "could not find head while reconstructing fork database from file; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat) );
+                           ("filename", fork_db_file) );
             }
 
             auto candidate = index.template get<by_lib_block_num>().begin();
             if( candidate == index.template get<by_lib_block_num>().end() || !(*candidate)->is_valid() ) {
                EOS_ASSERT( head->id() == root->id(), fork_database_exception,
                            "head not set to root despite no better option available; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat) );
+                           ("filename", fork_db_file) );
             } else {
                EOS_ASSERT( !first_preferred( **candidate, *head ), fork_database_exception,
                            "head not set to best available option available; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat) );
+                           ("filename", fork_db_file) );
             }
-         } FC_CAPTURE_AND_RETHROW( (fork_db_dat) )
+         } FC_CAPTURE_AND_RETHROW( (fork_db_file) )
 
-         std::filesystem::remove( fork_db_dat );
+         std::filesystem::remove( fork_db_file );
       }
    }
 
    template<class bsp>
-   void fork_database<bsp>::close() {
-      std::lock_guard g( my->mtx );
-      my->close_impl();
+   void fork_database_t<bsp>::close(const std::filesystem::path& fork_db_file) {
+      my->close_impl(fork_db_file);
    }
 
    template<class bsp>
-   void fork_database_impl<bsp>::close_impl() {
-      auto fork_db_dat = datadir / config::forkdb_filename;
-
+   void fork_database_impl<bsp>::close_impl(const std::filesystem::path& fork_db_file) {
       if( !root ) {
          if( index.size() > 0 ) {
             elog( "fork_database is in a bad state when closing; not writing out '${filename}'",
-                  ("filename", fork_db_dat) );
+                  ("filename", fork_db_file) );
          }
          return;
       }
@@ -205,9 +180,9 @@ namespace eosio::chain {
       // I think it would be easier to have a different magic number for the new format (rather than a different
       // version), since we do not need to be able to load a fork_db which is meant for a different
       //  consensus (dpos vs if).
-      std::ofstream out( fork_db_dat.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
-      fc::raw::pack( out, fork_database_t::magic_number );
-      fc::raw::pack( out, fork_database_t::max_supported_version ); // write out current version which is always max_supported_version
+      std::ofstream out( fork_db_file.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
+      fc::raw::pack( out, magic_number );
+      fc::raw::pack( out, fork_database::max_supported_version ); // write out current version which is always max_supported_version
       fc::raw::pack( out, *static_cast<bhs*>(&*root) );             // [greg todo] enought to write only bhs for IF?
       uint32_t num_blocks_in_fork_db = index.size();
       fc::raw::pack( out, unsigned_int{num_blocks_in_fork_db} );
@@ -251,20 +226,14 @@ namespace eosio::chain {
          fc::raw::pack( out, head->id() );
       } else {
          elog( "head not set in fork database; '${filename}' will be corrupted",
-               ("filename", fork_db_dat) );
+               ("filename", fork_db_file) );
       }
 
       index.clear();
    }
 
    template<class bsp>
-   fork_database<bsp>::~fork_database() {
-      my->close_impl();
-   }
-
-   template<class bsp>
-   void fork_database<bsp>::reset( const bhs& root_bhs ) {
-      std::lock_guard g( my->mtx );
+   void fork_database_t<bsp>::reset( const bhs& root_bhs ) {
       my->reset_impl(root_bhs);
    }
 
@@ -278,8 +247,7 @@ namespace eosio::chain {
    }
 
    template<class bsp>
-   void fork_database<bsp>::rollback_head_to_root() {
-      std::lock_guard g( my->mtx );
+   void fork_database_t<bsp>::rollback_head_to_root() {
       my->rollback_head_to_root_impl();
    }
 
@@ -297,8 +265,7 @@ namespace eosio::chain {
    }
 
    template<class bsp>
-   void fork_database<bsp>::advance_root( const block_id_type& id ) {
-      std::lock_guard g( my->mtx );
+   void fork_database_t<bsp>::advance_root( const block_id_type& id ) {
       my->advance_root_impl( id );
    }
 
@@ -337,8 +304,7 @@ namespace eosio::chain {
    }
 
    template<class bsp>
-   fork_database<bsp>::bhsp fork_database<bsp>::get_block_header( const block_id_type& id ) const {
-      std::shared_lock g( my->mtx );
+   fork_database_t<bsp>::bhsp fork_database_t<bsp>::get_block_header( const block_id_type& id ) const {
       return my->get_block_header_impl( id );
    }
 
@@ -389,8 +355,7 @@ namespace eosio::chain {
    }
 
    template<class bsp>
-   void fork_database<bsp>::add( const bsp& n, bool ignore_duplicate ) {
-      std::lock_guard g( my->mtx );
+   void fork_database_t<bsp>::add( const bsp& n, bool ignore_duplicate ) {
       my->add_impl( n, ignore_duplicate, false,
                     []( block_timestamp_type timestamp,
                         const flat_set<digest_type>& cur_features,
@@ -400,20 +365,17 @@ namespace eosio::chain {
    }
 
    template<class bsp>
-   bsp fork_database<bsp>::root() const {
-      std::shared_lock g( my->mtx );
+   bsp fork_database_t<bsp>::root() const {
       return my->root;
    }
 
    template<class bsp>
-   bsp fork_database<bsp>::head() const {
-      std::shared_lock g( my->mtx );
+   bsp fork_database_t<bsp>::head() const {
       return my->head;
    }
 
    template<class bsp>
-   bsp fork_database<bsp>::pending_head() const {
-      std::shared_lock g( my->mtx );
+   bsp fork_database_t<bsp>::pending_head() const {
       const auto& indx = my->index.template get<by_lib_block_num>();
 
       auto itr = indx.lower_bound( false );
@@ -426,15 +388,14 @@ namespace eosio::chain {
    }
 
    template <class bsp>
-   fork_database<bsp>::branch_type
-   fork_database<bsp>::fetch_branch(const block_id_type& h,
+   fork_database_t<bsp>::branch_type
+   fork_database_t<bsp>::fetch_branch(const block_id_type& h,
                                           uint32_t trim_after_block_num) const {
-      std::shared_lock g(my->mtx);
       return my->fetch_branch_impl(h, trim_after_block_num);
    }
 
    template <class bsp>
-   fork_database<bsp>::branch_type
+   fork_database_t<bsp>::branch_type
    fork_database_impl<bsp>::fetch_branch_impl(const block_id_type& h, uint32_t trim_after_block_num) const {
       branch_type result;
       for (auto s = get_block_impl(h); s; s = get_block_impl(s->previous())) {
@@ -446,8 +407,7 @@ namespace eosio::chain {
    }
 
    template<class bsp>
-   bsp fork_database<bsp>::search_on_branch( const block_id_type& h, uint32_t block_num ) const {
-      std::shared_lock g( my->mtx );
+   bsp fork_database_t<bsp>::search_on_branch( const block_id_type& h, uint32_t block_num ) const {
       return my->search_on_branch_impl( h, block_num );
    }
 
@@ -466,14 +426,13 @@ namespace eosio::chain {
     *  end with a common ancestor (same prior block)
     */
    template <class bsp>
-   fork_database<bsp>::branch_type_pair
-   fork_database<bsp>::fetch_branch_from(const block_id_type& first, const block_id_type& second) const {
-      std::shared_lock g(my->mtx);
+   fork_database_t<bsp>::branch_type_pair
+   fork_database_t<bsp>::fetch_branch_from(const block_id_type& first, const block_id_type& second) const {
       return my->fetch_branch_from_impl(first, second);
    }
 
    template <class bsp>
-   fork_database<bsp>::branch_type_pair
+   fork_database_t<bsp>::branch_type_pair
    fork_database_impl<bsp>::fetch_branch_from_impl(const block_id_type& first, const block_id_type& second) const {
       pair<branch_type, branch_type> result;
       auto first_branch = (first == root->id()) ? root : get_block_impl(first);
@@ -534,8 +493,7 @@ namespace eosio::chain {
 
    /// remove all of the invalid forks built off of this id including this id
    template<class bsp>
-   void fork_database<bsp>::remove( const block_id_type& id ) {
-      std::lock_guard g( my->mtx );
+   void fork_database_t<bsp>::remove( const block_id_type& id ) {
       return my->remove_impl( id );
    }
 
@@ -562,8 +520,7 @@ namespace eosio::chain {
    }
 
    template<class bsp>
-   void fork_database<bsp>::mark_valid( const bsp& h ) {
-      std::lock_guard g( my->mtx );
+   void fork_database_t<bsp>::mark_valid( const bsp& h ) {
       my->mark_valid_impl( h );
    }
 
@@ -589,8 +546,7 @@ namespace eosio::chain {
    }
 
    template<class bsp>
-   bsp fork_database<bsp>::get_block(const block_id_type& id) const {
-      std::shared_lock g( my->mtx );
+   bsp fork_database_t<bsp>::get_block(const block_id_type& id) const {
       return my->get_block_impl(id);
    }
 
@@ -602,9 +558,80 @@ namespace eosio::chain {
       return bsp();
    }
 
+   // ------------------ fork_database -------------------------
+
+   fork_database::fork_database(const std::filesystem::path& data_dir)
+      : data_dir(data_dir) {
+   }
+
+   fork_database::~fork_database() {
+      apply<void>([&](auto& forkdb) { forkdb.close(data_dir / config::forkdb_filename); });
+   }
+
+   void fork_database::open( validator_t& validator ) {
+      std::lock_guard g(m);
+      if (!std::filesystem::is_directory(data_dir))
+         std::filesystem::create_directories(data_dir);
+
+      auto fork_db_file = data_dir / config::forkdb_filename;
+      if( std::filesystem::exists( fork_db_file ) ) {
+         try {
+            fc::cfile f;
+            f.set_file_path(fork_db_file);
+            f.open("rb");
+
+            fc::cfile_datastream ds(f);
+
+            // determine file type, validate totem
+            uint32_t totem = 0;
+            fc::raw::unpack( ds, totem );
+            EOS_ASSERT( totem == fork_database_legacy_t::legacy_magic_number || totem == fork_database_if_t::magic_number, fork_database_exception,
+                        "Fork database file '${filename}' has unexpected magic number: ${actual_totem}. Expected ${t1} or ${t2}",
+                        ("filename", fork_db_file)
+                        ("actual_totem", totem)("t1", fork_database_legacy_t::legacy_magic_number)("t2", fork_database_if_t::magic_number)
+            );
+
+            if (totem == fork_database_legacy_t::legacy_magic_number) {
+               apply_dpos<void>([&](auto& forkdb) {
+                  forkdb.open(fork_db_file, validator);
+               });
+            } else {
+               // file is instant-finality data, so switch to fork_database_if_t
+               v.emplace<fork_database_if_t>(fork_database_if_t::magic_number);
+               apply_if<void>([&](auto& forkdb) {
+                  forkdb.open(fork_db_file, validator);
+               });
+            }
+         } FC_CAPTURE_AND_RETHROW( (fork_db_file) )
+      }
+   }
+
+   void fork_database::switch_from_legacy() {
+      // no need to close fork_db because we don't want to write anything out, file is removed on open
+      block_state_legacy_ptr head = std::get<fork_database_legacy_t>(v).chain_head; // will throw if called after transistion
+      auto new_head = std::make_shared<block_state>(*head);
+      std::lock_guard g(m);
+      v.emplace<fork_database_if_t>(fork_database_if_t::magic_number);
+      apply_if<void>([&](auto& forkdb) {
+         forkdb.chain_head = new_head;
+         forkdb.reset(*new_head);
+      });
+   }
+
+   std::vector<signed_block_ptr> fork_database::fetch_branch_from_head() {
+      std::vector<signed_block_ptr> r;
+      apply<void>([&](auto& forkdb) {
+         auto branch = forkdb.fetch_branch(forkdb.head()->id());
+         r.reserve(branch.size());
+         for (auto& b : branch)
+            r.push_back(b->block);
+      });
+      return r;
+   }
+
    // do class instantiations
-   template class fork_database<block_state_legacy_ptr>;
-   template class fork_database<block_state_ptr>;
+   template class fork_database_t<block_state_legacy_ptr>;
+   template class fork_database_t<block_state_ptr>;
    
    template struct fork_database_impl<block_state_legacy_ptr>;
    template struct fork_database_impl<block_state_ptr>;
