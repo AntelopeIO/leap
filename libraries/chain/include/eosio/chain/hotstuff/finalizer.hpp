@@ -32,8 +32,8 @@ namespace eosio::chain {
       safety_information  fsi;
 
    private:
-      qc_chain     get_qc_chain(const block_state_ptr&  proposal, const fork_db_t& fork_db) const;
-      VoteDecision decide_vote(const block_state_ptr& proposal, const fork_db_t& fork_db) const;
+      qc_chain     get_qc_chain(const block_state_ptr&  proposal, const fork_db_t::branch_type& branch) const;
+      VoteDecision decide_vote(const block_state_ptr& proposal, const fork_db_t& fork_db);
    };
 
 }
