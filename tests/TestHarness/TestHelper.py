@@ -57,7 +57,7 @@ class TestHelper(object):
         if "--nodes-file" in includeArgs:
             thGrp.add_argument("--nodes-file", type=str, help=argparse.SUPPRESS if suppressHelp else "File containing nodes info in JSON format.")
         if "-s" in includeArgs:
-            thGrp.add_argument("-s", type=str, help=argparse.SUPPRESS if suppressHelp else "topology", choices=["mesh"], default="mesh")
+            thGrp.add_argument("-s", type=str, help=argparse.SUPPRESS if suppressHelp else "topology", choices=['star', 'mesh', 'ring', 'line'], default="mesh")
         if "-c" in includeArgs:
             thGrp.add_argument("-c", type=str, help=argparse.SUPPRESS if suppressHelp else "chain strategy",
                     choices=[Utils.SyncResyncTag, Utils.SyncReplayTag, Utils.SyncNoneTag, Utils.SyncHardReplayTag],

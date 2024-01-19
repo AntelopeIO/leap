@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
          bool strong = (i % 2 == 0); // alternate strong and weak
          auto sig = strong ? private_key[i].sign(strong_digest_data) : private_key[i].sign(weak_digest_data);
          hs_vote_message vote{ block_id, strong, public_key[i], sig };
-         BOOST_REQUIRE(bsp->aggregate_vote(vote));
+         BOOST_REQUIRE(bsp->aggregate_vote(vote).first);
       }
    }
 
@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bsp->pending_qc = pending_quorum_certificate{ num_finalizers, 1 };
 
       hs_vote_message vote {block_id, true, public_key[0], private_key[1].sign(strong_digest_data) };
-      BOOST_REQUIRE(!bsp->aggregate_vote(vote));
+      BOOST_REQUIRE(!bsp->aggregate_vote(vote).first);
    }
 
    {  // duplicate votes 
@@ -69,8 +69,8 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bsp->pending_qc = pending_quorum_certificate{ num_finalizers, 1 };
 
       hs_vote_message vote {block_id, true, public_key[0], private_key[0].sign(strong_digest_data) };
-      BOOST_REQUIRE(bsp->aggregate_vote(vote));
-      BOOST_REQUIRE(!bsp->aggregate_vote(vote));
+      BOOST_REQUIRE(bsp->aggregate_vote(vote).first);
+      BOOST_REQUIRE(!bsp->aggregate_vote(vote).first);
    }
 
    {  // public key does not exit in finalizer set
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bls_public_key new_public_key{ new_private_key.get_public_key() };
 
       hs_vote_message vote {block_id, true, new_public_key, private_key[0].sign(strong_digest_data) };
-      BOOST_REQUIRE(!bsp->aggregate_vote(vote));
+      BOOST_REQUIRE(!bsp->aggregate_vote(vote).first);
    }
 } FC_LOG_AND_RETHROW();
 

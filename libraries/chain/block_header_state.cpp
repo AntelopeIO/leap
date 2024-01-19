@@ -24,7 +24,8 @@ block_header_state_core block_header_state_core::next(qc_info_t incoming) const 
    }
 
    EOS_ASSERT(incoming.last_qc_block_num > this->last_qc_block_num, block_validate_exception,
-              "new last_qc_block_num must be greater than old last_qc_block_num");
+              "new last_qc_block_num ${new} must be greater than old last_qc_block_num ${old}",
+              ("new", incoming.last_qc_block_num)("old", this->last_qc_block_num));
 
    auto old_last_qc_block_num            = this->last_qc_block_num;
    auto old_final_on_strong_qc_block_num = this->final_on_strong_qc_block_num;
@@ -117,9 +118,8 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    result.active_finalizer_policy = active_finalizer_policy;
 
    // [greg todo] correct support for new finalizer_policy activation using finalizer_policies map
-
-   if (input.new_finalizer_policy)
-      ++input.new_finalizer_policy->generation;
+   //   if (input.new_finalizer_policy)
+   //      ++input.new_finalizer_policy->generation;
 
 
    // add IF block header extension
@@ -131,7 +131,9 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    instant_finality_extension new_if_ext {if_ext.qc_info,
                                           std::move(input.new_finalizer_policy),
                                           std::move(input.new_proposer_policy)};
-   if (input.qc_info)
+   if (input.validating)
+      new_if_ext.qc_info = input.qc_info;
+   else if (input.qc_info)
       new_if_ext.qc_info = *input.qc_info;
 
    emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
@@ -196,7 +198,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
 
    block_header_state_input bhs_input{
       bb_input,      h.transaction_mroot, h.action_mroot, if_ext.new_proposer_policy, if_ext.new_finalizer_policy,
-      if_ext.qc_info};
+      if_ext.qc_info, true};
 
    return next(bhs_input);
 }
