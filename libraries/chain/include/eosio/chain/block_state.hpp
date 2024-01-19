@@ -32,6 +32,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    void                   set_valid(bool b)         { validated = b; }
    uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
    std::optional<quorum_certificate> get_best_qc() const;
+   std::optional<uint32_t>          last_qc_block_num() const { return core.last_qc_block_num; }
       
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }

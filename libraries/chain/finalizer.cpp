@@ -57,26 +57,31 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    auto p_branch = fork_db.fetch_branch(p->id());
 
    qc_chain chain = get_qc_chain(p, p_branch);
+
    auto bsp_last_vote = fsi.last_vote.empty() ? block_state_ptr{} : fork_db.get_block(fsi.last_vote);
+   auto bsp_last_qc   = p->last_qc_block_num() ? get_block_by_height(p_branch, *p->last_qc_block_num()) : block_state_ptr{};
+   auto bsp_lock      = fsi.lock_id.empty() ? block_state_ptr{} : fork_db.get_block(fsi.lock_id);
 
    bool monotony_check = !bsp_last_vote || p->timestamp() > bsp_last_vote->timestamp();
    // !bsp_last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed
 
-   auto bsp_last_qc = p->core.last_qc_block_num ? get_block_by_height(p_branch, *p->core.last_qc_block_num) : block_state_ptr{};
-   auto bsp_lock    = fsi.lock_id.empty() ? block_state_ptr{} : fork_db.get_block(fsi.lock_id);
    if (bsp_lock) {
       assert(bsp_lock); // [if todo] can we assert that the lock_id block is always found in fork_db?
 
       // Safety check : check if this proposal extends the proposal we're locked on
+      // --------------------------------------------------------------------------
       if (extends(fork_db, p, bsp_lock))
          safety_check = true;
 
-      // Liveness check : check if the height of this proposal's justification is higher than the height
-      // of the proposal I'm locked on. This allows restoration of liveness if a replica is locked on a stale proposal
+      // Liveness check : check if the height of this proposal's justification is higher
+      // than the height of the proposal I'm locked on.
+      // This allows restoration of liveness if a replica is locked on a stale proposal
+      // -------------------------------------------------------------------------------
       if (!bsp_last_qc || bsp_last_qc->timestamp() > bsp_lock->timestamp())
          liveness_check = true;
    } else {
       // if we're not locked on anything, means the protocol feature just activated and we can proceed
+      // ---------------------------------------------------------------------------------------------
       liveness_check = true;
       safety_check   = true;
    }
@@ -99,12 +104,9 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
       // my last vote was on (t7, t9], I'm asked to vote on t10 :
       //                 t7 < t10 && t9 < t9;     // time_range_interference == false, correct
 
-      bool enough_for_strong_vote = false;
+      bool enough_for_strong_vote = !time_range_interference || extends(fork_db, p, bsp_last_vote);
 
-      if (!time_range_interference || extends(fork_db, p, bsp_last_vote))
-         enough_for_strong_vote = true;
-
-      // fsi.is_last_vote_strong = enough_for_strong_vote;
+      // fsi.is_last_vote_strong = enough_for_strong_vote; // [if todo] are we not using is_last_vote_strong
       fsi.last_vote = p->id();         // v_height
 
       if (chain.b1 && (!bsp_lock || chain.b1->timestamp() > bsp_lock->timestamp()))
