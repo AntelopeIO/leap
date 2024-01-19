@@ -917,27 +917,27 @@ struct controller_impl {
    }
 
    template <typename ForkDB>
-   typename ForkDB::bsp_t fork_db_head(const ForkDB& fork_db, bool irreversible_mode) const {
+   typename ForkDB::bsp_t fork_db_head(const ForkDB& forkdb, bool irreversible_mode) const {
       if (irreversible_mode) {
          // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
          // fork_db.head() returns irreversible block
          // Use pending_head since this method should return the chain head and not last irreversible.
-         return fork_db.pending_head();
+         return forkdb.pending_head();
       } else {
-         return fork_db.head();
+         return forkdb.head();
       }
    }
 
-   uint32_t fork_db_head_block_num(bool irreversible_mode) const {
-      return fork_db.apply<uint32_t>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode)->block_num(); } );
+   uint32_t fork_db_head_block_num() const {
+      return fork_db.apply<uint32_t>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->block_num(); } );
    }
 
-   block_id_type fork_db_head_block_id(bool irreversible_mode) const {
-      return fork_db.apply<block_id_type>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode)->id(); } );
+   block_id_type fork_db_head_block_id() const {
+      return fork_db.apply<block_id_type>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->id(); } );
    }
 
-   uint32_t fork_db_head_irreversible_blocknum(bool irreversible_mode) const {
-      return fork_db.apply<uint32_t>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode)->irreversible_blocknum(); });
+   uint32_t fork_db_head_irreversible_blocknum() const {
+      return fork_db.apply<uint32_t>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->irreversible_blocknum(); });
    }
 
    // --------------- access fork_db root ----------------------------------------------------------------------
@@ -1172,8 +1172,8 @@ struct controller_impl {
       if( new_lib <= lib_num )
          return;
 
-      auto mark_branch_irreversible = [&](auto& fork_db) {
-         auto branch = fork_db.fetch_branch( fork_db_head_block_id(), new_lib );
+      auto mark_branch_irreversible = [&, this](auto& forkdb) {
+         auto branch = forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib );
          try {
             std::vector<std::future<std::vector<char>>> v;
             v.reserve( branch.size() );
@@ -1199,17 +1199,17 @@ struct controller_impl {
                root_id = (*bitr)->id();
             }
          } catch( std::exception& ) {
-            if( root_id != fork_db.root()->id() ) {
-               fork_db.advance_root( root_id );
+            if( root_id != forkdb.root()->id() ) {
+               forkdb.advance_root( root_id );
             }
             throw;
          }
 
          //db.commit( new_lib ); // redundant
 
-         if( root_id != fork_db.root()->id() ) {
-            branch.emplace_back(fork_db.root());
-            fork_db.advance_root( root_id );
+         if( root_id != forkdb.root()->id() ) {
+            branch.emplace_back(forkdb.root());
+            forkdb.advance_root( root_id );
          }
 
          // delete branch in thread pool
@@ -2838,123 +2838,120 @@ struct controller_impl {
                      const trx_meta_cache_lookup& trx_lookup ) {
       try {
          try {
-            auto do_the_work = [&](auto&) {
-               auto start = fc::time_point::now();
-               const signed_block_ptr& b = bsp->block;
-               const auto& new_protocol_feature_activations = bsp->get_new_protocol_feature_activations();
+            auto start = fc::time_point::now();
+            const signed_block_ptr& b = bsp->block;
+            const auto& new_protocol_feature_activations = bsp->get_new_protocol_feature_activations();
 
-               auto producer_block_id = bsp->id();
-               start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
+            auto producer_block_id = bsp->id();
+            start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
-               // validated in create_block_token()
-               std::get<building_block>(pending->_block_stage).trx_mroot_or_receipt_digests() = b->transaction_mroot;
+            // validated in create_block_token()
+            std::get<building_block>(pending->_block_stage).trx_mroot_or_receipt_digests() = b->transaction_mroot;
 
-               const bool existing_trxs_metas = !bsp->trxs_metas().empty();
-               const bool pub_keys_recovered = bsp->is_pub_keys_recovered();
-               const bool skip_auth_checks = self.skip_auth_check();
-               std::vector<std::tuple<transaction_metadata_ptr, recover_keys_future>> trx_metas;
-               bool use_bsp_cached = false;
-               if( pub_keys_recovered || (skip_auth_checks && existing_trxs_metas) ) {
-                  use_bsp_cached = true;
-               } else {
-                  trx_metas.reserve( b->transactions.size() );
-                  for( const auto& receipt : b->transactions ) {
-                     if( std::holds_alternative<packed_transaction>(receipt.trx)) {
-                        const auto& pt = std::get<packed_transaction>(receipt.trx);
-                        transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( pt.id() ) : transaction_metadata_ptr{};
-                        if( trx_meta_ptr && *trx_meta_ptr->packed_trx() != pt ) trx_meta_ptr = nullptr;
-                        if( trx_meta_ptr && ( skip_auth_checks || !trx_meta_ptr->recovered_keys().empty() ) ) {
-                           trx_metas.emplace_back( std::move( trx_meta_ptr ), recover_keys_future{} );
-                        } else if( skip_auth_checks ) {
-                           packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
-                           trx_metas.emplace_back(
-                              transaction_metadata::create_no_recover_keys( std::move(ptrx), transaction_metadata::trx_type::input ),
-                              recover_keys_future{} );
-                        } else {
-                           packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
-                           auto fut = transaction_metadata::start_recover_keys(
-                              std::move( ptrx ), thread_pool.get_executor(), chain_id, fc::microseconds::maximum(),
-                              transaction_metadata::trx_type::input  );
-                           trx_metas.emplace_back( transaction_metadata_ptr{}, std::move( fut ) );
-                        }
+            const bool existing_trxs_metas = !bsp->trxs_metas().empty();
+            const bool pub_keys_recovered = bsp->is_pub_keys_recovered();
+            const bool skip_auth_checks = self.skip_auth_check();
+            std::vector<std::tuple<transaction_metadata_ptr, recover_keys_future>> trx_metas;
+            bool use_bsp_cached = false;
+            if( pub_keys_recovered || (skip_auth_checks && existing_trxs_metas) ) {
+               use_bsp_cached = true;
+            } else {
+               trx_metas.reserve( b->transactions.size() );
+               for( const auto& receipt : b->transactions ) {
+                  if( std::holds_alternative<packed_transaction>(receipt.trx)) {
+                     const auto& pt = std::get<packed_transaction>(receipt.trx);
+                     transaction_metadata_ptr trx_meta_ptr = trx_lookup ? trx_lookup( pt.id() ) : transaction_metadata_ptr{};
+                     if( trx_meta_ptr && *trx_meta_ptr->packed_trx() != pt ) trx_meta_ptr = nullptr;
+                     if( trx_meta_ptr && ( skip_auth_checks || !trx_meta_ptr->recovered_keys().empty() ) ) {
+                        trx_metas.emplace_back( std::move( trx_meta_ptr ), recover_keys_future{} );
+                     } else if( skip_auth_checks ) {
+                        packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
+                        trx_metas.emplace_back(
+                           transaction_metadata::create_no_recover_keys( std::move(ptrx), transaction_metadata::trx_type::input ),
+                           recover_keys_future{} );
+                     } else {
+                        packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
+                        auto fut = transaction_metadata::start_recover_keys(
+                           std::move( ptrx ), thread_pool.get_executor(), chain_id, fc::microseconds::maximum(),
+                           transaction_metadata::trx_type::input  );
+                        trx_metas.emplace_back( transaction_metadata_ptr{}, std::move( fut ) );
                      }
                   }
                }
+            }
 
-               transaction_trace_ptr trace;
+            transaction_trace_ptr trace;
 
-               size_t packed_idx = 0;
-               const auto& trx_receipts = std::get<building_block>(pending->_block_stage).pending_trx_receipts();
-               for( const auto& receipt : b->transactions ) {
-                  auto num_pending_receipts = trx_receipts.size();
-                  if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-                     const auto& trx_meta = (use_bsp_cached ? bsp->trxs_metas().at(packed_idx)
-                                                            : (!!std::get<0>(trx_metas.at(packed_idx))
-                                                                  ? std::get<0>(trx_metas.at(packed_idx))
-                                                                  : std::get<1>(trx_metas.at(packed_idx)).get()));
-                     trace = push_transaction(trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(),
-                                              receipt.cpu_usage_us, true, 0);
-                     ++packed_idx;
-                  } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
-                     trace = push_scheduled_transaction(std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(),
-                                                        fc::microseconds::maximum(), receipt.cpu_usage_us, true);
-                  } else {
-                     EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
-                  }
-
-                  bool transaction_failed   = trace && trace->except;
-                  bool transaction_can_fail = receipt.status == transaction_receipt_header::hard_fail &&
-                                              std::holds_alternative<transaction_id_type>(receipt.trx);
-
-                  if( transaction_failed && !transaction_can_fail) {
-                     edump((*trace));
-                     throw *trace->except;
-                  }
-
-                  EOS_ASSERT(trx_receipts.size() > 0, block_validate_exception,
-                             "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
-                             ("bn", b->block_num())("id", producer_block_id)("e", receipt));
-                  EOS_ASSERT(trx_receipts.size() == num_pending_receipts + 1, block_validate_exception,
-                             "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
-                             ("bn", b->block_num())("id", producer_block_id)("e", receipt));
-                  const transaction_receipt_header& r = trx_receipts.back();
-                  EOS_ASSERT(r == static_cast<const transaction_receipt_header&>(receipt), block_validate_exception,
-                             "receipt does not match, ${lhs} != ${rhs}",
-                             ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
+            size_t packed_idx = 0;
+            const auto& trx_receipts = std::get<building_block>(pending->_block_stage).pending_trx_receipts();
+            for( const auto& receipt : b->transactions ) {
+               auto num_pending_receipts = trx_receipts.size();
+               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+                  const auto& trx_meta = (use_bsp_cached ? bsp->trxs_metas().at(packed_idx)
+                                                         : (!!std::get<0>(trx_metas.at(packed_idx))
+                                                               ? std::get<0>(trx_metas.at(packed_idx))
+                                                               : std::get<1>(trx_metas.at(packed_idx)).get()));
+                  trace = push_transaction(trx_meta, fc::time_point::maximum(), fc::microseconds::maximum(),
+                                           receipt.cpu_usage_us, true, 0);
+                  ++packed_idx;
+               } else if( std::holds_alternative<transaction_id_type>(receipt.trx) ) {
+                  trace = push_scheduled_transaction(std::get<transaction_id_type>(receipt.trx), fc::time_point::maximum(),
+                                                     fc::microseconds::maximum(), receipt.cpu_usage_us, true);
+               } else {
+                  EOS_ASSERT( false, block_validate_exception, "encountered unexpected receipt type" );
                }
 
-               std::optional<qc_info_t> qc_info;
-               auto exts = b->validate_and_extract_header_extensions();
-               if (auto if_entry = exts.lower_bound(instant_finality_extension::extension_id()); if_entry != exts.end()) {
-                  auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
-                  qc_info = if_ext.qc_info;
-               }
-               finish_block(true, qc_info);
+               bool transaction_failed   = trace && trace->except;
+               bool transaction_can_fail = receipt.status == transaction_receipt_header::hard_fail &&
+                                           std::holds_alternative<transaction_id_type>(receipt.trx);
 
-               auto& ab = std::get<assembled_block>(pending->_block_stage);
-
-               if( producer_block_id != ab.id() ) {
-                  elog( "Validation block id does not match producer block id" );
-
-                  report_block_header_diff(*b, ab.header());
-            
-                  // this implicitly asserts that all header fields (less the signature) are identical
-                  EOS_ASSERT(producer_block_id == ab.id(), block_validate_exception, "Block ID does not match",
-                             ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
+               if( transaction_failed && !transaction_can_fail) {
+                  edump((*trace));
+                  throw *trace->except;
                }
 
-               if( !use_bsp_cached ) {
-                  bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
-               }
-               // create completed_block with the existing block_state as we just verified it is the same as assembled_block
-               pending->_block_stage = completed_block{ bsp };
+               EOS_ASSERT(trx_receipts.size() > 0, block_validate_exception,
+                          "expected a receipt, block_num ${bn}, block_id ${id}, receipt ${e}",
+                          ("bn", b->block_num())("id", producer_block_id)("e", receipt));
+               EOS_ASSERT(trx_receipts.size() == num_pending_receipts + 1, block_validate_exception,
+                          "expected receipt was not added, block_num ${bn}, block_id ${id}, receipt ${e}",
+                          ("bn", b->block_num())("id", producer_block_id)("e", receipt));
+               const transaction_receipt_header& r = trx_receipts.back();
+               EOS_ASSERT(r == static_cast<const transaction_receipt_header&>(receipt), block_validate_exception,
+                          "receipt does not match, ${lhs} != ${rhs}",
+                          ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
+            }
 
-               br = pending->_block_report; // copy before commit block destroys pending
-               commit_block(s);
-               br.total_time = fc::time_point::now() - start;
-            };
-            fork_db.apply<void>(do_the_work);
-            return;
+            std::optional<qc_info_t> qc_info;
+            auto exts = b->validate_and_extract_header_extensions();
+            if (auto if_entry = exts.lower_bound(instant_finality_extension::extension_id()); if_entry != exts.end()) {
+               auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+               qc_info = if_ext.qc_info;
+            }
+            finish_block(true, qc_info);
+
+            auto& ab = std::get<assembled_block>(pending->_block_stage);
+
+            if( producer_block_id != ab.id() ) {
+               elog( "Validation block id does not match producer block id" );
+
+               report_block_header_diff(*b, ab.header());
+
+               // this implicitly asserts that all header fields (less the signature) are identical
+               EOS_ASSERT(producer_block_id == ab.id(), block_validate_exception, "Block ID does not match",
+                          ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
+            }
+
+            if( !use_bsp_cached ) {
+               bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
+            }
+            // create completed_block with the existing block_state as we just verified it is the same as assembled_block
+            pending->_block_stage = completed_block{ bsp };
+
+            br = pending->_block_report; // copy before commit block destroys pending
+            commit_block(s);
+            br.total_time = fc::time_point::now() - start;
+
          } catch ( const std::bad_alloc& ) {
             throw;
          } catch ( const boost::interprocess::bad_alloc& ) {
@@ -3626,10 +3623,7 @@ struct controller_impl {
       }
    }
 
-   bool                 irreversible_mode()      const { return read_mode == db_read_mode::IRREVERSIBLE; }
-   block_id_type        fork_db_head_block_id()  const { return fork_db_head_block_id(irreversible_mode()); }
-   uint32_t             fork_db_head_block_num() const { return fork_db_head_block_num(irreversible_mode()); }
-   uint32_t             fork_db_head_irreversible_blocknum() const { return fork_db_head_irreversible_blocknum(irreversible_mode()); }
+   bool irreversible_mode() const { return read_mode == db_read_mode::IRREVERSIBLE; }
 }; /// controller_impl
 
 thread_local platform_timer controller_impl::timer;
@@ -3996,7 +3990,7 @@ const signed_block_ptr& controller::head_block()const {
 }
 
 uint32_t controller::fork_db_head_block_num()const {
-   return my->fork_db_head_block_num(my->read_mode == db_read_mode::IRREVERSIBLE);
+   return my->fork_db_head_block_num();
 }
 
 block_id_type controller::fork_db_head_block_id()const {
