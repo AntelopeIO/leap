@@ -558,8 +558,8 @@ struct assembled_block {
                         v);
    }
 
-   completed_block make_completed_block(const protocol_feature_set& pfs, validator_t validator,
-                                        const signer_callback_type& signer) {
+   completed_block complete_block(const protocol_feature_set& pfs, validator_t validator,
+                                  const signer_callback_type& signer) {
       return std::visit(overloaded{[&](assembled_block_dpos& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
@@ -2693,7 +2693,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void finish_block(bool validating = false, std::optional<qc_info_t> validating_qc_info = {})
+   void assemble_block(bool validating = false, std::optional<qc_info_t> validating_qc_info = {})
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -3003,7 +3003,7 @@ struct controller_impl {
                   auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
                   qc_info = if_ext.qc_info;
                }
-               finish_block(true, qc_info);
+               assemble_block(true, qc_info);
 
                auto& ab = std::get<assembled_block>(pending->_block_stage);
 
@@ -3935,13 +3935,13 @@ void controller::start_block( block_timestamp_type when,
                     bs, std::optional<block_id_type>(), deadline );
 }
 
-void controller::finish_block( block_report& br, const signer_callback_type& signer_callback ) {
+void controller::assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback ) {
    validate_db_available_size();
 
-   my->finish_block();
+   my->assemble_block();
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
-   my->pending->_block_stage = ab.make_completed_block(
+   my->pending->_block_stage = ab.complete_block(
       my->protocol_features.get_protocol_feature_set(),
       [](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features, const vector<digest_type>& new_features) {},
       signer_callback);
