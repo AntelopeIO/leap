@@ -33,7 +33,6 @@ struct block_header_state_input : public building_block_input {
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
    std::optional<qc_info_t>          qc_info;              // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
-   bool                              validating = false;
 };
 
 struct block_header_state_core {
@@ -79,11 +78,6 @@ struct block_header_state {
    block_header_state next(block_header_state_input& data) const;
 
    block_header_state next(const signed_block_header& h, const protocol_feature_set& pfs, validator_t& validator) const;
-
-   // block descending from this need the provided qc in the block extension
-   bool is_needed(const quorum_certificate& qc) const {
-      return !core.last_qc_block_num || qc.block_height > *core.last_qc_block_num;
-   }
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    const vector<digest_type>& get_new_protocol_feature_activations() const;

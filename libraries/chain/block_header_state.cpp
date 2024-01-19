@@ -131,9 +131,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    instant_finality_extension new_if_ext {if_ext.qc_info,
                                           std::move(input.new_finalizer_policy),
                                           std::move(input.new_proposer_policy)};
-   if (input.validating)
-      new_if_ext.qc_info = input.qc_info;
-   else if (input.qc_info)
+   if (input.qc_info)
       new_if_ext.qc_info = *input.qc_info;
 
    emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
@@ -198,7 +196,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
 
    block_header_state_input bhs_input{
       bb_input,      h.transaction_mroot, h.action_mroot, if_ext.new_proposer_policy, if_ext.new_finalizer_policy,
-      if_ext.qc_info, true};
+      if_ext.qc_info };
 
    return next(bhs_input);
 }

@@ -914,7 +914,7 @@ struct building_block {
                std::optional<qc_data_t> qc_data;
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
-                  qc_data = validating_qc_data;
+                  qc_data = std::move(validating_qc_data);
                } else {
                   auto branch = fork_db.fetch_branch(parent_id());
                   for( auto it = branch.begin(); it != branch.end(); ++it ) {
@@ -939,7 +939,7 @@ struct building_block {
                block_header_state_input bhs_input{
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{}, validating
+                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{}
                };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
@@ -2713,8 +2713,9 @@ struct controller_impl {
             );
          resource_limits.process_block_usage(bb.block_num());
 
-         auto assembled_block = bb.assemble_block(thread_pool.get_executor(),
-            protocol_features.get_protocol_feature_set(), block_data, validating, validating_qc_data);
+         auto assembled_block =
+            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data,
+                              validating, std::move(validating_qc_data));
 
          // Update TaPoS table:
          create_block_summary(  assembled_block.id() );
@@ -2906,21 +2907,18 @@ struct controller_impl {
 
    static std::optional<qc_data_t> extract_qc_data(const signed_block_ptr& b) {
       std::optional<qc_data_t> qc_data;
-      auto hexts = b->validate_and_extract_header_extensions();
-      if (auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id()); if_entry != hexts.end()) {
+      auto exts = b->validate_and_extract_extensions();
+      if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
+         auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
+
+         // get the matching header extension... should always be present
+         auto hexts = b->validate_and_extract_header_extensions();
+         auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id());
+         assert(if_entry != hexts.end());
          auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
-         if (if_ext.qc_info) {
-            auto exts = b->validate_and_extract_extensions();
-            if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
-               // this should always be the case that we find a quorum_certificate_extension
-               auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
-               qc_data = { qc_ext.qc, *if_ext.qc_info };
-            }
-            else
-               qc_data = { quorum_certificate{}, *if_ext.qc_info };
-         }
+         return qc_data_t{ std::move(qc_ext.qc), *if_ext.qc_info };
       }
-      return qc_data;
+      return {};
    }
 
    template<class BSP>
