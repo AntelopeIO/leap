@@ -856,7 +856,7 @@ struct building_block {
                                   const protocol_feature_set& pfs,
                                   const block_data_t& block_data,
                                   bool validating,
-                                  std::optional<qc_info_t> validating_qc_info) {
+                                  std::optional<qc_data_t> validating_qc_data) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -912,7 +912,10 @@ struct building_block {
                // find most recent ancestor block that has a QC by traversing fork db
                // branch from parent
                std::optional<qc_data_t> qc_data;
-               if (!validating) {
+               if (validating) {
+                  // we are simulating a block received from the network. Use the embedded qc from the block
+                  qc_data = validating_qc_data;
+               } else {
                   auto branch = fork_db.fetch_branch(parent_id());
                   for( auto it = branch.begin(); it != branch.end(); ++it ) {
                      auto qc = (*it)->get_best_qc();
@@ -933,16 +936,10 @@ struct building_block {
                   .new_protocol_feature_activations = new_protocol_feature_activations()
                };
 
-               std::optional<qc_info_t> qc_info;
-               if (validating) {
-                  qc_info = validating_qc_info;
-               } else if (qc_data) {
-                  qc_info = qc_data->qc_info;
-               }
                block_header_state_input bhs_input{
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_info, validating
+                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{}, validating
                };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
@@ -2693,7 +2690,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void assemble_block(bool validating = false, std::optional<qc_info_t> validating_qc_info = {})
+   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {})
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -2717,7 +2714,7 @@ struct controller_impl {
          resource_limits.process_block_usage(bb.block_num());
 
          auto assembled_block = bb.assemble_block(thread_pool.get_executor(),
-            protocol_features.get_protocol_feature_set(), block_data, validating, validating_qc_info);
+            protocol_features.get_protocol_feature_set(), block_data, validating, validating_qc_data);
 
          // Update TaPoS table:
          create_block_summary(  assembled_block.id() );
@@ -2907,6 +2904,25 @@ struct controller_impl {
 #undef EOS_REPORT
    }
 
+   static std::optional<qc_data_t> extract_qc_data(const signed_block_ptr& b) {
+      std::optional<qc_data_t> qc_data;
+      auto hexts = b->validate_and_extract_header_extensions();
+      if (auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id()); if_entry != hexts.end()) {
+         auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+         if (if_ext.qc_info) {
+            auto exts = b->validate_and_extract_extensions();
+            if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
+               // this should always be the case that we find a quorum_certificate_extension
+               auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
+               qc_data = { qc_ext.qc, *if_ext.qc_info };
+            }
+            else
+               qc_data = { quorum_certificate{}, *if_ext.qc_info };
+         }
+      }
+      return qc_data;
+   }
+
    template<class BSP>
    void apply_block( controller::block_report& br, const BSP& bsp, controller::block_status s,
                      const trx_meta_cache_lookup& trx_lookup ) {
@@ -2997,13 +3013,7 @@ struct controller_impl {
                              ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
                }
 
-               std::optional<qc_info_t> qc_info;
-               auto exts = b->validate_and_extract_header_extensions();
-               if (auto if_entry = exts.lower_bound(instant_finality_extension::extension_id()); if_entry != exts.end()) {
-                  auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
-                  qc_info = if_ext.qc_info;
-               }
-               assemble_block(true, qc_info);
+               assemble_block(true, extract_qc_data(b));
 
                auto& ab = std::get<assembled_block>(pending->_block_stage);
 
