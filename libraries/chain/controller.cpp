@@ -2886,18 +2886,16 @@ struct controller_impl {
       EOS_REPORT( "header_extensions", b.header_extensions, ab.header_extensions )
 
       if (b.header_extensions != ab.header_extensions) {
-         {
-            flat_multimap<uint16_t, block_header_extension> bheader_exts = b.validate_and_extract_header_extensions();
-            if (bheader_exts.count(instant_finality_extension::extension_id())) {
-               const auto& if_extension =
-                       std::get<instant_finality_extension>(bheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
-               elog("b  if: ${i}", ("i", if_extension));
-            }
+         flat_multimap<uint16_t, block_header_extension> bheader_exts = b.validate_and_extract_header_extensions();
+         if (bheader_exts.count(instant_finality_extension::extension_id())) {
+            const auto& if_extension =
+               std::get<instant_finality_extension>(bheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
+            elog("b  if: ${i}", ("i", if_extension));
          }
          flat_multimap<uint16_t, block_header_extension> abheader_exts = ab.validate_and_extract_header_extensions();
          if (abheader_exts.count(instant_finality_extension::extension_id())) {
             const auto& if_extension =
-                    std::get<instant_finality_extension>(abheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
+               std::get<instant_finality_extension>(abheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
             elog("ab if: ${i}", ("i", if_extension));
          }
       }
