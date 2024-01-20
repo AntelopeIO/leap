@@ -20,6 +20,8 @@ namespace eosio::chain {
     * irreversible signal.
     *
     * Not thread safe, thread safety provided by fork_database below.
+    * fork_database should be used instead of fork_database_t directly as it manages
+    * the different supported types.
     */
    template<class bsp>  // either block_state_legacy_ptr or block_state_ptr
    class fork_database_t {
@@ -107,17 +109,20 @@ namespace eosio::chain {
 
    /**
     * Provides thread safety on fork_database_t and provide mechanism for opening the correct type
-    * as well as switching from legacy to instant-finality.
+    * as well as switching from legacy (old dpos) to instant-finality.
+    *
+    * All methods assert until open() is closed.
     */
    class fork_database {
       mutable std::recursive_mutex m;
       const std::filesystem::path data_dir;
-      std::variant<fork_database_t<block_state_legacy_ptr>, fork_database_t<block_state_ptr>> v;
+      std::variant<fork_database_t<block_state_legacy_ptr>, fork_database_t<block_state_ptr>> vforkdb;
    public:
       explicit fork_database(const std::filesystem::path& data_dir);
       ~fork_database(); // close on destruction
 
       void open( validator_t& validator );
+      void close();
 
       void switch_from_legacy();
 
@@ -128,55 +133,64 @@ namespace eosio::chain {
       R apply(const F& f) {
          std::lock_guard g(m);
          if constexpr (std::is_same_v<void, R>)
-            std::visit([&](auto& forkdb) { f(forkdb); }, v);
+            std::visit([&](auto& forkdb) { f(forkdb); }, vforkdb);
          else
-            return std::visit([&](auto& forkdb) -> R { return f(forkdb); }, v);
+            return std::visit([&](auto& forkdb) -> R { return f(forkdb); }, vforkdb);
       }
 
       template <class R, class F>
       R apply(const F& f) const {
          std::lock_guard g(m);
          if constexpr (std::is_same_v<void, R>)
-            std::visit([&](const auto& forkdb) { f(forkdb); }, v);
+            std::visit([&](const auto& forkdb) { f(forkdb); }, vforkdb);
          else
-            return std::visit([&](const auto& forkdb) -> R { return f(forkdb); }, v);
+            return std::visit([&](const auto& forkdb) -> R { return f(forkdb); }, vforkdb);
       }
 
+      /// Apply for when only need lambda executed when in instant-finality mode
       template <class R, class F>
       R apply_if(const F& f) {
+         std::lock_guard g(m);
          if constexpr (std::is_same_v<void, R>)
             std::visit(overloaded{[&](fork_database_legacy_t&) {},
-                                  [&](fork_database_if_t& forkdb) {
-                                     std::lock_guard g(m);
-                                     f(forkdb);
-                                  }}, v);
+                                  [&](fork_database_if_t& forkdb) { f(forkdb); }},
+                                  vforkdb);
          else
             return std::visit(overloaded{[&](fork_database_legacy_t&) -> R { return {}; },
-                                         [&](fork_database_if_t& forkdb) -> R {
-                                            std::lock_guard g(m);
-                                            return f(forkdb);
-                                         }}, v);
+                                         [&](fork_database_if_t& forkdb) -> R { return f(forkdb); }},
+                                         vforkdb);
       }
 
+      /// Apply for when only need lambda executed when in legacy mode
       template <class R, class F>
-      R apply_dpos(const F& f) {
+      R apply_legacy(const F& f) {
+         std::lock_guard g(m);
          if constexpr (std::is_same_v<void, R>)
-            std::visit(overloaded{[&](fork_database_legacy_t& forkdb) {
-                                     std::lock_guard g(m);
-                                     f(forkdb);
-                                  },
+            std::visit(overloaded{[&](fork_database_legacy_t& forkdb) { f(forkdb); },
                                   [&](fork_database_if_t&) {}},
-                       v);
+                                  vforkdb);
          else
-            return std::visit(overloaded{[&](fork_database_legacy_t& forkdb) -> R {
-                                            std::lock_guard g(m);
-                                            return f(forkdb);
-                                         },
+            return std::visit(overloaded{[&](fork_database_legacy_t& forkdb) -> R { return f(forkdb); },
                                          [&](fork_database_if_t&) -> R { return {}; }},
-                              v);
+                                         vforkdb);
       }
 
-      // if we every support more than one version then need to save min/max in fork_database_t
+      /// @param legacy_f the lambda to execute if in legacy mode
+      /// @param if_f the lambda to execute if in instant-finality mode
+      template <class R, class LegacyF, class IfF>
+      R apply(const LegacyF& legacy_f, const IfF& if_f) {
+         std::lock_guard g(m);
+         if constexpr (std::is_same_v<void, R>)
+            std::visit(overloaded{[&](fork_database_legacy_t& forkdb) { legacy_f(forkdb); },
+                                  [&](fork_database_if_t& forkdb) { if_f(forkdb); }},
+                                  vforkdb);
+         else
+            return std::visit(overloaded{[&](fork_database_legacy_t& forkdb) -> R { return legacy_f(forkdb); },
+                                         [&](fork_database_if_t& forkdb) -> R { return if_f(forkdb); }},
+                                         vforkdb);
+      }
+
+      // if we ever support more than one version then need to save min/max in fork_database_t
       static constexpr uint32_t min_supported_version = 1;
       static constexpr uint32_t max_supported_version = 1;
    };
