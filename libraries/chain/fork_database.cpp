@@ -606,9 +606,6 @@ namespace eosio::chain {
                   forkdb.open(fork_db_file, validator);
                });
             }
-            apply<void>([&](auto& forkdb) {
-               forkdb.open(fork_db_file, validator);
-            });
          } FC_CAPTURE_AND_RETHROW( (fork_db_file) )
       }
    }
