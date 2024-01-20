@@ -558,8 +558,8 @@ struct assembled_block {
                         v);
    }
 
-   completed_block make_completed_block(const protocol_feature_set& pfs, validator_t validator,
-                                        const signer_callback_type& signer) {
+   completed_block complete_block(const protocol_feature_set& pfs, validator_t validator,
+                                  const signer_callback_type& signer) {
       return std::visit(overloaded{[&](assembled_block_dpos& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
@@ -856,7 +856,7 @@ struct building_block {
                                   const protocol_feature_set& pfs,
                                   const block_data_t& block_data,
                                   bool validating,
-                                  std::optional<qc_info_t> validating_qc_info) {
+                                  std::optional<qc_data_t> validating_qc_data) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -912,7 +912,10 @@ struct building_block {
                // find most recent ancestor block that has a QC by traversing fork db
                // branch from parent
                std::optional<qc_data_t> qc_data;
-               if (!validating) {
+               if (validating) {
+                  // we are simulating a block received from the network. Use the embedded qc from the block
+                  qc_data = std::move(validating_qc_data);
+               } else {
                   auto branch = fork_db.fetch_branch(parent_id());
                   for( auto it = branch.begin(); it != branch.end(); ++it ) {
                      auto qc = (*it)->get_best_qc();
@@ -933,16 +936,10 @@ struct building_block {
                   .new_protocol_feature_activations = new_protocol_feature_activations()
                };
 
-               std::optional<qc_info_t> qc_info;
-               if (validating) {
-                  qc_info = validating_qc_info;
-               } else if (qc_data) {
-                  qc_info = qc_data->qc_info;
-               }
                block_header_state_input bhs_input{
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_info, validating
+                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{}
                };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
@@ -2693,7 +2690,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void finish_block(bool validating = false, std::optional<qc_info_t> validating_qc_info = {})
+   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {})
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -2716,8 +2713,9 @@ struct controller_impl {
             );
          resource_limits.process_block_usage(bb.block_num());
 
-         auto assembled_block = bb.assemble_block(thread_pool.get_executor(),
-            protocol_features.get_protocol_feature_set(), block_data, validating, validating_qc_info);
+         auto assembled_block =
+            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data,
+                              validating, std::move(validating_qc_data));
 
          // Update TaPoS table:
          create_block_summary(  assembled_block.id() );
@@ -2888,23 +2886,37 @@ struct controller_impl {
       EOS_REPORT( "header_extensions", b.header_extensions, ab.header_extensions )
 
       if (b.header_extensions != ab.header_extensions) {
-         {
-            flat_multimap<uint16_t, block_header_extension> bheader_exts = b.validate_and_extract_header_extensions();
-            if (bheader_exts.count(instant_finality_extension::extension_id())) {
-               const auto& if_extension =
-                       std::get<instant_finality_extension>(bheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
-               elog("b  if: ${i}", ("i", if_extension));
-            }
+         flat_multimap<uint16_t, block_header_extension> bheader_exts = b.validate_and_extract_header_extensions();
+         if (bheader_exts.count(instant_finality_extension::extension_id())) {
+            const auto& if_extension =
+               std::get<instant_finality_extension>(bheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
+            elog("b  if: ${i}", ("i", if_extension));
          }
          flat_multimap<uint16_t, block_header_extension> abheader_exts = ab.validate_and_extract_header_extensions();
          if (abheader_exts.count(instant_finality_extension::extension_id())) {
             const auto& if_extension =
-                    std::get<instant_finality_extension>(abheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
+               std::get<instant_finality_extension>(abheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
             elog("ab if: ${i}", ("i", if_extension));
          }
       }
 
 #undef EOS_REPORT
+   }
+
+   static std::optional<qc_data_t> extract_qc_data(const signed_block_ptr& b) {
+      std::optional<qc_data_t> qc_data;
+      auto exts = b->validate_and_extract_extensions();
+      if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
+         auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
+
+         // get the matching header extension... should always be present
+         auto hexts = b->validate_and_extract_header_extensions();
+         auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id());
+         assert(if_entry != hexts.end());
+         auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+         return qc_data_t{ std::move(qc_ext.qc), *if_ext.qc_info };
+      }
+      return {};
    }
 
    template<class BSP>
@@ -2997,13 +3009,7 @@ struct controller_impl {
                              ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
                }
 
-               std::optional<qc_info_t> qc_info;
-               auto exts = b->validate_and_extract_header_extensions();
-               if (auto if_entry = exts.lower_bound(instant_finality_extension::extension_id()); if_entry != exts.end()) {
-                  auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
-                  qc_info = if_ext.qc_info;
-               }
-               finish_block(true, qc_info);
+               assemble_block(true, extract_qc_data(b));
 
                auto& ab = std::get<assembled_block>(pending->_block_stage);
 
@@ -3935,13 +3941,13 @@ void controller::start_block( block_timestamp_type when,
                     bs, std::optional<block_id_type>(), deadline );
 }
 
-void controller::finish_block( block_report& br, const signer_callback_type& signer_callback ) {
+void controller::assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback ) {
    validate_db_available_size();
 
-   my->finish_block();
+   my->assemble_block();
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
-   my->pending->_block_stage = ab.make_completed_block(
+   my->pending->_block_stage = ab.complete_block(
       my->protocol_features.get_protocol_feature_set(),
       [](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features, const vector<digest_type>& new_features) {},
       signer_callback);
