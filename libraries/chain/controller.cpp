@@ -2934,13 +2934,6 @@ struct controller_impl {
                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
             }
 
-            std::optional<qc_info_t> qc_info;
-            auto exts = b->validate_and_extract_header_extensions();
-            if (auto if_entry = exts.lower_bound(instant_finality_extension::extension_id()); if_entry != exts.end()) {
-               auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
-               qc_info = if_ext.qc_info;
-            }
-
             assemble_block(true, extract_qc_data(b));
             auto& ab = std::get<assembled_block>(pending->_block_stage);
 
