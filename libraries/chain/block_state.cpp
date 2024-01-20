@@ -26,7 +26,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
 {
    block->transactions = std::move(trx_receipts);
 
-   if( qc && bhs.is_needed(*qc) ) {
+   if( qc ) {
       emplace_extension(block->block_extensions, quorum_certificate_extension::extension_id(), fc::raw::pack( *qc ));
    }
 }
@@ -35,7 +35,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
 block_state::block_state(const block_state_legacy& bsp) {
    block_header_state::id = bsp.id();
    header = bsp.header;
-   core.last_final_block_num = bsp.block_num();
+   core.last_final_block_num = bsp.block_num(); // [if todo] instant transition is not acceptable
    activated_protocol_features = bsp.activated_protocol_features;
    std::optional<block_header_extension> ext = bsp.block->extract_header_extension(instant_finality_extension::extension_id());
    assert(ext); // required by current transition mechanism
@@ -83,7 +83,7 @@ std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const hs_vo
       return {valid, strong ? core.final_on_strong_qc_block_num : std::optional<uint32_t>{}};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      return {false, {}};
+      return {};
    }
 }
    
