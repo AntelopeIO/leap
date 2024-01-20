@@ -150,19 +150,24 @@ struct completed_block {
    }
 
    const producer_authority_schedule* next_producers() const {
-      return std::visit(overloaded{
-                           [](const block_state_legacy_ptr& bsp) -> const producer_authority_schedule* { return bsp->pending_schedule_auth();},
-                           [](const block_state_ptr& bsp) -> const producer_authority_schedule* {
-                              return bsp->proposer_policies.empty() ? nullptr : &bsp->proposer_policies.begin()->second->proposer_schedule;
-                           }
-                        }, bsp);
+      return std::visit(overloaded{[](const block_state_legacy_ptr& bsp) -> const producer_authority_schedule* {
+                                      return bsp->pending_schedule_auth();
+                                   },
+                                   [](const block_state_ptr& bsp) -> const producer_authority_schedule* {
+                                      return bsp->proposer_policies.empty()
+                                                ? nullptr
+                                                : &bsp->proposer_policies.begin()->second->proposer_schedule;
+                                   }},
+                        bsp);
    }
 
    const producer_authority_schedule* pending_producers_legacy() const {
-      return std::visit(overloaded{
-                           [](const block_state_legacy_ptr& bsp) -> const producer_authority_schedule* { return &bsp->pending_schedule.schedule; },
-                           [](const block_state_ptr&) -> const producer_authority_schedule* { return nullptr; }
-                        }, bsp);
+      return std::visit(
+         overloaded{[](const block_state_legacy_ptr& bsp) -> const producer_authority_schedule* {
+                       return &bsp->pending_schedule.schedule;
+                    },
+                    [](const block_state_ptr&) -> const producer_authority_schedule* { return nullptr; }},
+         bsp);
    }
 
    bool is_protocol_feature_activated(const digest_type& digest) const {
@@ -285,27 +290,27 @@ struct assembled_block {
    }
 
    const producer_authority_schedule* next_producers() const {
-      return std::visit(overloaded{
-                           [](const assembled_block_dpos& ab) -> const producer_authority_schedule* {
-                              return ab.new_producer_authority_cache.has_value() ? &ab.new_producer_authority_cache.value() : nullptr;
-                           },
-                           [](const assembled_block_if& ab) -> const producer_authority_schedule* {
-                              return ab.bhs.proposer_policies.empty() ? nullptr : &ab.bhs.proposer_policies.begin()->second->proposer_schedule;
-                           }
-                        },
+      return std::visit(overloaded{[](const assembled_block_dpos& ab) -> const producer_authority_schedule* {
+                                      return ab.new_producer_authority_cache.has_value()
+                                                ? &ab.new_producer_authority_cache.value()
+                                                : nullptr;
+                                   },
+                                   [](const assembled_block_if& ab) -> const producer_authority_schedule* {
+                                      return ab.bhs.proposer_policies.empty()
+                                                ? nullptr
+                                                : &ab.bhs.proposer_policies.begin()->second->proposer_schedule;
+                                   }},
                         v);
    }
 
    const producer_authority_schedule* pending_producers_legacy() const {
-      return std::visit(overloaded{
-                           [](const assembled_block_dpos& ab) -> const producer_authority_schedule* {
-                              return ab.new_producer_authority_cache.has_value() ? &ab.new_producer_authority_cache.value() : nullptr;
-                           },
-                           [](const assembled_block_if&) -> const producer_authority_schedule* {
-                              return nullptr;
-                           }
-                        },
-                        v);
+      return std::visit(
+         overloaded{[](const assembled_block_dpos& ab) -> const producer_authority_schedule* {
+                       return ab.new_producer_authority_cache.has_value() ? &ab.new_producer_authority_cache.value()
+                                                                          : nullptr;
+                    },
+                    [](const assembled_block_if&) -> const producer_authority_schedule* { return nullptr; }},
+         v);
    }
 
    const block_signing_authority& pending_block_signing_authority() const {
@@ -668,7 +673,7 @@ struct building_block {
                // branch from parent
                std::optional<qc_data_t> qc_data;
                if (!validating) {
-               // get fork_database so that we can search for the best qc to include in this block.
+                  // get fork_database so that we can search for the best qc to include in this block.
                   fork_db.apply_if<void>([&](const auto& forkdb) {
                      auto branch = forkdb.fetch_branch(parent_id());
                      for( auto it = branch.begin(); it != branch.end(); ++it ) {
@@ -847,12 +852,27 @@ struct controller_impl {
    int64_t set_proposed_producers( vector<producer_authority> producers );
    int64_t set_proposed_producers_legacy( vector<producer_authority> producers );
 
-   uint32_t             head_block_num()  const { return fork_db.apply<uint32_t>([](const auto& forkdb) { return forkdb.chain_head->block_num(); }); }
-   block_timestamp_type head_block_time() const { return fork_db.apply<block_timestamp_type>([](const auto& forkdb) { return forkdb.chain_head->timestamp(); }); }
-   account_name         head_block_producer() const { return fork_db.apply<account_name>([](const auto& forkdb) { return forkdb.chain_head->producer(); }); }
-   const block_id_type& head_block_id()   const { return fork_db.apply<const block_id_type&>([](const auto& forkdb) -> const block_id_type& { return forkdb.chain_head->id(); }); }
-   const block_header&  head_block_header() const { return fork_db.apply<const block_header&>([](const auto& forkdb) -> const block_header& { return forkdb.chain_head->header; }); }
-   const signed_block_ptr& head_block() const { return fork_db.apply<const signed_block_ptr&>([](const auto& forkdb) -> const signed_block_ptr& { return forkdb.chain_head->block; }); }
+   uint32_t head_block_num() const {
+      return fork_db.apply<uint32_t>([](const auto& forkdb) { return forkdb.chain_head->block_num(); });
+   }
+   block_timestamp_type head_block_time() const {
+      return fork_db.apply<block_timestamp_type>([](const auto& forkdb) { return forkdb.chain_head->timestamp(); });
+   }
+   account_name head_block_producer() const {
+      return fork_db.apply<account_name>([](const auto& forkdb) { return forkdb.chain_head->producer(); });
+   }
+   const block_id_type& head_block_id() const {
+      return fork_db.apply<const block_id_type&>(
+         [](const auto& forkdb) -> const block_id_type& { return forkdb.chain_head->id(); });
+   }
+   const block_header& head_block_header() const {
+      return fork_db.apply<const block_header&>(
+         [](const auto& forkdb) -> const block_header& { return forkdb.chain_head->header; });
+   }
+   const signed_block_ptr& head_block() const {
+      return fork_db.apply<const signed_block_ptr&>(
+         [](const auto& forkdb) -> const signed_block_ptr& { return forkdb.chain_head->block; });
+   }
 
    protocol_feature_activation_set_ptr head_activated_protocol_features() const {
       return fork_db.apply<protocol_feature_activation_set_ptr>([](const auto& forkdb) {
@@ -929,15 +949,18 @@ struct controller_impl {
    }
 
    uint32_t fork_db_head_block_num() const {
-      return fork_db.apply<uint32_t>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->block_num(); } );
+      return fork_db.apply<uint32_t>(
+         [&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->block_num(); });
    }
 
    block_id_type fork_db_head_block_id() const {
-      return fork_db.apply<block_id_type>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->id(); } );
+      return fork_db.apply<block_id_type>(
+         [&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->id(); });
    }
 
    uint32_t fork_db_head_irreversible_blocknum() const {
-      return fork_db.apply<uint32_t>([&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->irreversible_blocknum(); });
+      return fork_db.apply<uint32_t>(
+         [&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->irreversible_blocknum(); });
    }
 
    // --------------- access fork_db root ----------------------------------------------------------------------
@@ -963,11 +986,13 @@ struct controller_impl {
       typename ForkDB::bsp_t prev = forkdb.get_block( forkdb.chain_head->previous() );
 
       if( !prev ) {
-         EOS_ASSERT( forkdb.root()->id() == forkdb.chain_head->previous(), block_validate_exception, "attempt to pop beyond last irreversible block" );
+         EOS_ASSERT( forkdb.root()->id() == forkdb.chain_head->previous(), block_validate_exception,
+                     "attempt to pop beyond last irreversible block" );
          prev = forkdb.root();
       }
 
-      EOS_ASSERT( forkdb.chain_head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
+      EOS_ASSERT( forkdb.chain_head->block, block_validate_exception,
+                  "attempting to pop a block that was sparsely loaded from a snapshot");
       forkdb.chain_head = prev;
 
       return prev->block_num();
@@ -1411,8 +1436,10 @@ struct controller_impl {
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
-      EOS_ASSERT( db.revision() >= 1, database_exception, "This version of controller::startup does not work with a fresh state database." );
-      EOS_ASSERT( fork_db_has_head(), fork_database_exception, "No existing fork database despite existing chain state. Replay required." );
+      EOS_ASSERT( db.revision() >= 1, database_exception,
+                  "This version of controller::startup does not work with a fresh state database." );
+      EOS_ASSERT( fork_db_has_head(), fork_database_exception,
+                  "No existing fork database despite existing chain state. Replay required." );
 
       this->shutdown = std::move(shutdown);
       uint32_t lib_num = fork_db_root_block_num();

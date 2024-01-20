@@ -165,15 +165,15 @@ namespace eosio::chain {
                                      std::lock_guard g(m);
                                      f(forkdb);
                                   },
-                                  [&](fork_database_if_t&) {}}, v);
+                                  [&](fork_database_if_t&) {}},
+                       v);
          else
             return std::visit(overloaded{[&](fork_database_legacy_t& forkdb) -> R {
                                             std::lock_guard g(m);
                                             return f(forkdb);
                                          },
-                                         [&](fork_database_if_t&) -> R {
-                                            return {};
-                                         }}, v);
+                                         [&](fork_database_if_t&) -> R { return {}; }},
+                              v);
       }
 
       // if we every support more than one version then need to save min/max in fork_database_t

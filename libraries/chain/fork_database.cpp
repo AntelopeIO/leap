@@ -39,7 +39,7 @@ namespace eosio::chain {
       using bhsp             = bs::bhsp_t;
       using bhs              = bhsp::element_type;
       
-      using fork_db_t  = fork_database_t<bsp>;
+      using fork_db_t        = fork_database_t<bsp>;
       using branch_type      = fork_db_t::branch_type;
       using branch_type_pair = fork_db_t::branch_type_pair;
 
@@ -284,7 +284,8 @@ namespace eosio::chain {
       for( auto b = new_root; b; ) {
          blocks_to_remove.emplace_back( b->previous() );
          b = get_block_impl( blocks_to_remove.back() );
-         EOS_ASSERT( b || blocks_to_remove.back() == root->id(), fork_database_exception, "invariant violation: orphaned branch was present in forked database" );
+         EOS_ASSERT( b || blocks_to_remove.back() == root->id(), fork_database_exception,
+                     "invariant violation: orphaned branch was present in forked database" );
       }
 
       // The new root block should be erased from the fork database index individually rather than with the remove method,
@@ -331,15 +332,22 @@ namespace eosio::chain {
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
                   "unlinkable block", ("id", n->id())("previous", n->previous()) );
 
-      if( validate ) {
+      if (validate) {
          try {
             const auto& exts = n->header_exts;
 
-            if( exts.count(protocol_feature_activation::extension_id()) > 0 ) {
-               const auto& new_protocol_features = std::get<protocol_feature_activation>(exts.lower_bound(protocol_feature_activation::extension_id())->second).protocol_features;
-               validator( n->timestamp(), static_cast<bs*>(prev_bh.get())->get_activated_protocol_features()->protocol_features, new_protocol_features );
+            if (exts.count(protocol_feature_activation::extension_id()) > 0) {
+               const auto& new_protocol_features =
+                  std::get<protocol_feature_activation>(
+                     exts.lower_bound(protocol_feature_activation::extension_id())->second)
+                     .protocol_features;
+               validator(n->timestamp(),
+                         static_cast<bs*>(prev_bh.get())->get_activated_protocol_features()->protocol_features,
+                         new_protocol_features);
             }
-         } EOS_RETHROW_EXCEPTIONS( fork_database_exception, "serialized fork database is incompatible with configured protocol features"  )
+         }
+         EOS_RETHROW_EXCEPTIONS(fork_database_exception,
+                                "serialized fork database is incompatible with configured protocol features")
       }
 
       auto inserted = index.insert(n);
@@ -585,7 +593,8 @@ namespace eosio::chain {
             // determine file type, validate totem
             uint32_t totem = 0;
             fc::raw::unpack( ds, totem );
-            EOS_ASSERT( totem == fork_database_legacy_t::legacy_magic_number || totem == fork_database_if_t::magic_number, fork_database_exception,
+            EOS_ASSERT( totem == fork_database_legacy_t::legacy_magic_number ||
+                        totem == fork_database_if_t::magic_number, fork_database_exception,
                         "Fork database file '${filename}' has unexpected magic number: ${actual_totem}. Expected ${t1} or ${t2}",
                         ("filename", fork_db_file)
                         ("actual_totem", totem)("t1", fork_database_legacy_t::legacy_magic_number)("t2", fork_database_if_t::magic_number)
