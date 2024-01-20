@@ -311,7 +311,7 @@ namespace eosio {
       bool have_txn( const transaction_id_type& tid ) const;
       void expire_txns();
 
-      void bcast_msg( const std::optional<uint32_t>& exclude_peer, send_buffer_type msg );
+      void bcast_vote_msg( const std::optional<uint32_t>& exclude_peer, send_buffer_type msg );
 
       void add_unlinkable_block( signed_block_ptr b, const block_id_type& id ) {
          std::optional<block_id_type> rm_blk_id = unlinkable_block_cache.add_unlinkable_block(std::move(b), id);
@@ -534,11 +534,12 @@ namespace eosio {
 
       void on_accepted_block_header( const signed_block_ptr& block, const block_id_type& id );
       void on_accepted_block();
+      void on_voted_block ( const hs_vote_message& vote );
 
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_id_type& id, uint32_t block_num );
 
-      void bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const chain::hs_message& msg );
+      void bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::hs_vote_message& msg );
       void warn_hs_message( uint32_t sender_peer, const chain::hs_message_warning& code );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
@@ -1095,7 +1096,7 @@ namespace eosio {
       void handle_message( const block_id_type& id, signed_block_ptr ptr );
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr trx );
-      void handle_message( const chain::hs_message& msg );
+      void handle_message( const hs_vote_message& msg );
 
       // returns calculated number of blocks combined latency
       uint32_t calc_block_latency();
@@ -1177,9 +1178,9 @@ namespace eosio {
          c->handle_message( msg );
       }
 
-      void operator()( const chain::hs_message& msg ) const {
+      void operator()( const chain::hs_vote_message& msg ) const {
          // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_message" );
+         peer_dlog( c, "handle hs_vote_message" );
          c->handle_message( msg );
       }
    };
@@ -2640,13 +2641,15 @@ namespace eosio {
       } );
    }
 
-   void dispatch_manager::bcast_msg( const std::optional<uint32_t>& exclude_peer, send_buffer_type msg ) {
+   void dispatch_manager::bcast_vote_msg( const std::optional<uint32_t>& exclude_peer, send_buffer_type msg ) {
       my_impl->connections.for_each_block_connection( [exclude_peer, msg{std::move(msg)}]( auto& cp ) {
          if( !cp->current() ) return true;
          if( exclude_peer.has_value() && cp->connection_id == exclude_peer.value() ) return true;
          cp->strand.post( [cp, msg]() {
-            if (cp->protocol_version >= proto_instant_finality)
+            if (cp->protocol_version >= proto_instant_finality) {
+               peer_dlog(cp, "sending vote msg");
                cp->enqueue_buffer( msg, no_reason );
+            }
          });
          return true;
       } );
@@ -3673,10 +3676,12 @@ namespace eosio {
       }
    }
 
-   void connection::handle_message( const chain::hs_message& msg ) {
-      peer_dlog(this, "received hs: ${msg}", ("msg", msg));
+   void connection::handle_message( const hs_vote_message& msg ) {
+      peer_dlog(this, "received vote: ${msg}", ("msg", msg));
       controller& cc = my_impl->chain_plug->chain();
-      cc.notify_hs_message(connection_id, msg);
+      if( cc.process_vote_message(msg) ) {
+         my_impl->bcast_vote_message(connection_id, msg);
+      }
    }
 
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
@@ -3936,14 +3941,20 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   void net_plugin_impl::bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const chain::hs_message& msg ) {
-      fc_dlog(logger, "sending hs msg: ${msg}", ("msg", msg));
+   // called from application thread
+   void net_plugin_impl::on_voted_block(const hs_vote_message& vote) {
+      fc_dlog(logger, "on voted signal, vote msg: ${msg}", ("msg", vote));
+      bcast_vote_message(std::nullopt, vote);
+   }
+
+   void net_plugin_impl::bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::hs_vote_message& msg ) {
+      fc_dlog(logger, "sending vote msg: ${msg}", ("msg", msg));
 
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
 
       dispatcher->strand.post( [this, exclude_peer, msg{std::move(send_buffer)}]() mutable {
-         dispatcher->bcast_msg( exclude_peer, std::move(msg) );
+         dispatcher->bcast_vote_msg( exclude_peer, std::move(msg) );
       });
    }
 
@@ -4300,7 +4311,7 @@ namespace eosio {
       controller& cc = chain_plug->chain();
       cc.register_pacemaker_bcast_function(
               [my = shared_from_this()](const std::optional<uint32_t>& c, const chain::hs_message& s) {
-                 my->bcast_hs_message(c, s);
+                 //my->bcast_hs_message(c, s);
               } );
       cc.register_pacemaker_warn_function(
               [my = shared_from_this()](uint32_t c, chain::hs_message_warning s) {
@@ -4362,6 +4373,9 @@ namespace eosio {
             my->on_irreversible_block( id, block->block_num() );
          } );
 
+         cc.voted_block.connect( [my = shared_from_this()]( const hs_vote_message& vote ) {
+            my->on_voted_block(vote);
+         } );
       }
 
       {

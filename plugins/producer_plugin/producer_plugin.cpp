@@ -492,7 +492,7 @@ public:
 
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
-   chain::bls_pub_priv_key_map_t                  _finalizer_keys; // public, private
+   chain::bls_pub_priv_key_map_t                     _finalizer_keys; // public, private
    std::set<chain::account_name>                     _producers;
    boost::asio::deadline_timer                       _timer;
    block_timing_util::producer_watermarks            _producer_watermarks;
@@ -1339,6 +1339,9 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
+         chain.set_node_finalizer_keys(_finalizer_keys);
+
+#warning TODO remove create_pacemaker
          chain.create_pacemaker(_producers, std::move(_finalizer_keys), hotstuff_logger);
          _finalizer_keys.clear();
 
@@ -2645,7 +2648,7 @@ void producer_plugin_impl::produce_block() {
 
    // idump( (fc::time_point::now() - chain.pending_block_time()) );
    controller::block_report br;
-   chain.finish_block(br, [&](const digest_type& d) {
+   chain.assemble_and_complete_block(br, [&](const digest_type& d) {
       auto                   debug_logger = maybe_make_debug_time_logger();
       vector<signature_type> sigs;
       sigs.reserve(relevant_providers.size());

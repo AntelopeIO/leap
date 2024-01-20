@@ -67,7 +67,8 @@ struct block_header_state {
 
 
    // ------ functions -----------------------------------------------------------------
-   digest_type           compute_finalizer_digest() const;
+   // [if todo] https://github.com/AntelopeIO/leap/issues/2080
+   digest_type           compute_finalizer_digest() const { return id; };
    block_timestamp_type  timestamp() const { return header.timestamp; }
    account_name          producer() const  { return header.producer; }
    const block_id_type&  previous() const  { return header.previous; }
@@ -77,11 +78,6 @@ struct block_header_state {
    block_header_state next(block_header_state_input& data) const;
 
    block_header_state next(const signed_block_header& h, const protocol_feature_set& pfs, validator_t& validator) const;
-
-   // block descending from this need the provided qc in the block extension
-   bool is_needed(const quorum_certificate& qc) const {
-      return !core.last_qc_block_num || qc.block_height > *core.last_qc_block_num;
-   }
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    const vector<digest_type>& get_new_protocol_feature_activations() const;

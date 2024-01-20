@@ -7,6 +7,8 @@
 
 #include <boost/dynamic_bitset.hpp>
 
+#include <mutex>
+
 namespace eosio::chain {
 
    using bls_public_key  = fc::crypto::blslib::bls_public_key;
@@ -197,8 +199,6 @@ namespace eosio::chain {
    // -------------------- valid_quorum_certificate -------------------------------------------------
    class valid_quorum_certificate {
    public:
-      valid_quorum_certificate(const pending_quorum_certificate& qc);
-
       valid_quorum_certificate(const fc::sha256& proposal_id,
                                const std::vector<uint8_t>& proposal_digest,
                                const std::vector<uint32_t>& strong_votes, //bitset encoding, following canonical order
@@ -232,13 +232,99 @@ namespace eosio::chain {
       valid_quorum_certificate qc;
    };
 
+
+   // -------------------- pending_quorum_certificate -------------------------------------------------
+   class pending_quorum_certificate {
+   public:
+      enum class state_t {
+         unrestricted,  // No quorum reached yet, still possible to achieve any state.
+         restricted,    // Enough `weak` votes received to know it is impossible to reach the `strong` state.
+         weak_achieved, // Enough `weak` + `strong` votes for a valid `weak` QC, still possible to reach the `strong` state.
+         weak_final,    // Enough `weak` + `strong` votes for a valid `weak` QC, `strong` not possible anymore.
+         strong         // Enough `strong` votes to have a valid `strong` QC
+      };
+
+      struct votes_t {
+         hs_bitset     _bitset;
+         bls_signature _sig;
+
+         void resize(size_t num_finalizers) { _bitset.resize(num_finalizers); }
+         size_t count() const { return _bitset.count(); }
+
+         bool add_vote(const std::vector<uint8_t>& proposal_digest, size_t index, const bls_public_key& pubkey,
+                       const bls_signature& new_sig);
+
+         void reset(size_t num_finalizers);
+      };
+
+      pending_quorum_certificate();
+
+      explicit pending_quorum_certificate(size_t num_finalizers, size_t quorum);
+
+      explicit pending_quorum_certificate(const fc::sha256& proposal_id,
+                                          const digest_type& proposal_digest,
+                                          size_t num_finalizers,
+                                          size_t quorum);
+
+      // thread safe
+      bool   is_quorum_met() const;
+
+      // thread safe
+      void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum);
+
+      // thread safe
+      std::pair<bool, bool> add_vote(bool strong,
+                                     const std::vector<uint8_t>&proposal_digest,
+                                     size_t index,
+                                     const bls_public_key&pubkey,
+                                     const bls_signature&sig);
+
+      state_t state()  const { std::lock_guard g(*_mtx); return _state; };
+      valid_quorum_certificate to_valid_quorum_certificate() const;
+
+      // ================== begin compatibility functions =======================
+      // these are present just to make the tests still work. will be removed.
+      // these assume *only* strong votes.
+      quorum_certificate_message to_msg() const;
+      const fc::sha256&          get_proposal_id() const { return _proposal_id; }
+      std::string                get_votes_string() const;
+      // ================== end compatibility functions =======================
+
+   private:
+      friend struct fc::reflector<pending_quorum_certificate>;
+      friend class qc_chain;
+      fc::sha256           _proposal_id;     // only used in to_msg(). Remove eventually
+      std::vector<uint8_t> _proposal_digest;
+      state_t              _state { state_t::unrestricted };
+      size_t               _num_finalizers {0};
+      size_t               _quorum {0};
+      std::unique_ptr<std::mutex> _mtx;  // protect both _strong_votes and _weak_votes
+      votes_t              _weak_votes;
+      votes_t              _strong_votes;
+
+      // num_weak and num_strong are protected by mutex by add_vote
+      size_t num_weak()   const { return _weak_votes.count(); }
+      size_t num_strong() const { return _strong_votes.count(); }
+
+      // called by add_vote, already protected by mutex
+      bool add_strong_vote(const std::vector<uint8_t>& proposal_digest,
+                           size_t index,
+                           const bls_public_key& pubkey,
+                           const bls_signature& sig);
+
+      // called by add_vote, already protected by mutex
+      bool add_weak_vote(const std::vector<uint8_t>& proposal_digest,
+                         size_t index,
+                         const bls_public_key& pubkey,
+                         const bls_signature& sig);
+   };
 } //eosio::chain
 
 
 FC_REFLECT(eosio::chain::view_number, (bheight)(pcounter));
 FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(strong_votes)(weak_votes)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
-FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer_key)(sig));
+FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(strong)(finalizer_key)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
 FC_REFLECT(eosio::chain::finalizer_state, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));

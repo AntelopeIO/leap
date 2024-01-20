@@ -17,7 +17,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    digest_type                weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
    pending_quorum_certificate pending_qc;            // where we accumulate votes we receive
    std::optional<valid_quorum_certificate> valid_qc; // best qc received from the network inside block extension
-  
+
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
@@ -30,7 +30,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    const extensions_type& header_extensions() const { return block_header_state::header.header_extensions; }
    bool                   is_valid()          const { return validated; }
    void                   set_valid(bool b)         { validated = b; }
-   uint32_t               irreversible_blocknum() const { return 0; } // [greg todo] equivalent of dpos_irreversible_blocknum
+   uint32_t               irreversible_blocknum() const { return core.last_final_block_num; }
    std::optional<quorum_certificate> get_best_qc() const;
    std::optional<uint32_t>          last_qc_block_num() const { return core.last_qc_block_num; }
       
@@ -39,6 +39,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    deque<transaction_metadata_ptr>     extract_trxs_metas();
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);
    const deque<transaction_metadata_ptr>& trxs_metas()  const { return cached_trxs; }
+   std::pair<bool, std::optional<uint32_t>> aggregate_vote(const hs_vote_message& vote); // aggregate vote into pending_qc
 
    using bhs_t  = block_header_state;
    using bhsp_t = block_header_state_ptr;

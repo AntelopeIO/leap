@@ -317,8 +317,17 @@ struct block_data_t {
       }, v);
    }
 
+   block_state_ptr fork_db_fetch_bsp_by_num(uint32_t block_num) const {
+      return std::visit(overloaded{
+                           [](const block_data_legacy_t&) -> block_state_ptr { return nullptr; },
+                           [&](const block_data_new_t& bd) -> block_state_ptr {
+                              auto bsp = bd.fork_db.search_on_branch(bd.fork_db.head()->id(), block_num);
+                              return bsp; }
+                       }, v);
+   }
+
    template <class R, class F>
-   R apply(F& f) {
+   R apply(const F& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit([&](auto& bd) { bd.template apply<R>(f); }, v);
       else
@@ -326,13 +335,24 @@ struct block_data_t {
    }
 
    template <class R, class F>
-   R apply_dpos(F& f) {
+   R apply_dpos(const F& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit(overloaded{[&](block_data_legacy_t& bd) { bd.template apply<R>(f); }, [&](block_data_new_t& bd) {}},
                     v);
       else
          return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return bd.template apply<R>(f); },
-                                      [&](block_data_new_t& bd) -> R { return {}; }},
+                                      [&](block_data_new_t& bd)    -> R { return {}; }},
+                           v);
+   }
+
+   template <class R, class F>
+   R apply_if(const F& f) {
+      if constexpr (std::is_same_v<void, R>)
+         std::visit(overloaded{[&](block_data_legacy_t& bd) {}, [&](block_data_new_t& bd) { bd.template apply<R>(f); }},
+                    v);
+      else
+         return std::visit(overloaded{[&](block_data_legacy_t& bd) -> R { return {}; },
+                                      [&](block_data_new_t& bd)    -> R { return bd.template apply<R>(f); }},
                            v);
    }
 };
@@ -538,8 +558,8 @@ struct assembled_block {
                         v);
    }
 
-   completed_block make_completed_block(const protocol_feature_set& pfs, validator_t validator,
-                                        const signer_callback_type& signer) {
+   completed_block complete_block(const protocol_feature_set& pfs, validator_t validator,
+                                  const signer_callback_type& signer) {
       return std::visit(overloaded{[&](assembled_block_dpos& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
@@ -834,7 +854,9 @@ struct building_block {
 
    assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
-                                  const block_data_t& block_data) {
+                                  const block_data_t& block_data,
+                                  bool validating,
+                                  std::optional<qc_data_t> validating_qc_data) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -890,13 +912,20 @@ struct building_block {
                // find most recent ancestor block that has a QC by traversing fork db
                // branch from parent
                std::optional<qc_data_t> qc_data;
-               auto branch = fork_db.fetch_branch(parent_id());
-               for( auto it = branch.begin(); it != branch.end(); ++it ) {
-                  auto qc = (*it)->get_best_qc();
-                  if( qc ) {
-                     EOS_ASSERT( qc->block_height <= block_header::num_from_id(parent_id()), block_validate_exception, "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})", ("a", qc->block_height)("p", block_header::num_from_id(parent_id())) );
-                     qc_data = qc_data_t{ *qc, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
-                     break;
+               if (validating) {
+                  // we are simulating a block received from the network. Use the embedded qc from the block
+                  qc_data = std::move(validating_qc_data);
+               } else {
+                  auto branch = fork_db.fetch_branch(parent_id());
+                  for( auto it = branch.begin(); it != branch.end(); ++it ) {
+                     auto qc = (*it)->get_best_qc();
+                     if( qc ) {
+                        EOS_ASSERT( qc->block_height <= block_header::num_from_id(parent_id()), block_validate_exception,
+                                    "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
+                                    ("a", qc->block_height)("p", block_header::num_from_id(parent_id())) );
+                        qc_data = qc_data_t{ *qc, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
+                        break;
+                     }
                   }
                }
 
@@ -908,8 +937,10 @@ struct building_block {
                };
 
                block_header_state_input bhs_input{
-                  bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy), std::move(bb.new_finalizer_policy),
-                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{} };
+                  bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
+                  std::move(bb.new_finalizer_policy),
+                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{}
+               };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
                                                       std::move(bb.pending_trx_metas), std::move(bb.pending_trx_receipts),
@@ -1039,6 +1070,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
+   bls_key_map_t                   node_finalizer_keys;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
@@ -2658,7 +2690,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void finish_block()
+   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {})
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -2682,7 +2714,8 @@ struct controller_impl {
          resource_limits.process_block_usage(bb.block_num());
 
          auto assembled_block =
-            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data);
+            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), block_data,
+                              validating, std::move(validating_qc_data));
 
          // Update TaPoS table:
          create_block_summary(  assembled_block.id() );
@@ -2720,21 +2753,22 @@ struct controller_impl {
             head = bsp;
             
             emit( self.accepted_block, std::tie(bsp->block, bsp->id()) );
-
-            if constexpr (std::is_same_v<block_state_legacy_ptr,std::decay_t<decltype(head)>>) {
-#warning todo: support deep_mind_logger even when in IF mode
-               // at block level, no transaction specific logging is possible
-               if (auto* dm_logger = get_deep_mind_logger(false)) {
-                  dm_logger->on_accepted_block(bsp);
-               }
-            }
          };
 
          block_data.apply<void>(add_completed_block);
 
+         block_data.apply_dpos<void>([this](auto& fork_db, auto& head) {
+#warning todo: support deep_mind_logger even when in IF mode (use apply instead of apply_dpos)
+               // at block level, no transaction specific logging is possible
+               if (auto* dm_logger = get_deep_mind_logger(false)) {
+                  dm_logger->on_accepted_block(head);
+               }});
+
          if( s == controller::block_status::incomplete ) {
             log_irreversible();
          }
+
+         block_data.apply_if<void>([&](auto& fork_db, auto& head) { create_and_send_vote_msg(head); });
 
          // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
          auto transition = [&](auto& fork_db, auto& head) -> bool {
@@ -2851,7 +2885,38 @@ struct controller_impl {
       EOS_REPORT( "new_producers", b.new_producers, ab.new_producers )
       EOS_REPORT( "header_extensions", b.header_extensions, ab.header_extensions )
 
+      if (b.header_extensions != ab.header_extensions) {
+         flat_multimap<uint16_t, block_header_extension> bheader_exts = b.validate_and_extract_header_extensions();
+         if (bheader_exts.count(instant_finality_extension::extension_id())) {
+            const auto& if_extension =
+               std::get<instant_finality_extension>(bheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
+            elog("b  if: ${i}", ("i", if_extension));
+         }
+         flat_multimap<uint16_t, block_header_extension> abheader_exts = ab.validate_and_extract_header_extensions();
+         if (abheader_exts.count(instant_finality_extension::extension_id())) {
+            const auto& if_extension =
+               std::get<instant_finality_extension>(abheader_exts.lower_bound(instant_finality_extension::extension_id())->second);
+            elog("ab if: ${i}", ("i", if_extension));
+         }
+      }
+
 #undef EOS_REPORT
+   }
+
+   static std::optional<qc_data_t> extract_qc_data(const signed_block_ptr& b) {
+      std::optional<qc_data_t> qc_data;
+      auto exts = b->validate_and_extract_extensions();
+      if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
+         auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
+
+         // get the matching header extension... should always be present
+         auto hexts = b->validate_and_extract_header_extensions();
+         auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id());
+         assert(if_entry != hexts.end());
+         auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+         return qc_data_t{ std::move(qc_ext.qc), *if_ext.qc_info };
+      }
+      return {};
    }
 
    template<class BSP>
@@ -2944,7 +3009,7 @@ struct controller_impl {
                              ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
                }
 
-               finish_block();
+               assemble_block(true, extract_qc_data(b));
 
                auto& ab = std::get<assembled_block>(pending->_block_stage);
 
@@ -2986,6 +3051,33 @@ struct controller_impl {
       } FC_CAPTURE_AND_RETHROW();
    } /// apply_block
 
+   void create_and_send_vote_msg(const block_state_ptr& bsp) {
+#warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
+      bool strong = true;
+
+      // A vote is created and signed by each finalizer configured on the node that
+      // in active finalizer policy
+      for (const auto& f: bsp->active_finalizer_policy->finalizers) {
+         auto it = node_finalizer_keys.find( f.public_key );
+         if( it != node_finalizer_keys.end() ) {
+            const auto& private_key = it->second;
+            const auto& digest = bsp->compute_finalizer_digest();
+
+            auto sig =  private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
+
+            // construct the vote message
+            hs_vote_message vote{ bsp->id(), strong, f.public_key, sig };
+
+            // net plugin subscribed this signal. it will broadcast the vote message
+            // on receiving the signal
+            emit( self.voted_block, vote );
+
+            boost::asio::post(thread_pool.get_executor(), [control=this, vote]() {
+               control->self.process_vote_message(vote);
+            });
+         }
+      }
+   }
 
    // thread safe, expected to be called from thread other than the main thread
    block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
@@ -3010,6 +3102,18 @@ struct controller_impl {
       return block_token{bsp};
    }
 
+   void integrate_received_qc_to_block(const block_id_type& id, const signed_block_ptr& b) {
+#warning validate received QC before integrate it: https://github.com/AntelopeIO/leap/issues/2071
+      // extract QC from block extensions
+      auto block_exts = b->validate_and_extract_extensions();
+      if( block_exts.count(quorum_certificate_extension::extension_id()) > 0 ) {
+         const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
+         auto last_qc_block_bsp = block_data.fork_db_fetch_bsp_by_num( qc_ext.qc.block_height );
+#warning a mutex might be needed for updating valid_pc
+         last_qc_block_bsp->valid_qc = qc_ext.qc.qc;
+      }
+   }
+
    // thread safe, expected to be called from thread other than the main thread
    block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
       auto trx_mroot = calculate_trx_merkle( b->transactions, true );
@@ -3029,7 +3133,11 @@ struct controller_impl {
       );
 
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
-                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
+                  "provided id ${id} does not match calculated block id ${bid}", ("id", id)("bid", bsp->id()) );
+
+      // integrate the received QC into the claimed block
+      integrate_received_qc_to_block(id, b);
+
       return block_token{bsp};
    }
 
@@ -3591,6 +3699,12 @@ struct controller_impl {
       wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
+   void set_node_finalizer_keys(const bls_pub_priv_key_map_t& finalizer_keys) {
+      for (const auto& k : finalizer_keys) {
+         node_finalizer_keys[bls_public_key{k.first}] = bls_private_key{k.second};
+      }
+   }
+
    bool                 irreversible_mode()      const { return read_mode == db_read_mode::IRREVERSIBLE; }
    const block_id_type& fork_db_head_block_id()  const { return block_data.fork_db_head_block_id(irreversible_mode()); }
    uint32_t             fork_db_head_block_num() const { return block_data.fork_db_head_block_num(irreversible_mode()); }
@@ -3827,13 +3941,13 @@ void controller::start_block( block_timestamp_type when,
                     bs, std::optional<block_id_type>(), deadline );
 }
 
-void controller::finish_block( block_report& br, const signer_callback_type& signer_callback ) {
+void controller::assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback ) {
    validate_db_available_size();
 
-   my->finish_block();
+   my->assemble_block();
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
-   my->pending->_block_stage = ab.make_completed_block(
+   my->pending->_block_stage = ab.complete_block(
       my->protocol_features.get_protocol_feature_set(),
       [](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features, const vector<digest_type>& new_features) {},
       signer_callback);
@@ -4194,8 +4308,18 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 }
 
 // called from net threads
-void controller::notify_hs_message( const uint32_t connection_id, const hs_message& msg ) {
-   my->pacemaker->on_hs_msg(connection_id, msg);
+bool controller::process_vote_message( const hs_vote_message& vote ) {
+   auto do_vote = [&vote](auto& fork_db, auto& head) -> std::pair<bool, std::optional<uint32_t>> {
+       auto bsp = fork_db.get_block(vote.proposal_id);
+       if (bsp)
+          return bsp->aggregate_vote(vote);
+       return {false, {}};
+   };
+   auto [valid, new_lib] = my->block_data.apply_if<std::pair<bool, std::optional<uint32_t>>>(do_vote);
+   if (new_lib) {
+      my->if_irreversible_block_num = *new_lib;
+   }
+   return valid;
 };
 
 const producer_authority_schedule& controller::active_producers()const {
@@ -4630,6 +4754,10 @@ bool controller::is_write_window() const {
 
 void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
    return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+}
+
+void controller::set_node_finalizer_keys(const bls_pub_priv_key_map_t& finalizer_keys) {
+   my->set_node_finalizer_keys(finalizer_keys);
 }
 
 /// Protocol feature activation handlers:
