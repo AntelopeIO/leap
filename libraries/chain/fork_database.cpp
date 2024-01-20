@@ -39,7 +39,7 @@ namespace eosio::chain {
       using bhsp             = bs::bhsp_t;
       using bhs              = bhsp::element_type;
       
-      using fork_db_t  = fork_database_t<bsp>;
+      using fork_db_t        = fork_database_t<bsp>;
       using branch_type      = fork_db_t::branch_type;
       using branch_type_pair = fork_db_t::branch_type_pair;
 
@@ -565,6 +565,10 @@ namespace eosio::chain {
    }
 
    fork_database::~fork_database() {
+      close();
+   }
+
+   void fork_database::close() {
       apply<void>([&](auto& forkdb) { forkdb.close(data_dir / config::forkdb_filename); });
    }
 
@@ -592,26 +596,29 @@ namespace eosio::chain {
             );
 
             if (totem == fork_database_legacy_t::legacy_magic_number) {
-               apply_dpos<void>([&](auto& forkdb) {
+               apply_legacy<void>([&](auto& forkdb) {
                   forkdb.open(fork_db_file, validator);
                });
             } else {
                // file is instant-finality data, so switch to fork_database_if_t
-               v.emplace<fork_database_if_t>(fork_database_if_t::magic_number);
+               vforkdb.emplace<fork_database_if_t>(fork_database_if_t::magic_number);
                apply_if<void>([&](auto& forkdb) {
                   forkdb.open(fork_db_file, validator);
                });
             }
+            apply<void>([&](auto& forkdb) {
+               forkdb.open(fork_db_file, validator);
+            });
          } FC_CAPTURE_AND_RETHROW( (fork_db_file) )
       }
    }
 
    void fork_database::switch_from_legacy() {
-      // no need to close fork_db because we don't want to write anything out, file is removed on open
-      block_state_legacy_ptr head = std::get<fork_database_legacy_t>(v).chain_head; // will throw if called after transistion
-      auto new_head = std::make_shared<block_state>(*head);
       std::lock_guard g(m);
-      v.emplace<fork_database_if_t>(fork_database_if_t::magic_number);
+      // no need to close fork_db because we don't want to write anything out, file is removed on open
+      block_state_legacy_ptr head = std::get<fork_database_legacy_t>(vforkdb).chain_head; // will throw if called after transistion
+      auto new_head = std::make_shared<block_state>(*head);
+      vforkdb.emplace<fork_database_if_t>(fork_database_if_t::magic_number);
       apply_if<void>([&](auto& forkdb) {
          forkdb.chain_head = new_head;
          forkdb.reset(*new_head);

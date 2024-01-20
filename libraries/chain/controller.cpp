@@ -668,7 +668,7 @@ struct building_block {
                // branch from parent
                std::optional<qc_data_t> qc_data;
                if (!validating) {
-               // get fork_database so that we can search for the best qc to include in this block.
+                  // get fork_database so that we can search for the best qc to include in this block.
                   fork_db.apply_if<void>([&](const auto& forkdb) {
                      auto branch = forkdb.fetch_branch(parent_id());
                      for( auto it = branch.begin(); it != branch.end(); ++it ) {
@@ -1245,7 +1245,7 @@ struct controller_impl {
          forkdb.chain_head->block = std::make_shared<signed_block>(genheader.header);
       };
 
-      fork_db.apply_dpos<void>(init_blockchain); // assuming here that genesis_state is always dpos
+      fork_db.apply_legacy<void>(init_blockchain); // assuming here that genesis_state is always dpos
       
       db.set_revision( head_block_num() );
       initialize_database(genesis);
@@ -1625,7 +1625,7 @@ struct controller_impl {
             section.template add_row<block_header_state_legacy>(*forkdb.chain_head, db);
          });
       };
-      fork_db.apply_dpos<void>(write_block_state_section);
+      fork_db.apply_legacy<void>(write_block_state_section);
       
       controller_index_set::walk_indices([this, &snapshot]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
@@ -1702,7 +1702,7 @@ struct controller_impl {
          forkdb.chain_head = std::make_shared<block_state_legacy>();
          static_cast<block_header_state_legacy&>(*forkdb.chain_head) = head_header_state;
       };
-      fork_db.apply_dpos<void>(read_block_state_section);
+      fork_db.apply_legacy<void>(read_block_state_section);
 
       controller_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
@@ -2470,16 +2470,17 @@ struct controller_impl {
                   "db revision is not on par with head block",
                   ("db.revision()", db.revision())("controller_head_block", head_block_num())("fork_db_head_block", fork_db_head_block_num()) );
 
-      fork_db.apply_dpos<void>([&](auto& forkdb) {
-         maybe_session session = self.skip_db_sessions(s) ? maybe_session() : maybe_session(db);
-         pending.emplace(std::move(session), *forkdb.chain_head, when, confirm_block_count, new_protocol_feature_activations);
-      });
-      fork_db.apply_if<void>([&](auto& forkdb) {
-         maybe_session session = self.skip_db_sessions(s) ? maybe_session() : maybe_session(db);
-         building_block_input bbi{ forkdb.chain_head->id(), when, forkdb.chain_head->get_scheduled_producer(when).producer_name,
-                                   new_protocol_feature_activations };
-         pending.emplace(std::move(session), *forkdb.chain_head, bbi);
-      });
+      fork_db.apply<void>(
+         [&](auto& forkdb) { // legacy
+            maybe_session session = self.skip_db_sessions(s) ? maybe_session() : maybe_session(db);
+            pending.emplace(std::move(session), *forkdb.chain_head, when, confirm_block_count, new_protocol_feature_activations);
+         },
+         [&](auto& forkdb) { // instant-finality
+            maybe_session        session = self.skip_db_sessions(s) ? maybe_session() : maybe_session(db);
+            building_block_input bbi{forkdb.chain_head->id(), when, forkdb.chain_head->get_scheduled_producer(when).producer_name,
+                                     new_protocol_feature_activations};
+            pending.emplace(std::move(session), *forkdb.chain_head, bbi);
+         });
 
       pending->_block_status = s;
       pending->_producer_block_id = producer_block_id;
@@ -2686,7 +2687,7 @@ struct controller_impl {
 
          fork_db.apply<void>(add_completed_block);
 
-         fork_db.apply_dpos<void>([this](auto& forkdb) {
+         fork_db.apply_legacy<void>([this](auto& forkdb) {
 #warning todo: support deep_mind_logger even when in IF mode (use apply instead of apply_dpos)
                // at block level, no transaction specific logging is possible
                if (auto* dm_logger = get_deep_mind_logger(false)) {
@@ -2714,7 +2715,7 @@ struct controller_impl {
             }
             return false;
          };
-         if (fork_db.apply_dpos<bool>(transition)) {
+         if (fork_db.apply_legacy<bool>(transition)) {
             fork_db.switch_from_legacy();
          }
 
@@ -3981,7 +3982,7 @@ const block_header& controller::head_block_header()const {
 
 block_state_legacy_ptr controller::head_block_state_legacy()const {
    // returns null after instant finality activated
-   return my->fork_db.apply_dpos<block_state_legacy_ptr>(
+   return my->fork_db.apply_legacy<block_state_legacy_ptr>(
       [](auto& forkdb) -> block_state_legacy_ptr { return forkdb.chain_head; });
 }
 
