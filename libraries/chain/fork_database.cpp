@@ -337,10 +337,8 @@ namespace eosio::chain {
             const auto& exts = n->header_exts;
 
             if (exts.count(protocol_feature_activation::extension_id()) > 0) {
-               const auto& new_protocol_features =
-                  std::get<protocol_feature_activation>(
-                     exts.lower_bound(protocol_feature_activation::extension_id())->second)
-                     .protocol_features;
+               const auto& pfa = exts.lower_bound(protocol_feature_activation::extension_id())->second;
+               const auto& new_protocol_features = std::get<protocol_feature_activation>(pfa).protocol_features;
                validator(n->timestamp(),
                          static_cast<bs*>(prev_bh.get())->get_activated_protocol_features()->protocol_features,
                          new_protocol_features);
