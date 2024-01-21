@@ -120,7 +120,7 @@ class maybe_session {
 struct completed_block {
    std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
 
-   bool is_dpos() const { return std::holds_alternative<block_state_legacy_ptr>(bsp); }
+   bool is_legacy() const { return std::holds_alternative<block_state_legacy_ptr>(bsp); }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& bsp) { return bsp->extract_trxs_metas(); }, bsp);
@@ -184,7 +184,7 @@ struct completed_block {
 
 struct assembled_block {
    // --------------------------------------------------------------------------------
-   struct assembled_block_dpos {
+   struct assembled_block_legacy {
       block_id_type                     id;
       pending_block_header_state_legacy pending_block_header_state;
       deque<transaction_metadata_ptr>   trx_metas;
@@ -207,28 +207,18 @@ struct assembled_block {
       block_header_state& get_bhs() { return bhs; }
    };
 
-   std::variant<assembled_block_dpos, assembled_block_if> v;
+   std::variant<assembled_block_legacy, assembled_block_if> v;
 
-   bool is_dpos() const { return std::holds_alternative<assembled_block_dpos>(v); }
+   bool is_legacy() const { return std::holds_alternative<assembled_block_legacy>(v); }
 
    template <class R, class F>
-   R apply_dpos(F&& f) {
+   R apply_legacy(F&& f) {
       if constexpr (std::is_same_v<void, R>)
-         std::visit(overloaded{[&](assembled_block_dpos& ab) { std::forward<F>(f)(ab); },
+         std::visit(overloaded{[&](assembled_block_legacy& ab) { std::forward<F>(f)(ab); },
                                [&](assembled_block_if& ab)   {}}, v);
       else
-         return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return std::forward<F>(f)(ab); },
+         return std::visit(overloaded{[&](assembled_block_legacy& ab) -> R { return std::forward<F>(f)(ab); },
                                       [&](assembled_block_if& ab)   -> R { return {}; }}, v);
-   }
-
-   template <class R, class F>
-   R apply_hs(F&& f) {
-      if constexpr (std::is_same_v<void, R>)
-         std::visit(overloaded{[&](assembled_block_dpos& ab) {},
-                               [&](assembled_block_if& ab)   { std::forward<F>(f)(ab); }}, v);
-      else
-         return std::visit(overloaded{[&](assembled_block_dpos& ab) -> R { return {}; },
-                                      [&](assembled_block_if& ab)   -> R { return std::forward<F>(f)(ab); }}, v);
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -246,41 +236,41 @@ struct assembled_block {
 
    const block_id_type& id() const {
       return std::visit(
-         overloaded{[](const assembled_block_dpos& ab) -> const block_id_type& { return ab.id; },
+         overloaded{[](const assembled_block_legacy& ab) -> const block_id_type& { return ab.id; },
                     [](const assembled_block_if& ab)   -> const block_id_type& { return ab.bhs.id; }},
          v);
    }
    
    block_timestamp_type timestamp() const {
       return std::visit(
-         overloaded{[](const assembled_block_dpos& ab)  { return ab.pending_block_header_state.timestamp; },
+         overloaded{[](const assembled_block_legacy& ab)  { return ab.pending_block_header_state.timestamp; },
                     [](const assembled_block_if& ab)    { return ab.bhs.header.timestamp; }},
          v);
    }
 
    uint32_t block_num() const {
       return std::visit(
-         overloaded{[](const assembled_block_dpos& ab) { return ab.pending_block_header_state.block_num; },
+         overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.block_num; },
                     [](const assembled_block_if& ab)   { return ab.bhs.block_num(); }},
          v);
    }
 
    account_name producer() const {
       return std::visit(
-         overloaded{[](const assembled_block_dpos& ab) { return ab.pending_block_header_state.producer; },
+         overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.producer; },
                     [](const assembled_block_if& ab)   { return ab.active_producer_authority.producer_name; }},
          v);
    }
 
    const block_header& header() const {
       return std::visit(
-         overloaded{[](const assembled_block_dpos& ab) -> const block_header& { return *ab.unsigned_block; },
+         overloaded{[](const assembled_block_legacy& ab) -> const block_header& { return *ab.unsigned_block; },
                     [](const assembled_block_if& ab)   -> const block_header& { return ab.bhs.header; }},
          v);
    }
 
    const producer_authority_schedule& active_producers() const {
-      return std::visit(overloaded{[](const assembled_block_dpos& ab) -> const producer_authority_schedule& {
+      return std::visit(overloaded{[](const assembled_block_legacy& ab) -> const producer_authority_schedule& {
                                       return ab.pending_block_header_state.active_schedule;
                                    },
                                    [](const assembled_block_if& ab) -> const producer_authority_schedule& {
@@ -290,7 +280,7 @@ struct assembled_block {
    }
 
    const producer_authority_schedule* next_producers() const {
-      return std::visit(overloaded{[](const assembled_block_dpos& ab) -> const producer_authority_schedule* {
+      return std::visit(overloaded{[](const assembled_block_legacy& ab) -> const producer_authority_schedule* {
                                       return ab.new_producer_authority_cache.has_value()
                                                 ? &ab.new_producer_authority_cache.value()
                                                 : nullptr;
@@ -305,7 +295,7 @@ struct assembled_block {
 
    const producer_authority_schedule* pending_producers_legacy() const {
       return std::visit(
-         overloaded{[](const assembled_block_dpos& ab) -> const producer_authority_schedule* {
+         overloaded{[](const assembled_block_legacy& ab) -> const producer_authority_schedule* {
                        return ab.new_producer_authority_cache.has_value() ? &ab.new_producer_authority_cache.value()
                                                                           : nullptr;
                     },
@@ -314,7 +304,7 @@ struct assembled_block {
    }
 
    const block_signing_authority& pending_block_signing_authority() const {
-      return std::visit(overloaded{[](const assembled_block_dpos& ab) -> const block_signing_authority& {
+      return std::visit(overloaded{[](const assembled_block_legacy& ab) -> const block_signing_authority& {
                                       return ab.pending_block_header_state.valid_block_signing_authority;
                                    },
                                    [](const assembled_block_if& ab) -> const block_signing_authority& {
@@ -325,7 +315,7 @@ struct assembled_block {
 
    completed_block complete_block(const protocol_feature_set& pfs, validator_t validator,
                                   const signer_callback_type& signer) {
-      return std::visit(overloaded{[&](assembled_block_dpos& ab) {
+      return std::visit(overloaded{[&](assembled_block_legacy& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
                                          std::move(ab.trx_metas), pfs, validator, signer);
@@ -388,11 +378,11 @@ struct building_block {
    };
    
    // --------------------------------------------------------------------------------
-   struct building_block_dpos : public building_block_common {
+   struct building_block_legacy : public building_block_common {
       pending_block_header_state_legacy          pending_block_header_state;
       std::optional<producer_authority_schedule> new_pending_producer_schedule;
 
-      building_block_dpos( const block_header_state_legacy& prev,
+      building_block_legacy( const block_header_state_legacy& prev,
                            block_timestamp_type when,
                            uint16_t num_prev_blocks_to_confirm,
                            const vector<digest_type>& new_protocol_feature_activations)
@@ -455,12 +445,12 @@ struct building_block {
 
    };
 
-   std::variant<building_block_dpos, building_block_if> v;
+   std::variant<building_block_legacy, building_block_if> v;
 
-   // dpos constructor
+   // legacy constructor
    building_block(const block_header_state_legacy& prev, block_timestamp_type when, uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations) :
-      v(building_block_dpos(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
+      v(building_block_legacy(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
    {}
 
    // if constructor
@@ -468,26 +458,16 @@ struct building_block {
       v(building_block_if(prev, input))
    {}
 
-   bool is_dpos() const { return std::holds_alternative<building_block_dpos>(v); }
+   bool is_legacy() const { return std::holds_alternative<building_block_legacy>(v); }
 
    template <class R, class F>
-   R apply_dpos(F&& f) {
+   R apply_legacy(F&& f) {
       if constexpr (std::is_same_v<void, R>)
-         std::visit(overloaded{[&](building_block_dpos& bb) { std::forward<F>(f)(bb); },
+         std::visit(overloaded{[&](building_block_legacy& bb) { std::forward<F>(f)(bb); },
                                [&](building_block_if& bb)   {}}, v);
       else
-         return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return std::forward<F>(f)(bb); },
+         return std::visit(overloaded{[&](building_block_legacy& bb) -> R { return std::forward<F>(f)(bb); },
                                       [&](building_block_if& bb)   -> R { return {}; }}, v);
-   }
-
-   template <class R, class F>
-   R apply_hs(F&& f) {
-      if constexpr (std::is_same_v<void, R>)
-         std::visit(overloaded{[&](building_block_dpos& bb) {},
-                               [&](building_block_if& bb)   { std::forward<F>(f)(bb); }}, v);
-      else
-         return std::visit(overloaded{[&](building_block_dpos& bb) -> R { return {}; },
-                                      [&](building_block_if& bb)   -> R { return std::forward<F>(f)(bb); }}, v);
    }
 
    void set_proposed_finalizer_policy(const finalizer_policy& fin_pol) {
@@ -496,7 +476,7 @@ struct building_block {
 
    int64_t set_proposed_producers( std::vector<producer_authority> producers ) {
       return std::visit(
-         overloaded{[](building_block_dpos&) -> int64_t { return -1; },
+         overloaded{[](building_block_legacy&) -> int64_t { return -1; },
                     [&](building_block_if& bb) -> int64_t {
                        bb.new_proposer_policy = std::make_shared<proposer_policy>();
                        bb.new_proposer_policy->active_time = detail::get_next_next_round_block_time(bb.timestamp);
@@ -525,21 +505,21 @@ struct building_block {
 
    block_timestamp_type timestamp() const {
       return std::visit(
-         overloaded{[](const building_block_dpos& bb)  { return bb.pending_block_header_state.timestamp; },
+         overloaded{[](const building_block_legacy& bb)  { return bb.pending_block_header_state.timestamp; },
                     [](const building_block_if& bb)    { return bb.timestamp; }},
          v);
    }
 
    block_id_type parent_id() const {
       return std::visit(
-         overloaded{[](const building_block_dpos& bb)  { return bb.pending_block_header_state.previous; },
+         overloaded{[](const building_block_legacy& bb)  { return bb.pending_block_header_state.previous; },
                     [](const building_block_if& bb)    { return bb.parent_id; }},
          v);
    }
 
    account_name producer() const {
       return std::visit(
-         overloaded{[](const building_block_dpos& bb)  { return bb.pending_block_header_state.producer; },
+         overloaded{[](const building_block_legacy& bb)  { return bb.pending_block_header_state.producer; },
                     [](const building_block_if& bb)    { return bb.active_producer_authority.producer_name; }},
          v);
    }
@@ -549,7 +529,7 @@ struct building_block {
    }
 
    const block_signing_authority& pending_block_signing_authority() const {
-      return std::visit(overloaded{[](const building_block_dpos& bb) -> const block_signing_authority& {
+      return std::visit(overloaded{[](const building_block_legacy& bb) -> const block_signing_authority& {
                                       return bb.pending_block_header_state.valid_block_signing_authority;
                                    },
                                    [](const building_block_if& bb) -> const block_signing_authority& {
@@ -580,7 +560,7 @@ struct building_block {
    }
 
    const producer_authority_schedule& active_producers() const {
-      return std::visit(overloaded{[](const building_block_dpos& bb) -> const producer_authority_schedule& {
+      return std::visit(overloaded{[](const building_block_legacy& bb) -> const producer_authority_schedule& {
                                       return bb.pending_block_header_state.active_schedule;
                                    },
                                    [](const building_block_if& bb) -> const producer_authority_schedule& {
@@ -590,7 +570,7 @@ struct building_block {
    }
 
    const producer_authority_schedule* next_producers() const {
-      return std::visit(overloaded{[](const building_block_dpos& bb) -> const producer_authority_schedule* {
+      return std::visit(overloaded{[](const building_block_legacy& bb) -> const producer_authority_schedule* {
                                       if (bb.new_pending_producer_schedule)
                                          return &bb.new_pending_producer_schedule.value();
                                       return &bb.pending_block_header_state.prev_pending_schedule.schedule;
@@ -606,7 +586,7 @@ struct building_block {
    }
 
    const producer_authority_schedule* pending_producers_legacy() const {
-      return std::visit(overloaded{[](const building_block_dpos& bb) -> const producer_authority_schedule* {
+      return std::visit(overloaded{[](const building_block_legacy& bb) -> const producer_authority_schedule* {
                                       if (bb.new_pending_producer_schedule)
                                          return &bb.new_pending_producer_schedule.value();
                                       return &bb.pending_block_header_state.prev_pending_schedule.schedule;
@@ -625,7 +605,7 @@ struct building_block {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
-            [&](building_block_dpos& bb) -> assembled_block {
+            [&](building_block_legacy& bb) -> assembled_block {
                // compute the action_mroot and transaction_mroot
                auto [transaction_mroot, action_mroot] = std::visit(
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
@@ -648,7 +628,7 @@ struct building_block {
                block_ptr->transactions = std::move(bb.pending_trx_receipts);
 
                return assembled_block{
-                  .v = assembled_block::assembled_block_dpos{block_ptr->calculate_id(),
+                  .v = assembled_block::assembled_block_legacy{block_ptr->calculate_id(),
                                                              std::move(bb.pending_block_header_state),
                                                              std::move(bb.pending_trx_metas), std::move(block_ptr),
                                                              std::move(bb.new_pending_producer_schedule)}
@@ -764,7 +744,7 @@ struct pending_state {
       _db_session.push();
    }
 
-   bool is_dpos() const { return std::visit([](const auto& stage) { return stage.is_dpos(); }, _block_stage); }
+   bool is_legacy() const { return std::visit([](const auto& stage) { return stage.is_legacy(); }, _block_stage); }
    
    const block_signing_authority& pending_block_signing_authority() const {
       return std::visit(
@@ -813,7 +793,6 @@ struct controller_impl {
    block_log                       blog;
    std::optional<pending_state>    pending;
    fork_database                   fork_db;
-   std::optional<chain_pacemaker>  pacemaker;
    std::atomic<uint32_t>           if_irreversible_block_num{0};
    resource_limits_manager         resource_limits;
    subjective_billing              subjective_bill;
@@ -2579,8 +2558,8 @@ struct controller_impl {
          const auto& gpo = self.get_global_properties();
 
          // instant finality uses alternative method for chaning producer schedule
-         bb.apply_dpos<void>([&](building_block::building_block_dpos& bb_dpos) {
-            pending_block_header_state_legacy& pbhs = bb_dpos.pending_block_header_state;
+         bb.apply_legacy<void>([&](building_block::building_block_legacy& bb_legacy) {
+            pending_block_header_state_legacy& pbhs = bb_legacy.pending_block_header_state;
 
             if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
                 ( *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible ...
@@ -2591,13 +2570,13 @@ struct controller_impl {
                EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
                            producer_schedule_exception, "wrong producer schedule version specified" );
 
-               bb_dpos.new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+               bb_legacy.new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
 
                if( !replaying ) {
                   ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
                         ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
                         ("lib", pbhs.dpos_irreversible_blocknum)
-                        ("schedule", bb_dpos.new_pending_producer_schedule ) );
+                        ("schedule", bb_legacy.new_pending_producer_schedule ) );
                }
 
                db.modify( gpo, [&]( auto& gp ) {
@@ -2712,7 +2691,7 @@ struct controller_impl {
          fork_db.apply<void>(add_completed_block);
 
          fork_db.apply_legacy<void>([this](auto& forkdb) {
-#warning todo: support deep_mind_logger even when in IF mode (use apply instead of apply_dpos)
+#warning todo: support deep_mind_logger even when in IF mode (use apply instead of apply_legacy)
                // at block level, no transaction specific logging is possible
                if (auto* dm_logger = get_deep_mind_logger(false)) {
                   dm_logger->on_accepted_block(forkdb.chain_head);
@@ -3370,8 +3349,8 @@ struct controller_impl {
    void update_producers_authority() {
       // this is not called when hotstuff is activated
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.apply_dpos<void>([this](building_block::building_block_dpos& dpos_header) {
-         pending_block_header_state_legacy& pbhs = dpos_header.pending_block_header_state;
+      bb.apply_legacy<void>([this](building_block::building_block_legacy& legacy_header) {
+         pending_block_header_state_legacy& pbhs = legacy_header.pending_block_header_state;
          const auto& producers = pbhs.active_schedule.producers;
 
          auto update_permission = [&](auto& permission, auto threshold) {
@@ -4155,7 +4134,7 @@ void controller::write_snapshot( const snapshot_writer_ptr& snapshot ) {
 
 int64_t controller::set_proposed_producers( vector<producer_authority> producers ) {
    assert(my->pending);
-   if (my->pending->is_dpos()) {
+   if (my->pending->is_legacy()) {
       return my->set_proposed_producers_legacy(std::move(producers));
    } else {
       return my->set_proposed_producers(std::move(producers));
