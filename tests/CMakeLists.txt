@@ -229,6 +229,9 @@ set_property(TEST nodeos_chainbase_allocation_test PROPERTY LABELS nonparalleliz
 add_test(NAME nodeos_startup_catchup_lr_test COMMAND tests/nodeos_startup_catchup.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_startup_catchup_lr_test PROPERTY LABELS long_running_tests)
 
+add_test(NAME nodeos_startup_catchup_if_lr_test COMMAND tests/nodeos_startup_catchup.py -p3 --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_startup_catchup_if_lr_test PROPERTY LABELS long_running_tests)
+
 add_test(NAME nodeos_short_fork_take_over_test COMMAND tests/nodeos_short_fork_take_over_test.py -v --wallet-port 9905 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_short_fork_take_over_test PROPERTY LABELS nonparallelizable_tests)
 

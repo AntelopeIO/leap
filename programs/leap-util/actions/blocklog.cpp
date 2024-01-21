@@ -266,18 +266,17 @@ int blocklog_actions::read_log() {
       opt->first_block = block_logger.first_block_num();
    }
 
-   using fork_database_t = fork_database_legacy; // [greg todo] what is it is not a legacy fork_db?
-   fork_database_t::branch_type fork_db_branch;
+   std::vector<signed_block_ptr> fork_db_branch;
 
    if(std::filesystem::exists(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name / config::forkdb_filename)) {
       ilog("opening fork_db");
-      fork_database_t fork_db(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name);
+      fork_database fork_db(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name);
 
       fork_db.open([](block_timestamp_type timestamp,
                       const flat_set<digest_type>& cur_features,
                       const vector<digest_type>& new_features) {});
 
-      fork_db_branch = fork_db.fetch_branch(fork_db.head()->id());
+      fork_db_branch = fork_db.fetch_branch_from_head();
       if(fork_db_branch.empty()) {
          elog("no blocks available in reversible block database: only block_log blocks are available");
       } else {
@@ -336,7 +335,7 @@ int blocklog_actions::read_log() {
       for(auto bitr = fork_db_branch.rbegin(); bitr != fork_db_branch.rend() && block_num <= opt->last_block; ++bitr) {
          if(opt->as_json_array && contains_obj)
             *out << ",";
-         auto next = (*bitr)->block;
+         auto& next = *bitr;
          print_block(next);
          ++block_num;
          contains_obj = true;

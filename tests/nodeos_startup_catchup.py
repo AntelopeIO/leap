@@ -32,7 +32,7 @@ appArgs=AppArgs()
 extraArgs = appArgs.add(flag="--catchup-count", type=int, help="How many catchup-nodes to launch", default=10)
 extraArgs = appArgs.add(flag="--txn-gen-nodes", type=int, help="How many transaction generator nodes", default=2)
 args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running",
-                              "-p","--wallet-port","--unshared"}, applicationSpecificArgs=appArgs)
+                              "--activate-if","-p","--wallet-port","--unshared"}, applicationSpecificArgs=appArgs)
 Utils.Debug=args.v
 pnodes=args.p if args.p > 0 else 1
 startedNonProdNodes = args.txn_gen_nodes if args.txn_gen_nodes >= 2 else 2
@@ -43,6 +43,7 @@ prodCount=2
 walletPort=args.wallet_port
 catchupCount=args.catchup_count if args.catchup_count > 0 else 1
 totalNodes=startedNonProdNodes+pnodes+catchupCount
+activateIF=args.activate_if
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
@@ -56,7 +57,7 @@ try:
     cluster.setWalletMgr(walletMgr)
 
     Print("Stand up cluster")
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
+    if cluster.launch(prodCount=prodCount, activateIF=activateIF, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
                       unstartedNodes=catchupCount, loadSystemContract=True,
                       maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
