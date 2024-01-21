@@ -325,7 +325,7 @@ namespace eosio::chain {
          void set_proposed_finalizers( const finalizer_policy& fin_set );
          void get_finalizer_state( finalizer_state& fs ) const;
          // called from net threads
-         bool process_vote_message( const hs_vote_message& msg );
+         bool process_vote_message( const vote_message& msg );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
@@ -370,7 +370,7 @@ namespace eosio::chain {
          signal<void(const block_signal_params&)>  accepted_block;
          signal<void(const block_signal_params&)>  irreversible_block;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
-         signal<void(const hs_vote_message&)>      voted_block;
+         signal<void(const vote_message&)>      voted_block;
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface& get_wasm_interface();

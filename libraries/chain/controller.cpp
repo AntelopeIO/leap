@@ -2993,7 +2993,7 @@ struct controller_impl {
             auto sig =  private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
 
             // construct the vote message
-            hs_vote_message vote{ bsp->id(), strong, f.public_key, sig };
+            vote_message vote{ bsp->id(), strong, f.public_key, sig };
 
             // net plugin subscribed this signal. it will broadcast the vote message
             // on receiving the signal
@@ -4212,7 +4212,7 @@ void controller::get_finalizer_state( finalizer_state& fs ) const {
 }
 
 // called from net threads
-bool controller::process_vote_message( const hs_vote_message& vote ) {
+bool controller::process_vote_message( const vote_message& vote ) {
    auto do_vote = [&vote](auto& forkdb) -> std::pair<bool, std::optional<uint32_t>> {
        auto bsp = forkdb.get_block(vote.proposal_id);
        if (bsp)

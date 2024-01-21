@@ -109,7 +109,7 @@ namespace eosio::chain {
                on_hs_proposal_msg(std::get<hs_proposal_message>(msg), sender_id);
             } else if (v_index == hs_vote) {
                ++votes_count;
-               on_hs_vote_msg(std::get<hs_vote_message>(msg), sender_id);
+               on_hs_vote_msg(std::get<vote_message>(msg), sender_id);
             } else if (v_index == hs_new_view) {
                ++new_views_count;
                on_hs_new_view_msg(std::get<hs_new_view_message>(msg), sender_id);
@@ -198,7 +198,7 @@ namespace eosio::chain {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
+   void test_pacemaker::send_hs_vote_msg(const vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
@@ -215,7 +215,7 @@ namespace eosio::chain {
       }
    }
 
-   void test_pacemaker::on_hs_vote_msg(const hs_vote_message& msg, const std::string& id) {
+   void test_pacemaker::on_hs_vote_msg(const vote_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_vote_msg(0, msg);

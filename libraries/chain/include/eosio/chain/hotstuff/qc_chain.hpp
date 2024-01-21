@@ -105,7 +105,7 @@ namespace eosio::chain {
 
       void on_beat();
 
-      void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg);
+      void on_hs_vote_msg(const uint32_t connection_id, const vote_message& msg);
       void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg);
       void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg);
 
@@ -132,12 +132,12 @@ namespace eosio::chain {
 
       // connection_id.has_value() when processing a non-loopback message
       void process_proposal(std::optional<uint32_t> connection_id, const hs_proposal_message& msg);
-      void process_vote(std::optional<uint32_t> connection_id, const hs_vote_message& msg);
+      void process_vote(std::optional<uint32_t> connection_id, const vote_message& msg);
       void process_new_view(std::optional<uint32_t> connection_id, const hs_new_view_message& msg);
 
       void create_proposal(const block_id_type& block_id);
 
-      hs_vote_message sign_proposal(const hs_proposal_message& proposal, bool strong, const bls_public_key& finalizer_pub_key, const bls_private_key& finalizer_priv_key);
+      vote_message sign_proposal(const hs_proposal_message& proposal, bool strong, const bls_public_key& finalizer_pub_key, const bls_private_key& finalizer_priv_key);
 
       //verify that a proposal descends from another
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor);
@@ -156,7 +156,7 @@ namespace eosio::chain {
 
       // connection_id.has_value() when just propagating a received message
       void send_hs_proposal_msg(std::optional<uint32_t> connection_id, const hs_proposal_message& msg);
-      void send_hs_vote_msg(std::optional<uint32_t> connection_id, const hs_vote_message& msg);
+      void send_hs_vote_msg(std::optional<uint32_t> connection_id, const vote_message& msg);
       void send_hs_new_view_msg(std::optional<uint32_t> connection_id, const hs_new_view_message& msg);
 
       void send_hs_message_warning(std::optional<uint32_t> connection_id, const hs_message_warning code);

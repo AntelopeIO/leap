@@ -143,7 +143,7 @@ namespace eosio {
                                     sync_request_message,
                                     signed_block,
                                     packed_transaction,
-                                    hs_vote_message>;
+                                    vote_message>;
 
 } // namespace eosio
 
