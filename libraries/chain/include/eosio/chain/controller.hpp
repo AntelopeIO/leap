@@ -321,9 +321,6 @@ namespace eosio::chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
-         void create_pacemaker(std::set<account_name> my_producers, bls_pub_priv_key_map_t finalizer_keys, fc::logger& hotstuff_logger);
-         void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> bcast_hs_message);
-         void register_pacemaker_warn_function(std::function<void(uint32_t, hs_message_warning)> warn_hs_message);
          // called by host function set_finalizers
          void set_proposed_finalizers( const finalizer_policy& fin_set );
          void get_finalizer_state( finalizer_state& fs ) const;

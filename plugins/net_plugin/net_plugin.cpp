@@ -4309,14 +4309,6 @@ namespace eosio {
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
 
       controller& cc = chain_plug->chain();
-      cc.register_pacemaker_bcast_function(
-              [my = shared_from_this()](const std::optional<uint32_t>& c, const chain::hs_message& s) {
-                 //my->bcast_hs_message(c, s);
-              } );
-      cc.register_pacemaker_warn_function(
-              [my = shared_from_this()](uint32_t c, chain::hs_message_warning s) {
-                 my->warn_hs_message(c, s);
-              } );
 
       producer_plug = app().find_plugin<producer_plugin>();
       set_producer_accounts(producer_plug->producer_accounts());

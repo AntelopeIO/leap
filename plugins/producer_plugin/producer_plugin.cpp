@@ -1341,10 +1341,6 @@ void producer_plugin_impl::plugin_startup() {
 
          chain.set_node_finalizer_keys(_finalizer_keys);
 
-#warning TODO remove create_pacemaker
-         chain.create_pacemaker(_producers, std::move(_finalizer_keys), hotstuff_logger);
-         _finalizer_keys.clear();
-
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](const block_signal_params& t) {
             const auto& [ block, id ] = t;
             on_block(block);

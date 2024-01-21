@@ -30,7 +30,6 @@
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
-#include <eosio/chain/hotstuff/chain_pacemaker.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -4202,28 +4201,14 @@ int64_t controller_impl::set_proposed_producers_legacy( vector<producer_authorit
    return version;
 }
 
-void controller::create_pacemaker(std::set<account_name> my_producers, bls_pub_priv_key_map_t finalizer_keys, fc::logger& hotstuff_logger) {
-   EOS_ASSERT( !my->pacemaker, misc_exception, "duplicate chain_pacemaker initialization" );
-   my->pacemaker.emplace(this, std::move(my_producers), std::move(finalizer_keys), hotstuff_logger);
-}
-
-void controller::register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> bcast_hs_message) {
-   EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
-   my->pacemaker->register_bcast_function(std::move(bcast_hs_message));
-}
-
-void controller::register_pacemaker_warn_function(std::function<void(uint32_t, hs_message_warning)> warn_hs_message) {
-   EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
-   my->pacemaker->register_warn_function(std::move(warn_hs_message));
-}
-
 void controller::set_proposed_finalizers( const finalizer_policy& fin_pol ) {
    my->set_proposed_finalizers(fin_pol);
 }
 
 void controller::get_finalizer_state( finalizer_state& fs ) const {
-   EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
-   my->pacemaker->get_state(fs);
+   // TODO: determine what should be returned from chain_api_plugin get_finalizer_state
+//   EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
+//   my->pacemaker->get_state(fs);
 }
 
 // called from net threads
