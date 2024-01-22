@@ -3719,6 +3719,7 @@ namespace eosio {
    // called from connection strand
    void connection::handle_message( const block_id_type& id, signed_block_ptr ptr ) {
       // post to dispatcher strand so that we don't have multiple threads validating the block header
+      peer_dlog(this, "posting block ${n} to dispatcher strand", ("n", ptr->block_num()));
       my_impl->dispatcher->strand.post([id, c{shared_from_this()}, ptr{std::move(ptr)}, cid=connection_id]() mutable {
          controller& cc = my_impl->chain_plug->chain();
 
@@ -3764,6 +3765,7 @@ namespace eosio {
             my_impl->dispatcher->bcast_block( obt->block(), obt->id() );
          }
 
+         fc_dlog(logger, "posting block ${n} to app thread", ("n", ptr->block_num()));
          app().executor().post(priority::medium, exec_queue::read_write, [ptr{std::move(ptr)}, obt{std::move(obt)}, id, c{std::move(c)}]() mutable {
             c->process_signed_block( id, std::move(ptr), obt );
          });
@@ -4307,8 +4309,6 @@ namespace eosio {
 
    void net_plugin_impl::plugin_startup() {
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
-
-      controller& cc = chain_plug->chain();
 
       producer_plug = app().find_plugin<producer_plugin>();
       set_producer_accounts(producer_plug->producer_accounts());
