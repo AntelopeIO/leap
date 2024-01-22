@@ -81,6 +81,7 @@ set(CHAIN_WEBASSEMBLY_SOURCES
 
 set(CHAIN_HOTSTUFF_SOURCES
    hotstuff/chain_pacemaker.cpp
+   hotstuff/finalizer.cpp
    hotstuff/instant_finality_extension.cpp
    hotstuff/qc_chain.cpp
    hotstuff/hotstuff.cpp
@@ -112,7 +113,6 @@ add_library( eosio_chain
              chain_config.cpp
              chain_id_type.cpp
              genesis_state.cpp
-             finalizer.cpp
              ${CMAKE_CURRENT_BINARY_DIR}/genesis_state_root_key.cpp
 
               wast_to_wasm.cpp
