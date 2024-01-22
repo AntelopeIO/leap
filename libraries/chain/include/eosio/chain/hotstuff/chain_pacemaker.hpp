@@ -41,7 +41,7 @@ namespace eosio::chain {
       uint32_t get_quorum_threshold() final;
 
       void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) final;
-      void send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) final;
+      void send_hs_vote_msg(const vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) final;
       void send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) final;
 
       void send_hs_message_warning(uint32_t sender_peer, hs_message_warning code) final;
@@ -51,7 +51,7 @@ namespace eosio::chain {
       void on_irreversible_block( const signed_block_ptr& block );
 
       void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg); //consensus msg event handler
-      void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg); //confirmation msg event handler
+      void on_hs_vote_msg(const uint32_t connection_id, const vote_message& msg); //confirmation msg event handler
       void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg); //new view msg event handler
    private:
 

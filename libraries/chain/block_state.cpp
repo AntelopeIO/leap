@@ -67,7 +67,7 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 }
 
 // Called from net threads
-std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const hs_vote_message& vote) {
+std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const vote_message& vote) {
    const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
                           finalizers.end(),
