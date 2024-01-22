@@ -3106,7 +3106,7 @@ struct controller_impl {
       auto claimed_block_bsp = fork_db_fetch_bsp_by_num( received_qc_info.last_qc_block_num );
       EOS_ASSERT( claimed_block_bsp,
                   block_validate_exception,
-                  "Block state was not founf in forkdb for block number ${b}",
+                  "Block state was not found in forkdb for block number ${b}",
                   ("b", valid_qc.is_strong()) );
 
       // verify the claims
