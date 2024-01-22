@@ -992,20 +992,23 @@ class Cluster(object):
         Utils.Print(f'Found {len(producerKeys)} producer keys')
         return producerKeys
 
-    def activateInstantFinality(self, launcher, pnodes):
+    def activateInstantFinality(self, launcher, totalNodes):
         # call setfinalizer
-        numFins = pnodes
+        numFins = 0
+        for n in launcher.network.nodes.values():
+            if n.keys[0].blspubkey is None:
+                continue
+            numFins = numFins + 1
+
         threshold = int(numFins * 2 / 3 + 1)
-        if threshold >= pnodes:
-            threshold = pnodes - 1
+        if threshold >= totalNodes:
+            threshold = totalNodes - 1
         setFinStr =  f'{{"finalizer_policy": {{'
         setFinStr += f'  "threshold": {threshold}, '
         setFinStr += f'  "finalizers": ['
         finNum = 1
         for n in launcher.network.nodes.values():
             if n.keys[0].blspubkey is None:
-                continue
-            if len(n.producers) == 0:
                 continue
             setFinStr += f'    {{"description": "finalizer #{finNum}", '
             setFinStr += f'     "weight":1, '
@@ -1094,7 +1097,7 @@ class Cluster(object):
             return None
 
         if activateIF:
-            self.activateInstantFinality(launcher, self.productionNodesCount)
+            self.activateInstantFinality(launcher, self.totalNodesCount)
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(eosioName)
