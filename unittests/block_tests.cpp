@@ -44,7 +44,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
 
    // Push block with invalid transaction to other chain
    tester validator;
-   auto btf = validator.control->create_block_token_future( copy_b->calculate_id(), copy_b );
+   auto btf = validator.control->create_block_handle_future( copy_b->calculate_id(), copy_b );
    validator.control->abort_block();
    controller::block_report br;
    BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} ), fc::exception ,
@@ -83,7 +83,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
 
    // Push block with invalid transaction to other chain
    tester validator;
-   auto btf = validator.control->create_block_token_future( copy_b->calculate_id(), copy_b );
+   auto btf = validator.control->create_block_handle_future( copy_b->calculate_id(), copy_b );
    validator.control->abort_block();
    controller::block_report br;
    BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} ), fc::exception,

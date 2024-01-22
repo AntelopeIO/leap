@@ -2862,7 +2862,7 @@ struct controller_impl {
             auto producer_block_id = bsp->id();
             start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
-            // validated in create_block_token()
+            // validated in create_block_handle()
             std::get<building_block>(pending->_block_stage).trx_mroot_or_receipt_digests() = b->transaction_mroot;
 
             const bool existing_trxs_metas = !bsp->trxs_metas().empty();
@@ -3007,7 +3007,7 @@ struct controller_impl {
    }
 
    // thread safe, expected to be called from thread other than the main thread
-   block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
+   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
       auto trx_mroot = calculate_trx_merkle( b->transactions, false );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
@@ -3026,7 +3026,7 @@ struct controller_impl {
 
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
-      return block_token{bsp};
+      return block_handle{bsp};
    }
 
    void integrate_received_qc_to_block(const block_id_type& id, const signed_block_ptr& b) {
@@ -3042,7 +3042,7 @@ struct controller_impl {
    }
 
    // thread safe, expected to be called from thread other than the main thread
-   block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
       auto trx_mroot = calculate_trx_merkle( b->transactions, true );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
@@ -3065,13 +3065,13 @@ struct controller_impl {
       // integrate the received QC into the claimed block
       integrate_received_qc_to_block(id, b);
 
-      return block_token{bsp};
+      return block_handle{bsp};
    }
 
-   std::future<block_token> create_block_token_future( const block_id_type& id, const signed_block_ptr& b ) {
+   std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
-      auto f = [&](auto& forkdb) -> std::future<block_token> {
+      auto f = [&](auto& forkdb) -> std::future<block_handle> {
          return post_async_task( thread_pool.get_executor(), [b, id, &forkdb, control=this]() {
             // no reason for a block_state if fork_db already knows about block
             auto existing = forkdb.get_block( id );
@@ -3085,14 +3085,14 @@ struct controller_impl {
          } );
       };
 
-      return fork_db.apply<std::future<block_token>>(f);
+      return fork_db.apply<std::future<block_handle>>(f);
    }
 
    // thread safe, expected to be called from thread other than the main thread
-   std::optional<block_token> create_block_token( const block_id_type& id, const signed_block_ptr& b ) {
+   std::optional<block_handle> create_block_handle( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
       
-      auto f = [&](auto& forkdb) -> std::optional<block_token> {
+      auto f = [&](auto& forkdb) -> std::optional<block_handle> {
          // no reason for a block_state if fork_db already knows about block
          auto existing = forkdb.get_block( id );
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
@@ -3104,7 +3104,7 @@ struct controller_impl {
          return create_block_state_i( id, b, *prev );
       };
 
-      return fork_db.apply<std::optional<block_token>>(f);
+      return fork_db.apply<std::optional<block_handle>>(f);
    }
 
    template <class BSP>
@@ -3886,16 +3886,16 @@ boost::asio::io_context& controller::get_thread_pool() {
    return my->thread_pool.get_executor();
 }
 
-std::future<block_token> controller::create_block_token_future( const block_id_type& id, const signed_block_ptr& b ) {
-   return my->create_block_token_future( id, b );
+std::future<block_handle> controller::create_block_handle_future( const block_id_type& id, const signed_block_ptr& b ) {
+   return my->create_block_handle_future( id, b );
 }
 
-std::optional<block_token> controller::create_block_token( const block_id_type& id, const signed_block_ptr& b ) const {
-   return my->create_block_token( id, b );
+std::optional<block_handle> controller::create_block_handle( const block_id_type& id, const signed_block_ptr& b ) const {
+   return my->create_block_handle( id, b );
 }
 
 void controller::push_block( block_report& br,
-                             const block_token& bt,
+                             const block_handle& bt,
                              const forked_callback_t& forked_cb,
                              const trx_meta_cache_lookup& trx_lookup )
 {

@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    signed_block bad_block = std::move(*b);
    bad_block.action_mroot = bad_block.previous;
    auto bad_id = bad_block.calculate_id();
-   auto bad_block_btf = c.control->create_block_token_future( bad_id, std::make_shared<signed_block>(std::move(bad_block)) );
+   auto bad_block_btf = c.control->create_block_handle_future( bad_id, std::make_shared<signed_block>(std::move(bad_block)) );
    c.control->abort_block();
    controller::block_report br;
    BOOST_REQUIRE_EXCEPTION(c.control->push_block( br, bad_block_btf.get(), {}, trx_meta_cache_lookup{} ), fc::exception,
