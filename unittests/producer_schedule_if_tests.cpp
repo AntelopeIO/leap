@@ -33,7 +33,8 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activat
                BOOST_TEST(control->head_block_num() == expected_block_num);
          }
 
-         produce_block();
+         auto b = produce_block();
+         BOOST_TEST( b->confirmed == 0); // must be 0 after instant finality is enabled
 
          // Check if the producer is the same as what we expect
          const auto block_time = control->head_block_time();
@@ -64,7 +65,7 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activat
    };
    create_accounts(producers);
 
-   // activate instant_finality
+   // enable instant_finality
    set_finalizers(producers);
    auto block = produce_block(); // this block contains the header extension of the finalizer set
    BOOST_TEST(lib == 4); // TODO: currently lib advances immediately on set_finalizers
