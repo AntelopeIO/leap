@@ -72,7 +72,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    result.header = block_header {
       .timestamp         = input.timestamp, // [greg todo] do we have to do the slot++ stuff from the legacy version?
       .producer          = input.producer,
-      .confirmed         = hs_block_confirmed, // todo: consider 0 instead
+      .confirmed         = 0,
       .previous          = input.parent_id,
       .transaction_mroot = input.transaction_mroot,
       .action_mroot      = input.action_mroot,
@@ -173,6 +173,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
    
    EOS_ASSERT( h.previous == id, unlinkable_block_exception, "previous mismatch" );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
+   EOS_ASSERT( h.confirmed == 0, block_validate_exception, "invalid confirmed ${c}", ("c", h.confirmed) );
 
    auto exts = h.validate_and_extract_header_extensions();
 

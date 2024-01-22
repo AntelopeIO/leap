@@ -28,15 +28,13 @@ namespace eosio::chain {
 
    using validator_t = const std::function<void(block_timestamp_type, const flat_set<digest_type>&, const vector<digest_type>&)>;
 
-   // totem for block_header.confirmed that indicates hotstuff consensus is active
-   constexpr uint16_t hs_block_confirmed = std::numeric_limits<uint16_t>::max();
-
    struct block_header
    {
       block_timestamp_type             timestamp;
       account_name                     producer;
 
       /**
+       *  Legacy block confirmation:
        *  By signing this block this producer is confirming blocks [block_num() - confirmed, blocknum())
        *  as being the best blocks for that range and that he has not signed any other
        *  statements that would contradict.
@@ -45,8 +43,9 @@ namespace eosio::chain {
        *  behavior. When producing a block a producer is always confirming at least the block he
        *  is building off of.  A producer cannot confirm "this" block, only prior blocks.
        *
-       *  After hotstuff activation a producer can no longer confirm blocks only propose them;
-       *  confirmed will be std::numeric_limits<uint16_t>::max() after hotstuff activation.
+       *  Instant-finality:
+       *  Once instant-finality is enabled a producer can no longer confirm blocks, only propose them;
+       *  confirmed is 0 after instant-finality is enabled.
        */
       uint16_t                         confirmed = 1;
 
