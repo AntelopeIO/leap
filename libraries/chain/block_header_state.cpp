@@ -7,6 +7,11 @@
 
 namespace eosio::chain {
 
+// moved this warning out of header so it only uses once
+#warning TDDO https://github.com/AntelopeIO/leap/issues/2080
+// digest_type           compute_finalizer_digest() const { return id; };
+
+
 producer_authority block_header_state::get_scheduled_producer(block_timestamp_type t) const {
    return detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, t);
 }

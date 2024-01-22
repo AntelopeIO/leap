@@ -534,12 +534,12 @@ namespace eosio {
 
       void on_accepted_block_header( const signed_block_ptr& block, const block_id_type& id );
       void on_accepted_block();
-      void on_voted_block ( const hs_vote_message& vote );
+      void on_voted_block ( const vote_message& vote );
 
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_id_type& id, uint32_t block_num );
 
-      void bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::hs_vote_message& msg );
+      void bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::vote_message& msg );
       void warn_hs_message( uint32_t sender_peer, const chain::hs_message_warning& code );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
@@ -1096,12 +1096,12 @@ namespace eosio {
       void handle_message( const block_id_type& id, signed_block_ptr ptr );
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr trx );
-      void handle_message( const hs_vote_message& msg );
+      void handle_message( const vote_message& msg );
 
       // returns calculated number of blocks combined latency
       uint32_t calc_block_latency();
 
-      void process_signed_block( const block_id_type& id, signed_block_ptr block, const std::optional<block_token>& obt );
+      void process_signed_block( const block_id_type& id, signed_block_ptr block, const std::optional<block_handle>& obt );
 
       fc::variant_object get_logger_variant() const {
          fc::mutable_variant_object mvo;
@@ -1178,7 +1178,7 @@ namespace eosio {
          c->handle_message( msg );
       }
 
-      void operator()( const chain::hs_vote_message& msg ) const {
+      void operator()( const chain::vote_message& msg ) const {
          // continue call to handle_message on connection strand
          peer_dlog( c, "handle hs_vote_message" );
          c->handle_message( msg );
@@ -3676,7 +3676,7 @@ namespace eosio {
       }
    }
 
-   void connection::handle_message( const hs_vote_message& msg ) {
+   void connection::handle_message( const vote_message& msg ) {
       peer_dlog(this, "received vote: ${msg}", ("msg", msg));
       controller& cc = my_impl->chain_plug->chain();
       if( cc.process_vote_message(msg) ) {
@@ -3731,11 +3731,11 @@ namespace eosio {
             return;
          }
 
-         std::optional<block_token> obt;
+         std::optional<block_handle> obt;
          bool exception = false;
          try {
             // this may return null if block is not immediately ready to be processed
-            obt = cc.create_block_token( id, ptr );
+            obt = cc.create_block_handle( id, ptr );
          } catch( const fc::exception& ex ) {
             exception = true;
             fc_ilog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
@@ -3776,7 +3776,7 @@ namespace eosio {
    }
 
    // called from application thread
-   void connection::process_signed_block( const block_id_type& blk_id, signed_block_ptr block, const std::optional<block_token>& obt ) {
+   void connection::process_signed_block( const block_id_type& blk_id, signed_block_ptr block, const std::optional<block_handle>& obt ) {
       controller& cc = my_impl->chain_plug->chain();
       uint32_t blk_num = block_header::num_from_id(blk_id);
       // use c in this method instead of this to highlight that all methods called on c-> must be thread safe
@@ -3942,12 +3942,12 @@ namespace eosio {
    }
 
    // called from application thread
-   void net_plugin_impl::on_voted_block(const hs_vote_message& vote) {
+   void net_plugin_impl::on_voted_block(const vote_message& vote) {
       fc_dlog(logger, "on voted signal, vote msg: ${msg}", ("msg", vote));
       bcast_vote_message(std::nullopt, vote);
    }
 
-   void net_plugin_impl::bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::hs_vote_message& msg ) {
+   void net_plugin_impl::bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::vote_message& msg ) {
       fc_dlog(logger, "sending vote msg: ${msg}", ("msg", msg));
 
       buffer_factory buff_factory;
@@ -4309,14 +4309,6 @@ namespace eosio {
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
 
       controller& cc = chain_plug->chain();
-      cc.register_pacemaker_bcast_function(
-              [my = shared_from_this()](const std::optional<uint32_t>& c, const chain::hs_message& s) {
-                 //my->bcast_hs_message(c, s);
-              } );
-      cc.register_pacemaker_warn_function(
-              [my = shared_from_this()](uint32_t c, chain::hs_message_warning s) {
-                 my->warn_hs_message(c, s);
-              } );
 
       producer_plug = app().find_plugin<producer_plugin>();
       set_producer_accounts(producer_plug->producer_accounts());
@@ -4373,7 +4365,7 @@ namespace eosio {
             my->on_irreversible_block( id, block->block_num() );
          } );
 
-         cc.voted_block.connect( [my = shared_from_this()]( const hs_vote_message& vote ) {
+         cc.voted_block.connect( [my = shared_from_this()]( const vote_message& vote ) {
             my->on_voted_block(vote);
          } );
       }

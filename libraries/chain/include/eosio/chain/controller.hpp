@@ -58,10 +58,10 @@ namespace eosio::chain {
 
    using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
 
-   // Created via create_block_token(const block_id_type& id, const signed_block_ptr& b)
+   // Created via create_block_handle(const block_id_type& id, const signed_block_ptr& b)
    // Valid to request id and signed_block_ptr it was created from.
    // Avoid using internal block_state/block_state_legacy as those types are internal to controller.
-   struct block_token {
+   struct block_handle {
       std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
 
       uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
@@ -189,27 +189,25 @@ namespace eosio::chain {
          void commit_block();
 
          // thread-safe
-         std::future<block_token> create_block_token_future( const block_id_type& id, const signed_block_ptr& b );
+         std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b );
          // thread-safe
          // returns empty optional if block b is not immediately ready to be processed
-         std::optional<block_token> create_block_token( const block_id_type& id, const signed_block_ptr& b ) const;
+         std::optional<block_handle> create_block_handle( const block_id_type& id, const signed_block_ptr& b ) const;
 
          /**
           * @param br returns statistics for block
-          * @param bt block to push, created by create_block_token
+          * @param bt block to push, created by create_block_handle
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          const block_token& bt,
+                          const block_handle& bt,
                           const forked_callback_t& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 
          boost::asio::io_context& get_thread_pool();
 
          const chainbase::database& db()const;
-
-         const fork_database_legacy& fork_db()const;
 
          const account_object&                 get_account( account_name n )const;
          const global_property_object&         get_global_properties()const;
@@ -249,7 +247,7 @@ namespace eosio::chain {
          block_state_legacy_ptr head_block_state_legacy()const;
 
          uint32_t             fork_db_head_block_num()const;
-         const block_id_type& fork_db_head_block_id()const;
+         block_id_type        fork_db_head_block_id()const;
 
          time_point                     pending_block_time()const;
          block_timestamp_type           pending_block_timestamp()const;
@@ -323,14 +321,11 @@ namespace eosio::chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
-         void create_pacemaker(std::set<account_name> my_producers, bls_pub_priv_key_map_t finalizer_keys, fc::logger& hotstuff_logger);
-         void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> bcast_hs_message);
-         void register_pacemaker_warn_function(std::function<void(uint32_t, hs_message_warning)> warn_hs_message);
          // called by host function set_finalizers
          void set_proposed_finalizers( const finalizer_policy& fin_set );
          void get_finalizer_state( finalizer_state& fs ) const;
          // called from net threads
-         bool process_vote_message( const hs_vote_message& msg );
+         bool process_vote_message( const vote_message& msg );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
@@ -375,7 +370,7 @@ namespace eosio::chain {
          signal<void(const block_signal_params&)>  accepted_block;
          signal<void(const block_signal_params&)>  irreversible_block;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
-         signal<void(const hs_vote_message&)>      voted_block;
+         signal<void(const vote_message&)>      voted_block;
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface& get_wasm_interface();

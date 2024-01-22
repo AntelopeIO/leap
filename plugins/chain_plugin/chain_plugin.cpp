@@ -1183,7 +1183,7 @@ chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& ht
 }
 
 
-bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id, const std::optional<block_token>& obt ) {
+bool chain_plugin::accept_block(const signed_block_ptr& block, const block_id_type& id, const std::optional<block_handle>& obt ) {
    return my->incoming_block_sync_method(block, id, obt);
 }
 
@@ -2013,7 +2013,7 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
 
 void read_write::push_block(read_write::push_block_params&& params, next_function<read_write::push_block_results> next) {
    try {
-      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, std::optional<block_token>{});
+      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, std::optional<block_handle>{});
    } catch ( boost::interprocess::bad_alloc& ) {
       handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {

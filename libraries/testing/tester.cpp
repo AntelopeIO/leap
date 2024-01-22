@@ -352,7 +352,6 @@ namespace eosio { namespace testing {
               }
           }
       });
-      control->create_pacemaker({}, {}, test_logger);
    }
 
    void base_tester::open( protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot ) {
@@ -376,7 +375,7 @@ namespace eosio { namespace testing {
    }
 
    void base_tester::push_block(signed_block_ptr b) {
-      auto btf = control->create_block_token_future(b->calculate_id(), b);
+      auto btf = control->create_block_handle_future(b->calculate_id(), b);
       unapplied_transactions.add_aborted( control->abort_block() );
       controller::block_report br;
       control->push_block( br, btf.get(), [this]( const transaction_metadata_ptr& trx ) {
@@ -1115,7 +1114,7 @@ namespace eosio { namespace testing {
 
             auto block = a.control->fetch_block_by_number(i);
             if( block ) { //&& !b.control->is_known_block(block->id()) ) {
-               auto btf = b.control->create_block_token_future( block->calculate_id(), block );
+               auto btf = b.control->create_block_handle_future( block->calculate_id(), block );
                b.control->abort_block();
                controller::block_report br;
                b.control->push_block(br, btf.get(), {}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);
@@ -1321,7 +1320,6 @@ namespace eosio { namespace testing {
    unique_ptr<controller> validating_tester::create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, deep_mind_handler* dmlog) {
       unique_ptr<controller> validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), genesis.compute_chain_id());
       validating_node->add_indices();
-      validating_node->create_pacemaker({}, {}, test_logger);
 
       if(dmlog)
       {
