@@ -3037,7 +3037,7 @@ struct controller_impl {
          auto bsp = fork_db_fetch_bsp_by_num( qc_ext.qc.block_height );
          // Only save the QC from block extension if the claimed block does not
          // have valid_qc or the new QC is better than valid_qc.
-         if( !bsp->valid_qc || (qc_ext.qc.qc.is_strong() && bsp->valid_qc->is_weak()) ) {
+         if( bsp && !bsp->valid_qc || (qc_ext.qc.qc.is_strong() && bsp->valid_qc->is_weak()) ) {
             bsp->valid_qc = qc_ext.qc.qc;
 
             if( bsp->valid_qc->is_strong() && bsp->core.final_on_strong_qc_block_num ) {
