@@ -40,7 +40,7 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_d
 
 bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
    if (ancestor.empty())
-      return true;
+      return false;
    auto cur = fork_db.get_block(descendant->previous());
    while (cur) {
       if (cur->id() == ancestor)
@@ -58,9 +58,10 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
 
    qc_chain_t chain = get_qc_chain(p, p_branch);
 
+   // we expect last_qc_block_num() to always be found except at bootstrap
+   // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num from fork_db.root()
+   // and it was weak.
    auto bsp_last_qc   = p->last_qc_block_num() ? get_block_by_height(p_branch, *p->last_qc_block_num()) : block_state_ptr{};
-   // [if todo]: What if last_qc_block_num is empty
-   //                    or we can't find it in fork_db?
 
    bool monotony_check = !fsi.last_vote || p->timestamp() > fsi.last_vote.timestamp;
    // !fsi.last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed
@@ -75,28 +76,26 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
       // than the height of the proposal I'm locked on.
       // This allows restoration of liveness if a replica is locked on a stale proposal
       // -------------------------------------------------------------------------------
-      if (!bsp_last_qc || bsp_last_qc->timestamp() > fsi.lock.timestamp) // [if todo] is `!bsp_last_qc ||` OK?
+      if (bsp_last_qc && bsp_last_qc->timestamp() > fsi.lock.timestamp)
          liveness_check = true;
    } else {
-      // if we're not locked on anything, means the protocol feature just activated and we can proceed
-      // ---------------------------------------------------------------------------------------------
-      liveness_check = true;
-      safety_check   = true;
+      // Safety and Liveness both fail if `fsi.lock` is empty. It should not happen.
+      // `fsi.lock` is initially set to `lib` when switching to IF or starting from a snapshot.
+      // -------------------------------------------------------------------------------------
+      liveness_check = false;
+      safety_check   = false;
    }
+
 
    // Figure out if we can vote and wether our vote will be strong or weak
    // --------------------------------------------------------------------
    VoteDecision my_vote = VoteDecision::NoVote;
 
-   if (!bsp_last_qc) {
-      my_vote = VoteDecision::StrongVote; // [if todo] is this OK?
-                                          // if that's OK, do we not update fsi.last_vote_range
-      fsi.last_vote = proposal_ref(p);    // v_height
-   } else if (monotony_check && (liveness_check || safety_check)) {
+   if (bsp_last_qc && monotony_check && (liveness_check || safety_check)) {
       auto requested_vote_range = time_range_t { bsp_last_qc->timestamp(), p->timestamp() };
 
-      bool time_range_interference =
-         fsi.last_vote_range.start < requested_vote_range.end && requested_vote_range.start < fsi.last_vote_range.end;
+      bool time_range_disjoint =
+         fsi.last_vote_range.start > requested_vote_range.end || fsi.last_vote_range.end < requested_vote_range.start;
 
       // my last vote was on (t9, t10_1], I'm asked to vote on t10 :
       //                 t9 < t10 && t9 < t10_1;  // time_range_interference == true, correct
@@ -107,21 +106,12 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
       // my last vote was on (t7, t9], I'm asked to vote on t10 :
       //                 t7 < t10 && t9 < t9;     // time_range_interference == false, correct
 
-      bool enough_for_strong_vote = !time_range_interference || extends(fork_db, p, fsi.last_vote.id);
+      bool enough_for_strong_vote = time_range_disjoint || extends(fork_db, p, fsi.last_vote.id);
 
-      // fsi.is_last_vote_strong = enough_for_strong_vote; // [if todo] are we not using is_last_vote_strong
       fsi.last_vote = proposal_ref(p);                     // v_height
-      // [if todo] should we ever reset fsi.last_vote other than at the line above?
-      //           what if the fsi.last_vote becomes irreversible?
-      //            How do we detect this?
-
 
       if (chain.b1 && chain.b1->timestamp() > fsi.lock.timestamp)
-         fsi.lock = proposal_ref(chain.b1); // commit phase on b1
-
-      // [if todo] should we ever reset fsi.lock other than at the line above?
-      //           what if the fsi.lock becomes irreversible?
-      //            How do we detect this?
+         fsi.lock = proposal_ref(chain.b1);                // commit phase on b1
 
       fsi.last_vote_range = requested_vote_range;
 
