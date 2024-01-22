@@ -112,9 +112,15 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
 
    // verfify quorum is met
    if( qc.is_strong() ) {
-      EOS_ASSERT( strong_weights >= active_finalizer_policy->threshold,  block_validate_exception, "strong quorum is not met, strong_weights: ${s}, threshold: ${t}", ("s", strong_weights)("t", active_finalizer_policy->threshold) );
+      EOS_ASSERT( strong_weights >= active_finalizer_policy->threshold,
+                  block_validate_exception,
+                  "strong quorum is not met, strong_weights: ${s}, threshold: ${t}",
+                  ("s", strong_weights)("t", active_finalizer_policy->threshold) );
    } else {
-      EOS_ASSERT( strong_weights + weak_weights >= active_finalizer_policy->threshold,  block_validate_exception, "weak quorum is not met, strong_weights: ${s}, weak_weights: ${w}, threshold: ${t}", ("s", strong_weights)("w", weak_weights)("t", active_finalizer_policy->threshold) );
+      EOS_ASSERT( strong_weights + weak_weights >= active_finalizer_policy->threshold,
+                  block_validate_exception,
+                  "weak quorum is not met, strong_weights: ${s}, weak_weights: ${w}, threshold: ${t}",
+                  ("s", strong_weights)("w", weak_weights)("t", active_finalizer_policy->threshold) );
    }
 
    std::vector<bls_public_key> pubkeys;
@@ -123,6 +129,8 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    // utility to aggregate public keys and digests for verification
    auto prepare_pubkeys_digests = [&] ( const auto& votes_bitset, const auto& digest ) {
       auto n = std::min(num_finalizers, votes_bitset.size());
+      pubkeys.reserve(n);
+      digests.reserve(n);
       for (auto i = 0u; i < n; ++i) {
          if( votes_bitset[i] ) { // ith finalizer voted the digest
             pubkeys.emplace_back(finalizers[i].public_key);

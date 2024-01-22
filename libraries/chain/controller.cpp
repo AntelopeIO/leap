@@ -3036,19 +3036,26 @@ struct controller_impl {
          const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
          auto bsp = fork_db_fetch_bsp_by_num( qc_ext.qc.block_height );
          // Only save the QC from block extension if the claimed block does not
-         // has valid_qc or the new QC is better than valid_qc
+         // have valid_qc or the new QC is better than valid_qc.
          if( !bsp->valid_qc || (qc_ext.qc.qc.is_strong() && bsp->valid_qc->is_weak()) ) {
             bsp->valid_qc = qc_ext.qc.qc;
 
             if( bsp->valid_qc->is_strong() && bsp->core.final_on_strong_qc_block_num ) {
+               // We evaluate a block extension qc and advance lib if strong.
+               // This is done before evaluating the block. It is possible the block
+               // will not be valid or forked out. This is safe because the block is
+               // just acting as a carrier of this info. It doesn't matter if the block
+               // is actually valid as it simply is used as a network message for this data.
                set_if_irreversible_block_num(*bsp->core.final_on_strong_qc_block_num);
             }
          }
       }
    }
 
-   // verify claim made by instant_finality_extension in block header extension and
-   // quorum_certificate_extension in block extension are valid
+   // Verify QC claim made by instant_finality_extension in block header extension
+   // and quorum_certificate_extension in block extension are valid.
+   // Called from net-threads. It is thread safe as signed_block is never modified
+   // after creation.
    void verify_qc_claim( const signed_block_ptr& b, const block_header_state& prev ) {
       // If block header extension does not have instant_finality_extension,
       // just return
@@ -3066,7 +3073,7 @@ struct controller_impl {
       // extract received QC information
       qc_info_t received_qc_info{ *if_ext.qc_info };
 
-      // if previous block's header extension has the same claim, return true
+      // if previous block's header extension has the same claim, just return
       // (previous block had already validated the claim)
       std::optional<block_header_extension> prev_header_ext = prev.header.extract_header_extension(instant_finality_extension::extension_id());
       if( prev_header_ext ) {
@@ -3078,17 +3085,29 @@ struct controller_impl {
 
       // extract QC from block extensions
       auto block_exts = b->validate_and_extract_extensions();
-      EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) > 0, block_validate_exception, "received block has finality header extension but does not have QC block extension" );
+      EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) > 0,
+                  block_validate_exception,
+                  "received block has finality header extension but does not have QC block extension" );
       const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
       const auto& received_qc = qc_ext.qc;
       const auto& valid_qc = qc_ext.qc.qc;
 
       // Check QC information in header extension and block extension match
-      EOS_ASSERT( received_qc.block_height == received_qc_info.last_qc_block_num, block_validate_exception, "QC block number (${n1}) in block extension does not match last_qc_block_num (${n2}) in header extension", ("n1", received_qc.block_height)("n2", received_qc_info.last_qc_block_num));
-      EOS_ASSERT( valid_qc.is_strong() == received_qc_info.is_last_qc_strong, block_validate_exception, "QC is_strong (${s1}) in block extension does not match is_last_qc_strong (${22}) in header extension", ("s1", valid_qc.is_strong())("s2", received_qc_info.is_last_qc_strong));
+      EOS_ASSERT( received_qc.block_height == received_qc_info.last_qc_block_num,
+                  block_validate_exception,
+                  "QC block number (${n1}) in block extension does not match last_qc_block_num (${n2}) in header extension",
+                  ("n1", received_qc.block_height)("n2", received_qc_info.last_qc_block_num) );
+      EOS_ASSERT( valid_qc.is_strong() == received_qc_info.is_last_qc_strong,
+                  block_validate_exception,
+                  "QC is_strong (${s1}) in block extension does not match is_last_qc_strong (${22}) in header extension",
+                  ("s1", valid_qc.is_strong())("s2", received_qc_info.is_last_qc_strong) );
 
       // find the claimed block's block state
       auto claimed_block_bsp = fork_db_fetch_bsp_by_num( received_qc_info.last_qc_block_num );
+      EOS_ASSERT( claimed_block_bsp,
+                  block_validate_exception,
+                  "Block state was not founf in forkdb for block number ${b}",
+                  ("b", valid_qc.is_strong()) );
 
       // verify the claims
       claimed_block_bsp->verify_qc(valid_qc);
@@ -3097,7 +3116,8 @@ struct controller_impl {
    // thread safe, expected to be called from thread other than the main thread
    block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
       // Verify claim made by instant_finality_extension in block header extension and
-      // quorum_certificate_extension in block extension are valid
+      // quorum_certificate_extension in block extension are valid.
+      // This is the only place the evaluation is done.
       verify_qc_claim(b, prev);
 
       auto trx_mroot = calculate_trx_merkle( b->transactions, true );
