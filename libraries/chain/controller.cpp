@@ -27,6 +27,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/hotstuff/finalizer.hpp>
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
@@ -1070,7 +1071,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
-   bls_key_map_t                   node_finalizer_keys;
+   finalizer_set                   my_finalizers;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
@@ -3052,30 +3053,18 @@ struct controller_impl {
    } /// apply_block
 
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
-#warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
-      bool strong = true;
-
       // A vote is created and signed by each finalizer configured on the node that
-      // in active finalizer policy
-      for (const auto& f: bsp->active_finalizer_policy->finalizers) {
-         auto it = node_finalizer_keys.find( f.public_key );
-         if( it != node_finalizer_keys.end() ) {
-            const auto& private_key = it->second;
-            const auto& digest = bsp->compute_finalizer_digest();
+      // is present in the active finalizer policy
+      for (const auto& f : bsp->active_finalizer_policy->finalizers) {
+         my_finalizers.vote_if_found(
+            bsp->id(), f.public_key, bsp->compute_finalizer_digest(), [&](const hs_vote_message& vote) {
+               // net plugin subscribed this signal. it will broadcast the vote message
+               // on receiving the signal
+               emit(self.voted_block, vote);
 
-            auto sig =  private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
-
-            // construct the vote message
-            hs_vote_message vote{ bsp->id(), strong, f.public_key, sig };
-
-            // net plugin subscribed this signal. it will broadcast the vote message
-            // on receiving the signal
-            emit( self.voted_block, vote );
-
-            boost::asio::post(thread_pool.get_executor(), [control=this, vote]() {
-               control->self.process_vote_message(vote);
+               boost::asio::post(thread_pool.get_executor(),
+                                 [control = this, vote]() { control->self.process_vote_message(vote); });
             });
-         }
       }
    }
 
@@ -3700,9 +3689,7 @@ struct controller_impl {
    }
 
    void set_node_finalizer_keys(const bls_pub_priv_key_map_t& finalizer_keys) {
-      for (const auto& k : finalizer_keys) {
-         node_finalizer_keys[bls_public_key{k.first}] = bls_private_key{k.second};
-      }
+      my_finalizers.reset(finalizer_keys);
    }
 
    bool                 irreversible_mode()      const { return read_mode == db_read_mode::IRREVERSIBLE; }
