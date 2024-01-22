@@ -38,7 +38,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    deque<transaction_metadata_ptr>     extract_trxs_metas();
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);
    const deque<transaction_metadata_ptr>& trxs_metas()  const { return cached_trxs; }
-   std::pair<bool, std::optional<uint32_t>> aggregate_vote(const hs_vote_message& vote); // aggregate vote into pending_qc
+   std::pair<bool, std::optional<uint32_t>> aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
 
    using bhs_t  = block_header_state;
    using bhsp_t = block_header_state_ptr;

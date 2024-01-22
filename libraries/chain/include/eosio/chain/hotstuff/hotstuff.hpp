@@ -54,7 +54,7 @@ namespace eosio::chain {
       fc::crypto::blslib::bls_signature   active_agg_sig;
    };
 
-   struct hs_vote_message {
+   struct vote_message {
       fc::sha256                          proposal_id; //vote on proposal
       bool                                strong{false};
       fc::crypto::blslib::bls_public_key  finalizer_key;
@@ -87,7 +87,7 @@ namespace eosio::chain {
    };
 
    struct hs_message {
-      std::variant<hs_vote_message, hs_proposal_message, hs_new_view_message> msg;
+      std::variant<vote_message, hs_proposal_message, hs_new_view_message> msg;
    };
 
    enum class hs_message_warning {
@@ -250,7 +250,7 @@ namespace eosio::chain {
 FC_REFLECT(eosio::chain::view_number, (bheight)(pcounter));
 FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(strong_votes)(weak_votes)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
-FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(strong)(finalizer_key)(sig));
+FC_REFLECT(eosio::chain::vote_message, (proposal_id)(strong)(finalizer_key)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
 FC_REFLECT(eosio::chain::finalizer_state, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));

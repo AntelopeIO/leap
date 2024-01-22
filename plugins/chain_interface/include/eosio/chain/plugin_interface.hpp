@@ -19,7 +19,7 @@ namespace eosio::chain::plugin_interface {
       using accepted_block         = channel_decl<struct accepted_block_tag,        block_signal_params>;
       using irreversible_block     = channel_decl<struct irreversible_block_tag,    block_signal_params>;
       using applied_transaction    = channel_decl<struct applied_transaction_tag,   transaction_trace_ptr>;
-      using voted_block            = channel_decl<struct voted_block_tag,           hs_vote_message>;
+      using voted_block            = channel_decl<struct voted_block_tag,           vote_message>;
    }
 
    namespace methods {

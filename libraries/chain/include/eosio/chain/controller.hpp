@@ -321,14 +321,11 @@ namespace eosio::chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
-         void create_pacemaker(std::set<account_name> my_producers, bls_pub_priv_key_map_t finalizer_keys, fc::logger& hotstuff_logger);
-         void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> bcast_hs_message);
-         void register_pacemaker_warn_function(std::function<void(uint32_t, hs_message_warning)> warn_hs_message);
          // called by host function set_finalizers
          void set_proposed_finalizers( const finalizer_policy& fin_set );
          void get_finalizer_state( finalizer_state& fs ) const;
          // called from net threads
-         bool process_vote_message( const hs_vote_message& msg );
+         bool process_vote_message( const vote_message& msg );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
@@ -373,7 +370,7 @@ namespace eosio::chain {
          signal<void(const block_signal_params&)>  accepted_block;
          signal<void(const block_signal_params&)>  irreversible_block;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
-         signal<void(const hs_vote_message&)>      voted_block;
+         signal<void(const vote_message&)>      voted_block;
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface& get_wasm_interface();

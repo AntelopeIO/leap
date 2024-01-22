@@ -30,7 +30,7 @@ namespace eosio::chain {
 
       //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)
       virtual void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
-      virtual void send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
+      virtual void send_hs_vote_msg(const vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
       virtual void send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
 
       virtual void send_hs_message_warning(uint32_t sender_peer, hs_message_warning code) = 0;

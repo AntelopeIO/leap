@@ -233,7 +233,7 @@ namespace eosio::chain {
       bcast_hs_message(exclude_peer, {msg});
    }
 
-   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
+   void chain_pacemaker::send_hs_vote_msg(const vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       bcast_hs_message(exclude_peer, {msg});
    }
 
@@ -249,7 +249,7 @@ namespace eosio::chain {
    // called from net threads
    void chain_pacemaker::on_hs_msg(const uint32_t connection_id, const hs_message &msg) {
       std::visit(overloaded{
-            [this, connection_id](const hs_vote_message& m) { on_hs_vote_msg(connection_id, m); },
+            [this, connection_id](const vote_message& m) { on_hs_vote_msg(connection_id, m); },
             [this, connection_id](const hs_proposal_message& m) { on_hs_proposal_msg(connection_id, m); },
             [this, connection_id](const hs_new_view_message& m) { on_hs_new_view_msg(connection_id, m); },
       }, msg.msg);
@@ -265,7 +265,7 @@ namespace eosio::chain {
    }
 
    // called from net threads
-   void chain_pacemaker::on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg) {
+   void chain_pacemaker::on_hs_vote_msg(const uint32_t connection_id, const vote_message& msg) {
       csc prof("vote");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();

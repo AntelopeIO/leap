@@ -352,7 +352,6 @@ namespace eosio { namespace testing {
               }
           }
       });
-      control->create_pacemaker({}, {}, test_logger);
    }
 
    void base_tester::open( protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot ) {
@@ -1321,7 +1320,6 @@ namespace eosio { namespace testing {
    unique_ptr<controller> validating_tester::create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, deep_mind_handler* dmlog) {
       unique_ptr<controller> validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), genesis.compute_chain_id());
       validating_node->add_indices();
-      validating_node->create_pacemaker({}, {}, test_logger);
 
       if(dmlog)
       {

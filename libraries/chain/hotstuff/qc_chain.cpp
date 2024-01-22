@@ -170,7 +170,7 @@ namespace eosio::chain {
          std::any_of(finalizers.begin(), finalizers.end(), [&](const auto& fa) { return _my_finalizer_keys.contains(fa.public_key); });
    }
 
-   hs_vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal,
+   vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal,
                                            bool strong,
                                            const bls_public_key& finalizer_pub_key,
                                            const bls_private_key& finalizer_priv_key)
@@ -183,7 +183,7 @@ namespace eosio::chain {
 
       bls_signature sig = finalizer_priv_key.sign(h);
 
-      hs_vote_message v_msg = {proposal.proposal_id, strong, finalizer_priv_key.get_public_key(), sig};
+      vote_message v_msg = {proposal.proposal_id, strong, finalizer_priv_key.get_public_key(), sig};
       return v_msg;
    }
 
@@ -252,7 +252,7 @@ namespace eosio::chain {
       bool node_safe = is_node_safe(proposal);
       bool signature_required = am_finalizer && node_safe;
 
-      std::vector<hs_vote_message> msgs;
+      std::vector<vote_message> msgs;
 
       if (signature_required && !_my_finalizer_keys.empty()){
          //iterate over all my finalizer keys and sign / broadcast for each that is in the schedule
@@ -263,7 +263,7 @@ namespace eosio::chain {
 
             if (mfk_itr!=_my_finalizer_keys.end()) {
 
-               hs_vote_message v_msg = sign_proposal(proposal, true, mfk_itr->first, mfk_itr->second);
+               vote_message v_msg = sign_proposal(proposal, true, mfk_itr->first, mfk_itr->second);
 
                fc_tlog(_logger, " === ${id} signed proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}",
                               ("id", _id)
@@ -301,7 +301,7 @@ namespace eosio::chain {
       //fc_dlog(_logger, " ... process_proposal() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_vote(std::optional<uint32_t> connection_id, const hs_vote_message& vote){
+   void qc_chain::process_vote(std::optional<uint32_t> connection_id, const vote_message& vote){
 
       //auto start = fc::time_point::now();
 #warning check for duplicate or invalid vote. We will return in either case, but keep proposals for evidence of double signing
@@ -453,7 +453,7 @@ namespace eosio::chain {
          process_proposal( std::nullopt, msg );
    }
 
-   void qc_chain::send_hs_vote_msg(std::optional<uint32_t> connection_id, const hs_vote_message & msg){
+   void qc_chain::send_hs_vote_msg(std::optional<uint32_t> connection_id, const vote_message & msg){
       fc_tlog(_logger, " === broadcast_hs_vote ===");
       _pacemaker->send_hs_vote_msg(msg, _id, connection_id);
       if (!connection_id.has_value())
@@ -702,7 +702,7 @@ namespace eosio::chain {
    }
 
    //on vote received, called from network thread
-   void qc_chain::on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg) {
+   void qc_chain::on_hs_vote_msg(const uint32_t connection_id, const vote_message& msg) {
       process_vote( connection_id, msg );
    }
 
