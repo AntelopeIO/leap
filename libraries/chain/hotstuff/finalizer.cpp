@@ -128,22 +128,6 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
       my_vote = enough_for_strong_vote ? VoteDecision::StrongVote : VoteDecision::WeakVote;
    }
 
-   // update fsi.is_last_vote_strong according to our vote
-   // ----------------------------------------------------
-   switch(my_vote) {
-   case VoteDecision::StrongVote:
-      fsi.is_last_vote_strong = true;
-      break;
-   case VoteDecision::WeakVote:
-      fsi.is_last_vote_strong = false;
-      break;
-   case VoteDecision::NoVote:
-      // no change
-      break;
-   default:
-      assert(0);
-   }
-
    return my_vote;
 }
 

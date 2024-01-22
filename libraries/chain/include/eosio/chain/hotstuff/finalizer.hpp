@@ -45,7 +45,6 @@ namespace eosio::chain {
          time_range_t     last_vote_range;
          proposal_ref     last_vote;          // v_height under hotstuff
          proposal_ref     lock;               // b_lock under hotstuff
-         bool             is_last_vote_strong;
          bool             recovery_mode;
 
          safety_information() = default;
