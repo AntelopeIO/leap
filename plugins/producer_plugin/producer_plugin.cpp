@@ -666,7 +666,7 @@ public:
       _time_tracker.clear();
    }
 
-   bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const std::optional<block_token>& obt) {
+   bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const std::optional<block_handle>& obt) {
       auto& chain = chain_plug->chain();
       if (in_producing_mode()) {
          fc_wlog(_log, "dropped incoming block #${num} id: ${id}", ("num", block->block_num())("id", block_id ? (*block_id).str() : "UNKNOWN"));
@@ -693,9 +693,9 @@ public:
       } 
 
       // start processing of block
-      std::future<block_token> btf;
+      std::future<block_handle> btf;
       if (!obt) {
-         btf = chain.create_block_token_future(id, block);
+         btf = chain.create_block_handle_future(id, block);
       }
 
       // abort the pending block
@@ -710,7 +710,7 @@ public:
 
       controller::block_report br;
       try {
-         const block_token& bt = obt ? *obt : btf.get();
+         const block_handle& bt = obt ? *obt : btf.get();
          chain.push_block(
             br,
             bt,
@@ -1279,7 +1279,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
    _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
-      [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const std::optional<block_token>& obt) {
+      [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const std::optional<block_handle>& obt) {
          return on_incoming_block(block, block_id, obt);
       });
 

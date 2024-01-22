@@ -375,7 +375,7 @@ namespace eosio { namespace testing {
    }
 
    void base_tester::push_block(signed_block_ptr b) {
-      auto btf = control->create_block_token_future(b->calculate_id(), b);
+      auto btf = control->create_block_handle_future(b->calculate_id(), b);
       unapplied_transactions.add_aborted( control->abort_block() );
       controller::block_report br;
       control->push_block( br, btf.get(), [this]( const transaction_metadata_ptr& trx ) {
@@ -1114,7 +1114,7 @@ namespace eosio { namespace testing {
 
             auto block = a.control->fetch_block_by_number(i);
             if( block ) { //&& !b.control->is_known_block(block->id()) ) {
-               auto btf = b.control->create_block_token_future( block->calculate_id(), block );
+               auto btf = b.control->create_block_handle_future( block->calculate_id(), block );
                b.control->abort_block();
                controller::block_report br;
                b.control->push_block(br, btf.get(), {}, trx_meta_cache_lookup{}); //, eosio::chain::validation_steps::created_block);

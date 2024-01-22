@@ -58,10 +58,10 @@ namespace eosio::chain {
 
    using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
 
-   // Created via create_block_token(const block_id_type& id, const signed_block_ptr& b)
+   // Created via create_block_handle(const block_id_type& id, const signed_block_ptr& b)
    // Valid to request id and signed_block_ptr it was created from.
    // Avoid using internal block_state/block_state_legacy as those types are internal to controller.
-   struct block_token {
+   struct block_handle {
       std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
 
       uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
@@ -189,19 +189,19 @@ namespace eosio::chain {
          void commit_block();
 
          // thread-safe
-         std::future<block_token> create_block_token_future( const block_id_type& id, const signed_block_ptr& b );
+         std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b );
          // thread-safe
          // returns empty optional if block b is not immediately ready to be processed
-         std::optional<block_token> create_block_token( const block_id_type& id, const signed_block_ptr& b ) const;
+         std::optional<block_handle> create_block_handle( const block_id_type& id, const signed_block_ptr& b ) const;
 
          /**
           * @param br returns statistics for block
-          * @param bt block to push, created by create_block_token
+          * @param bt block to push, created by create_block_handle
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          const block_token& bt,
+                          const block_handle& bt,
                           const forked_callback_t& cb,
                           const trx_meta_cache_lookup& trx_lookup );
 
