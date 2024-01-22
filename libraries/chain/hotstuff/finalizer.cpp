@@ -2,13 +2,13 @@
 
 namespace eosio::chain {
 
-block_state_ptr get_block_by_height(const fork_db_t::branch_type& branch, uint32_t block_num) {
+block_state_ptr get_block_by_height(const fork_database_if_t::branch_type& branch, uint32_t block_num) {
    auto it = std::find_if(branch.begin(), branch.end(),
                           [&](const block_state_ptr& bsp) { return bsp->block_num() == block_num; });
    return it == branch.end() ? block_state_ptr{} : *it;
 }
 
-qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_db_t::branch_type& branch) const {
+qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_database_if_t::branch_type& branch) const {
    qc_chain_t res;
 
    // get b2
@@ -38,7 +38,7 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_d
    return res;
 }
 
-bool extends(const fork_db_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
+bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
    if (ancestor.empty())
       return true;
    auto cur = fork_db.get_block(descendant->previous());
@@ -50,7 +50,7 @@ bool extends(const fork_db_t& fork_db, const block_state_ptr& descendant, const 
    return false;
 }
 
-finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const fork_db_t& fork_db) {
+finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const fork_database_if_t& fork_db) {
    bool safety_check   = false;
    bool liveness_check = false;
 

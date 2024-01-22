@@ -4,7 +4,7 @@
 #include <compare>
 
 namespace eosio::chain {
-   using fork_db_t = fork_database<block_state_ptr>;
+   //using fork_db_t = fork_database_if_t;
 
    struct qc_chain_t {
       block_state_ptr b2; // first phase,  prepare
@@ -55,8 +55,8 @@ namespace eosio::chain {
       safety_information  fsi;
 
    private:
-      qc_chain_t   get_qc_chain(const block_state_ptr&  proposal, const fork_db_t::branch_type& branch) const;
-      VoteDecision decide_vote(const block_state_ptr& proposal, const fork_db_t& fork_db);
+      qc_chain_t   get_qc_chain(const block_state_ptr&  proposal, const fork_database_if_t::branch_type& branch) const;
+      VoteDecision decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:
 
@@ -83,7 +83,7 @@ namespace eosio::chain {
 
 #warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
             bool strong = true;
-            hs_vote_message vote{ proposal_id, strong, pub_key, sig };
+            vote_message vote{ proposal_id, strong, pub_key, sig };
             std::forward<F>(f)(vote);
          }
       }
