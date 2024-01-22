@@ -1101,7 +1101,7 @@ namespace eosio {
       // returns calculated number of blocks combined latency
       uint32_t calc_block_latency();
 
-      void process_signed_block( const block_id_type& id, signed_block_ptr block, const std::optional<block_token>& obt );
+      void process_signed_block( const block_id_type& id, signed_block_ptr block, const std::optional<block_handle>& obt );
 
       fc::variant_object get_logger_variant() const {
          fc::mutable_variant_object mvo;
@@ -3731,11 +3731,11 @@ namespace eosio {
             return;
          }
 
-         std::optional<block_token> obt;
+         std::optional<block_handle> obt;
          bool exception = false;
          try {
             // this may return null if block is not immediately ready to be processed
-            obt = cc.create_block_token( id, ptr );
+            obt = cc.create_block_handle( id, ptr );
          } catch( const fc::exception& ex ) {
             exception = true;
             fc_ilog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
@@ -3776,7 +3776,7 @@ namespace eosio {
    }
 
    // called from application thread
-   void connection::process_signed_block( const block_id_type& blk_id, signed_block_ptr block, const std::optional<block_token>& obt ) {
+   void connection::process_signed_block( const block_id_type& blk_id, signed_block_ptr block, const std::optional<block_handle>& obt ) {
       controller& cc = my_impl->chain_plug->chain();
       uint32_t blk_num = block_header::num_from_id(blk_id);
       // use c in this method instead of this to highlight that all methods called on c-> must be thread safe
