@@ -3052,19 +3052,76 @@ struct controller_impl {
    }
 
    void integrate_received_qc_to_block(const block_id_type& id, const signed_block_ptr& b) {
-#warning validate received QC before integrate it: https://github.com/AntelopeIO/leap/issues/2071
       // extract QC from block extensions
       auto block_exts = b->validate_and_extract_extensions();
       if( block_exts.count(quorum_certificate_extension::extension_id()) > 0 ) {
          const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
-         auto last_qc_block_bsp = fork_db_fetch_bsp_by_num( qc_ext.qc.block_height );
-#warning a mutex might be needed for updating valid_pc
-         last_qc_block_bsp->valid_qc = qc_ext.qc.qc;
+         auto bsp = fork_db_fetch_bsp_by_num( qc_ext.qc.block_height );
+         // Only save the QC from block extension if the claimed block does not
+         // has valid_qc or the new QC is better than valid_qc
+         if( !bsp->valid_qc || (qc_ext.qc.qc.is_strong() && bsp->valid_qc->is_weak()) ) {
+            bsp->valid_qc = qc_ext.qc.qc;
+
+            if( bsp->valid_qc->is_strong() && bsp->core.final_on_strong_qc_block_num ) {
+               set_if_irreversible_block_num(*bsp->core.final_on_strong_qc_block_num);
+            }
+         }
       }
+   }
+
+   // verify claim made by instant_finality_extension in block header extension and
+   // quorum_certificate_extension in block extension are valid
+   void verify_qc_claim( const signed_block_ptr& b, const block_header_state& prev ) {
+      // If block header extension does not have instant_finality_extension,
+      // just return
+      std::optional<block_header_extension> header_ext = b->extract_header_extension(instant_finality_extension::extension_id());
+      if( !header_ext ) {
+         return;
+      }
+
+      // If qc_info is not included, just return
+      const auto& if_ext = std::get<instant_finality_extension>(*header_ext);
+      if( !if_ext.qc_info ) {
+         return;
+      }
+
+      // extract received QC information
+      qc_info_t received_qc_info{ *if_ext.qc_info };
+
+      // if previous block's header extension has the same claim, return true
+      // (previous block had already validated the claim)
+      std::optional<block_header_extension> prev_header_ext = prev.header.extract_header_extension(instant_finality_extension::extension_id());
+      if( prev_header_ext ) {
+         auto prev_if_ext = std::get<instant_finality_extension>(*prev_header_ext);
+         if( prev_if_ext.qc_info && prev_if_ext.qc_info->last_qc_block_num == received_qc_info.last_qc_block_num && prev_if_ext.qc_info->is_last_qc_strong == received_qc_info.is_last_qc_strong ) {
+            return;
+         }
+      }
+
+      // extract QC from block extensions
+      auto block_exts = b->validate_and_extract_extensions();
+      EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) > 0, block_validate_exception, "received block has finality header extension but does not have QC block extension" );
+      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
+      const auto& received_qc = qc_ext.qc;
+      const auto& valid_qc = qc_ext.qc.qc;
+
+      // Check QC information in header extension and block extension match
+      EOS_ASSERT( received_qc.block_height == received_qc_info.last_qc_block_num, block_validate_exception, "QC block number (${n1}) in block extension does not match last_qc_block_num (${n2}) in header extension", ("n1", received_qc.block_height)("n2", received_qc_info.last_qc_block_num));
+      EOS_ASSERT( valid_qc.is_strong() == received_qc_info.is_last_qc_strong, block_validate_exception, "QC is_strong (${s1}) in block extension does not match is_last_qc_strong (${22}) in header extension", ("s1", valid_qc.is_strong())("s2", received_qc_info.is_last_qc_strong));
+
+      // find the claimed block's block state
+      auto claimed_block_bsp = fork_db_fetch_bsp_by_num( received_qc_info.last_qc_block_num );
+
+      // verify the claims
+      claimed_block_bsp->verify_qc(valid_qc);
    }
 
    // thread safe, expected to be called from thread other than the main thread
    block_token create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+      // Verify claim made by instant_finality_extension in block header extension and
+      // quorum_certificate_extension in block extension are valid
+      verify_qc_claim(b, prev);
+
       auto trx_mroot = calculate_trx_merkle( b->transactions, true );
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
@@ -3611,6 +3668,12 @@ struct controller_impl {
       return is_trx_transient ? nullptr : deep_mind_logger;
    }
 
+   void set_if_irreversible_block_num(uint32_t block_num) {
+      if( block_num > if_irreversible_block_num ) {
+         if_irreversible_block_num = block_num;
+      }
+   }
+
    uint32_t earliest_available_block_num() const {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db_root_block_num();
    }
@@ -4062,7 +4125,7 @@ std::optional<block_id_type> controller::pending_producer_block_id()const {
 void controller::set_if_irreversible_block_num(uint32_t block_num) {
    // needs to be set by qc_chain at startup and as irreversible changes
    assert(block_num > 0);
-   my->if_irreversible_block_num = block_num;
+   my->set_if_irreversible_block_num(block_num);
 }
 
 uint32_t controller::last_irreversible_block_num() const {
@@ -4257,7 +4320,7 @@ bool controller::process_vote_message( const hs_vote_message& vote ) {
    };
    auto [valid, new_lib] = my->fork_db.apply_if<std::pair<bool, std::optional<uint32_t>>>(do_vote);
    if (new_lib) {
-      my->if_irreversible_block_num = *new_lib;
+      my->set_if_irreversible_block_num(*new_lib);
    }
    return valid;
 };
