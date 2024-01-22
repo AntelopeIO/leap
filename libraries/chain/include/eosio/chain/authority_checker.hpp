@@ -236,7 +236,7 @@ namespace detail {
 
                      auto res = cached_permissions.emplace( permission.permission, being_evaluated );
                      itr = res.first;
-                     r = checker.satisfied( std::forward<decltype(*auth)>(*auth), cached_permissions, recursion_depth + 1 );
+                     r = checker.satisfied( *auth, cached_permissions, recursion_depth + 1 );
 
                      if( r ) {
                         total_weight += permission.weight;
