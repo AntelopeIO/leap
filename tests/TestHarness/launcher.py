@@ -291,7 +291,10 @@ class cluster_generator:
             is_bios = node.name == 'bios'
             if is_bios:
                 node.keys.append(KeyStrings('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
-                                            '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3'))
+                                            '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3',
+                                            'PUB_BLS_qXP11UuMRiJLRFGF52711peFyBrRRVF7cPJY5wZZj2f/MpEY4eQvlQwXDpSPsqMSFXIChZTR/IXE9hySF8x7jQ2Na5eq0Vi4hcK19pcv2prYYF4PMbf02yjSmK2h3NMZYkjDEA==',
+                                            'PVT_BLS_I3cpJdW51PHYnKrY3naidDQMqJZekJCm2Pdp6QkoBR26ADvq',
+                                            'SIG_BLS_GBIXLkWRXnxhuaRwQYDup64aAghAiQu8AgBygj5Qojwi9G0nz1W/es5U29gPjRcET4JRrJpysqgWPgmDpTSESyZzQJARxriHylz/dmCbwG0/7fwPmMntc/VvVEUlTUQB78VswKEU1NOaYImixkLJZqE4f2xn9shHjilzv2neW39kXpEV5COxUAk/HVeRzYYMxr8SA8SaiJ0w3x2hQTWfxTAbH/Nv3SjNkFcO+nQrAckfRZrKlSPO9egBVgKKnOcPdXFpyA=='))
                 node.producers.append('eosio')
             else:
                 node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey, account.blsFinalizerPublicKey, account.blsFinalizerPrivateKey, account.blsFinalizerPOP))
