@@ -126,25 +126,29 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    std::vector<bls_public_key> pubkeys;
    std::vector<std::vector<uint8_t>> digests;
 
-   // utility to aggregate public keys and digests for verification
-   auto prepare_pubkeys_digests = [&] ( const auto& votes_bitset, const auto& digest ) {
-      auto n = std::min(num_finalizers, votes_bitset.size());
-      pubkeys.reserve(n);
-      digests.reserve(n);
-      for (auto i = 0u; i < n; ++i) {
-         if( votes_bitset[i] ) { // ith finalizer voted the digest
-            pubkeys.emplace_back(finalizers[i].public_key);
-            digests.emplace_back(std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()});
+   // utility to aggregate public keys for verification
+   auto aggregate_pubkeys = [&](const auto& votes_bitset) -> bls_public_key {
+      const auto n = std::min(num_finalizers, votes_bitset.size());
+      std::vector<bls_public_key> pubkeys_to_aggregate;
+      pubkeys_to_aggregate.reserve(n);
+      for(auto i = 0u; i < n; ++i) {
+         if (votes_bitset[i]) { // ith finalizer voted
+            pubkeys_to_aggregate.emplace_back(finalizers[i].public_key);
          }
       }
+
+      return fc::crypto::blslib::aggregate(pubkeys_to_aggregate);
    };
 
    // aggregate public keys and digests for strong and weak votes
    if( qc._strong_votes ) {
-      prepare_pubkeys_digests(*qc._strong_votes, strong_digest);
+      pubkeys.emplace_back(aggregate_pubkeys(*qc._strong_votes));
+      digests.emplace_back(std::vector<uint8_t>{strong_digest.data(), strong_digest.data() + strong_digest.data_size()});
    }
+
    if( qc._weak_votes ) {
-      prepare_pubkeys_digests(*qc._weak_votes, weak_digest);
+      pubkeys.emplace_back(aggregate_pubkeys(*qc._weak_votes));
+      digests.emplace_back(std::vector<uint8_t>{weak_digest.data(), weak_digest.data() + weak_digest.data_size()});
    }
 
    // validate aggregayed signature
