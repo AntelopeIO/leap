@@ -88,23 +88,15 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
 
 
    // Figure out if we can vote and wether our vote will be strong or weak
-   // --------------------------------------------------------------------
+   // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
+   // -----------------------------------------------------------------------------------
    VoteDecision my_vote = VoteDecision::NoVote;
 
    if (bsp_last_qc && monotony_check && (liveness_check || safety_check)) {
       auto requested_vote_range = time_range_t { bsp_last_qc->timestamp(), p->timestamp() };
 
       bool time_range_disjoint =
-         fsi.last_vote_range.start > requested_vote_range.end || fsi.last_vote_range.end < requested_vote_range.start;
-
-      // my last vote was on (t9, t10_1], I'm asked to vote on t10 :
-      //                 t9 < t10 && t9 < t10_1;  // time_range_interference == true, correct
-      //
-      // my last vote was on (t9, t10_1], I'm asked to vote on t11 :
-      //                 t9 < t11 && t10 < t10_1; // time_range_interference == false, correct
-      //
-      // my last vote was on (t7, t9], I'm asked to vote on t10 :
-      //                 t7 < t10 && t9 < t9;     // time_range_interference == false, correct
+         fsi.last_vote_range.start >= requested_vote_range.end || fsi.last_vote_range.end <= requested_vote_range.start;
 
       bool enough_for_strong_vote = time_range_disjoint || extends(fork_db, p, fsi.last_vote.id);
 
