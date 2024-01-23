@@ -113,4 +113,13 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    return my_vote;
 }
 
+std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, const digest_type& digest, const fork_database_if_t& fork_db) {
+   finalizer::VoteDecision decision = decide_vote(p, fork_db);
+   if (decision != VoteDecision::NoVote) {
+      auto sig =  priv_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
+      return vote_message{ p->id(), decision == VoteDecision::StrongVote, pub_key, sig };
+   }
+   return {};
+}
+
 } // namespace eosio::chain

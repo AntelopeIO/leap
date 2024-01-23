@@ -2711,7 +2711,7 @@ struct controller_impl {
             log_irreversible();
          }
 
-         fork_db.apply_if<void>([&](auto& forkdb) { create_and_send_vote_msg(forkdb.chain_head); });
+         fork_db.apply_if<void>([&](auto& forkdb) { create_and_send_vote_msg(forkdb.chain_head, forkdb); });
 
          // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
          auto transition = [&](auto& forkdb) -> bool {
@@ -2992,12 +2992,12 @@ struct controller_impl {
       } FC_CAPTURE_AND_RETHROW();
    } /// apply_block
 
-   void create_and_send_vote_msg(const block_state_ptr& bsp) {
+   void create_and_send_vote_msg(const block_state_ptr& bsp, const fork_database_if_t& fork_db) {
       // A vote is created and signed by each finalizer configured on the node that
       // is present in the active finalizer policy
       for (const auto& f : bsp->active_finalizer_policy->finalizers) {
          my_finalizers.vote_if_found(
-            bsp->id(), f.public_key, bsp->compute_finalizer_digest(), [&](const vote_message& vote) {
+            bsp, fork_db, f.public_key, bsp->compute_finalizer_digest(), [&](const vote_message& vote) {
                // net plugin subscribed this signal. it will broadcast the vote message
                // on receiving the signal
                emit(self.voted_block, vote);

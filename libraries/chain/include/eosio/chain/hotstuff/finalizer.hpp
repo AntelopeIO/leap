@@ -4,8 +4,6 @@
 #include <compare>
 
 namespace eosio::chain {
-   //using fork_db_t = fork_database_if_t;
-
    struct qc_chain_t {
       block_state_ptr b2; // first phase,  prepare
       block_state_ptr b1; // second phase, precommit
@@ -55,36 +53,36 @@ namespace eosio::chain {
       safety_information  fsi;
 
    private:
-      qc_chain_t   get_qc_chain(const block_state_ptr&  proposal, const fork_database_if_t::branch_type& branch) const;
-      VoteDecision decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
+      qc_chain_t     get_qc_chain(const block_state_ptr&  proposal, const fork_database_if_t::branch_type& branch) const;
+      VoteDecision   decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:
+      std::optional<vote_message> maybe_vote(const block_state_ptr& bsp, const digest_type& digest,
+                                             const fork_database_if_t& fork_db);
 
-      std::strong_ordering operator<=>(const finalizer& o) const
-      {
-         return pub_key <=> o.pub_key;
+      friend std::strong_ordering operator<=>(const finalizer& a, const finalizer& b) {
+         return a.pub_key <=> b.pub_key;
+      }
+
+      friend std::strong_ordering operator<=>(const finalizer& a, const bls_public_key& k) {
+         return a.pub_key <=> k;
       }
    };
 
-
    struct finalizer_set {
-      std::set<finalizer> finalizers;
+      std::set<finalizer, std::less<>> finalizers;
 
       template<class F>
-      void vote_if_found(const block_id_type& proposal_id,
+      void vote_if_found(const block_state_ptr& bsp,
+                         const fork_database_if_t& fork_db,
                          const bls_public_key& pub_key,
                          const digest_type& digest,
                          F&& f) {
 
-         if (auto it = std::find_if(finalizers.begin(), finalizers.end(), [&](const finalizer& fin) { return fin.pub_key == pub_key; });
-             it != finalizers.end()) {
-            const auto& priv_key = it->priv_key;
-            auto sig =  priv_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
-
-#warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
-            bool strong = true;
-            vote_message vote{ proposal_id, strong, pub_key, sig };
-            std::forward<F>(f)(vote);
+         if (auto it = finalizers.find(pub_key); it != finalizers.end()) {
+            std::optional<vote_message> vote_msg = const_cast<finalizer&>(*it).maybe_vote(bsp, digest, fork_db);
+            if (vote_msg)
+               std::forward<F>(f)(*vote_msg);
          }
       }
 
