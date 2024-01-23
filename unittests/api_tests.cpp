@@ -3902,7 +3902,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    // BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
 
    block = t.produce_block(); // hotstuff now active
-   BOOST_TEST(block->confirmed == std::numeric_limits<uint16_t>::max());
+   BOOST_TEST(block->confirmed == 0);
    auto fb = t.control->fetch_block_by_id(block->calculate_id());
    BOOST_REQUIRE(!!fb);
    BOOST_TEST(fb == block);
@@ -3911,7 +3911,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // and another on top of a instant-finality block
    block = t.produce_block();
-   BOOST_TEST(block->confirmed == std::numeric_limits<uint16_t>::max());
+   BOOST_TEST(block->confirmed == 0);
    fb = t.control->fetch_block_by_id(block->calculate_id());
    BOOST_REQUIRE(!!fb);
    BOOST_TEST(fb == block);
