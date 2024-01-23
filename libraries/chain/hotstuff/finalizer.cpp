@@ -1,4 +1,5 @@
 #include <eosio/chain/hotstuff/finalizer.hpp>
+#include <eosio/chain/exceptions.hpp>
 
 namespace eosio::chain {
 
@@ -113,11 +114,54 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
 
 std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, const digest_type& digest, const fork_database_if_t& fork_db) {
    finalizer::VoteDecision decision = decide_vote(p, fork_db);
-   if (decision != VoteDecision::NoVote) {
+   if (decision == VoteDecision::StrongVote || decision == VoteDecision::WeakVote) {
+      save_finalizer_safety_info();
       auto sig =  priv_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
       return vote_message{ p->id(), decision == VoteDecision::StrongVote, pub_key, sig };
    }
    return {};
+}
+
+void finalizer::save_finalizer_safety_info() {
+   if (!safety_file.is_open()) {
+      EOS_ASSERT(!safety_file_path.empty(), finalizer_safety_exception,
+                 "path for storing finalizer safety persistence file not specified");
+      safety_file.set_file_path(safety_file_path);
+      safety_file.open(fc::cfile::create_or_update_rw_mode);
+      EOS_ASSERT(safety_file.is_open(), finalizer_safety_exception,
+                 "unable to open finalizer safety persistence file: ${p}", ("p", safety_file_path));
+   }
+   safety_file.seek(0);
+   fc::raw::pack(safety_file, finalizer::safety_information::magic);
+   fc::raw::pack(safety_file, fsi);
+   safety_file.flush();
+}
+
+
+void finalizer::load_finalizer_safety_info() {
+   EOS_ASSERT(!safety_file_path.empty(), finalizer_safety_exception,
+              "path for storing finalizer safety persistence file not specified");
+
+   EOS_ASSERT(!safety_file.is_open(), finalizer_safety_exception,
+              "Trying to read an already open finalizer safety persistence file: ${p}", ("p", safety_file_path));
+   safety_file.set_file_path(safety_file_path);
+   safety_file.open(fc::cfile::update_rw_mode);
+   EOS_ASSERT(safety_file.is_open(), finalizer_safety_exception,
+              "unable to open finalizer safety persistence file: ${p}", ("p", safety_file_path));
+   try {
+      safety_file.seek(0);
+      uint64_t magic = 0;
+      fc::raw::unpack(safety_file, magic);
+      EOS_ASSERT(magic == finalizer::safety_information::magic, finalizer_safety_exception,
+                 "bad magic number in finalizer safety persistence file: ${p}", ("p", safety_file_path));
+      fc::raw::unpack(safety_file, fsi);
+   } catch (const fc::exception& e) {
+      edump((e.to_detail_string()));
+      throw;
+   } catch (const std::exception& e) {
+      edump((e.what()));
+      throw;
+   }
 }
 
 } // namespace eosio::chain
