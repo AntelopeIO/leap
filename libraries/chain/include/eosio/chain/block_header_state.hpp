@@ -20,9 +20,11 @@ struct building_block_input {
 };
 
 struct qc_data_t {
-   quorum_certificate qc;                                  // Comes from traversing branch from parent and calling get_best_qc()
+   std::optional<quorum_certificate> qc;                   // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
-   qc_info_t          qc_info;                             // describes the above qc
+   qc_info_t          qc_info;                             // describes the above qc. In rare cases (bootstrap, starting from snapshot,
+                                                           // disaster recovery), we may not have a qc so we use the `lib` block_num
+                                                           // and specify `weak`.
 };
       
 // this struct can be extracted from a building block

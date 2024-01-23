@@ -669,6 +669,16 @@ struct building_block {
                         }
                      }
                   });
+                  if (!qc_data) {
+                     // In rare cases (bootstrap, starting from snapshot,disaster recovery), we may not find a qc
+                     // so we use the `lib` block_num and specify `weak`.
+                     qc_data = qc_data_t{
+                        {},
+                        qc_info_t{
+                         fork_db.apply<uint32_t>([&](const auto& forkdb) { return forkdb.root()->block_num(); }),
+                         false}
+                     };
+                  }
                }
 
                building_block_input bb_input {
@@ -2837,16 +2847,19 @@ struct controller_impl {
 
    static std::optional<qc_data_t> extract_qc_data(const signed_block_ptr& b) {
       std::optional<qc_data_t> qc_data;
-      auto exts = b->validate_and_extract_extensions();
-      if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
-         auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
 
-         // get the matching header extension... should always be present
-         auto hexts = b->validate_and_extract_header_extensions();
-         auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id());
-         assert(if_entry != hexts.end());
-         auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
-         return qc_data_t{ std::move(qc_ext.qc), *if_ext.qc_info };
+      auto hexts = b->validate_and_extract_header_extensions();
+      if (auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id()); if_entry != hexts.end()) {
+         const auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+         qc_data = qc_data_t{ {}, *if_ext.qc_info };
+
+         // get qc if present. In some cases, we can have a finality extension in the header, but no qc in the block extension
+         auto exts = b->validate_and_extract_extensions();
+         if (auto qc_entry = exts.lower_bound(quorum_certificate_extension::extension_id()); qc_entry != exts.end()) {
+            auto& qc_ext = std::get<quorum_certificate_extension>(qc_entry->second);
+            qc_data->qc = std::move(qc_ext.qc);
+         }
+         return qc_data;
       }
       return {};
    }

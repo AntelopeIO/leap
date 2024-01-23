@@ -60,7 +60,7 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
 
    // we expect last_qc_block_num() to always be found except at bootstrap
    // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num from fork_db.root()
-   // and it was weak.
+   // and specify weak.
    auto bsp_last_qc   = p->last_qc_block_num() ? get_block_by_height(p_branch, *p->last_qc_block_num()) : block_state_ptr{};
 
    bool monotony_check = !fsi.last_vote || p->timestamp() > fsi.last_vote.timestamp;
