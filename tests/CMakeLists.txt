@@ -95,6 +95,8 @@ add_test(NAME nodeos_lib_if_test COMMAND tests/nodeos_lib_test.py -n 4 -p 3 -s r
 set_property(TEST nodeos_lib_if_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME block_log_util_test COMMAND tests/block_log_util_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST block_log_util_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME block_log_util_if_test COMMAND tests/block_log_util_test.py --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST block_log_util_if_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME block_log_retain_blocks_test COMMAND tests/block_log_retain_blocks_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST block_log_retain_blocks_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME block_log_retain_blocks_if_test COMMAND tests/block_log_retain_blocks_test.py --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
