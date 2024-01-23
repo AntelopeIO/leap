@@ -2647,7 +2647,7 @@ namespace eosio {
          if( exclude_peer.has_value() && cp->connection_id == exclude_peer.value() ) return true;
          cp->strand.post( [cp, msg]() {
             if (cp->protocol_version >= proto_instant_finality) {
-               peer_dlog(cp, "sending vote msg");
+//               peer_dlog(cp, "sending vote msg");
                cp->enqueue_buffer( msg, no_reason );
             }
          });
@@ -3945,12 +3945,12 @@ namespace eosio {
 
    // called from application thread
    void net_plugin_impl::on_voted_block(const vote_message& vote) {
-      fc_dlog(logger, "on voted signal, vote msg: ${msg}", ("msg", vote));
+//      fc_dlog(logger, "on voted signal, vote msg: ${msg}", ("msg", vote));
       bcast_vote_message(std::nullopt, vote);
    }
 
    void net_plugin_impl::bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::vote_message& msg ) {
-      fc_dlog(logger, "sending vote msg: ${msg}", ("msg", msg));
+//      fc_dlog(logger, "sending vote msg: ${msg}", ("msg", msg));
 
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
