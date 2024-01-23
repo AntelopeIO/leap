@@ -3677,7 +3677,7 @@ namespace eosio {
    }
 
    void connection::handle_message( const vote_message& msg ) {
-      peer_dlog(this, "received vote: ${msg}", ("msg", msg));
+//      peer_dlog(this, "received vote: ${msg}", ("msg", msg));
       controller& cc = my_impl->chain_plug->chain();
       if( cc.process_vote_message(msg) ) {
          my_impl->bcast_vote_message(connection_id, msg);
