@@ -1180,7 +1180,7 @@ namespace eosio {
 
       void operator()( const chain::vote_message& msg ) const {
          // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_vote_message" );
+//         peer_dlog( c, "handle vote_message" );
          c->handle_message( msg );
       }
    };
