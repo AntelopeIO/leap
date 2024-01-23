@@ -13,11 +13,6 @@ namespace eosio::chain {
    struct finalizer {
       enum class VoteDecision { StrongVote, WeakVote, NoVote };
 
-      struct time_range_t {
-         block_timestamp_type start;
-         block_timestamp_type end;
-      };
-
       struct proposal_ref {
          block_id_type         id;
          block_timestamp_type  timestamp;
@@ -40,10 +35,10 @@ namespace eosio::chain {
       };
 
       struct safety_information {
-         time_range_t     last_vote_range;
-         proposal_ref     last_vote;          // v_height under hotstuff
-         proposal_ref     lock;               // b_lock under hotstuff
-         bool             recovery_mode;
+         block_timestamp_type last_vote_range_start;
+         proposal_ref         last_vote;          // v_height under hotstuff
+         proposal_ref         lock;               // b_lock under hotstuff
+         bool                 recovery_mode;
 
          safety_information() = default;
       };

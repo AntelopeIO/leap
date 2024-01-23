@@ -93,19 +93,17 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    VoteDecision my_vote = VoteDecision::NoVote;
 
    if (bsp_last_qc && monotony_check && (liveness_check || safety_check)) {
-      auto requested_vote_range = time_range_t { bsp_last_qc->timestamp(), p->timestamp() };
+      auto [p_start, p_end] = std::make_pair(bsp_last_qc->timestamp(), p->timestamp());
 
-      bool time_range_disjoint =
-         fsi.last_vote_range.start >= requested_vote_range.end || fsi.last_vote_range.end <= requested_vote_range.start;
+      bool time_range_disjoint    = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
 
       bool enough_for_strong_vote = time_range_disjoint || extends(fork_db, p, fsi.last_vote.id);
 
-      fsi.last_vote = proposal_ref(p);                     // v_height
+      fsi.last_vote             = proposal_ref(p);          // v_height
+      fsi.last_vote_range_start = p_start;
 
       if (chain.b1 && chain.b1->timestamp() > fsi.lock.timestamp)
          fsi.lock = proposal_ref(chain.b1);                // commit phase on b1
-
-      fsi.last_vote_range = requested_vote_range;
 
       my_vote = enough_for_strong_vote ? VoteDecision::StrongVote : VoteDecision::WeakVote;
    }
