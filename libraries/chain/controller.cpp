@@ -2851,7 +2851,7 @@ struct controller_impl {
 
       auto hexts = b->validate_and_extract_header_extensions();
       if (auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id()); if_entry != hexts.end()) {
-         const auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
+         const auto& if_ext = std::get<instant_finality_extension>(if_entry->second);
          qc_data = qc_data_t{ {}, *if_ext.qc_info };
 
          // get qc if present. In some cases, we can have a finality extension in the header, but no qc in the block extension
@@ -2994,15 +2994,19 @@ struct controller_impl {
    } /// apply_block
 
    void create_and_send_vote_msg(const block_state_ptr& bsp, const fork_database_if_t& fork_db) {
-      // A vote is created and signed by each finalizer configured on the node that
-      // is present in the active finalizer policy
+      auto finalizer_digest = bsp->compute_finalizer_digest();
+
+      // Each finalizer configured on the node which is present in the active finalizer policy
+      // must create and sign a vote
       for (const auto& f : bsp->active_finalizer_policy->finalizers) {
          my_finalizers.vote_if_found(
-            bsp, fork_db, f.public_key, bsp->compute_finalizer_digest(), [&](const vote_message& vote) {
-               // net plugin subscribed this signal. it will broadcast the vote message
+            bsp, fork_db, f.public_key, finalizer_digest,
+            [&](const vote_message& vote) {
+               // net plugin subscribed to this signal. it will broadcast the vote message
                // on receiving the signal
                emit(self.voted_block, vote);
 
+               // also aggregate our own vote into the pending_qc for this block.
                boost::asio::post(thread_pool.get_executor(),
                                  [control = this, vote]() { control->self.process_vote_message(vote); });
             });
