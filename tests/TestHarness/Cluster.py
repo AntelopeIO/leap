@@ -1003,8 +1003,7 @@ class Cluster(object):
             numFins = numFins + 1
 
         threshold = int(numFins * 2 / 3 + 1)
-        if threshold >= pnodes:
-            threshold = pnodes - 1
+        if Utils.Debug: Utils.Print(f"threshold: {threshold}, numFins: {numFins}, pnodes: {pnodes}")
         setFinStr =  f'{{"finalizer_policy": {{'
         setFinStr += f'  "threshold": {threshold}, '
         setFinStr += f'  "finalizers": ['
