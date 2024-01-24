@@ -118,11 +118,11 @@ class maybe_session {
 };
 
 struct qc_data_t {
-   std::optional<quorum_certificate> qc;   // Comes either from traversing branch from parent and calling get_best_qc()
-                                           // or from an incoming block extension
-   qc_info_t          qc_info;             // describes the above qc. In rare cases (bootstrap, starting from snapshot,
-                                           // disaster recovery), we may not have a qc so we use the `lib` block_num
-                                           // and specify `weak`.
+   std::optional<quorum_certificate> qc; // Comes either from traversing branch from parent and calling get_best_qc()
+                                         // or from an incoming block extension.
+   qc_info_t qc_info;                    // describes the above qc. In rare cases (bootstrap, starting from snapshot,
+                                         // disaster recovery), we may not have a qc so we use the `lib` block_num
+                                         // and specify `weak`.
 };
 
 struct completed_block {
