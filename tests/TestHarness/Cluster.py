@@ -995,20 +995,32 @@ class Cluster(object):
     def activateInstantFinality(self, launcher, pnodes):
         # call setfinalizer
         numFins = 0
+        hasBiosNode = False
         for n in launcher.network.nodes.values():
             if n.keys[0].blspubkey is None:
                 continue
             if len(n.producers) == 0:
                 continue
+            if n.index == Node.biosNodeId:
+                hasBiosNode = True
             numFins = numFins + 1
 
         threshold = int(numFins * 2 / 3 + 1)
+        # pnodes does not include biosNode
+        # biosNode often stopped, so do not include it in threshold unless it is the only one
+        includeBiosNode = False
+        if hasBiosNode and numFins == 1:
+            includeBiosNode = True
+        elif hasBiosNode and threshold > 1:
+              threshold = threshold - 1
         if Utils.Debug: Utils.Print(f"threshold: {threshold}, numFins: {numFins}, pnodes: {pnodes}")
         setFinStr =  f'{{"finalizer_policy": {{'
         setFinStr += f'  "threshold": {threshold}, '
         setFinStr += f'  "finalizers": ['
         finNum = 1
         for n in launcher.network.nodes.values():
+            if n.index == Node.biosNodeId and not includeBiosNode:
+                continue
             if n.keys[0].blspubkey is None:
                 continue
             if len(n.producers) == 0:
@@ -1100,7 +1112,7 @@ class Cluster(object):
             return None
 
         if activateIF:
-            self.activateInstantFinality(launcher, self.totalNodesCount)
+            self.activateInstantFinality(launcher, self.productionNodesCount)
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(eosioName)
