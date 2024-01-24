@@ -153,7 +153,7 @@ BOOST_FIXTURE_TEST_CASE( buysell, eosio_system_tester ) try {
 
       const int64_t fee = (payment.get_amount() + 199) / 200;
       const double net_payment = payment.get_amount() - fee;
-      const int64_t expected_delta = net_payment * r0.get_amount() / ( net_payment + e0.get_amount() );
+      const uint64_t expected_delta = net_payment * r0.get_amount() / ( net_payment + e0.get_amount() );
 
       BOOST_REQUIRE_EQUAL( expected_delta, bytes1 -  bytes0 );
    }
@@ -1857,7 +1857,7 @@ BOOST_FIXTURE_TEST_CASE(producers_upgrade_system_contract, eosio_system_tester) 
    );
 
    BOOST_REQUIRE( bool(trace) );
-   BOOST_REQUIRE_EQUAL( 1, trace->action_traces.size() );
+   BOOST_REQUIRE_EQUAL( 1u, trace->action_traces.size() );
    BOOST_REQUIRE_EQUAL( transaction_receipt::executed, trace->receipt->status );
 
    produce_blocks( 250 );
@@ -1916,7 +1916,7 @@ BOOST_FIXTURE_TEST_CASE(producer_onblock_check, eosio_system_tester) try {
 
    {
       const char* claimrewards_activation_error_message = "cannot claim rewards until the chain is activated (at least 15% of all tokens participate in voting)";
-      BOOST_CHECK_EQUAL(0, get_global_state()["total_unpaid_blocks"].as<uint32_t>());
+      BOOST_CHECK_EQUAL(0u, get_global_state()["total_unpaid_blocks"].as<uint32_t>());
       BOOST_REQUIRE_EQUAL(wasm_assert_msg( claimrewards_activation_error_message ),
                           push_action(producer_names.front(), "claimrewards"_n, mvo()("owner", producer_names.front())));
       BOOST_REQUIRE_EQUAL(0, get_balance(producer_names.front()).get_amount());
@@ -2197,7 +2197,7 @@ BOOST_FIXTURE_TEST_CASE( elect_producers /*_and_parameters*/, eosio_system_teste
    BOOST_REQUIRE_EQUAL( success(), vote( "alice1111111"_n, { "defproducer1"_n } ) );
    produce_blocks(250);
    auto producer_keys = control->active_producers();
-   BOOST_REQUIRE_EQUAL( 1, producer_keys.producers.size() );
+   BOOST_REQUIRE_EQUAL( 1u, producer_keys.producers.size() );
    BOOST_REQUIRE_EQUAL( name("defproducer1"_n), producer_keys.producers[0].producer_name );
 
    //auto config = config_to_variant( control->get_global_properties().configuration );
@@ -2213,7 +2213,7 @@ BOOST_FIXTURE_TEST_CASE( elect_producers /*_and_parameters*/, eosio_system_teste
    ilog(".");
    produce_blocks(250);
    producer_keys = control->active_producers();
-   BOOST_REQUIRE_EQUAL( 2, producer_keys.producers.size() );
+   BOOST_REQUIRE_EQUAL( 2u, producer_keys.producers.size() );
    BOOST_REQUIRE_EQUAL( name("defproducer1"_n), producer_keys.producers[0].producer_name );
    BOOST_REQUIRE_EQUAL( name("defproducer2"_n), producer_keys.producers[1].producer_name );
    //config = config_to_variant( control->get_global_properties().configuration );
@@ -2224,7 +2224,7 @@ BOOST_FIXTURE_TEST_CASE( elect_producers /*_and_parameters*/, eosio_system_teste
    BOOST_REQUIRE_EQUAL( success(), vote( "bob111111111"_n, { "defproducer2"_n, "defproducer3"_n } ) );
    produce_blocks(250);
    producer_keys = control->active_producers();
-   BOOST_REQUIRE_EQUAL( 3, producer_keys.producers.size() );
+   BOOST_REQUIRE_EQUAL( 3u, producer_keys.producers.size() );
    BOOST_REQUIRE_EQUAL( name("defproducer1"_n), producer_keys.producers[0].producer_name );
    BOOST_REQUIRE_EQUAL( name("defproducer2"_n), producer_keys.producers[1].producer_name );
    BOOST_REQUIRE_EQUAL( name("defproducer3"_n), producer_keys.producers[2].producer_name );
@@ -2235,7 +2235,7 @@ BOOST_FIXTURE_TEST_CASE( elect_producers /*_and_parameters*/, eosio_system_teste
    BOOST_REQUIRE_EQUAL( success(), vote( "bob111111111"_n, { "defproducer3"_n } ) );
    produce_blocks(250);
    producer_keys = control->active_producers();
-   BOOST_REQUIRE_EQUAL( 3, producer_keys.producers.size() );
+   BOOST_REQUIRE_EQUAL( 3u, producer_keys.producers.size() );
 
    // The test below is invalid now, producer schedule is not updated if there are
    // fewer producers in the new schedule
@@ -2383,7 +2383,7 @@ BOOST_FIXTURE_TEST_CASE( multiple_namebids, eosio_system_tester ) try {
 
    // stake enough to go above the 15% threshold
    stake_with_transfer( config::system_account_name, "alice"_n, core_from_string( "10000000.0000" ), core_from_string( "10000000.0000" ) );
-   BOOST_REQUIRE_EQUAL(0, get_producer_info("producer"_n)["unpaid_blocks"].as<uint32_t>());
+   BOOST_REQUIRE_EQUAL(0u, get_producer_info("producer"_n)["unpaid_blocks"].as<uint32_t>());
    BOOST_REQUIRE_EQUAL( success(), vote( "alice"_n, { "producer"_n } ) );
 
    // need to wait for 14 days after going live
@@ -2510,7 +2510,7 @@ BOOST_FIXTURE_TEST_CASE( vote_producers_in_and_out, eosio_system_tester ) try {
       const uint32_t new_prod_index  = 23;
       BOOST_REQUIRE_EQUAL(success(), stake("producvoterd"_n, core_from_string("40000000.0000"), core_from_string("40000000.0000")));
       BOOST_REQUIRE_EQUAL(success(), vote("producvoterd"_n, { producer_names[new_prod_index] }));
-      BOOST_REQUIRE_EQUAL(0, get_producer_info(producer_names[new_prod_index])["unpaid_blocks"].as<uint32_t>());
+      BOOST_REQUIRE_EQUAL(0u, get_producer_info(producer_names[new_prod_index])["unpaid_blocks"].as<uint32_t>());
       produce_blocks(4 * 12 * 21);
       BOOST_REQUIRE(0 < get_producer_info(producer_names[new_prod_index])["unpaid_blocks"].as<uint32_t>());
       const uint32_t initial_unpaid_blocks = get_producer_info(producer_names[voted_out_index])["unpaid_blocks"].as<uint32_t>();
@@ -2608,7 +2608,7 @@ BOOST_FIXTURE_TEST_CASE( setparams, eosio_system_tester ) try {
    );
 
    BOOST_REQUIRE( bool(trace) );
-   BOOST_REQUIRE_EQUAL( 1, trace->action_traces.size() );
+   BOOST_REQUIRE_EQUAL( 1u, trace->action_traces.size() );
    BOOST_REQUIRE_EQUAL( transaction_receipt::executed, trace->receipt->status );
 
    produce_blocks( 250 );
@@ -2780,12 +2780,12 @@ BOOST_FIXTURE_TEST_CASE( ram_gift, eosio_system_tester ) try {
    BOOST_REQUIRE_EQUAL( success(), buyram( "alice1111111"_n, "alice1111111"_n, core_from_string("1000.0000") ) );
    rlm.get_account_limits( "alice1111111"_n, ram_bytes, net_weight, cpu_weight );
    auto userres = get_total_stake( "alice1111111"_n );
-   BOOST_REQUIRE_EQUAL( userres["ram_bytes"].as_uint64() + ram_gift, ram_bytes );
+   BOOST_REQUIRE_EQUAL( userres["ram_bytes"].as_uint64() + ram_gift, static_cast<uint64_t>(ram_bytes) ); // safe to cast in this case
 
    BOOST_REQUIRE_EQUAL( success(), sellram( "alice1111111"_n, 1024 ) );
    rlm.get_account_limits( "alice1111111"_n, ram_bytes, net_weight, cpu_weight );
    userres = get_total_stake( "alice1111111"_n );
-   BOOST_REQUIRE_EQUAL( userres["ram_bytes"].as_uint64() + ram_gift, ram_bytes );
+   BOOST_REQUIRE_EQUAL( userres["ram_bytes"].as_uint64() + ram_gift, static_cast<uint64_t>(ram_bytes) );
 
 } FC_LOG_AND_RETHROW()
 
