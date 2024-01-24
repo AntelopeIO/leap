@@ -1008,8 +1008,10 @@ class Cluster(object):
             numFins = numFins + 1
 
         threshold = int(numFins * 2 / 3 + 1)
+        if threshold > 2 and threshold == numFins:
+            # nodes are often stopped, so do not require all node votes
+            threshold = threshold - 1
         # pnodes does not include biosNode
-        # biosNode often stopped, so do not include it in threshold unless it is the only one
         if Utils.Debug: Utils.Print(f"threshold: {threshold}, numFins: {numFins}, pnodes: {pnodes}")
         setFinStr =  f'{{"finalizer_policy": {{'
         setFinStr += f'  "threshold": {threshold}, '
