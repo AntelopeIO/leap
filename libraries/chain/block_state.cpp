@@ -3,6 +3,8 @@
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/exceptions.hpp>
 
+#include <fc/crypto/bls_utils.hpp>
+
 namespace eosio::chain {
 
 block_state::block_state(const block_header_state& prev, signed_block_ptr b, const protocol_feature_set& pfs,
@@ -86,7 +88,73 @@ std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const vote_
       return {};
    }
 }
-   
+
+// Called from net threads
+void block_state::verify_qc(const valid_quorum_certificate& qc) const {
+   const auto& finalizers = active_finalizer_policy->finalizers;
+   auto num_finalizers = finalizers.size();
+
+   // utility to accumulate voted weights
+   auto weights = [&] ( const hs_bitset& votes_bitset ) -> uint64_t {
+      uint64_t sum = 0;
+      auto n = std::min(num_finalizers, votes_bitset.size());
+      for (auto i = 0u; i < n; ++i) {
+         if( votes_bitset[i] ) { // ith finalizer voted
+            sum += finalizers[i].weight;
+         }
+      }
+      return sum;
+   };
+
+   // compute strong and weak accumulated weights
+   auto strong_weights = qc._strong_votes ? weights( *qc._strong_votes ) : 0;
+   auto weak_weights = qc._weak_votes ? weights( *qc._weak_votes ) : 0;
+
+   // verfify quorum is met
+   if( qc.is_strong() ) {
+      EOS_ASSERT( strong_weights >= active_finalizer_policy->threshold,
+                  block_validate_exception,
+                  "strong quorum is not met, strong_weights: ${s}, threshold: ${t}",
+                  ("s", strong_weights)("t", active_finalizer_policy->threshold) );
+   } else {
+      EOS_ASSERT( strong_weights + weak_weights >= active_finalizer_policy->threshold,
+                  block_validate_exception,
+                  "weak quorum is not met, strong_weights: ${s}, weak_weights: ${w}, threshold: ${t}",
+                  ("s", strong_weights)("w", weak_weights)("t", active_finalizer_policy->threshold) );
+   }
+
+   std::vector<bls_public_key> pubkeys;
+   std::vector<std::vector<uint8_t>> digests;
+
+   // utility to aggregate public keys for verification
+   auto aggregate_pubkeys = [&](const auto& votes_bitset) -> bls_public_key {
+      const auto n = std::min(num_finalizers, votes_bitset.size());
+      std::vector<bls_public_key> pubkeys_to_aggregate;
+      pubkeys_to_aggregate.reserve(n);
+      for(auto i = 0u; i < n; ++i) {
+         if (votes_bitset[i]) { // ith finalizer voted
+            pubkeys_to_aggregate.emplace_back(finalizers[i].public_key);
+         }
+      }
+
+      return fc::crypto::blslib::aggregate(pubkeys_to_aggregate);
+   };
+
+   // aggregate public keys and digests for strong and weak votes
+   if( qc._strong_votes ) {
+      pubkeys.emplace_back(aggregate_pubkeys(*qc._strong_votes));
+      digests.emplace_back(std::vector<uint8_t>{strong_digest.data(), strong_digest.data() + strong_digest.data_size()});
+   }
+
+   if( qc._weak_votes ) {
+      pubkeys.emplace_back(aggregate_pubkeys(*qc._weak_votes));
+      digests.emplace_back(std::vector<uint8_t>{weak_digest.data(), weak_digest.data() + weak_digest.data_size()});
+   }
+
+   // validate aggregayed signature
+   EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),  block_validate_exception, "signature validation failed" );
+}
+
 std::optional<quorum_certificate> block_state::get_best_qc() const {
    auto block_number = block_num();
 
