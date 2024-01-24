@@ -540,7 +540,7 @@ namespace eosio {
       void on_irreversible_block( const block_id_type& id, uint32_t block_num );
 
       void bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::vote_message& msg );
-      void warn_hs_message( uint32_t sender_peer, const chain::hs_message_warning& code );
+      void warn_message( uint32_t sender_peer, const chain::hs_message_warning& code );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
@@ -1180,7 +1180,7 @@ namespace eosio {
 
       void operator()( const chain::vote_message& msg ) const {
          // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_vote_message" );
+         peer_dlog( c, "handle vote_message" );
          c->handle_message( msg );
       }
    };
@@ -3960,7 +3960,7 @@ namespace eosio {
       });
    }
 
-   void net_plugin_impl::warn_hs_message( uint32_t sender_peer, const chain::hs_message_warning& code ) {
+   void net_plugin_impl::warn_message( uint32_t sender_peer, const chain::hs_message_warning& code ) {
       // potentially react to (repeated) receipt of invalid, irrelevant, duplicate, etc. hotstuff messages from sender_peer (connection ID) here
    }
 
