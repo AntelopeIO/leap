@@ -288,6 +288,8 @@ set_property(TEST nodeos_repeat_transaction_lr_test PROPERTY LABELS long_running
 
 add_test(NAME light_validation_sync_test COMMAND tests/light_validation_sync_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST light_validation_sync_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME light_validation_sync_if_test COMMAND tests/light_validation_sync_test.py --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST light_validation_sync_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME auto_bp_peering_test COMMAND tests/auto_bp_peering_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST auto_bp_peering_test PROPERTY LABELS long_running_tests)
