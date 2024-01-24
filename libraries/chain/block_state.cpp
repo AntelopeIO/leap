@@ -11,7 +11,7 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    , block(std::move(b))
    , strong_digest(compute_finalizer_digest())
    , weak_digest(compute_finalizer_digest())
-   , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold)
+   , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->finalizer_weights(), prev.active_finalizer_policy->threshold)
 {}
 
 block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
@@ -20,7 +20,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
    , strong_digest(compute_finalizer_digest())
    , weak_digest(compute_finalizer_digest())
-   , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold)
+   , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->finalizer_weights(), bhs.active_finalizer_policy->threshold)
    , pub_keys_recovered(true) // probably not needed
    , cached_trxs(std::move(trx_metas))
 {

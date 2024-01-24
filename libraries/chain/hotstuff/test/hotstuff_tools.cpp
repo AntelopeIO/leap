@@ -108,7 +108,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    };
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      pending_quorum_certificate qc(2, {1, 1}, 1); // 2 finalizers, quorum = 1
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add one weak vote
@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      pending_quorum_certificate qc(2, {1, 1}, 1); // 2 finalizers, quorum = 1
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add a weak vote
@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      pending_quorum_certificate qc(2, {1, 1}, 1); // 2 finalizers, quorum = 1
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add a strong vote
@@ -165,7 +165,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      pending_quorum_certificate qc(3, {1, 1, 1}, 2); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      pending_quorum_certificate qc(3, {1, 1, 1}, 2); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------
@@ -217,7 +217,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      pending_quorum_certificate qc(3, {1, 1, 1}, 2); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------
@@ -243,7 +243,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      pending_quorum_certificate qc(3, {1, 1, 1}, 2); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------

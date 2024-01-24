@@ -185,18 +185,13 @@ namespace eosio::chain {
 
       pending_quorum_certificate();
 
-      explicit pending_quorum_certificate(size_t num_finalizers, size_t quorum);
-
-      explicit pending_quorum_certificate(const fc::sha256& proposal_id,
-                                          const digest_type& proposal_digest,
-                                          size_t num_finalizers,
-                                          size_t quorum);
+      explicit pending_quorum_certificate(size_t num_finalizers, std::vector<uint64_t>&& weights, uint64_t quorum);
 
       // thread safe
       bool   is_quorum_met() const;
 
       // thread safe
-      void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum);
+      void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, uint64_t quorum);
 
       // thread safe
       std::pair<bool, bool> add_vote(bool strong,
@@ -223,14 +218,13 @@ namespace eosio::chain {
       std::vector<uint8_t> _proposal_digest;
       state_t              _state { state_t::unrestricted };
       size_t               _num_finalizers {0};
-      size_t               _quorum {0};
+      std::vector<uint64_t> _finalizer_weights; // weight of each finalizer
+      uint64_t             _strong_accumulated_weight {0}; // accumulated weight of strong votes far
+      uint64_t             _weak_accumulated_weight {0}; // accumulated weight of weak votes so far
+      uint64_t             _quorum {0};
       std::unique_ptr<std::mutex> _mtx;  // protect both _strong_votes and _weak_votes
       votes_t              _weak_votes;
       votes_t              _strong_votes;
-
-      // num_weak and num_strong are protected by mutex by add_vote
-      size_t num_weak()   const { return _weak_votes.count(); }
-      size_t num_strong() const { return _strong_votes.count(); }
 
       // called by add_vote, already protected by mutex
       bool add_strong_vote(const std::vector<uint8_t>& proposal_digest,

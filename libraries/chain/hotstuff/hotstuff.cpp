@@ -45,20 +45,13 @@ pending_quorum_certificate::pending_quorum_certificate()
    : _mtx(std::make_unique<std::mutex>()) {
 }
 
-pending_quorum_certificate::pending_quorum_certificate(size_t num_finalizers, size_t quorum)
+pending_quorum_certificate::pending_quorum_certificate(size_t num_finalizers, std::vector<uint64_t>&& weights, uint64_t quorum)
    : _num_finalizers(num_finalizers)
    , _quorum(quorum)
+   , _finalizer_weights(std::move(weights))
    , _mtx(std::make_unique<std::mutex>()) {
    _weak_votes.resize(num_finalizers);
    _strong_votes.resize(num_finalizers);
-}
-
-pending_quorum_certificate::pending_quorum_certificate(const fc::sha256&  proposal_id,
-                                                       const digest_type& proposal_digest, size_t num_finalizers,
-                                                       size_t quorum)
-   : pending_quorum_certificate(num_finalizers, quorum) {
-   _proposal_id = proposal_id;
-   _proposal_digest.assign(proposal_digest.data(), proposal_digest.data() + 32);
 }
 
 bool pending_quorum_certificate::is_quorum_met() const {
@@ -84,21 +77,20 @@ bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& pro
    assert(index < _num_finalizers);
    if (!_strong_votes.add_vote(proposal_digest, index, pubkey, sig))
       return false;
-   size_t weak   = num_weak();
-   size_t strong = num_strong();
+   _strong_accumulated_weight += _finalizer_weights[index];
 
    switch (_state) {
    case state_t::unrestricted:
    case state_t::restricted:
-      if (strong >= _quorum) {
+      if (_strong_accumulated_weight >= _quorum) {
          assert(_state != state_t::restricted);
          _state = state_t::strong;
-      } else if (weak + strong >= _quorum)
+      } else if (_weak_accumulated_weight + _strong_accumulated_weight >= _quorum)
          _state = (_state == state_t::restricted) ? state_t::weak_final : state_t::weak_achieved;
       break;
 
    case state_t::weak_achieved:
-      if (strong >= _quorum)
+      if (_strong_accumulated_weight >= _quorum)
          _state = state_t::strong;
       break;
 
@@ -116,16 +108,15 @@ bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& propo
    assert(index < _num_finalizers);
    if (!_weak_votes.add_vote(proposal_digest, index, pubkey, sig))
       return false;
-   size_t weak   = num_weak();
-   size_t strong = num_strong();
+   _weak_accumulated_weight += _finalizer_weights[index];
 
    switch (_state) {
    case state_t::unrestricted:
    case state_t::restricted:
-      if (weak + strong >= _quorum)
+      if (_weak_accumulated_weight + _strong_accumulated_weight >= _quorum)
          _state = state_t::weak_achieved;
 
-      if (weak > (_num_finalizers - _quorum)) {
+      if (_weak_accumulated_weight > (_num_finalizers - _quorum)) {
          if (_state == state_t::weak_achieved)
             _state = state_t::weak_final;
          else if (_state == state_t::unrestricted)
@@ -134,7 +125,7 @@ bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& propo
       break;
 
    case state_t::weak_achieved:
-      if (weak >= (_num_finalizers - _quorum))
+      if (_weak_accumulated_weight >= (_num_finalizers - _quorum))
          _state = state_t::weak_final;
       break;
 
