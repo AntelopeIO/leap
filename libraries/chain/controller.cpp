@@ -3067,13 +3067,21 @@ struct controller_impl {
    // Called from net-threads. It is thread safe as signed_block is never modified
    // after creation.
    void verify_qc_claim( const signed_block_ptr& b, const block_header_state& prev ) {
+      // extract current block extension and previous header extension
       auto block_exts = b->validate_and_extract_extensions();
+      std::optional<block_header_extension> prev_header_ext = prev.header.extract_header_extension(instant_finality_extension::extension_id());
 
       std::optional<block_header_extension> header_ext = b->extract_header_extension(instant_finality_extension::extension_id());
       if( !header_ext ) {
          EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) == 0,
                      block_validate_exception,
-                     "A block cannot provide QC block extension without QC header extension" );
+                     "A block must have QC header extension if it provides QC block extension." );
+
+         // If the previous block has the QC header extension,
+         // then the current block must also have the header extension.
+         EOS_ASSERT( !prev_header_ext,
+                     block_validate_exception,
+                     "A block must have QC header extension because its previous block has the extension" );
 
          // If header extension does not have instant_finality_extension,
          // do not continue.
@@ -3084,7 +3092,7 @@ struct controller_impl {
       if( !if_ext.qc_info ) {
          EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) == 0,
                      block_validate_exception,
-                     "A block cannot provide QC block extension without QC claim" );
+                     "A block must have QC claim if it provides QC block extension" );
 
          // If header extension does not have QC claim,
          // do not continue.
@@ -3093,9 +3101,6 @@ struct controller_impl {
 
       // extract QC claim
       qc_info_t qc_claim{ *if_ext.qc_info };
-
-      // extract previous header extension
-      std::optional<block_header_extension> prev_header_ext = prev.header.extract_header_extension(instant_finality_extension::extension_id());
 
       // A block should not be able to claim there was a QC on a block that
       // is prior to the transition to IF.
@@ -3154,8 +3159,15 @@ struct controller_impl {
          //    * if it claims a block number exactly equal to that of the current
          //      last irreversible block number, then the claim of the QC being
          //      weak can be accepted without a block extension.
+         // Notes:
+         //   This block wouldn't advance LIB as it has no QC.
+         //   So the LIB from that branch's POV should be the same as the
+         //   last_final_block_num in the core of the block state it is building.
+         //   It is safer to use that rather than if_irreversible_block_num
+         //   because if_irreversible_block_num changes in non-deterministic ways
+         //   as other blocks are received and validated.
          //
-         EOS_ASSERT( qc_claim.last_qc_block_num == if_irreversible_block_num,
+         EOS_ASSERT( qc_claim.last_qc_block_num == prev.core.last_final_block_num,
                      block_validate_exception,
                      "QC block extension must be included if the claimed QC block is not current irreversible block" );
 
