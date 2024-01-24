@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bsp->active_finalizer_policy = std::make_shared<finalizer_policy>( 10, 15, finalizers );
       bsp->strong_digest = strong_digest;
       bsp->weak_digest = weak_digest;
-      bsp->pending_qc = pending_quorum_certificate{ num_finalizers, bsp->active_finalizer_policy->finalizer_weights(), threshold };
+      bsp->pending_qc = pending_quorum_certificate{ num_finalizers, bsp->active_finalizer_policy->finalizer_weights(), 1 };
 
       for (size_t i = 0; i < num_finalizers; ++i) {
          bool strong = (i % 2 == 0); // alternate strong and weak
