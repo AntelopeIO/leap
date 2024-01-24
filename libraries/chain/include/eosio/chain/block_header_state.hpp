@@ -19,14 +19,6 @@ struct building_block_input {
    vector<digest_type>               new_protocol_feature_activations;
 };
 
-struct qc_data_t {
-   std::optional<quorum_certificate> qc;                   // Comes from traversing branch from parent and calling get_best_qc()
-                                                           // assert(qc->block_num <= num_from_id(previous));
-   qc_info_t          qc_info;                             // describes the above qc. In rare cases (bootstrap, starting from snapshot,
-                                                           // disaster recovery), we may not have a qc so we use the `lib` block_num
-                                                           // and specify `weak`.
-};
-      
 // this struct can be extracted from a building block
 struct block_header_state_input : public building_block_input {
    digest_type                       transaction_mroot;    // Comes from std::get<checksum256_type>(building_block::trx_mroot_or_receipt_digests)
