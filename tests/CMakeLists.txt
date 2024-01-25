@@ -217,6 +217,8 @@ set_property(TEST nodeos_forked_chain_lr_test PROPERTY LABELS long_running_tests
 
 add_test(NAME nodeos_contrl_c_test COMMAND tests/nodeos_contrl_c_test.py -v --wallet-port 9901 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_contrl_c_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME nodeos_contrl_c_if_test COMMAND tests/nodeos_contrl_c_test.py --activate-if -v --wallet-port 9901 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_contrl_c_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_voting_lr_test COMMAND tests/nodeos_voting_test.py -v --wallet-port 9902 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_voting_lr_test PROPERTY LABELS long_running_tests)
@@ -232,6 +234,8 @@ set_property(TEST nodeos_read_terminate_at_block_lr_test PROPERTY LABELS long_ru
 
 add_test(NAME nodeos_chainbase_allocation_test COMMAND tests/nodeos_chainbase_allocation_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_chainbase_allocation_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME nodeos_chainbase_allocation_if_test COMMAND tests/nodeos_chainbase_allocation_test.py --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_chainbase_allocation_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_startup_catchup_lr_test COMMAND tests/nodeos_startup_catchup.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_startup_catchup_lr_test PROPERTY LABELS long_running_tests)
