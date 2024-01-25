@@ -196,7 +196,7 @@ namespace eosio { namespace chain { namespace webassembly {
                                                                 .public_key{fc::crypto::blslib::bls_public_key{*pk}}});
       }
 
-      EOS_ASSERT( finpol.threshold > weight_sum / 2, wasm_execution_error, "Finalizer policy threshold cannot be met by finalizer weights" );
+      EOS_ASSERT( weight_sum >= finpol.threshold && finpol.threshold > weight_sum / 2, wasm_execution_error, "Finalizer policy threshold (${t}) cannot be met by finalizer weights (${w})", ("t", finpol.threshold)("w", weight_sum) );
 
       context.control.set_proposed_finalizers( finpol );
    }
