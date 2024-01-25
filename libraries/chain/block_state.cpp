@@ -151,7 +151,7 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
       digests.emplace_back(std::vector<uint8_t>{weak_digest.data(), weak_digest.data() + weak_digest.data_size()});
    }
 
-   // validate aggregayed signature
+   // validate aggregated signature
    EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),  block_validate_exception, "signature validation failed" );
 }
 
