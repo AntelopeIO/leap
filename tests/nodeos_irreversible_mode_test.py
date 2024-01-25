@@ -24,8 +24,9 @@ numOfProducers = 4
 totalNodes = 20
 
 # Parse command line arguments
-args = TestHelper.parse_args({"-v","--dump-error-details","--leave-running","--keep-logs","--unshared"})
+args = TestHelper.parse_args({"-v","--activate-if","--dump-error-details","--leave-running","--keep-logs","--unshared"})
 Utils.Debug = args.v
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 speculativeReadMode="head"
 blockLogRetainBlocks="10000"
@@ -164,6 +165,7 @@ try:
       totalProducers=numOfProducers,
       totalNodes=totalNodes,
       pnodes=1,
+      activateIF=activateIF,
       topo="mesh",
       specificExtraNodeosArgs={
          0:"--enable-stale-production",

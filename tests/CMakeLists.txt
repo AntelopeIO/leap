@@ -233,6 +233,9 @@ set_property(TEST nodeos_under_min_avail_ram_lr_test PROPERTY LABELS long_runnin
 
 add_test(NAME nodeos_irreversible_mode_lr_test COMMAND tests/nodeos_irreversible_mode_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_irreversible_mode_lr_test PROPERTY LABELS long_running_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2141
+#add_test(NAME nodeos_irreversible_mode_if_lr_test COMMAND tests/nodeos_irreversible_mode_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST nodeos_irreversible_mode_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_read_terminate_at_block_lr_test COMMAND tests/nodeos_read_terminate_at_block_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_read_terminate_at_block_lr_test PROPERTY LABELS long_running_tests)
