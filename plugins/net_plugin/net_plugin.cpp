@@ -2214,7 +2214,7 @@ namespace eosio {
          return;
       }
 
-      if( sync_state == in_sync ) {
+      if( sync_state != lib_catchup ) {
          set_state( lib_catchup );
       }
       sync_next_expected_num = std::max( chain_info.lib_num + 1, sync_next_expected_num );
