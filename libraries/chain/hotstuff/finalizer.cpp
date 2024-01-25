@@ -1,5 +1,6 @@
 #include <eosio/chain/hotstuff/finalizer.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <fc/log/logger_config.hpp>
 
 namespace eosio::chain {
 
@@ -87,6 +88,9 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
       safety_check   = false;
    }
 
+   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}", ("l",liveness_check)("s",safety_check)("m",monotony_check));
+
+   return VoteDecision::StrongVote; // temporary
 
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
@@ -107,6 +111,9 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
          fsi.lock = proposal_ref(chain.b1);                // commit phase on b1
 
       my_vote = enough_for_strong_vote ? VoteDecision::StrongVote : VoteDecision::WeakVote;
+   } else if (!bsp_last_qc &&  p->last_qc_block_num() && fork_db.root()->block_num() == *p->last_qc_block_num()) {
+      // recovery mode (for example when we just switched to IF). Vote weak.
+      my_vote = VoteDecision::WeakVote;
    }
 
    return my_vote;
@@ -115,7 +122,7 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
 std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, const digest_type& digest, const fork_database_if_t& fork_db) {
    finalizer::VoteDecision decision = decide_vote(p, fork_db);
    if (decision == VoteDecision::StrongVote || decision == VoteDecision::WeakVote) {
-      save_finalizer_safety_info();
+      //save_finalizer_safety_info();
       auto sig =  priv_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
       return vote_message{ p->id(), decision == VoteDecision::StrongVote, pub_key, sig };
    }
