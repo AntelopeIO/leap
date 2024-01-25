@@ -680,7 +680,8 @@ struct building_block {
                block_header_state_input bhs_input{
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{}
+                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{},
+                  qc_data ? 0 : fork_db.apply<uint32_t>([&](const auto& forkdb) { return forkdb.root()->block_num(); })
                };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
@@ -2836,16 +2837,17 @@ struct controller_impl {
 
    static std::optional<qc_data_t> extract_qc_data(const signed_block_ptr& b) {
       std::optional<qc_data_t> qc_data;
-      auto exts = b->validate_and_extract_extensions();
-      if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
-         auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
-
-         // get the matching header extension... should always be present
-         auto hexts = b->validate_and_extract_header_extensions();
-         auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id());
-         assert(if_entry != hexts.end());
+      auto hexts = b->validate_and_extract_header_extensions();
+      if (auto if_entry = hexts.lower_bound(instant_finality_extension::extension_id()); if_entry != hexts.end()) {
          auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
-         return qc_data_t{ std::move(qc_ext.qc), *if_ext.qc_info };
+
+         // get the matching qc extension if present
+         auto exts = b->validate_and_extract_extensions();
+         if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
+            auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
+            return qc_data_t{ std::move(qc_ext.qc), if_ext.qc_info };
+         }
+         return qc_data_t{ {}, if_ext.qc_info };
       }
       return {};
    }
@@ -3089,18 +3091,9 @@ struct controller_impl {
       }
 
       const auto& if_ext = std::get<instant_finality_extension>(*header_ext);
-      if( !if_ext.qc_info ) {
-         EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) == 0,
-                     block_validate_exception,
-                     "A block must have QC claim if it provides QC block extension" );
-
-         // If header extension does not have QC claim,
-         // do not continue.
-         return;
-      }
 
       // extract QC claim
-      qc_info_t qc_claim{ *if_ext.qc_info };
+      qc_info_t qc_claim{ if_ext.qc_info };
 
       // A block should not be able to claim there was a QC on a block that
       // is prior to the transition to IF.
@@ -3112,15 +3105,15 @@ struct controller_impl {
       auto prev_qc_info = prev_if_ext.qc_info;
 
       // validate QC claim against previous block QC info
-      if( prev_qc_info ) {
+      {
          // new claimed QC block nubmber cannot be smaller than previous block's
-         EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_info->last_qc_block_num,
+         EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_info.last_qc_block_num,
                      block_validate_exception,
                      "claimed last_qc_block_num (${n1}) must be equal to or greater than previous block's last_qc_block_num (${n2})",
-                     ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_info->last_qc_block_num) );
+                     ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_info.last_qc_block_num) );
 
-         if( qc_claim.last_qc_block_num == prev_qc_info->last_qc_block_num ) {
-            if( qc_claim.is_last_qc_strong == prev_qc_info->is_last_qc_strong ) {
+         if( qc_claim.last_qc_block_num == prev_qc_info.last_qc_block_num ) {
+            if( qc_claim.is_last_qc_strong == prev_qc_info.is_last_qc_strong ) {
                // QC block extension is redundant
                EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) == 0,
                            block_validate_exception,
@@ -3132,10 +3125,10 @@ struct controller_impl {
             }
 
             // new claimed QC must be stricter than previous if block number is the same
-            EOS_ASSERT( qc_claim.is_last_qc_strong || !prev_qc_info->is_last_qc_strong,
+            EOS_ASSERT( qc_claim.is_last_qc_strong || !prev_qc_info.is_last_qc_strong,
                         block_validate_exception,
                         "claimed QC (${s1}) must be stricter than previous block's (${s2}) if block number is the same",
-                       ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_info->is_last_qc_strong) );
+                       ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_info.is_last_qc_strong) );
          }
       }
 

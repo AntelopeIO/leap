@@ -33,6 +33,7 @@ struct block_header_state_input : public building_block_input {
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
    std::optional<qc_info_t>          qc_info;              // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
+   uint32_t                          lib;                  // to be used when qc_info is not provided and we don't have an if extension in prev.
 };
 
 struct block_header_state_core {

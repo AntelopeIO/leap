@@ -31,8 +31,8 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_empty_values_test)
    BOOST_REQUIRE( !!ext );
 
    const auto& if_extension = std::get<instant_finality_extension>(*ext);
-   BOOST_REQUIRE_EQUAL( if_extension.qc_info->last_qc_block_num, last_qc_block_num );
-   BOOST_REQUIRE_EQUAL( if_extension.qc_info->is_last_qc_strong, is_last_qc_strong );
+   BOOST_REQUIRE_EQUAL( if_extension.qc_info.last_qc_block_num, last_qc_block_num );
+   BOOST_REQUIRE_EQUAL( if_extension.qc_info.is_last_qc_strong, is_last_qc_strong );
    BOOST_REQUIRE( !if_extension.new_finalizer_policy );
    BOOST_REQUIRE( !if_extension.new_proposer_policy );
 }
@@ -91,8 +91,8 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_values_test)
 
    const auto& if_extension = std::get<instant_finality_extension>(*ext);
 
-   BOOST_REQUIRE_EQUAL( if_extension.qc_info->last_qc_block_num, last_qc_block_num );
-   BOOST_REQUIRE_EQUAL( if_extension.qc_info->is_last_qc_strong, is_last_qc_strong );
+   BOOST_REQUIRE_EQUAL( if_extension.qc_info.last_qc_block_num, last_qc_block_num );
+   BOOST_REQUIRE_EQUAL( if_extension.qc_info.is_last_qc_strong, is_last_qc_strong );
 
    BOOST_REQUIRE( !!if_extension.new_finalizer_policy );
    BOOST_REQUIRE_EQUAL(if_extension.new_finalizer_policy->generation, 1u);

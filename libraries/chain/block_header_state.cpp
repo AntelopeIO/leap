@@ -127,17 +127,19 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    //      ++input.new_finalizer_policy->generation;
 
 
-   // add IF block header extension
-   // -----------------------------
    uint16_t if_ext_id = instant_finality_extension::extension_id();
-   auto     if_entry  = header_exts.lower_bound(if_ext_id);
-   auto&    if_ext    = std::get<instant_finality_extension>(if_entry->second);
-
-   instant_finality_extension new_if_ext {if_ext.qc_info,
+   instant_finality_extension new_if_ext {qc_info_t{input.lib, false},  // use lib if we don't have anything better
                                           std::move(input.new_finalizer_policy),
                                           std::move(input.new_proposer_policy)};
    if (input.qc_info)
       new_if_ext.qc_info = *input.qc_info;
+   else {
+      // copy previous qc_claim if we are not provided with a new one
+      // ------------------------------------------------------------
+      auto     if_entry  = header_exts.lower_bound(if_ext_id);
+      if (if_entry != header_exts.end())
+         new_if_ext.qc_info = std::get<instant_finality_extension>(if_entry->second).qc_info;;
+   }
 
    emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
    result.header_exts.emplace(if_ext_id, std::move(new_if_ext));
