@@ -259,6 +259,8 @@ set_property(TEST nodeos_extra_packed_data_test PROPERTY LABELS nonparallelizabl
 
 add_test(NAME nodeos_producer_watermark_lr_test COMMAND tests/nodeos_producer_watermark_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_producer_watermark_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_producer_watermark_if_lr_test COMMAND tests/nodeos_producer_watermark_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_producer_watermark_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_high_transaction_lr_test COMMAND tests/nodeos_high_transaction_test.py -p 4 -n 8 --num-transactions 10000 --max-transactions-per-second 500 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_high_transaction_lr_test PROPERTY LABELS long_running_tests)
