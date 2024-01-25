@@ -3043,7 +3043,7 @@ struct controller_impl {
       return block_handle{bsp};
    }
 
-   // Called in push_block, thread safe
+   // expected to be called from application thread as it modifies bsp->valid_qc,
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
       const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
@@ -3063,7 +3063,7 @@ struct controller_impl {
          return;
       }
 
-      // Save the QC. Thread safe as the function is called in push_block.
+      // Save the QC. This is safe as the function is called by push_block from application thread.
       bsp->valid_qc = received_qc;
 
       // advance LIB if QC is strong and final_on_strong_qc_block_num has value
