@@ -3044,30 +3044,30 @@ struct controller_impl {
    }
 
    // Called in push_block, thread safe
-   void integrate_received_qc_to_block(const block_id_type& id, const signed_block_ptr& b) {
+   void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
-      const auto& block_exts = b->validate_and_extract_extensions();
+      const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
       if( block_exts.count(quorum_certificate_extension::extension_id()) == 0 ) {
          return;
       }
       const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
-      const auto& new_qc = qc_ext.qc.qc;
+      const auto& received_qc = qc_ext.qc.qc;
 
-      const auto bsp = fork_db_fetch_bsp_by_num( id, qc_ext.qc.block_height );
+      const auto bsp = fork_db_fetch_bsp_by_num( bsp_in->previous(), qc_ext.qc.block_height );
       if( !bsp ) {
          return;
       }
 
       // Don't save the QC from block extension if the claimed block has a better valid_qc.
-      if (bsp->valid_qc && (bsp->valid_qc->is_strong() || new_qc.is_weak())) {
+      if (bsp->valid_qc && (bsp->valid_qc->is_strong() || received_qc.is_weak())) {
          return;
       }
 
       // Save the QC. Thread safe as the function is called in push_block.
-      bsp->valid_qc = new_qc;
+      bsp->valid_qc = received_qc;
 
       // advance LIB if QC is strong and final_on_strong_qc_block_num has value
-      if( new_qc.is_strong() && bsp->core.final_on_strong_qc_block_num ) {
+      if( received_qc.is_strong() && bsp->core.final_on_strong_qc_block_num ) {
          // We evaluate a block extension qc and advance lib if strong.
          // This is done before evaluating the block. It is possible the block
          // will not be valid or forked out. This is safe because the block is
@@ -3212,7 +3212,7 @@ struct controller_impl {
                   ("s1", qc_proof.qc.is_strong())("s2", qc_claim.is_last_qc_strong)("b", b->block_num()) );
 
       // find the claimed block's block state on branch of id
-      auto bsp = fork_db_fetch_bsp_by_num( id, qc_claim.last_qc_block_num );
+      auto bsp = fork_db_fetch_bsp_by_num( prev.id, qc_claim.last_qc_block_num );
       EOS_ASSERT( bsp,
                   block_validate_exception,
                   "Block state was not found in forkdb for last_qc_block_num ${q}. Block number: ${b}",
@@ -3298,7 +3298,7 @@ struct controller_impl {
    {
       // Save the received QC as soon as possible, no matter whether the block itself is valid or not
       if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-         integrate_received_qc_to_block(bsp->id(), bsp->block);
+         integrate_received_qc_to_block(bsp);
       }
 
       controller::block_status s = controller::block_status::complete;
