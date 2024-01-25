@@ -209,13 +209,16 @@ set_property(TEST p2p_sync_throttle_test PROPERTY LABELS nonparallelizable_tests
 #add_test(NAME p2p_high_latency_test COMMAND tests/p2p_high_latency_test.py -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 #set_property(TEST p2p_high_latency_test PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME distributed_transactions_lr_test COMMAND tests/distributed-transactions-test.py -d 2 -p 21 -n 21 -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST distributed_transactions_lr_test PROPERTY LABELS long_running_tests)
-add_test(NAME distributed_transactions_if_lr_test COMMAND tests/distributed-transactions-test.py -d 2 -p 21 -n 21 --activate-if -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST distributed_transactions_if_lr_test PROPERTY LABELS long_running_tests)
+# This test is too much for CI/CD machines. We do run it with fewer nodes as a nonparallelizable_tests above
+#add_test(NAME distributed_transactions_lr_test COMMAND tests/distributed-transactions-test.py -d 2 -p 21 -n 21 -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST distributed_transactions_lr_test PROPERTY LABELS long_running_tests)
+#add_test(NAME distributed_transactions_if_lr_test COMMAND tests/distributed-transactions-test.py -d 2 -p 21 -n 21 --activate-if -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST distributed_transactions_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_forked_chain_lr_test COMMAND tests/nodeos_forked_chain_test.py -v --wallet-port 9901 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_forked_chain_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_forked_chain_if_lr_test COMMAND tests/nodeos_forked_chain_test.py -v --activate-if --wallet-port 9901 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_forked_chain_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_contrl_c_test COMMAND tests/nodeos_contrl_c_test.py -v --wallet-port 9901 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_contrl_c_test PROPERTY LABELS nonparallelizable_tests)
