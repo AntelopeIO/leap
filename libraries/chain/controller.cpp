@@ -663,7 +663,11 @@ struct building_block {
                            EOS_ASSERT( qc->block_height <= block_header::num_from_id(parent_id()), block_validate_exception,
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_height)("p", block_header::num_from_id(parent_id())) );
-                           qc_data = qc_data_t{ *qc, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
+                           if( bb.parent.is_needed(*qc) ) {
+                              qc_data = qc_data_t{ *qc, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
+                           } else {
+                              qc_data = qc_data_t{ {}, qc_info_t{ qc->block_height, qc->qc.is_strong() }};
+                           }
                            break;
                         }
                      }
