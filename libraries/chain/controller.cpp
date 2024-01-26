@@ -3126,32 +3126,31 @@ struct controller_impl {
       auto prev_qc_info = prev_if_ext.qc_info;
 
       // validate QC claim against previous block QC info
-      {
-         // new claimed QC block nubmber cannot be smaller than previous block's
-         EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_info.last_qc_block_num,
-                     block_validate_exception,
-                     "claimed last_qc_block_num (${n1}) must be equal to or greater than previous block's last_qc_block_num (${n2}). Block number: ${b}",
-                     ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_info.last_qc_block_num)("b", b->block_num()) );
 
-         if( qc_claim.last_qc_block_num == prev_qc_info.last_qc_block_num ) {
-            if( qc_claim.is_last_qc_strong == prev_qc_info.is_last_qc_strong ) {
-               // QC block extension is redundant
-               EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) == 0,
-                           block_validate_exception,
-                           "A block should not provide QC block extension if QC claim is the same as previous block. Block number: ${b}",
-                           ("b", b->block_num()) );
+      // new claimed QC block number cannot be smaller than previous block's
+      EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_info.last_qc_block_num,
+                  block_validate_exception,
+                  "claimed last_qc_block_num (${n1}) must be equal to or greater than previous block's last_qc_block_num (${n2}). Block number: ${b}",
+                  ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_info.last_qc_block_num)("b", b->block_num()) );
 
-               // if previous block's header extension has the same claim, just return
-               // (previous block already validated the claim)
-               return;
-            }
-
-            // new claimed QC must be stricter than previous if block number is the same
-            EOS_ASSERT( qc_claim.is_last_qc_strong || !prev_qc_info.is_last_qc_strong,
+      if( qc_claim.last_qc_block_num == prev_qc_info.last_qc_block_num ) {
+         if( qc_claim.is_last_qc_strong == prev_qc_info.is_last_qc_strong ) {
+            // QC block extension is redundant
+            EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) == 0,
                         block_validate_exception,
-                        "claimed QC (${s1}) must be stricter than previous block's (${s2}) if block number is the same. Block number: ${b}",
-                       ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_info.is_last_qc_strong)("b", b->block_num()) );
+                        "A block should not provide QC block extension if QC claim is the same as previous block. Block number: ${b}",
+                        ("b", b->block_num()) );
+
+            // if previous block's header extension has the same claim, just return
+            // (previous block already validated the claim)
+            return;
          }
+
+         // new claimed QC must be stricter than previous if block number is the same
+         EOS_ASSERT( qc_claim.is_last_qc_strong || !prev_qc_info.is_last_qc_strong,
+                     block_validate_exception,
+                     "claimed QC (${s1}) must be stricter than previous block's (${s2}) if block number is the same. Block number: ${b}",
+                     ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_info.is_last_qc_strong)("b", b->block_num()) );
       }
 
       if( block_exts.count(quorum_certificate_extension::extension_id()) == 0 ) {
