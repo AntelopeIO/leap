@@ -239,6 +239,9 @@ set_property(TEST nodeos_irreversible_mode_lr_test PROPERTY LABELS long_running_
 
 add_test(NAME nodeos_read_terminate_at_block_lr_test COMMAND tests/nodeos_read_terminate_at_block_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_read_terminate_at_block_lr_test PROPERTY LABELS long_running_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2057 because running in irreversible mode currently switches different than non-irreversible mode
+#add_test(NAME nodeos_read_terminate_at_block_if_lr_test COMMAND tests/nodeos_read_terminate_at_block_test.py --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST nodeos_read_terminate_at_block_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_chainbase_allocation_test COMMAND tests/nodeos_chainbase_allocation_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_chainbase_allocation_test PROPERTY LABELS nonparallelizable_tests)
