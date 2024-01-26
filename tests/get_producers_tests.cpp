@@ -2,7 +2,6 @@
 
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
-#include <eosio/chain/hotstuff/chain_pacemaker.hpp>
 #include <eosio_system_tester.hpp>
 
 #include <fc/variant_object.hpp>
