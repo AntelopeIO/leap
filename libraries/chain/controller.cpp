@@ -3124,7 +3124,7 @@ struct controller_impl {
 
       auto prev_if_ext = std::get<instant_finality_extension>(*prev_header_ext);
       auto prev_qc_claim = prev_if_ext.qc_claim;
-
+      auto qc_ext_id = quorum_certificate_extension::extension_id();
       // validate QC claim against previous block QC info
 
       // new claimed QC block number cannot be smaller than previous block's
@@ -3136,7 +3136,7 @@ struct controller_impl {
       if( qc_claim.last_qc_block_num == prev_qc_claim.last_qc_block_num ) {
          if( qc_claim.is_last_qc_strong == prev_qc_claim.is_last_qc_strong ) {
             // QC block extension is redundant
-            EOS_ASSERT( block_exts.count(quorum_certificate_extension::extension_id()) == 0,
+            EOS_ASSERT( block_exts.count(qc_ext_id) == 0,
                         block_validate_exception,
                         "A block should not provide QC block extension if QC claim is the same as previous block. Block number: ${b}",
                         ("b", b->block_num()) );
@@ -3153,44 +3153,10 @@ struct controller_impl {
                      ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_claim.is_last_qc_strong)("b", b->block_num()) );
       }
 
-      if( block_exts.count(quorum_certificate_extension::extension_id()) == 0 ) {
-         // If claim is a strong QC and there wasn't already an identical claim
-         // in the previous block (checked earlier), QC proof must be provided
-         EOS_ASSERT( !qc_claim.is_last_qc_strong,
-                     block_validate_exception,
-                     "QC block extension must be provided if the claimed QC block is strong. Block number: ${b}",
-                     ("b", b->block_num()) );
+      EOS_ASSERT( block_exts.count(qc_ext_id) != 0,  block_validate_exception,
+                  "quorum_certificate_extension missing in block ${b} despite being claimed.",("b", b->block_num()));
 
-         // Conditions:
-         //    * the claim is that the last QC is a weak QC,
-         //    * it wasn't already satisfied by the claim in the prior block,
-         //    * and there is no block extension
-         // Actions:
-         //    * if it claims a block number lower than that of the current
-         //      last irreversible block, then the new block should be rejected;
-         //    * if it claims a block number greater than that of the current last
-         //      irreversible block, then the new block must have a corresponding
-         //      QC in the extension that must be validated;
-         //    * if it claims a block number exactly equal to that of the current
-         //      last irreversible block number, then the claim of the QC being
-         //      weak can be accepted without a block extension.
-         // Notes:
-         //   This block wouldn't advance LIB as it has no QC.
-         //   So the LIB from that branch's POV should be the same as the
-         //   last_final_block_num in the core of the block state it is building.
-         //   It is safer to use that rather than if_irreversible_block_num
-         //   because if_irreversible_block_num changes in non-deterministic ways
-         //   as other blocks are received and validated.
-         //
-         EOS_ASSERT( qc_claim.last_qc_block_num == prev.core.last_final_block_num,
-                     block_validate_exception,
-                     "QC block extension must be included if the claimed QC block is not current irreversible block. Block number: ${b}",
-                     ("b", b->block_num()) );
-
-         return;
-      }
-
-      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(quorum_certificate_extension::extension_id())->second);
+      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& qc_proof = qc_ext.qc;
 
       // Check QC information in header extension and block extension match
