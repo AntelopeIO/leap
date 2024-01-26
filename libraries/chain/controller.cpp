@@ -3025,29 +3025,6 @@ struct controller_impl {
       }
    }
 
-   // thread safe, expected to be called from thread other than the main thread
-   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
-      auto trx_mroot = calculate_trx_merkle( b->transactions, false );
-      EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
-                  "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
-
-      const bool skip_validate_signee = false;
-      auto bsp = std::make_shared<block_state_legacy>(
-            prev,
-            b,
-            protocol_features.get_protocol_feature_set(),
-            [this]( block_timestamp_type timestamp,
-                    const flat_set<digest_type>& cur_features,
-                    const vector<digest_type>& new_features )
-            { check_protocol_features( timestamp, cur_features, new_features ); },
-            skip_validate_signee
-      );
-
-      EOS_ASSERT( id == bsp->id(), block_validate_exception,
-                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
-      return block_handle{bsp};
-   }
-
    // expected to be called from application thread as it modifies bsp->valid_qc,
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
@@ -3086,132 +3063,109 @@ struct controller_impl {
    // and quorum_certificate_extension in block extension are valid.
    // Called from net-threads. It is thread safe as signed_block is never modified
    // after creation.
+   // -----------------------------------------------------------------------------
    void verify_qc_claim( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+      auto qc_ext_id = quorum_certificate_extension::extension_id();
+      auto if_ext_id = instant_finality_extension::extension_id();
+
       // extract current block extension and previous header extension
       auto block_exts = b->validate_and_extract_extensions();
-      std::optional<block_header_extension> prev_header_ext = prev.header.extract_header_extension(instant_finality_extension::extension_id());
-      auto qc_ext_id = quorum_certificate_extension::extension_id();
+      std::optional<block_header_extension> prev_header_ext = prev.header.extract_header_extension(if_ext_id);
+      std::optional<block_header_extension> header_ext      = b->extract_header_extension(if_ext_id);
 
-      std::optional<block_header_extension> header_ext = b->extract_header_extension(instant_finality_extension::extension_id());
+      bool qc_extension_present = block_exts.count(qc_ext_id) != 0;
+      uint32_t block_num = b->block_num();
+
       if( !header_ext ) {
-         EOS_ASSERT( block_exts.count(qc_ext_id) == 0,
-                     block_validate_exception,
-                     "A block must have a finality header extension if it provides QC block extension. Block number: ${b}",
-                     ("b", b->block_num()) );
+         // If there is no header extension, ensure the block does not have a QC and also the previous
+         // block doesn't have a header extension either. Then return early.
+         // ------------------------------------------------------------------------------------------
+         EOS_ASSERT( !qc_extension_present, block_validate_exception,
+                     "Block #${b} includes a QC block extension, but doesn't have a finality header extension",
+                     ("b", block_num) );
 
-         // If the previous block has the QC header extension,
-         // then the current block must also have the header extension.
-         EOS_ASSERT( !prev_header_ext,
-                     block_validate_exception,
-                     "A block must have QC header extension because its previous block has the extension. Block number: ${b}",
-                     ("b", b->block_num()) );
-
-         // If header extension does not have instant_finality_extension,
-         // do not continue.
+         EOS_ASSERT( !prev_header_ext, block_validate_exception,
+                     "Block #${b} doesn't have a finality header extension even though its predecessor does. Block number: ${b}",
+                     ("b", block_num) );
          return;
       }
 
-      const auto& if_ext = std::get<instant_finality_extension>(*header_ext);
+      assert(header_ext);
+      const auto& if_ext   = std::get<instant_finality_extension>(*header_ext);
+      const auto  qc_claim = if_ext.qc_claim;
 
-      // extract QC claim
-      qc_claim_t qc_claim{ if_ext.qc_claim };
+      // If there is a header extension, but the previous block does not have a header extension,
+      // ensure the block does not have a QC and the QC claim of the current block has a last_qc_block_num
+      // of the current block’s number and that it is a claim of a weak QC. Then return early.
+      // -------------------------------------------------------------------------------------------------
+      if (!prev_header_ext) {
+         EOS_ASSERT( !qc_extension_present && qc_claim.last_qc_block_num == block_num && qc_claim.is_last_qc_strong == false,
+                     block_validate_exception,
+                     "Block #${b}, which is the finality transition block, doesn't have the expected extensions",
+                     ("b", block_num) );
+         return;
+      }
 
-      // A block should not be able to claim there was a QC on a block that
-      // is prior to the transition to IF.
-      EOS_ASSERT( prev_header_ext,
-                  block_validate_exception,
-                  "Previous header extension must include instant_finality_extension. Block number: ${b}",
-                  ("b", b->block_num()) );
+      // at this point both current block and its parent have IF extensions, and we are past the
+      // IF transition block
+      // ----------------------------------------------------------------------------------------
+      assert(header_ext && prev_header_ext);
 
-      auto prev_if_ext = std::get<instant_finality_extension>(*prev_header_ext);
-      auto prev_qc_claim = prev_if_ext.qc_claim;
+      const auto& prev_if_ext   = std::get<instant_finality_extension>(*prev_header_ext);
+      const auto  prev_qc_claim = prev_if_ext.qc_claim;
 
       // validate QC claim against previous block QC info
 
       // new claimed QC block number cannot be smaller than previous block's
       EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_claim.last_qc_block_num,
                   block_validate_exception,
-                  "claimed last_qc_block_num (${n1}) must be equal to or greater than previous block's last_qc_block_num (${n2}). Block number: ${b}",
-                  ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_claim.last_qc_block_num)("b", b->block_num()) );
+                  "Block #${b} claims a last_qc_block_num (${n1}) less than the previous block's (${n2})",
+                  ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_claim.last_qc_block_num)("b", block_num) );
 
       if( qc_claim.last_qc_block_num == prev_qc_claim.last_qc_block_num ) {
          if( qc_claim.is_last_qc_strong == prev_qc_claim.is_last_qc_strong ) {
             // QC block extension is redundant
-            EOS_ASSERT( block_exts.count(qc_ext_id) == 0,
-                        block_validate_exception,
-                        "A block should not provide QC block extension if QC claim is the same as previous block. Block number: ${b}",
-                        ("b", b->block_num()) );
+            EOS_ASSERT( !qc_extension_present, block_validate_exception,
+                        "Block #${b} should not provide a QC block extension since its QC claim is the same as the previous block's",
+                        ("b", block_num) );
 
             // if previous block's header extension has the same claim, just return
             // (previous block already validated the claim)
             return;
          }
 
-         // new claimed QC must be stricter than previous if block number is the same
-         EOS_ASSERT( qc_claim.is_last_qc_strong || !prev_qc_claim.is_last_qc_strong,
-                     block_validate_exception,
+         // new claimed QC must be stronger than previous if the claimed block number is the same
+         EOS_ASSERT( qc_claim.is_last_qc_strong && qc_extension_present, block_validate_exception,
                      "claimed QC (${s1}) must be stricter than previous block's (${s2}) if block number is the same. Block number: ${b}",
-                     ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_claim.is_last_qc_strong)("b", b->block_num()) );
+                     ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_claim.is_last_qc_strong)("b", block_num) );
       }
 
-      if( block_exts.count(qc_ext_id) == 0 ) {
+      if( !qc_extension_present ) {
          // If claim is a strong QC and there wasn't already an identical claim
          // in the previous block (checked earlier), QC proof must be provided
-         EOS_ASSERT( !qc_claim.is_last_qc_strong,
-                     block_validate_exception,
-                     "QC block extension must be provided if the claimed QC block is strong. Block number: ${b}",
-                     ("b", b->block_num()) );
-
-         // Conditions:
-         //    * the claim is that the last QC is a weak QC,
-         //    * it wasn't already satisfied by the claim in the prior block,
-         //    * and there is no block extension
-         // Actions:
-         //    * if it claims a block number lower than that of the current
-         //      last irreversible block, then the new block should be rejected;
-         //    * if it claims a block number greater than that of the current last
-         //      irreversible block, then the new block must have a corresponding
-         //      QC in the extension that must be validated;
-         //    * if it claims a block number exactly equal to that of the current
-         //      last irreversible block number, then the claim of the QC being
-         //      weak can be accepted without a block extension.
-         // Notes:
-         //   This block wouldn't advance LIB as it has no QC.
-         //   So the LIB from that branch's POV should be the same as the
-         //   last_final_block_num in the core of the block state it is building.
-         //   It is safer to use that rather than if_irreversible_block_num
-         //   because if_irreversible_block_num changes in non-deterministic ways
-         //   as other blocks are received and validated.
-         //
-         EOS_ASSERT( qc_claim.last_qc_block_num == prev.core.last_final_block_num,
-                     block_validate_exception,
-                     "QC block extension must be included if the claimed QC block is not current irreversible block. Block number: ${b}",
-                     ("b", b->block_num()) );
-
+         EOS_ASSERT( !qc_claim.is_last_qc_strong, block_validate_exception,
+                     "Block #${b} has a strong qc claim, but no qc block extension", ("b", block_num) );
          return;
       }
 
-      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
+      const auto& qc_ext   = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& qc_proof = qc_ext.qc;
 
       // Check QC information in header extension and block extension match
-      EOS_ASSERT( qc_proof.block_num == qc_claim.last_qc_block_num,
-                  block_validate_exception,
-                  "QC block number (${n1}) in block extension does not match last_qc_block_num (${n2}) in header extension. Block number: ${b}",
-                  ("n1", qc_proof.block_num)("n2", qc_claim.last_qc_block_num)("b", b->block_num()) );
+      EOS_ASSERT( qc_proof.block_num == qc_claim.last_qc_block_num,  block_validate_exception,
+                  "Block #${b}: Mismatch between qc.block_num (${n1}) in block extension and last_qc_block_num (${n2}) in header extension",
+                  ("n1", qc_proof.block_num)("n2", qc_claim.last_qc_block_num)("b", block_num) );
 
       // Verify claimed strictness is the same as in proof
-      EOS_ASSERT( qc_proof.qc.is_strong() == qc_claim.is_last_qc_strong,
-                  block_validate_exception,
-                  "QC is_strong (${s1}) in block extension does not match is_last_qc_strong (${22}) in header extension. Block number: ${b}",
-                  ("s1", qc_proof.qc.is_strong())("s2", qc_claim.is_last_qc_strong)("b", b->block_num()) );
+      EOS_ASSERT( qc_proof.qc.is_strong() == qc_claim.is_last_qc_strong, block_validate_exception,
+                  "QC is_strong (${s1}) in block extension does not match is_last_qc_strong (${s2}) in header extension. Block number: ${b}",
+                  ("s1", qc_proof.qc.is_strong())("s2", qc_claim.is_last_qc_strong)("b", block_num) );
 
       // find the claimed block's block state on branch of id
       auto bsp = fork_db_fetch_bsp_by_num( prev.id, qc_claim.last_qc_block_num );
-      EOS_ASSERT( bsp,
-                  block_validate_exception,
+      EOS_ASSERT( bsp, block_validate_exception,
                   "Block state was not found in forkdb for last_qc_block_num ${q}. Block number: ${b}",
-                  ("q", qc_claim.last_qc_block_num)("b", b->block_num()) );
+                  ("q", qc_claim.last_qc_block_num)("b", block_num) );
 
       // verify the QC proof against the claimed block
       bsp->verify_qc(qc_proof.qc);
@@ -3243,6 +3197,29 @@ struct controller_impl {
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match calculated block id ${bid}", ("id", id)("bid", bsp->id()) );
 
+      return block_handle{bsp};
+   }
+
+   // thread safe, expected to be called from thread other than the main thread
+   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
+      auto trx_mroot = calculate_trx_merkle( b->transactions, false );
+      EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
+                  "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
+
+      const bool skip_validate_signee = false;
+      auto bsp = std::make_shared<block_state_legacy>(
+            prev,
+            b,
+            protocol_features.get_protocol_feature_set(),
+            [this]( block_timestamp_type timestamp,
+                    const flat_set<digest_type>& cur_features,
+                    const vector<digest_type>& new_features )
+            { check_protocol_features( timestamp, cur_features, new_features ); },
+            skip_validate_signee
+      );
+
+      EOS_ASSERT( id == bsp->id(), block_validate_exception,
+                  "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
       return block_handle{bsp};
    }
 
