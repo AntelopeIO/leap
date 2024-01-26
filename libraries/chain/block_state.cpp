@@ -39,7 +39,9 @@ block_state::block_state(const block_state_legacy& bsp) {
    header = bsp.header;
    core.last_final_block_num = bsp.block_num(); // [if todo] instant transition is not acceptable
    activated_protocol_features = bsp.activated_protocol_features;
-   std::optional<block_header_extension> ext = bsp.block->extract_header_extension(instant_finality_extension::extension_id());
+
+   auto if_ext_id = instant_finality_extension::extension_id();
+   std::optional<block_header_extension> ext = bsp.block->extract_header_extension(if_ext_id);
    assert(ext); // required by current transition mechanism
    const auto& if_extension = std::get<instant_finality_extension>(*ext);
    assert(if_extension.new_finalizer_policy); // required by current transition mechanism
@@ -48,6 +50,9 @@ block_state::block_state(const block_state_legacy& bsp) {
    active_proposer_policy->active_time = bsp.timestamp();
    active_proposer_policy->proposer_schedule = bsp.active_schedule;
    header_exts = bsp.header_exts;
+
+   auto& updated_if_extension = std::get<instant_finality_extension>(header_exts.lower_bound(if_ext_id)->second);
+   updated_if_extension.qc_info = { bsp.block_num(), false };
    block = bsp.block;
    validated = bsp.is_valid();
    pub_keys_recovered = bsp._pub_keys_recovered;

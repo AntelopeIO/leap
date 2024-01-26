@@ -684,8 +684,7 @@ struct building_block {
                block_header_state_input bhs_input{
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{},
-                  qc_data ? 0 : fork_db.apply<uint32_t>([&](const auto& forkdb) { return forkdb.root()->block_num(); })
+                  qc_data ? qc_data->qc_info : std::optional<qc_info_t>{}
                };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
