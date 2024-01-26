@@ -3096,7 +3096,7 @@ struct controller_impl {
       if( !header_ext ) {
          EOS_ASSERT( block_exts.count(qc_ext_id) == 0,
                      block_validate_exception,
-                     "A block must have QC header extension if it provides QC block extension. Block number: ${b}",
+                     "A block must have a finality header extension if it provides QC block extension. Block number: ${b}",
                      ("b", b->block_num()) );
 
          // If the previous block has the QC header extension,
