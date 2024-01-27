@@ -1789,7 +1789,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    _pending_block_mode = pending_block_mode::producing;
 
    // Not our turn
-   const auto scheduled_producer = chain.active_producers().get_scheduled_producer(block_time);
+   const auto& scheduled_producer = chain.active_producers().get_scheduled_producer(block_time);
 
    const auto current_watermark = _producer_watermarks.get_watermark(scheduled_producer.producer_name);
 
@@ -1948,10 +1948,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    LOG_AND_DROP();
 
    if (chain.is_building_block()) {
-      auto pending_block_signing_authority = chain.pending_block_signing_authority();
+      const auto& pending_block_signing_authority = chain.pending_block_signing_authority();
 
       if (in_producing_mode() && pending_block_signing_authority != scheduled_producer.authority) {
-         elog("Unexpected block signing authority, reverting to speculative mode! [expected: \"${expected}\", actual: \"${actual\"",
+         elog("Unexpected block signing authority, reverting to speculative mode! [expected: \"${expected}\", actual: \"${actual}\"",
               ("expected", scheduled_producer.authority)("actual", pending_block_signing_authority));
          _pending_block_mode = pending_block_mode::speculating;
       }
@@ -2497,7 +2497,7 @@ void producer_plugin_impl::schedule_production_loop() {
          chain::controller& chain = chain_plug->chain();
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
          auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.head_block_num(), calculate_pending_block_time(),
-                                                                             _producers, chain.active_producers().producers,
+                                                                             _producers, chain.head_active_producers().producers,
                                                                              _producer_watermarks);
          schedule_delayed_production_loop(weak_from_this(), wake_time);
       } else {
@@ -2516,7 +2516,7 @@ void producer_plugin_impl::schedule_production_loop() {
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
       auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds{config::block_interval_us}, chain.pending_block_num(), chain.pending_block_timestamp(),
-                                                                          _producers, chain.active_producers().producers,
+                                                                          _producers, chain.head_active_producers().producers,
                                                                           _producer_watermarks);
       if (wake_time && fc::time_point::now() > *wake_time) {
          // if wake time has already passed then use the block deadline instead
