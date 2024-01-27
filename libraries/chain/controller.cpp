@@ -3135,18 +3135,14 @@ struct controller_impl {
          }
 
          // new claimed QC must be stronger than previous if the claimed block number is the same
-         EOS_ASSERT( qc_claim.is_last_qc_strong && qc_extension_present, block_validate_exception,
+         EOS_ASSERT( qc_claim.is_last_qc_strong, block_validate_exception,
                      "claimed QC (${s1}) must be stricter than previous block's (${s2}) if block number is the same. Block number: ${b}",
                      ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_claim.is_last_qc_strong)("b", block_num) );
       }
 
-      if( !qc_extension_present ) {
-         // If claim is a strong QC and there wasn't already an identical claim
-         // in the previous block (checked earlier), QC proof must be provided
-         EOS_ASSERT( !qc_claim.is_last_qc_strong, block_validate_exception,
-                     "Block #${b} has a strong qc claim, but no qc block extension", ("b", block_num) );
-         return;
-      }
+      // At this point, we are making a new claim in this block, so it better include a QC to justify this claim.
+      EOS_ASSERT( qc_extension_present, block_validate_exception,
+                  "Block #${b} is making a new finality claim, but doesn't include a qc to justify this claim", ("b", block_num) );
 
       const auto& qc_ext   = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& qc_proof = qc_ext.qc;

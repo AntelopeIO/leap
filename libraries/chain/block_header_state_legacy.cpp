@@ -208,9 +208,10 @@ namespace eosio::chain {
       }
 
       if (new_finalizer_policy) {
-         new_finalizer_policy->generation = 1; // TODO: do we allow more than one set during transition
+         new_finalizer_policy->generation = 0;
+         // set current block_num as qc_claim.last_qc_block_num in the IF extension
          emplace_extension(h.header_extensions, instant_finality_extension::extension_id(),
-                           fc::raw::pack(instant_finality_extension{ {}, std::move(new_finalizer_policy), {} }));
+                           fc::raw::pack(instant_finality_extension{ { block_num, false }, std::move(new_finalizer_policy), {} }));
       }
 
       return h;

@@ -50,9 +50,6 @@ block_state::block_state(const block_state_legacy& bsp) {
    active_proposer_policy->active_time = bsp.timestamp();
    active_proposer_policy->proposer_schedule = bsp.active_schedule;
    header_exts = bsp.header_exts;
-
-   auto& updated_if_extension = std::get<instant_finality_extension>(header_exts.lower_bound(if_ext_id)->second);
-   updated_if_extension.qc_claim = { bsp.block_num(), false };
    block = bsp.block;
    validated = bsp.is_valid();
    pub_keys_recovered = bsp._pub_keys_recovered;
