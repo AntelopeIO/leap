@@ -3883,7 +3883,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    std::optional<finalizer_policy> fin_policy = std::get<instant_finality_extension>(*ext).new_finalizer_policy;
    BOOST_TEST(!!fin_policy);
    BOOST_TEST(fin_policy->finalizers.size() == finalizers.size());
-   BOOST_TEST(fin_policy->generation == 0);
+   BOOST_TEST(fin_policy->generation == 1);
    BOOST_TEST(fin_policy->threshold == finalizers.size() / 3 * 2 + 1);
    // currently transition happens immediately after set_finalizer block
 
