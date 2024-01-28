@@ -1,4 +1,4 @@
-add_executable( test_hotstuff hotstuff_tools.cpp )
+add_executable( test_hotstuff finality_misc_tests.cpp )
 target_link_libraries( test_hotstuff eosio_chain fc Boost::unit_test_framework)
 
 add_test(NAME test_hotstuff COMMAND test_hotstuff WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
