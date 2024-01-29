@@ -546,6 +546,14 @@ namespace eosio {
       void start_expire_timer();
       void start_monitors();
 
+      // we currently pause on snapshot generation
+      void wait_if_paused() const {
+         controller& cc = chain_plug->chain();
+         while (cc.is_writing_snapshot()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+         }
+      }
+
       void expire();
       /** \name Peer Timestamps
        *  Time message handling
@@ -2220,7 +2228,7 @@ namespace eosio {
          return;
       }
 
-      if( sync_state == in_sync ) {
+      if( sync_state != lib_catchup ) {
          set_state( lib_catchup );
       }
       sync_next_expected_num = std::max( chain_info.lib_num + 1, sync_next_expected_num );
@@ -2924,6 +2932,8 @@ namespace eosio {
             close( false );
             return;
          }
+
+         my_impl->wait_if_paused();
 
          boost::asio::async_read( *socket,
             pending_message_buffer.get_buffer_sequence_for_boost_async_read(), completion_handler,
@@ -4664,7 +4674,6 @@ namespace eosio {
    // called from any thread
    void connections_manager::start_conn_timers() {
       start_conn_timer(connector_period, {}, timer_type::check); // this locks mutex
-      start_conn_timer(connector_period, {}, timer_type::stats); // this locks mutex
       if (update_p2p_connection_metrics) {
          start_conn_timer(connector_period + connector_period / 2, {}, timer_type::stats); // this locks mutex
       }

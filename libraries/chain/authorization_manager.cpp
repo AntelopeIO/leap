@@ -479,7 +479,12 @@ namespace eosio { namespace chain {
 
       auto effective_provided_delay =  (provided_delay >= delay_max_limit) ? fc::microseconds::maximum() : provided_delay;
 
-      auto checker = make_auth_checker( [&](const permission_level& p){ return get_permission(p).auth; },
+      auto checker = make_auth_checker( [&](const permission_level& p) -> const shared_authority* {
+                                          if(const permission_object* po = find_permission(p))
+                                             return &po->auth;
+                                          else
+                                             return nullptr;
+                                        },
                                         _control.get_global_properties().configuration.max_authority_depth,
                                         provided_keys,
                                         provided_permissions,
@@ -580,7 +585,12 @@ namespace eosio { namespace chain {
 
       auto delay_max_limit = fc::seconds( _control.get_global_properties().configuration.max_transaction_delay );
 
-      auto checker = make_auth_checker( [&](const permission_level& p){ return get_permission(p).auth; },
+      auto checker = make_auth_checker( [&](const permission_level& p) -> const shared_authority* {
+                                          if(const permission_object* po = find_permission(p))
+                                             return &po->auth;
+                                          else
+                                             return nullptr;
+                                        },
                                         _control.get_global_properties().configuration.max_authority_depth,
                                         provided_keys,
                                         provided_permissions,
@@ -611,7 +621,12 @@ namespace eosio { namespace chain {
                                                                        fc::microseconds provided_delay
                                                                      )const
    {
-      auto checker = make_auth_checker( [&](const permission_level& p){ return get_permission(p).auth; },
+      auto checker = make_auth_checker( [&](const permission_level& p) -> const shared_authority* {
+                                          if(const permission_object* po = find_permission(p))
+                                             return &po->auth;
+                                          else
+                                             return nullptr;
+                                        },
                                         _control.get_global_properties().configuration.max_authority_depth,
                                         candidate_keys,
                                         {},
