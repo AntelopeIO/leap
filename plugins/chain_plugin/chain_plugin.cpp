@@ -2539,19 +2539,25 @@ void read_only::compute_transaction(compute_transaction_params params, next_func
 }
 
 void read_only::send_read_only_transaction(send_read_only_transaction_params params, next_function<send_read_only_transaction_results> next) {
-   static bool read_only_enabled = app().executor().get_read_threads() > 0;
-   EOS_ASSERT( read_only_enabled, unsupported_feature,
-               "read-only transactions execution not enabled on API node. Set read-only-threads > 0" );
+   try {
+      static bool read_only_enabled = app().executor().get_read_threads() > 0;
+      EOS_ASSERT( read_only_enabled, unsupported_feature,
+                  "read-only transactions execution not enabled on API node. Set read-only-threads > 0" );
 
-   send_transaction_params_t gen_params { .return_failure_trace = false,
-                                          .retry_trx            = false,
-                                          .retry_trx_num_blocks = std::nullopt,
-                                          .trx_type             = transaction_metadata::trx_type::read_only,
-                                          .transaction          = std::move(params.transaction) };
-   // run read-only trx exclusively on read-only threads
-   app().executor().post(priority::low, exec_queue::read_exclusive, [this, gen_params{std::move(gen_params)}, next{std::move(next)}]() mutable {
-      send_transaction_gen(*this, std::move(gen_params), std::move(next));
-   });
+      send_transaction_params_t gen_params { .return_failure_trace = false,
+                                             .retry_trx            = false,
+                                             .retry_trx_num_blocks = std::nullopt,
+                                             .trx_type             = transaction_metadata::trx_type::read_only,
+                                             .transaction          = std::move(params.transaction) };
+      // run read-only trx exclusively on read-only threads
+      app().executor().post(priority::low, exec_queue::read_exclusive, [this, gen_params{std::move(gen_params)}, next{std::move(next)}]() mutable {
+         send_transaction_gen(*this, std::move(gen_params), std::move(next));
+      });
+   } catch ( boost::interprocess::bad_alloc& ) {
+      handle_db_exhaustion();
+   } catch ( const std::bad_alloc& ) {
+      handle_bad_alloc();
+   } CATCH_AND_CALL(next);
 }
 
 read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& ) const {
