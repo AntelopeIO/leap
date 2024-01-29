@@ -32,9 +32,9 @@ namespace eosio { namespace testing {
       return crypto::blslib::bls_private_key(seed);
    }
 
-   inline std::pair<crypto::blslib::bls_public_key, crypto::blslib::bls_signature> get_bls_public_key_and_pop( name keyname ) {
+   inline std::tuple<crypto::blslib::bls_private_key, crypto::blslib::bls_public_key, crypto::blslib::bls_signature> get_bls_key( name keyname ) {
       const auto private_key = get_bls_private_key(keyname);
-      return { private_key.get_public_key(), private_key.proof_of_possession() };
+      return { private_key, private_key.get_public_key(), private_key.proof_of_possession() };
    }
 
    // required by boost::unit_test::data
@@ -1190,17 +1190,22 @@ namespace eosio { namespace testing {
    transaction_trace_ptr base_tester::set_finalizers(const vector<account_name>& finalizer_names) {
       uint64_t threshold = finalizer_names.size() * 2 / 3 + 1;
 
+      chain::bls_pub_priv_key_map_t finalizer_keys;
       fc::variants finalizer_auths;
       for (const auto& n: finalizer_names) {
-         auto [pk, pop] = get_bls_public_key_and_pop( n );
+         auto [privkey, pubkey, pop] = get_bls_key( n );
 
+         finalizer_keys[pubkey.to_string()] = privkey.to_string();
          finalizer_auths.emplace_back(
             fc::mutable_variant_object()
                ("description", n.to_string() + " description")
                ("weight", (uint64_t)1)
-               ("public_key", pk.to_string({}))
+               ("public_key", pubkey.to_string({}))
                ("pop", pop.to_string({})));
       }
+
+      // configure finalizer keys on controller for signing votes
+      control->set_node_finalizer_keys(finalizer_keys);
 
       fc::mutable_variant_object fin_policy_variant;
       fin_policy_variant("threshold", threshold);
