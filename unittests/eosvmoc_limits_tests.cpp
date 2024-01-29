@@ -71,6 +71,15 @@ void limit_not_violated_test(const eosvmoc::config& eosvmoc_config) {
    );
 }
 
+static eosvmoc::config make_eosvmoc_config_without_limits() {
+   eosvmoc::config cfg;
+   cfg.cpu_limit.reset();
+   cfg.vm_limit.reset();
+   cfg.stack_size_limit.reset();
+   cfg.generated_code_size_limit.reset();
+   return cfg;
+}
+
 // test all limits are not set for tests
 BOOST_AUTO_TEST_CASE( limits_not_set ) { try {
    validating_tester chain;
@@ -85,13 +94,13 @@ BOOST_AUTO_TEST_CASE( limits_not_set ) { try {
 // test limits are not enforced unless limits in eosvmoc_config
 // are modified
 BOOST_AUTO_TEST_CASE( limits_not_enforced ) { try {
-   eosvmoc::config eosvmoc_config;
+   eosvmoc::config eosvmoc_config = make_eosvmoc_config_without_limits();
    limit_not_violated_test(eosvmoc_config);
 } FC_LOG_AND_RETHROW() }
 
 // test VM limit are checked
 BOOST_AUTO_TEST_CASE( vm_limit ) { try {
-   eosvmoc::config eosvmoc_config;
+   eosvmoc::config eosvmoc_config = make_eosvmoc_config_without_limits();
 
    // set vm_limit to a small value such that it is exceeded
    eosvmoc_config.vm_limit = 64u*1024u*1024u;
@@ -104,7 +113,7 @@ BOOST_AUTO_TEST_CASE( vm_limit ) { try {
 
 // test stack size limit is checked
 BOOST_AUTO_TEST_CASE( stack_limit ) { try {
-   eosvmoc::config eosvmoc_config;
+   eosvmoc::config eosvmoc_config = make_eosvmoc_config_without_limits();
 
    // The stack size of the compiled WASM in the test is 104.
    // Set stack_size_limit one less than the actual needed stack size
@@ -118,7 +127,7 @@ BOOST_AUTO_TEST_CASE( stack_limit ) { try {
 
 // test generated code size limit is checked
 BOOST_AUTO_TEST_CASE( generated_code_size_limit ) { try {
-   eosvmoc::config eosvmoc_config;
+   eosvmoc::config eosvmoc_config = make_eosvmoc_config_without_limits();
 
    // The generated code size of the compiled WASM in the test is 36856.
    // Set generated_code_size_limit to the actual generated code size

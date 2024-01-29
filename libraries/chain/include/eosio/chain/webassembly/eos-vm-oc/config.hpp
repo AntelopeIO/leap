@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-#include <fc/reflect/reflect.hpp>
+#include <fc/io/raw.hpp>
 
 #include <sys/resource.h>
 
@@ -25,6 +25,34 @@ struct config {
    std::optional<size_t>   generated_code_size_limit {16u*1024u*1024u};
 };
 
-}}}
+//work around unexpected std::optional behavior
+template <typename DS>
+inline DS& operator>>(DS& ds, eosio::chain::eosvmoc::config& cfg) {
+   fc::raw::pack(ds, cfg.cache_size);
+   fc::raw::pack(ds, cfg.threads);
 
-FC_REFLECT(eosio::chain::eosvmoc::config, (cache_size)(threads)(cpu_limit)(vm_limit)(stack_size_limit)(generated_code_size_limit))
+   auto better_optional_unpack = [&]<typename T>(std::optional<T>& t) {
+      bool b; fc::raw::unpack( ds, b );
+      if(b) { t = T(); fc::raw::unpack( ds, *t ); }
+      else { t.reset(); }
+   };
+   better_optional_unpack(cfg.cpu_limit);
+   better_optional_unpack(cfg.vm_limit);
+   better_optional_unpack(cfg.stack_size_limit);
+   better_optional_unpack(cfg.generated_code_size_limit);
+
+   return ds;
+}
+
+template <typename DS>
+inline DS& operator<<(DS& ds, const eosio::chain::eosvmoc::config& cfg) {
+   fc::raw::pack(ds, cfg.cache_size);
+   fc::raw::pack(ds, cfg.threads);
+   fc::raw::pack(ds, cfg.cpu_limit);
+   fc::raw::pack(ds, cfg.vm_limit);
+   fc::raw::pack(ds, cfg.stack_size_limit);
+   fc::raw::pack(ds, cfg.generated_code_size_limit);
+   return ds;
+}
+
+}}}
