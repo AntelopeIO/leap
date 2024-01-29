@@ -1212,12 +1212,16 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    if (options.count("read-only-threads")) {
       _ro_thread_pool_size = options.at("read-only-threads").as<uint32_t>();
    } else if (_producers.empty()) {
-      //appbase initializes configured plugins before auto-start plugins, so if chain_api_plugin is enabled it's
-      // initialized before producer_plugin (i.e. before this code here)
-      if (abstract_plugin* capi = app().find_plugin("eosio::chain_api_plugin"); capi && capi->get_state() == abstract_plugin::initialized) {
-         // default to 3 threads for non producer nodes running chain_api_plugin if not specified
-         _ro_thread_pool_size = 3;
-         ilog("chain_api_plugin configured, defaulting read-only-threads to ${t}", ("t", _ro_thread_pool_size));
+      // appbase initialization order is non-deterministic outside listed APPBASE_PLUGIN_REQUIRES plugins.
+      // To avoid setting up a dependency of producer_plugin on chain_api_plugin, search for the plugin in options instead.
+      if (options.count("plugin")) {
+         const auto& v = options.at("plugin").as<std::vector<std::string>>();
+         auto i = std::find_if(v.cbegin(), v.cend(), [](const std::string& p) { return p.find("eosio::chain_api_plugin") != std::string::npos; });
+         if (i != v.cend()) {
+            // default to 3 threads for non producer nodes running chain_api_plugin if not specified
+            _ro_thread_pool_size = 3;
+            ilog("chain_api_plugin configured, defaulting read-only-threads to ${t}", ("t", _ro_thread_pool_size));
+         }
       }
    }
    EOS_ASSERT(producer_plugin::test_mode_ || _ro_thread_pool_size == 0 || _producers.empty(), plugin_config_exception,
