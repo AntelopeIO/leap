@@ -93,7 +93,7 @@ jobs:
         with:
           submodules: recursive
       - name: Download builddir
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{matrix.platform}}-build
       - name: Build packages
@@ -112,17 +112,19 @@ jobs:
         run: |
           python3 -c "from TestHarness import Cluster"
       - name: Upload dev package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: matrix.platform != 'reproducible'
         with:
           name: leap-dev-${{matrix.platform}}-amd64
           path: build/leap-dev*.deb
+          compression-level: 0
       - name: Upload leap package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: matrix.platform == 'reproducible'
         with:
           name: leap-deb-amd64
           path: build/leap_*.deb
+          compression-level: 0
 
   tests:
     name: Tests (${{matrix.cfg.name}})
@@ -142,7 +144,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download builddir
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{matrix.cfg.builddir}}-build
       - name: Run Parallel Tests
@@ -153,12 +155,13 @@ jobs:
           cd build
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
       - name: Upload core files from failed tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: ${{matrix.cfg.name}}-tests-logs
           if-no-files-found: ignore
           path: /cores
+          compression-level: 0
       - name: Check CPU Features
         run: awk 'BEGIN {err = 1} /bmi2/ && /adx/ {err = 0} END {exit err}' /proc/cpuinfo
 
@@ -177,7 +180,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download builddir
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{matrix.cfg.builddir}}-build
       - name: Run tests in parallel containers
@@ -192,13 +195,14 @@ jobs:
         run: docker run --mount type=bind,source=/var/lib/systemd/coredump,target=/cores alpine sh -c 'tar -C /cores/ -c .' | tar x
         if: failure()
       - name: Upload logs from failed tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: ${{matrix.cfg.name}}-np-logs
           path: |
             *-logs.tar.gz
             core*.zst
+          compression-level: 0
 
   lr-tests:
     name: LR Tests (${{matrix.cfg.name}})
@@ -215,7 +219,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download builddir
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{matrix.cfg.builddir}}-build
       - name: Run tests in parallel containers
@@ -230,13 +234,14 @@ jobs:
         run: docker run --mount type=bind,source=/var/lib/systemd/coredump,target=/cores alpine sh -c 'tar -C /cores/ -c .' | tar x
         if: failure()
       - name: Upload logs from failed tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: ${{matrix.cfg.name}}-lr-logs
           path: |
             *-logs.tar.gz
             core*.zst
+          compression-level: 0
 
   libtester-tests:
     name: libtester tests
@@ -265,7 +270,7 @@ jobs:
           submodules: recursive
       - if: ${{ matrix.test != 'deb-install' }}
         name: Download leap builddir
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{matrix.platform}}-build
       - if: ${{ matrix.test != 'deb-install' }}
@@ -287,7 +292,7 @@ jobs:
           rm -r *
       - if: ${{ matrix.test == 'deb-install' }}
         name: Download leap-dev
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: leap-dev-${{matrix.platform}}-amd64
       - if: ${{ matrix.test == 'deb-install' }}
