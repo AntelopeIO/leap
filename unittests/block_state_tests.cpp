@@ -297,8 +297,9 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       hs_bitset strong_votes(num_finalizers);
       strong_votes[2] = 1;  // finalizer 2 voted with weight 3 (threshold is 4)
 
+      bls_signature agg_sig;
       bls_signature sig_2 = private_key[2].sign(strong_digest_data);
-      bls_signature agg_sig = fc::crypto::blslib::aggregate({agg_sig, sig_2});
+      agg_sig = fc::crypto::blslib::aggregate({agg_sig, sig_2});
 
       // create a valid_quorum_certificate
       valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), {}, agg_sig);
@@ -310,8 +311,9 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       hs_bitset weak_votes(num_finalizers);
       weak_votes[2] = 1;  // finalizer 2 voted with weight 3 (threshold is 4)
 
+      bls_signature agg_sig;
       bls_signature sig_2 = private_key[2].sign(weak_digest_data);
-      bls_signature agg_sig = fc::crypto::blslib::aggregate({agg_sig, sig_2});
+      agg_sig = fc::crypto::blslib::aggregate({agg_sig, sig_2});
 
       // create a valid_quorum_certificate
       valid_quorum_certificate qc({}, {}, {}, bitset_to_vector(weak_votes), agg_sig);
