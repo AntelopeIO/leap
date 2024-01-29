@@ -28,8 +28,8 @@ namespace detail {
     * then determine whether that list of keys is sufficient to satisfy the authority. This class takes a list of keys and
     * provides the @ref satisfied method to determine whether that list of keys satisfies a provided authority.
     *
-    * @tparam F A callable which takes a single argument of type @ref AccountPermission and returns the corresponding
-    * authority
+    * @tparam F A callable which takes a single argument of type @ref AccountPermission and returns a pointer to
+    * the corresponding authority if it exists, or a nullptr.
     */
    template<typename PermissionToAuthorityFunc>
    class authority_checker {
@@ -225,19 +225,18 @@ namespace detail {
                      bool r = false;
                      typename permission_cache_type::iterator itr = cached_permissions.end();
 
-                     bool propagate_error = false;
+                     std::invoke_result_t<decltype(checker.permission_to_authority), const permission_level> auth = nullptr;
                      try {
-                        auto&& auth = checker.permission_to_authority( permission.permission );
-                        propagate_error = true;
-                        auto res = cached_permissions.emplace( permission.permission, being_evaluated );
-                        itr = res.first;
-                        r = checker.satisfied( std::forward<decltype(auth)>(auth), cached_permissions, recursion_depth + 1 );
-                     } catch( const permission_query_exception& ) {
-                        if( propagate_error )
-                           throw;
-                        else
-                           return total_weight; // if the permission doesn't exist, continue without it
+                        auth = checker.permission_to_authority( permission.permission );
                      }
+                     catch( const permission_query_exception& ) {}
+                     //permission was either invalid (threw permission_query_exception), or wasn't found
+                     if(!auth)
+                        return total_weight;
+
+                     auto res = cached_permissions.emplace( permission.permission, being_evaluated );
+                     itr = res.first;
+                     r = checker.satisfied( *auth, cached_permissions, recursion_depth + 1 );
 
                      if( r ) {
                         total_weight += permission.weight;
