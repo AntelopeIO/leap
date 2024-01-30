@@ -4199,7 +4199,7 @@ account_name controller::pending_block_producer()const {
    return my->pending->producer();
 }
 
-block_signing_authority controller::pending_block_signing_authority() const {
+const block_signing_authority& controller::pending_block_signing_authority() const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
    return my->pending->pending_block_signing_authority();
 }
