@@ -179,10 +179,6 @@ void chain_api_plugin::plugin_startup() {
          CHAIN_RO_CALL_WITH_400(get_transaction_status, 200, http_params_types::params_required),
       }, appbase::exec_queue::read_only);
    }
-
-   _http_plugin.add_api({
-      CHAIN_RO_CALL(get_finalizer_state, 200, http_params_types::no_params)
-   }, appbase::exec_queue::read_only);
 }
 
 void chain_api_plugin::plugin_shutdown() {}
