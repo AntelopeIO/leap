@@ -3687,7 +3687,9 @@ namespace eosio {
    }
 
    void connection::handle_message( const vote_message& msg ) {
-      peer_dlog(this, "received vote: ${msg}", ("msg", msg));
+      peer_dlog(this, "received vote: block #${bn}:${id}.., ${t}, key ${k}..",
+                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
+                ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
       controller& cc = my_impl->chain_plug->chain();
       if( cc.process_vote_message(msg) ) {
          my_impl->bcast_vote_message(connection_id, msg);
@@ -3954,14 +3956,14 @@ namespace eosio {
    }
 
    // called from application thread
-   void net_plugin_impl::on_voted_block(const vote_message& vote) {
-      fc_dlog(logger, "on voted signal, vote msg: ${msg}", ("msg", vote));
-      bcast_vote_message(std::nullopt, vote);
+   void net_plugin_impl::on_voted_block(const vote_message& msg) {
+      fc_dlog(logger, "on voted signal: block #${bn}:${id}.., ${t}, key ${k}..",
+                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
+                ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
+      bcast_vote_message(std::nullopt, msg);
    }
 
    void net_plugin_impl::bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::vote_message& msg ) {
-      fc_dlog(logger, "sending vote msg: ${msg}", ("msg", msg));
-
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
 
