@@ -50,83 +50,93 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    for (const auto& k : sk)
       pubkey.push_back(k.get_public_key());
 
-   auto weak_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index) {
-      return qc.add_vote(false, digest, index, pubkey[index], sk[index].sign(digest)).first;
+   auto weak_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index, uint64_t weight) {
+      return qc.add_vote(false, digest, index, pubkey[index], sk[index].sign(digest), weight).first;
    };
 
-   auto strong_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index) {
-      return qc.add_vote(true, digest, index, pubkey[index], sk[index].sign(digest)).first;
+   auto strong_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index, uint64_t weight) {
+      return qc.add_vote(true, digest, index, pubkey[index], sk[index].sign(digest), weight).first;
    };
+
+   constexpr uint64_t weight = 1;
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      constexpr uint64_t quorum = 1;
+      constexpr uint64_t max_weak_sum_before_weak_final = 1;
+      pending_quorum_certificate qc(2, quorum, max_weak_sum_before_weak_final); // 2 finalizers
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add one weak vote
       // -----------------
-      weak_vote(qc, digest, 0);
+      weak_vote(qc, digest, 0, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
       // add duplicate weak vote
       // -----------------------
-      bool ok = weak_vote(qc, digest, 0);
+      bool ok = weak_vote(qc, digest, 0, weight);
       BOOST_CHECK(!ok); // vote was a duplicate
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
       // add another weak vote
       // ---------------------
-      weak_vote(qc, digest, 1);
+      weak_vote(qc, digest, 1, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_final);
    }
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      constexpr uint64_t quorum = 1;
+      constexpr uint64_t max_weak_sum_before_weak_final = 1;
+      pending_quorum_certificate qc(2, quorum, max_weak_sum_before_weak_final); // 2 finalizers
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add a weak vote
       // ---------------
-      weak_vote(qc, digest, 0);
+      weak_vote(qc, digest, 0, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
       // add a strong vote
       // -----------------
-      strong_vote(qc, digest, 1);
+      strong_vote(qc, digest, 1, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::strong);
       BOOST_CHECK(qc.is_quorum_met());
    }
 
    {
-      pending_quorum_certificate qc(2, 1); // 2 finalizers, quorum = 1
+      constexpr uint64_t quorum = 1;
+      constexpr uint64_t max_weak_sum_before_weak_final = 1;
+      pending_quorum_certificate qc(2, quorum, max_weak_sum_before_weak_final); // 2 finalizers, weight_sum_minus_quorum = 1
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
 
       // add a strong vote
       // -----------------
-      strong_vote(qc, digest, 1);
+      strong_vote(qc, digest, 1, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::strong);
       BOOST_CHECK(qc.is_quorum_met());
 
       // add a strong vote
       // -----------------
-      strong_vote(qc, digest, 1);
+      strong_vote(qc, digest, 1, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::strong);
       BOOST_CHECK(qc.is_quorum_met());
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      constexpr uint64_t quorum = 2;
+      constexpr uint64_t max_weak_sum_before_weak_final = 1;
+      pending_quorum_certificate qc(3, quorum, max_weak_sum_before_weak_final); // 3 finalizers
 
       // add a weak vote
       // ---------------
-      weak_vote(qc, digest, 0);
+      weak_vote(qc, digest, 0, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
       BOOST_CHECK(!qc.is_quorum_met());
 
       // add a strong vote
       // -----------------
-      strong_vote(qc, digest, 1);
+      strong_vote(qc, digest, 1, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
@@ -135,24 +145,26 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
 
          // add a weak vote
          // ---------------
-         weak_vote(qc2, digest, 2);
+         weak_vote(qc2, digest, 2, weight);
          BOOST_CHECK_EQUAL(qc2.state(), state_t::weak_final);
          BOOST_CHECK(qc2.is_quorum_met());
       }
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      constexpr uint64_t quorum = 2;
+      constexpr uint64_t max_weak_sum_before_weak_final = 1;
+      pending_quorum_certificate qc(3, quorum, max_weak_sum_before_weak_final); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------
-      weak_vote(qc, digest, 0);
+      weak_vote(qc, digest, 0, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
       BOOST_CHECK(!qc.is_quorum_met());
 
       // add a strong vote
       // -----------------
-      strong_vote(qc, digest, 1);
+      strong_vote(qc, digest, 1, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 
@@ -161,24 +173,26 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
 
          // add a strong vote
          // -----------------
-         strong_vote(qc2, digest, 2);
+         strong_vote(qc2, digest, 2, weight);
          BOOST_CHECK_EQUAL(qc2.state(), state_t::strong);
          BOOST_CHECK(qc2.is_quorum_met());
       }
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      constexpr uint64_t quorum = 2;
+      constexpr uint64_t max_weak_sum_before_weak_final = 1;
+      pending_quorum_certificate qc(3, quorum, max_weak_sum_before_weak_final); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------
-      weak_vote(qc, digest, 0);
+      weak_vote(qc, digest, 0, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
       BOOST_CHECK(!qc.is_quorum_met());
 
       // add a weak vote
       // ---------------
-      weak_vote(qc, digest, 1);
+      weak_vote(qc, digest, 1, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_final);
       BOOST_CHECK(qc.is_quorum_met());
 
@@ -187,24 +201,26 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
 
          // add a weak vote
          // ---------------
-         weak_vote(qc2, digest, 2);
+         weak_vote(qc2, digest, 2, weight);
          BOOST_CHECK_EQUAL(qc2.state(), state_t::weak_final);
          BOOST_CHECK(qc2.is_quorum_met());
       }
    }
 
    {
-      pending_quorum_certificate qc(3, 2); // 3 finalizers, quorum = 2
+      constexpr uint64_t quorum = 2;
+      constexpr uint64_t max_weak_sum_before_weak_final = 1;
+      pending_quorum_certificate qc(3, quorum, max_weak_sum_before_weak_final); // 3 finalizers, quorum = 2
 
       // add a weak vote
       // ---------------
-      weak_vote(qc, digest, 0);
+      weak_vote(qc, digest, 0, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::unrestricted);
       BOOST_CHECK(!qc.is_quorum_met());
 
       // add a weak vote
       // ---------------
-      weak_vote(qc, digest, 1);
+      weak_vote(qc, digest, 1, weight);
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_final);
       BOOST_CHECK(qc.is_quorum_met());
 
@@ -213,7 +229,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
 
          // add a strong vote
          // -----------------
-         strong_vote(qc2, digest, 2);
+         strong_vote(qc2, digest, 2, weight);
          BOOST_CHECK_EQUAL(qc2.state(), state_t::weak_final);
          BOOST_CHECK(qc2.is_quorum_met());
       }

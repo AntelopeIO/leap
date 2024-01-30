@@ -185,25 +185,18 @@ namespace eosio::chain {
 
       pending_quorum_certificate();
 
-      explicit pending_quorum_certificate(size_t num_finalizers, size_t quorum);
-
-      explicit pending_quorum_certificate(const fc::sha256& proposal_id,
-                                          const digest_type& proposal_digest,
-                                          size_t num_finalizers,
-                                          size_t quorum);
+      explicit pending_quorum_certificate(size_t num_finalizers, uint64_t quorum, uint64_t max_weak_sum_before_weak_final);
 
       // thread safe
       bool   is_quorum_met() const;
-
-      // thread safe
-      void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum);
 
       // thread safe
       std::pair<bool, bool> add_vote(bool strong,
                                      const std::vector<uint8_t>&proposal_digest,
                                      size_t index,
                                      const bls_public_key&pubkey,
-                                     const bls_signature&sig);
+                                     const bls_signature&sig,
+                                     uint64_t weight);
 
       state_t state()  const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;
@@ -221,28 +214,28 @@ namespace eosio::chain {
       friend class qc_chain;
       fc::sha256           _proposal_id;     // only used in to_msg(). Remove eventually
       std::vector<uint8_t> _proposal_digest;
+      std::unique_ptr<std::mutex> _mtx;
+      uint64_t             _quorum {0};
+      uint64_t             _max_weak_sum_before_weak_final {0}; // max weak sum before becoming weak_final
       state_t              _state { state_t::unrestricted };
-      size_t               _num_finalizers {0};
-      size_t               _quorum {0};
-      std::unique_ptr<std::mutex> _mtx;  // protect both _strong_votes and _weak_votes
+      uint64_t             _strong_sum {0}; // accumulated sum of strong votes so far
+      uint64_t             _weak_sum {0}; // accumulated sum of weak votes so far
       votes_t              _weak_votes;
       votes_t              _strong_votes;
-
-      // num_weak and num_strong are protected by mutex by add_vote
-      size_t num_weak()   const { return _weak_votes.count(); }
-      size_t num_strong() const { return _strong_votes.count(); }
 
       // called by add_vote, already protected by mutex
       bool add_strong_vote(const std::vector<uint8_t>& proposal_digest,
                            size_t index,
                            const bls_public_key& pubkey,
-                           const bls_signature& sig);
+                           const bls_signature& sig,
+                           uint64_t weight);
 
       // called by add_vote, already protected by mutex
       bool add_weak_vote(const std::vector<uint8_t>& proposal_digest,
                          size_t index,
                          const bls_public_key& pubkey,
-                         const bls_signature& sig);
+                         const bls_signature& sig,
+                         uint64_t weight);
    };
 } //eosio::chain
 
