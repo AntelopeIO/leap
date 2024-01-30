@@ -207,6 +207,8 @@ set_property(TEST nested_container_multi_index_test PROPERTY LABELS nonparalleli
 
 add_test(NAME p2p_multiple_listen_test COMMAND tests/p2p_multiple_listen_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST p2p_multiple_listen_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME p2p_multiple_listen_if_test COMMAND tests/p2p_multiple_listen_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST p2p_multiple_listen_if_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME p2p_no_listen_test COMMAND tests/p2p_no_listen_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST p2p_no_listen_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME p2p_sync_throttle_test COMMAND tests/p2p_sync_throttle_test.py -v -d 2 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
