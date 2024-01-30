@@ -188,6 +188,8 @@ set_property(TEST nodeos_snapshot_diff_test PROPERTY LABELS nonparallelizable_te
 #set_property(TEST nodeos_snapshot_diff_if_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_snapshot_forked_test COMMAND tests/nodeos_snapshot_forked_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_snapshot_forked_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME nodeos_snapshot_forked_if_test COMMAND tests/nodeos_snapshot_forked_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_snapshot_forked_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trx_finality_status_test COMMAND tests/trx_finality_status_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST trx_finality_status_test PROPERTY LABELS nonparallelizable_tests)
