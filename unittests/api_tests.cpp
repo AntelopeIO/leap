@@ -3862,6 +3862,12 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
 BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    validating_tester t;
 
+   uint32_t lib = 0;
+   t.control->irreversible_block.connect([&](const block_signal_params& t) {
+      const auto& [ block, id ] = t;
+      lib = block->block_num();
+   });
+
    t.produce_block();
 
    // Create finalizer accounts
@@ -3886,20 +3892,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    BOOST_TEST(fin_policy->generation == 1);
    BOOST_TEST(fin_policy->threshold == finalizers.size() / 3 * 2 + 1);
    // currently transition happens immediately after set_finalizer block
-
-   // TODO: update after transition is complete: https://github.com/AntelopeIO/leap/issues/1911
-
-   // // old dpos still in affect until block is irreversible
-   // BOOST_TEST(block->confirmed == 0);
-   // block_state_legacy_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
-   // BOOST_REQUIRE(!!block_state);
-   // BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
-
-   // block = t.produce_block(); // only one producer so now this block is irreversible, next block will be hotstuff
-   // BOOST_TEST(block->confirmed == 0);
-   // block_state = t.control->fetch_block_state_by_id(block->calculate_id());
-   // BOOST_REQUIRE(!!block_state);
-   // BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
+   // Need to update after https://github.com/AntelopeIO/leap/issues/2057
 
    block = t.produce_block(); // hotstuff now active
    BOOST_TEST(block->confirmed == 0);
@@ -3911,6 +3904,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // and another on top of a instant-finality block
    block = t.produce_block();
+   auto lib_after_transition = lib;
    BOOST_TEST(block->confirmed == 0);
    fb = t.control->fetch_block_by_id(block->calculate_id());
    BOOST_REQUIRE(!!fb);
@@ -3918,6 +3912,9 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    ext = fb->extract_header_extension(instant_finality_extension::extension_id());
    BOOST_REQUIRE(ext);
 
+   // lib must advance after 3 blocks
+   t.produce_blocks(3);
+   BOOST_CHECK_GT(lib, lib_after_transition);
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()
