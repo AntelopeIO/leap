@@ -88,6 +88,8 @@ add_test(NAME nodeos_sanity_test COMMAND tests/nodeos_run_test.py -v --sanity-te
 set_property(TEST nodeos_sanity_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_run_test COMMAND tests/nodeos_run_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_run_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME nodeos_run_if_test COMMAND tests/nodeos_run_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_run_if_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_lib_test COMMAND tests/nodeos_lib_test.py -n 4 -p 3 -s ring -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_lib_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_lib_if_test COMMAND tests/nodeos_lib_test.py -n 4 -p 3 -s ring -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
