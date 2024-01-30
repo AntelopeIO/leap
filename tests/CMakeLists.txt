@@ -234,6 +234,8 @@ set_property(TEST nodeos_contrl_c_if_test PROPERTY LABELS nonparallelizable_test
 
 add_test(NAME nodeos_voting_lr_test COMMAND tests/nodeos_voting_test.py -v --wallet-port 9902 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_voting_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_voting_if_lr_test COMMAND tests/nodeos_voting_test.py -v --activate-if --wallet-port 9902 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_voting_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_under_min_avail_ram_lr_test COMMAND tests/nodeos_under_min_avail_ram.py -v --wallet-port 9904 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_under_min_avail_ram_lr_test PROPERTY LABELS long_running_tests)
@@ -257,7 +259,6 @@ set_property(TEST nodeos_chainbase_allocation_if_test PROPERTY LABELS nonparalle
 
 add_test(NAME nodeos_startup_catchup_lr_test COMMAND tests/nodeos_startup_catchup.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_startup_catchup_lr_test PROPERTY LABELS long_running_tests)
-
 add_test(NAME nodeos_startup_catchup_if_lr_test COMMAND tests/nodeos_startup_catchup.py -p3 --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_startup_catchup_if_lr_test PROPERTY LABELS long_running_tests)
 
