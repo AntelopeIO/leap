@@ -16,6 +16,8 @@ namespace eosio::chain {
    struct finalizer {
       enum class VoteDecision { StrongVote, WeakVote, NoVote };
 
+      static constexpr std::string weak_postfix {"WEAK"};
+
       struct proposal_ref {
          block_id_type         id;
          block_timestamp_type  timestamp;
