@@ -13,7 +13,7 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    , block(std::move(b))
    , strong_digest(compute_finalizer_digest())
    , weak_digest(compute_finalizer_digest())
-   , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->finalizer_weights(), prev.active_finalizer_policy->threshold)
+   , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
 {}
 
 block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
@@ -22,7 +22,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
    , strong_digest(compute_finalizer_digest())
    , weak_digest(compute_finalizer_digest())
-   , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->finalizer_weights(), bhs.active_finalizer_policy->threshold)
+   , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
    , pub_keys_recovered(true) // probably not needed
    , cached_trxs(std::move(trx_metas))
 {
@@ -81,7 +81,8 @@ std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const vote_
                                  std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()},
                                  index,
                                  vote.finalizer_key,
-                                 vote.sig);
+                                 vote.sig,
+                                 finalizers[index].weight);
       return {valid, strong ? core.final_on_strong_qc_block_num : std::optional<uint32_t>{}};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );

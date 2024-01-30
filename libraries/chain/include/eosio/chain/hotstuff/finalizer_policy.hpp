@@ -10,13 +10,14 @@ namespace eosio::chain {
       uint64_t                         threshold = 0;  ///< vote weight threshold to finalize blocks
       std::vector<finalizer_authority> finalizers; ///< Instant Finality voter set
 
-      std::vector<uint64_t> finalizer_weights() const {
+      // max accumulated weak weight before becoming weak_final
+      uint64_t max_weak_sum_before_weak_final() const {
          auto n = finalizers.size();
-         std::vector<uint64_t> weights(n);
+         uint64_t sum = 0;
          for( size_t i = 0; i < n; ++i ) {
-            weights[i] = finalizers[i].weight;
+            sum += finalizers[i].weight;
          }
-         return weights;
+         return (sum - threshold);
       }
    };
 
