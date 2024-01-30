@@ -111,7 +111,7 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
       my_vote = enough_for_strong_vote ? VoteDecision::StrongVote : VoteDecision::WeakVote;
    } else if (!bsp_last_qc &&  p->last_qc_block_num() && fork_db.root()->block_num() == *p->last_qc_block_num()) {
       // recovery mode (for example when we just switched to IF). Vote weak.
-      my_vote = VoteDecision::WeakVote;
+      my_vote = VoteDecision::StrongVote;
    }
 
    return my_vote;
@@ -121,6 +121,7 @@ std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, cons
    finalizer::VoteDecision decision = decide_vote(p, fork_db);
    if (decision == VoteDecision::StrongVote || decision == VoteDecision::WeakVote) {
       //save_finalizer_safety_info();
+      // [if todo] if voting weak, the digest to sign should be a hash of the concatenation of the finalizer_digest and the string WEAK
       auto sig =  priv_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
       return vote_message{ p->id(), decision == VoteDecision::StrongVote, pub_key, sig };
    }
