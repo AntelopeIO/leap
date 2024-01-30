@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
    digest_type strong_digest(fc::sha256("0000000000000000000000000000002"));
    std::vector<uint8_t> strong_digest_data(strong_digest.data(), strong_digest.data() + strong_digest.data_size());
    digest_type weak_digest(fc::sha256("0000000000000000000000000000003"));
-   std::vector<uint8_t> weak_digest_data(weak_digest.data(), weak_digest.data() + weak_digest.        data_size());
+   std::vector<uint8_t> weak_digest_data(weak_digest.data(), weak_digest.data() + weak_digest.data_size());
 
    // initialize a set of private keys
    std::vector<bls_private_key> private_key {
