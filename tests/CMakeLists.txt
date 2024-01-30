@@ -213,6 +213,8 @@ add_test(NAME p2p_no_listen_test COMMAND tests/p2p_no_listen_test.py -v ${UNSHAR
 set_property(TEST p2p_no_listen_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME p2p_sync_throttle_test COMMAND tests/p2p_sync_throttle_test.py -v -d 2 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST p2p_sync_throttle_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME p2p_sync_throttle_if_test COMMAND tests/p2p_sync_throttle_test.py -v -d 2 --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST p2p_sync_throttle_if_test PROPERTY LABELS nonparallelizable_tests)
 
 # needs iproute-tc or iproute2 depending on platform
 #add_test(NAME p2p_high_latency_test COMMAND tests/p2p_high_latency_test.py -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
