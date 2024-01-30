@@ -90,8 +90,6 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
 
    dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}", ("l",liveness_check)("s",safety_check)("m",monotony_check));
 
-   return VoteDecision::StrongVote; // temporary
-
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
    // -----------------------------------------------------------------------------------

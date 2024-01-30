@@ -681,16 +681,6 @@ struct building_block {
                         }
                      }
                   });
-                  if (!qc_data) {
-                     // In rare cases (bootstrap, starting from snapshot,disaster recovery), we may not find a qc
-                     // so we use the `lib` block_num and specify `weak`.
-                     qc_data = qc_data_t{
-                        {},
-                        qc_claim_t{
-                         fork_db.apply<uint32_t>([&](const auto& forkdb) { return forkdb.root()->block_num(); }),
-                         false}
-                     };
-                  }
                }
 
                building_block_input bb_input {
