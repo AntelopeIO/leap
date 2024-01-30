@@ -203,6 +203,7 @@ int main(int argc, char** argv) {
       et::trx_tps_tester<et::trx_generator, et::tps_performance_monitor> tester{generator, monitor, tester_config};
 
       if (!tester.run()) {
+         wlog("Exiting main with OTHER_FAIL");
          return OTHER_FAIL;
       }
    } else {
@@ -212,14 +213,16 @@ int main(int argc, char** argv) {
       et::trx_tps_tester<et::transfer_trx_generator, et::tps_performance_monitor> tester{generator, monitor, tester_config};
 
       if (!tester.run()) {
+         wlog("Exiting main with OTHER_FAIL");
          return OTHER_FAIL;
       }
    }
 
    if (monitor->terminated_early()) {
+      wlog("Exiting main with TERMINATED_EARLY");
       return TERMINATED_EARLY;
    }
-   
-   return SUCCESS;
 
+   ilog("Exiting main SUCCESS");
+   return SUCCESS;
 }

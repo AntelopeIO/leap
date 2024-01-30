@@ -25,7 +25,7 @@ struct block_header_state_input : public building_block_input {
    digest_type                       action_mroot;         // Compute root from  building_block::action_receipt_digests
    std::shared_ptr<proposer_policy>  new_proposer_policy;  // Comes from building_block::new_proposer_policy
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
-   std::optional<qc_info_t>          qc_info;              // Comes from traversing branch from parent and calling get_best_qc()
+   std::optional<qc_claim_t>         qc_claim;             // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
 };
 
@@ -35,7 +35,7 @@ struct block_header_state_core {
    std::optional<uint32_t> last_qc_block_num;              //
    uint32_t                finalizer_policy_generation;    // 
 
-   block_header_state_core next(qc_info_t incoming) const;
+   block_header_state_core next(qc_claim_t incoming) const;
 };
 
 struct block_header_state {
@@ -72,6 +72,11 @@ struct block_header_state {
    block_header_state next(block_header_state_input& data) const;
 
    block_header_state next(const signed_block_header& h, const protocol_feature_set& pfs, validator_t& validator) const;
+
+   // block descending from this need the provided qc in the block extension
+   bool is_needed(const quorum_certificate& qc) const {
+      return !core.last_qc_block_num || qc.block_num > *core.last_qc_block_num;
+   }
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    const vector<digest_type>& get_new_protocol_feature_activations() const;

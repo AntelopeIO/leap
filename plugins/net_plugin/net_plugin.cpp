@@ -540,11 +540,19 @@ namespace eosio {
       void on_irreversible_block( const block_id_type& id, uint32_t block_num );
 
       void bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::vote_message& msg );
-      void warn_hs_message( uint32_t sender_peer, const chain::hs_message_warning& code );
+      void warn_message( uint32_t sender_peer, const chain::hs_message_warning& code );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
       void start_monitors();
+
+      // we currently pause on snapshot generation
+      void wait_if_paused() const {
+         controller& cc = chain_plug->chain();
+         while (cc.is_writing_snapshot()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+         }
+      }
 
       void expire();
       /** \name Peer Timestamps
@@ -1180,7 +1188,7 @@ namespace eosio {
 
       void operator()( const chain::vote_message& msg ) const {
          // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_vote_message" );
+         peer_dlog( c, "handle vote_message" );
          c->handle_message( msg );
       }
    };
@@ -2220,7 +2228,7 @@ namespace eosio {
          return;
       }
 
-      if( sync_state == in_sync ) {
+      if( sync_state != lib_catchup ) {
          set_state( lib_catchup );
       }
       sync_next_expected_num = std::max( chain_info.lib_num + 1, sync_next_expected_num );
@@ -2924,6 +2932,8 @@ namespace eosio {
             close( false );
             return;
          }
+
+         my_impl->wait_if_paused();
 
          boost::asio::async_read( *socket,
             pending_message_buffer.get_buffer_sequence_for_boost_async_read(), completion_handler,
@@ -3719,6 +3729,7 @@ namespace eosio {
    // called from connection strand
    void connection::handle_message( const block_id_type& id, signed_block_ptr ptr ) {
       // post to dispatcher strand so that we don't have multiple threads validating the block header
+      peer_dlog(this, "posting block ${n} to dispatcher strand", ("n", ptr->block_num()));
       my_impl->dispatcher->strand.post([id, c{shared_from_this()}, ptr{std::move(ptr)}, cid=connection_id]() mutable {
          controller& cc = my_impl->chain_plug->chain();
 
@@ -3764,6 +3775,7 @@ namespace eosio {
             my_impl->dispatcher->bcast_block( obt->block(), obt->id() );
          }
 
+         fc_dlog(logger, "posting block ${n} to app thread", ("n", ptr->block_num()));
          app().executor().post(priority::medium, exec_queue::read_write, [ptr{std::move(ptr)}, obt{std::move(obt)}, id, c{std::move(c)}]() mutable {
             c->process_signed_block( id, std::move(ptr), obt );
          });
@@ -3958,7 +3970,7 @@ namespace eosio {
       });
    }
 
-   void net_plugin_impl::warn_hs_message( uint32_t sender_peer, const chain::hs_message_warning& code ) {
+   void net_plugin_impl::warn_message( uint32_t sender_peer, const chain::hs_message_warning& code ) {
       // potentially react to (repeated) receipt of invalid, irrelevant, duplicate, etc. hotstuff messages from sender_peer (connection ID) here
    }
 
@@ -4307,8 +4319,6 @@ namespace eosio {
 
    void net_plugin_impl::plugin_startup() {
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
-
-      controller& cc = chain_plug->chain();
 
       producer_plug = app().find_plugin<producer_plugin>();
       set_producer_accounts(producer_plug->producer_accounts());
@@ -4664,7 +4674,6 @@ namespace eosio {
    // called from any thread
    void connections_manager::start_conn_timers() {
       start_conn_timer(connector_period, {}, timer_type::check); // this locks mutex
-      start_conn_timer(connector_period, {}, timer_type::stats); // this locks mutex
       if (update_p2p_connection_metrics) {
          start_conn_timer(connector_period + connector_period / 2, {}, timer_type::stats); // this locks mutex
       }
