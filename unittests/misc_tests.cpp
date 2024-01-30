@@ -400,7 +400,8 @@ BOOST_AUTO_TEST_CASE(authority_checker)
    auto b = test.get_public_key(name("b"), "active");
    auto c = test.get_public_key(name("c"), "active");
 
-   auto GetNullAuthority = [](auto){abort(); return authority();};
+   const authority null_authority;
+   auto GetNullAuthority = [&null_authority](auto){abort(); return &null_authority;};
 
    auto A = authority(2, {key_weight{a, 1}, key_weight{b, 1}});
    {
@@ -450,8 +451,9 @@ BOOST_AUTO_TEST_CASE(authority_checker)
    BOOST_TEST(make_auth_checker(GetNullAuthority, 2, {b}).satisfied(A));
    BOOST_TEST(!make_auth_checker(GetNullAuthority, 2, {c}).satisfied(A));
 
-   auto GetCAuthority = [c](auto){
-      return authority(1, {key_weight{c, 1}});
+   const authority c_authority = authority(1, {key_weight{c, 1}});
+   auto GetCAuthority = [&c_authority](auto){
+      return &c_authority;
    };
 
    A = authority(2, {key_weight{a, 2}, key_weight{b, 1}}, {permission_level_weight{{name("hello"), name("world")}, 1}});
@@ -544,10 +546,13 @@ BOOST_AUTO_TEST_CASE(authority_checker)
    auto d = test.get_public_key(name("d"), "active");
    auto e = test.get_public_key(name("e"), "active");
 
-   auto GetAuthority = [d, e] (const permission_level& perm) {
+   const authority auth_for_top_actor = authority(2, {key_weight{d, 1}}, {permission_level_weight{{name("bottom"), name("bottom")}, 1}});
+   const authority auth_for_others = authority{1, {{e, 1}}, {}};
+
+   auto GetAuthority = [&auth_for_top_actor, &auth_for_others] (const permission_level& perm) {
       if (perm.actor == name("top"))
-         return authority(2, {key_weight{d, 1}}, {permission_level_weight{{name("bottom"), name("bottom")}, 1}});
-      return authority{1, {{e, 1}}, {}};
+         return &auth_for_top_actor;
+      return &auth_for_others;
    };
 
    A = authority(5, {key_weight{a, 2}, key_weight{b, 2}, key_weight{c, 2}}, {permission_level_weight{{name("top"), name("top")}, 5}});

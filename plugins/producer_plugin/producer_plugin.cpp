@@ -1228,9 +1228,11 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    if (options.count("read-only-threads")) {
       _ro_thread_pool_size = options.at("read-only-threads").as<uint32_t>();
    } else if (_producers.empty()) {
+      // appbase initialization order is non-deterministic outside listed APPBASE_PLUGIN_REQUIRES plugins.
+      // To avoid setting up a dependency of producer_plugin on chain_api_plugin, search for the plugin in options instead.
       if (options.count("plugin")) {
          const auto& v = options.at("plugin").as<std::vector<std::string>>();
-         auto        i = std::find_if(v.cbegin(), v.cend(), [](const std::string& p) { return p == "eosio::chain_api_plugin"; });
+         auto i = std::find_if(v.cbegin(), v.cend(), [](const std::string& p) { return p.find("eosio::chain_api_plugin") != std::string::npos; });
          if (i != v.cend()) {
             // default to 3 threads for non producer nodes running chain_api_plugin if not specified
             _ro_thread_pool_size = 3;

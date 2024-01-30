@@ -208,8 +208,8 @@ namespace eosio::testing {
 
              if (!(response.result() == boost::beast::http::status::accepted ||
                    response.result() == boost::beast::http::status::ok)) {
-                elog("async_http_request Failed with response http status code: ${status}",
-                     ("status", response.result_int()));
+                elog("async_http_request Failed with response http status code: ${s}, response: ${r}",
+                     ("s", response.result_int())("r", response.body()));
              }
              ++this->_acknowledged;
           });
