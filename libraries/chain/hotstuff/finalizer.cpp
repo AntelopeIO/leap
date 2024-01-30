@@ -109,11 +109,20 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
          fsi.lock = proposal_ref(chain.b1);                // commit phase on b1
 
       my_vote = enough_for_strong_vote ? VoteDecision::StrongVote : VoteDecision::WeakVote;
-   } else if (!bsp_last_qc &&  p->last_qc_block_num() && fork_db.root()->block_num() == *p->last_qc_block_num()) {
-      // recovery mode (for example when we just switched to IF). Vote weak.
-      my_vote = VoteDecision::StrongVote;
+   } else {
+      dlog("bsp_last_qc=${bsp}, last_qc_block_num=${lqc}, fork_db root block_num=${f}",
+           ("bsp", !!bsp_last_qc)("lqc",!!p->last_qc_block_num())("f",fork_db.root()->block_num()));
+      if (p->last_qc_block_num())
+         dlog("last_qc_block_num=${lqc}", ("lqc", *p->last_qc_block_num()));
+      if (!bsp_last_qc &&  p->last_qc_block_num() && fork_db.root()->block_num() == *p->last_qc_block_num()) {
+         // recovery mode (for example when we just switched to IF). Vote weak.
+         my_vote = VoteDecision::StrongVote;
+         fsi.last_vote = proposal_ref(p);          // v_height
+         fsi.lock = proposal_ref(p);               // for the Safety and Liveness checks to pass, initially lock on p
+         fsi.last_vote_range_start = p->timestamp();
+      }
    }
-
+   dlog("Voting ${s}", ("s", my_vote == VoteDecision::StrongVote ? "strong" : "weak"));
    return my_vote;
 }
 
