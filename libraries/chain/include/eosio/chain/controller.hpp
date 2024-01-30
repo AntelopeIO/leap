@@ -325,7 +325,6 @@ namespace eosio::chain {
 
          // called by host function set_finalizers
          void set_proposed_finalizers( const finalizer_policy& fin_set );
-         void get_finalizer_state( finalizer_state& fs ) const;
          // called from net threads
          bool process_vote_message( const vote_message& msg );
 
