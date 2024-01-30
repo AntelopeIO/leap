@@ -18,7 +18,7 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 Print = Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--wallet-port", "-v","--unshared"})
+args = TestHelper.parse_args({"--wallet-port","--activate-if","-v","--unshared"})
 
 cluster=Cluster(unshared=args.unshared)
 totalProducerNodes=2
@@ -26,6 +26,7 @@ totalNonProducerNodes=1
 totalNodes=totalProducerNodes+totalNonProducerNodes
 maxActiveProducers=2
 totalProducers=maxActiveProducers
+activateIF=args.activate_if
 walletPort=args.wallet_port
 walletMgr=WalletMgr(True, port=walletPort)
 producerEndpoint = '127.0.0.1:8888'
@@ -51,6 +52,7 @@ try:
 
     if cluster.launch(prodCount=1, topo="bridge", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
+                      activateIF=activateIF,
                       specificExtraNodeosArgs=specificExtraNodeosArgs,
                       extraNodeosArgs=extraNodeosArgs) is False:
         Utils.cmdError("launcher")

@@ -19,12 +19,13 @@ from TestHarness.Node import BlockType
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args=TestHelper.parse_args({"--kill-sig","--kill-count","--keep-logs"
-                            ,"--dump-error-details","-v","--leave-running","--unshared"
+args=TestHelper.parse_args({"--kill-sig","--kill-count","--keep-logs",
+                            "--activate-if","--dump-error-details","-v","--leave-running","--unshared"
                             })
 pnodes=1
 total_nodes=3 # first one is producer, and last two are speculative nodes
 debug=args.v
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 relaunchTimeout=10
 # Don't want to set too big, trying to reduce test time, but needs to be large enough for test to finish before
@@ -55,6 +56,8 @@ try:
             pnodes=pnodes,
             totalNodes=total_nodes,
             totalProducers=1,
+            activateIF=activateIF,
+            biosFinalizer=False,
             topo="mesh") is False:
         errorExit("Failed to stand up eos cluster.")
 
