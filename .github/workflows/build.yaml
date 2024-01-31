@@ -153,6 +153,7 @@ jobs:
           chown -R $(id -u):$(id -g) $PWD
           zstdcat build.tar.zst | tar x
           cd build
+          ./unittests/unit_test -t "*/verify_producer_schedule_after_instant_finality_activation" -l all
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
       - name: Upload core files from failed tests
         uses: actions/upload-artifact@v4
