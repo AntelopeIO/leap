@@ -31,10 +31,11 @@ Print=Utils.Print
 
 appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-clients", type=int, help="How many ship_streamers should be started", default=1)
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
+args = TestHelper.parse_args({"--activate-if","--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 
@@ -75,7 +76,7 @@ try:
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin  "
 
     if cluster.launch(topo="bridge", pnodes=totalProducerNodes,
-                      totalNodes=totalNodes, totalProducers=totalProducers,
+                      totalNodes=totalNodes, totalProducers=totalProducers, activateIF=activateIF, biosFinalizer=False,
                       specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
@@ -168,8 +169,9 @@ try:
     assert status is not None and status is not False, "ERROR: Failed to spinup Transaction Generators"
 
     prodNode0.waitForProducer("defproducerc")
+    prodNode0.waitForProducer("defproducera")
 
-    block_range = 350
+    block_range = 450
     end_block_num = start_block_num + block_range
 
     shipClient = "tests/ship_streamer"
