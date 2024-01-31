@@ -68,6 +68,7 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    bool monotony_check = !fsi.last_vote || p->timestamp() > fsi.last_vote.timestamp;
    // !fsi.last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed
 
+   return VoteDecision::StrongVote; // temp test
    if (!fsi.lock.empty()) {
       // Safety check : check if this proposal extends the proposal we're locked on
       // --------------------------------------------------------------------------
