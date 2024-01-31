@@ -3757,6 +3757,7 @@ struct controller_impl {
    void set_if_irreversible_block_num(uint32_t block_num) {
       if( block_num > if_irreversible_block_num ) {
          if_irreversible_block_num = block_num;
+         dlog("irreversible block ${bn}", ("bn", block_num));
       }
    }
 
