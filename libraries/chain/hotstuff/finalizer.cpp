@@ -188,10 +188,10 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
       // if we can't open the finalizer safety file, we return an empty map.
       persist_file.open(fc::cfile::update_rw_mode);
    } catch(std::exception& e) {
-      elog( "unable to open finalizer safety persistence file ${p} - ${e}", ("p", persist_file_path)("e", e.what()));
+      elog( "unable to open finalizer safety persistence file ${p}, using defaults. Exception: ${e}", ("p", persist_file_path)("e", e.what()));
       return res;
    } catch(...) {
-      elog( "unable to open finalizer safety persistence file ${p}", ("p", persist_file_path));
+      elog( "unable to open finalizer safety persistence file ${p}, using defaults", ("p", persist_file_path));
       return res;
    }
    EOS_ASSERT(persist_file.is_open(), finalizer_safety_exception,
@@ -213,9 +213,11 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
       persist_file.close();
    } catch (const fc::exception& e) {
       edump((e.to_detail_string()));
+      std::filesystem::remove(persist_file_path); // remove file we can't load
       throw;
    } catch (const std::exception& e) {
       edump((e.what()));
+      std::filesystem::remove(persist_file_path); // remove file we can't load
       throw;
    }
    return res;
