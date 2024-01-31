@@ -46,11 +46,6 @@ namespace eosio::chain {
       uint8_t pcounter;
    };
 
-   struct extended_schedule {
-      producer_authority_schedule                          producer_schedule;
-      std::map<name, bls_public_key>   bls_pub_keys;
-   };
-
    struct quorum_certificate_message {
       fc::sha256                          proposal_id;
       std::vector<uint32_t>               strong_votes; //bitset encoding, following canonical order
@@ -101,26 +96,9 @@ namespace eosio::chain {
       invalid                  // invalid message (other reason)
    };
 
-   struct finalizer_state {
-      fc::sha256 b_leaf;
-      fc::sha256 b_lock;
-      fc::sha256 b_exec;
-      fc::sha256 b_finality_violation;
-      block_id_type block_exec;
-      block_id_type pending_proposal_block;
-      view_number v_height;
-      quorum_certificate_message high_qc;
-      quorum_certificate_message current_qc;
-      extended_schedule schedule;
-      std::map<fc::sha256, hs_proposal_message> proposals;
-
-      const hs_proposal_message* get_proposal(const fc::sha256& id) const {
-         auto it = proposals.find(id);
-         if (it == proposals.end())
-            return nullptr;
-         return & it->second;
-      }
-   };
+   using bls_public_key  = fc::crypto::blslib::bls_public_key;
+   using bls_signature   = fc::crypto::blslib::bls_signature;
+   using bls_private_key = fc::crypto::blslib::bls_private_key;
 
    // -------------------- valid_quorum_certificate -------------------------------------------------
    class valid_quorum_certificate {
@@ -242,11 +220,9 @@ namespace eosio::chain {
 
 FC_REFLECT(eosio::chain::view_number, (bheight)(pcounter));
 FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(strong_votes)(weak_votes)(active_agg_sig));
-FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::vote_message, (proposal_id)(strong)(finalizer_key)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
-FC_REFLECT(eosio::chain::finalizer_state, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
 FC_REFLECT(eosio::chain::hs_message, (msg));
 FC_REFLECT(eosio::chain::valid_quorum_certificate, (_proposal_id)(_proposal_digest)(_strong_votes)(_weak_votes)(_sig));
 FC_REFLECT(eosio::chain::quorum_certificate, (block_num)(qc));

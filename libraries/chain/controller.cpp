@@ -4382,12 +4382,6 @@ void controller::set_proposed_finalizers( const finalizer_policy& fin_pol ) {
    my->set_proposed_finalizers(fin_pol);
 }
 
-void controller::get_finalizer_state( finalizer_state& fs ) const {
-   // TODO: determine what should be returned from chain_api_plugin get_finalizer_state
-//   EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
-//   my->pacemaker->get_state(fs);
-}
-
 // called from net threads
 bool controller::process_vote_message( const vote_message& vote ) {
    auto do_vote = [&vote](auto& forkdb) -> std::pair<bool, std::optional<uint32_t>> {
