@@ -190,6 +190,13 @@ add_test(NAME terminate-scenarios-test-replay COMMAND tests/terminate-scenarios-
 set_property(TEST terminate-scenarios-test-replay PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME terminate-scenarios-test-hard_replay COMMAND tests/terminate-scenarios-test.py -c hardReplay --terminate-at-block 10 --kill-sig term ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST terminate-scenarios-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME terminate-scenarios-if-test-resync COMMAND tests/terminate-scenarios-test.py -c resync --terminate-at-block 10 --kill-sig term --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST terminate-scenarios-if-test-resync PROPERTY LABELS nonparallelizable_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2141
+#add_test(NAME terminate-scenarios-if-test-replay COMMAND tests/terminate-scenarios-test.py -c replay --terminate-at-block 10 --kill-sig term --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST terminate-scenarios-if-test-replay PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME terminate-scenarios-if-test-hard_replay COMMAND tests/terminate-scenarios-test.py -c hardReplay --terminate-at-block 10 --kill-sig term --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST terminate-scenarios-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME validate_dirty_db_test COMMAND tests/validate-dirty-db.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST validate_dirty_db_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME keosd_auto_launch_test COMMAND tests/keosd_auto_launch_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
