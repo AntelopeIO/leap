@@ -133,6 +133,8 @@ add_test(NAME ship_test COMMAND tests/ship_test.py -v --num-clients 10 --num-req
 set_property(TEST ship_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME ship_test_unix COMMAND tests/ship_test.py -v --num-clients 10 --num-requests 5000 ${UNSHARE} --unix-socket WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_test_unix PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME ship_if_test COMMAND tests/ship_test.py -v --activate-if --num-clients 10 --num-requests 5000 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST ship_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME ship_streamer_test COMMAND tests/ship_streamer_test.py -v --num-clients 10 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_streamer_test PROPERTY LABELS long_running_tests)
