@@ -3865,6 +3865,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    uint32_t lib = 0;
    t.control->irreversible_block.connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
+      BOOST_REQUIRE(block);
       lib = block->block_num();
    });
 
@@ -3885,9 +3886,9 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    auto block = t.produce_block(); // this block contains the header extension for the instant finality
 
    std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
-   BOOST_TEST(!!ext);
+   BOOST_REQUIRE(!!ext);
    std::optional<finalizer_policy> fin_policy = std::get<instant_finality_extension>(*ext).new_finalizer_policy;
-   BOOST_TEST(!!fin_policy);
+   BOOST_REQUIRE(!!fin_policy);
    BOOST_TEST(fin_policy->finalizers.size() == finalizers.size());
    BOOST_TEST(fin_policy->generation == 1);
    BOOST_TEST(fin_policy->threshold == finalizers.size() / 3 * 2 + 1);
@@ -3895,6 +3896,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    // Need to update after https://github.com/AntelopeIO/leap/issues/2057
 
    block = t.produce_block(); // hotstuff now active
+   BOOST_REQUIRE(block);
    BOOST_TEST(block->confirmed == 0);
    auto fb = t.control->fetch_block_by_id(block->calculate_id());
    BOOST_REQUIRE(!!fb);
@@ -3904,6 +3906,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // and another on top of a instant-finality block
    block = t.produce_block();
+   BOOST_REQUIRE(block);
    auto lib_after_transition = lib;
    BOOST_TEST(block->confirmed == 0);
    fb = t.control->fetch_block_by_id(block->calculate_id());
