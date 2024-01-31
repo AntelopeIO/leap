@@ -35,8 +35,9 @@ std::filesystem::path get_parent_path(std::filesystem::path blocks_dir, int ordi
 controller::config copy_config(const controller::config& config, int ordinal) {
    controller::config copied_config = config;
    auto parent_path = get_parent_path(config.blocks_dir, ordinal);
+   copied_config.data_dir   = parent_path;
    copied_config.blocks_dir = parent_path / config.blocks_dir.filename().generic_string();
-   copied_config.state_dir = parent_path / config.state_dir.filename().generic_string();
+   copied_config.state_dir  = parent_path / config.state_dir.filename().generic_string();
    return copied_config;
 }
 

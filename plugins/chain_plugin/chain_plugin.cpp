@@ -600,6 +600,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
       abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
 
+      chain_config->data_dir = app().data_dir();
       chain_config->blocks_dir = blocks_dir;
       chain_config->state_dir = state_dir;
       chain_config->read_only = readonly;

@@ -400,7 +400,8 @@ namespace eosio { namespace testing {
 
          static std::pair<controller::config, genesis_state> default_config(const fc::temp_directory& tempdir, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}) {
             controller::config cfg;
-            cfg.blocks_dir      = tempdir.path() / config::default_blocks_dir_name;
+            cfg.data_dir   = tempdir.path();
+            cfg.blocks_dir = tempdir.path() / config::default_blocks_dir_name;
             cfg.state_dir  = tempdir.path() / config::default_state_dir_name;
             cfg.state_size = 1024*1024*16;
             cfg.state_guard_size = 0;
@@ -566,6 +567,9 @@ namespace eosio { namespace testing {
          FC_ASSERT( vcfg.blocks_dir.filename().generic_string() != "."
                     && vcfg.state_dir.filename().generic_string() != ".", "invalid path names in controller::config" );
 
+         vcfg.data_dir   = vcfg.blocks_dir.parent_path() / std::string("v");
+         if (!std::filesystem::exists(vcfg.data_dir))
+            std::filesystem::create_directories(vcfg.data_dir);
          vcfg.blocks_dir = vcfg.blocks_dir.parent_path() / std::string("v_").append( vcfg.blocks_dir.filename().generic_string() );
          vcfg.state_dir  = vcfg.state_dir.parent_path() / std::string("v_").append( vcfg.state_dir.filename().generic_string() );
 

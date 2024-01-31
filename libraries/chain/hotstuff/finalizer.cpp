@@ -129,8 +129,6 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
 std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, const digest_type& digest, const fork_database_if_t& fork_db) {
    finalizer::VoteDecision decision = decide_vote(p, fork_db);
    if (decision == VoteDecision::StrongVote || decision == VoteDecision::WeakVote) {
-      //save_finalizer_safety_info();
-
       bls_signature sig;
       if (decision == VoteDecision::WeakVote) {
          // if voting weak, the digest to sign should be a hash of the concatenation of the finalizer_digest and the string "WEAK"
@@ -148,39 +146,27 @@ std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, cons
    return {};
 }
 
-void finalizer::save_finalizer_safety_info() {
-   if (!safety_file.is_open()) {
-      EOS_ASSERT(!safety_file_path.empty(), finalizer_safety_exception,
-                 "path for storing finalizer safety persistence file not specified");
-      safety_file.set_file_path(safety_file_path);
-      safety_file.open(fc::cfile::create_or_update_rw_mode);
-      EOS_ASSERT(safety_file.is_open(), finalizer_safety_exception,
-                 "unable to open finalizer safety persistence file: ${p}", ("p", safety_file_path));
+void finalizer_set::save_finalizer_safety_info() {
+
+   if (!persist_file.is_open()) {
+      EOS_ASSERT(!persist_file_path.empty(), finalizer_safety_exception,
+                 "path for storing finalizer safety information file not specified");
+      if (!std::filesystem::exists(persist_file_path.parent_path()))
+          std::filesystem::create_directories(persist_file_path.parent_path());
+      persist_file.set_file_path(persist_file_path);
+      persist_file.open(fc::cfile::truncate_rw_mode);
+      EOS_ASSERT(persist_file.is_open(), finalizer_safety_exception,
+                 "unable to open finalizer safety persistence file: ${p}", ("p", persist_file_path));
    }
-   safety_file.seek(0);
-   fc::raw::pack(safety_file, finalizer::safety_information::magic);
-   fc::raw::pack(safety_file, fsi);
-   safety_file.flush();
-}
-
-
-void finalizer::load_finalizer_safety_info() {
-   EOS_ASSERT(!safety_file_path.empty(), finalizer_safety_exception,
-              "path for storing finalizer safety persistence file not specified");
-
-   EOS_ASSERT(!safety_file.is_open(), finalizer_safety_exception,
-              "Trying to read an already open finalizer safety persistence file: ${p}", ("p", safety_file_path));
-   safety_file.set_file_path(safety_file_path);
-   safety_file.open(fc::cfile::update_rw_mode);
-   EOS_ASSERT(safety_file.is_open(), finalizer_safety_exception,
-              "unable to open finalizer safety persistence file: ${p}", ("p", safety_file_path));
    try {
-      safety_file.seek(0);
-      uint64_t magic = 0;
-      fc::raw::unpack(safety_file, magic);
-      EOS_ASSERT(magic == finalizer::safety_information::magic, finalizer_safety_exception,
-                 "bad magic number in finalizer safety persistence file: ${p}", ("p", safety_file_path));
-      fc::raw::unpack(safety_file, fsi);
+      persist_file.seek(0);
+      fc::raw::pack(persist_file, finalizer::safety_information::magic);
+      fc::raw::pack(persist_file, (uint64_t)finalizers.size());
+      for (const auto& f : finalizers) {
+         fc::raw::pack(persist_file, f.pub_key);
+         fc::raw::pack(persist_file, f.fsi);
+      }
+      persist_file.flush();
    } catch (const fc::exception& e) {
       edump((e.to_detail_string()));
       throw;
@@ -189,5 +175,52 @@ void finalizer::load_finalizer_safety_info() {
       throw;
    }
 }
+
+finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
+   fsi_map res;
+
+   EOS_ASSERT(!persist_file_path.empty(), finalizer_safety_exception,
+              "path for storing finalizer safety persistence file not specified");
+   EOS_ASSERT(!persist_file.is_open(), finalizer_safety_exception,
+              "Trying to read an already open finalizer safety persistence file: ${p}", ("p", persist_file_path));
+   persist_file.set_file_path(persist_file_path);
+   try {
+      // if we can't open the finalizer safety file, we return an empty map.
+      persist_file.open(fc::cfile::update_rw_mode);
+   } catch(std::exception& e) {
+      elog( "unable to open finalizer safety persistence file ${p} - ${e}", ("p", persist_file_path)("e", e.what()));
+      return res;
+   } catch(...) {
+      elog( "unable to open finalizer safety persistence file ${p}", ("p", persist_file_path));
+      return res;
+   }
+   EOS_ASSERT(persist_file.is_open(), finalizer_safety_exception,
+              "unable to open finalizer safety persistence file: ${p}", ("p", persist_file_path));
+   try {
+      persist_file.seek(0);
+      uint64_t magic = 0;
+      fc::raw::unpack(persist_file, magic);
+      EOS_ASSERT(magic == finalizer::safety_information::magic, finalizer_safety_exception,
+                 "bad magic number in finalizer safety persistence file: ${p}", ("p", persist_file_path));
+      uint64_t num_finalizers {0};
+      fc::raw::unpack(persist_file, num_finalizers);
+      for (size_t i=0; i<num_finalizers; ++i) {
+         fsi_map::value_type entry;
+         fc::raw::unpack(persist_file, entry.first);
+         fc::raw::unpack(persist_file, entry.second);
+         res.insert(entry);
+      }
+      persist_file.close();
+   } catch (const fc::exception& e) {
+      edump((e.to_detail_string()));
+      throw;
+   } catch (const std::exception& e) {
+      edump((e.what()));
+      throw;
+   }
+   return res;
+}
+
+
 
 } // namespace eosio::chain

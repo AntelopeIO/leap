@@ -1085,7 +1085,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    my_finalizers(cfg.blocks_dir / config::reversible_blocks_dir_name),
+    my_finalizers(cfg.data_dir / "finalizers" / "safety.dat"),
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open([this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
@@ -3012,20 +3012,17 @@ struct controller_impl {
       auto finalizer_digest = bsp->compute_finalizer_digest();
 
       // Each finalizer configured on the node which is present in the active finalizer policy
-      // must create and sign a vote
-      for (const auto& f : bsp->active_finalizer_policy->finalizers) {
-         my_finalizers.vote_if_found(
-            bsp, fork_db, f.public_key, finalizer_digest,
-            [&](const vote_message& vote) {
-               // net plugin subscribed to this signal. it will broadcast the vote message
-               // on receiving the signal
-               emit(self.voted_block, vote);
+      // may create and sign a vote
+      my_finalizers.maybe_vote(
+          *bsp->active_finalizer_policy, bsp, fork_db, finalizer_digest, [&](const vote_message& vote) {
+              // net plugin subscribed to this signal. it will broadcast the vote message
+              // on receiving the signal
+              emit(self.voted_block, vote);
 
-               // also aggregate our own vote into the pending_qc for this block.
-               boost::asio::post(thread_pool.get_executor(),
-                                 [control = this, vote]() { control->self.process_vote_message(vote); });
-            });
-      }
+              // also aggregate our own vote into the pending_qc for this block.
+              boost::asio::post(thread_pool.get_executor(),
+                                [control = this, vote]() { control->self.process_vote_message(vote); });
+          });
    }
 
    // expected to be called from application thread as it modifies bsp->valid_qc,
@@ -3802,7 +3799,7 @@ struct controller_impl {
    }
 
    void set_node_finalizer_keys(const bls_pub_priv_key_map_t& finalizer_keys) {
-      my_finalizers.reset(finalizer_keys);
+      my_finalizers.set_keys(finalizer_keys);
    }
 
    bool irreversible_mode() const { return read_mode == db_read_mode::IRREVERSIBLE; }
