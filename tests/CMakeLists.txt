@@ -182,7 +182,7 @@ set_property(TEST restart-scenarios-test-hard_replay PROPERTY LABELS nonparallel
 #set_property(TEST restart-scenarios-if-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME restart-scenarios-test-none COMMAND tests/restart-scenarios-test.py -c none --kill-sig term -p4 -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST restart-scenarios-test-none PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME restart-scenarios-if-test-none COMMAND tests/restart-scenarios-test.py -c none --kill-sig term -p4 -v --active-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME restart-scenarios-if-test-none COMMAND tests/restart-scenarios-test.py -c none --kill-sig term -p4 -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST restart-scenarios-if-test-none PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME terminate-scenarios-test-resync COMMAND tests/terminate-scenarios-test.py -c resync --terminate-at-block 10 --kill-sig term ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST terminate-scenarios-test-resync PROPERTY LABELS nonparallelizable_tests)
