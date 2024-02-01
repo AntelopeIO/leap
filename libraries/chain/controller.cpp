@@ -2998,6 +2998,21 @@ struct controller_impl {
       } FC_CAPTURE_AND_RETHROW();
    } /// apply_block
 
+   // called from net threads and controller's thread pool
+   bool process_vote_message( const vote_message& vote ) {
+      auto do_vote = [&vote](auto& forkdb) -> std::pair<bool, std::optional<uint32_t>> {
+          auto bsp = forkdb.get_block(vote.proposal_id);
+          if (bsp)
+             return bsp->aggregate_vote(vote);
+          return {false, {}};
+      };
+      auto [valid, new_lib] = fork_db.apply_if<std::pair<bool, std::optional<uint32_t>>>(do_vote);
+      if (new_lib) {
+         set_if_irreversible_block_num(*new_lib);
+      }
+      return valid;
+   };
+
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
 #warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
       bool strong = true;
@@ -3020,7 +3035,7 @@ struct controller_impl {
             emit( self.voted_block, vote );
 
             boost::asio::post(thread_pool.get_executor(), [control=this, vote]() {
-               control->self.process_vote_message(vote);
+               control->process_vote_message(vote);
             });
          }
       }
@@ -4388,17 +4403,7 @@ void controller::set_proposed_finalizers( const finalizer_policy& fin_pol ) {
 
 // called from net threads
 bool controller::process_vote_message( const vote_message& vote ) {
-   auto do_vote = [&vote](auto& forkdb) -> std::pair<bool, std::optional<uint32_t>> {
-       auto bsp = forkdb.get_block(vote.proposal_id);
-       if (bsp)
-          return bsp->aggregate_vote(vote);
-       return {false, {}};
-   };
-   auto [valid, new_lib] = my->fork_db.apply_if<std::pair<bool, std::optional<uint32_t>>>(do_vote);
-   if (new_lib) {
-      my->set_if_irreversible_block_num(*new_lib);
-   }
-   return valid;
+   return my->process_vote_message( vote );
 };
 
 const producer_authority_schedule& controller::active_producers()const {
