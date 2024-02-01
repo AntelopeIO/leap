@@ -4,12 +4,14 @@
 
 namespace eosio::chain {
 
+// ----------------------------------------------------------------------------------------
 block_state_ptr get_block_by_height(const fork_database_if_t::branch_type& branch, uint32_t block_num) {
    auto it = std::find_if(branch.begin(), branch.end(),
                           [&](const block_state_ptr& bsp) { return bsp->block_num() == block_num; });
    return it == branch.end() ? block_state_ptr{} : *it;
 }
 
+// ----------------------------------------------------------------------------------------
 qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_database_if_t::branch_type& branch) const {
    qc_chain_t res;
 
@@ -40,6 +42,7 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_d
    return res;
 }
 
+// ----------------------------------------------------------------------------------------
 bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
    if (ancestor.empty())
       return false;
@@ -52,6 +55,7 @@ bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendan
    return false;
 }
 
+// ----------------------------------------------------------------------------------------
 finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const fork_database_if_t& fork_db) {
    bool safety_check   = false;
    bool liveness_check = false;
@@ -128,7 +132,9 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    return decision;
 }
 
-std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, const digest_type& digest, const fork_database_if_t& fork_db) {
+// ----------------------------------------------------------------------------------------
+std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, const digest_type& digest,
+                                                  const fork_database_if_t& fork_db) {
    finalizer::VoteDecision decision = decide_vote(p, fork_db);
    if (decision == VoteDecision::StrongVote || decision == VoteDecision::WeakVote) {
       bls_signature sig;
@@ -144,6 +150,7 @@ std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, cons
    return {};
 }
 
+// ----------------------------------------------------------------------------------------
 void finalizer_set::save_finalizer_safety_info() {
 
    if (!persist_file.is_open()) {
@@ -157,12 +164,22 @@ void finalizer_set::save_finalizer_safety_info() {
                  "unable to open finalizer safety persistence file: ${p}", ("p", persist_file_path));
    }
    try {
+      static bool first_vote = true;
       persist_file.seek(0);
       fc::raw::pack(persist_file, finalizer::safety_information::magic);
       fc::raw::pack(persist_file, (uint64_t)finalizers.size());
       for (const auto& f : finalizers) {
          fc::raw::pack(persist_file, f.pub_key);
          fc::raw::pack(persist_file, f.fsi);
+      }
+      if (first_vote) {
+         // save also the fsi that was originally present in the file, but which applied to
+         // finalizers not configured anymore.
+         for (const auto& [pub_key, fsi] : inactive_safety_info) {
+            fc::raw::pack(persist_file, pub_key);
+            fc::raw::pack(persist_file, fsi);
+         }
+         first_vote = false;
       }
       persist_file.flush();
    } catch (const fc::exception& e) {
@@ -174,19 +191,22 @@ void finalizer_set::save_finalizer_safety_info() {
    }
 }
 
+// ----------------------------------------------------------------------------------------
 finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
    fsi_map res;
 
    EOS_ASSERT(!persist_file_path.empty(), finalizer_safety_exception,
               "path for storing finalizer safety persistence file not specified");
    EOS_ASSERT(!persist_file.is_open(), finalizer_safety_exception,
-              "Trying to read an already open finalizer safety persistence file: ${p}", ("p", persist_file_path));
+              "Trying to read an already open finalizer safety persistence file: ${p}",
+              ("p", persist_file_path));
    persist_file.set_file_path(persist_file_path);
    try {
       // if we can't open the finalizer safety file, we return an empty map.
       persist_file.open(fc::cfile::update_rw_mode);
    } catch(std::exception& e) {
-      elog( "unable to open finalizer safety persistence file ${p}, using defaults. Exception: ${e}", ("p", persist_file_path)("e", e.what()));
+      elog( "unable to open finalizer safety persistence file ${p}, using defaults. Exception: ${e}",
+            ("p", persist_file_path)("e", e.what()));
       return res;
    } catch(...) {
       elog( "unable to open finalizer safety persistence file ${p}, using defaults", ("p", persist_file_path));
@@ -221,6 +241,33 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
    return res;
 }
 
+// ----------------------------------------------------------------------------------------
+void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer_keys) {
+   assert(finalizers.empty()); // set_keys should be called only once at startup
+   if (finalizer_keys.empty())
+      return;
 
+   fsi_map safety_info = load_finalizer_safety_info();
+   for (const auto& [pub_key_str, priv_key_str] : finalizer_keys) {
+      auto public_key {bls_public_key{pub_key_str}};
+      auto it  = safety_info.find(public_key);
+      auto fsi = it != safety_info.end() ? it->second : finalizer::safety_information{};
+      finalizers.insert(finalizer{public_key, bls_private_key{priv_key_str}, fsi});
+   }
+
+   // Now that we have updated the  finalizer_safety_info of our local finalizers,
+   // remove these from the in-memory map. Whenever we save the finalizer_safety_info, we will
+   // write the info for the local finalizers, and the first time we'll write the information for
+   // currently inactive finalizers (which might be configured again in the future).
+   //
+   // So for every vote but the first, we'll only have to write the safety_info for the configured
+   // finalizers.
+   // --------------------------------------------------------------------------------------------
+   for (const auto& [pub_key_str, priv_key_str] : finalizer_keys)
+      safety_info.erase(bls_public_key{pub_key_str});
+
+   // now only inactive finalizers remain in safety_info => move it to inactive_safety_info
+   inactive_safety_info = std::move(safety_info);
+}
 
 } // namespace eosio::chain
