@@ -4,6 +4,7 @@
 #include <eosio/chain/fork_database.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/reflect/reflect.hpp>
+#include <fc/crypto/sha256.hpp>
 #include <compare>
 #include <utility>
 
@@ -16,8 +17,6 @@ namespace eosio::chain {
 
    struct finalizer {
       enum class VoteDecision { StrongVote, WeakVote, NoVote };
-
-      static inline const std::string weak_postfix {"WEAK"};
 
       struct proposal_ref {
          block_id_type         id;

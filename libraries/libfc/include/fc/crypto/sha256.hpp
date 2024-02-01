@@ -1,4 +1,5 @@
 #pragma once
+#include <span>
 #include <fc/fwd.hpp>
 #include <fc/string.hpp>
 #include <fc/platform_independence.hpp>
@@ -21,6 +22,10 @@ class sha256
     const char* data()const;
     char*       data();
     size_t      data_size() const { return 256 / 8; }
+
+    std::span<const uint8_t> to_span() const {
+       return {(const uint8_t*)data(),  (const uint8_t*)data() + data_size()};
+    }
 
     bool empty()const {
        return (_hash[0] | _hash[1] | _hash[2] | _hash[3]) == 0;

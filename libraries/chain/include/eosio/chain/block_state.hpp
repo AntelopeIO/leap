@@ -7,6 +7,16 @@
 
 namespace eosio::chain {
 
+constexpr std::string weak_bls_sig_postfix = "WEAK";
+using weak_digest_t = std::array<uint8_t, sizeof(digest_type) + weak_bls_sig_postfix.size()>;
+
+inline weak_digest_t create_weak_digest(const digest_type& digest) {
+   weak_digest_t res;
+   std::memcpy(res.begin(), digest.data(), digest.data_size());
+   std::memcpy(res.begin() + digest.data_size(), weak_bls_sig_postfix.c_str(), weak_bls_sig_postfix.size());
+   return res;
+}
+
 struct block_state_legacy;
 
 struct block_state : public block_header_state {     // block_header_state provides parent link
@@ -14,7 +24,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    signed_block_ptr           block;
    bool                       validated = false;     // We have executed the block's trxs and verified that action merkle root (block id) matches.
    digest_type                strong_digest;         // finalizer_digest (strong, cached so we can quickly validate votes)
-   digest_type                weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
+   weak_digest_t              weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
    pending_quorum_certificate pending_qc;            // where we accumulate votes we receive
    std::optional<valid_quorum_certificate> valid_qc; // best qc received from the network inside block extension
 

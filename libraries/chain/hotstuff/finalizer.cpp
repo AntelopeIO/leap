@@ -135,11 +135,7 @@ std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, cons
       if (decision == VoteDecision::WeakVote) {
          // if voting weak, the digest to sign should be a hash of the concatenation of the finalizer_digest
          // and the string "WEAK"
-         std::vector<uint8_t> d;
-         d.reserve(digest.data_size() + weak_postfix.size());
-         d.insert(d.end(), digest.data(), digest.data() + digest.data_size());
-         d.insert(d.end(), weak_postfix.cbegin(), weak_postfix.cend());
-         sig =  priv_key.sign(d);
+         sig =  priv_key.sign(create_weak_digest(digest));
       } else {
          sig =  priv_key.sign({(uint8_t*)digest.data(), (uint8_t*)digest.data() + digest.data_size()});
       }
