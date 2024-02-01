@@ -56,7 +56,7 @@ const static uint32_t   rate_limiting_precision        = 1000*1000;
 
 const static uint32_t   default_max_block_net_usage                  = 1024 * 1024; /// at 500ms blocks and 200byte trx, this enables ~10,000 TPS burst
 const static uint32_t   default_target_block_net_usage_pct           = 10 * percent_1; /// we target 1000 TPS
-const static uint32_t   default_max_transaction_net_usage            = default_max_block_net_usage / 2;
+const static uint32_t   default_max_transaction_net_usage            = default_max_block_net_usage;
 const static uint32_t   default_base_per_transaction_net_usage       = 12;  // 12 bytes (11 bytes for worst case of transaction_receipt_header + 1 byte for static_variant tag)
 const static uint32_t   default_net_usage_leeway                     = 500; // TODO: is this reasonable?
 const static uint32_t   default_context_free_discount_net_usage_num  = 20; // TODO: is this reasonable?
@@ -66,7 +66,7 @@ const static uint32_t   transaction_id_net_usage                     = 32; // 32
 const static uint32_t   default_max_block_cpu_usage                  = 200'000; /// max block cpu usage in microseconds
 const static uint32_t   default_target_block_cpu_usage_pct           = 10 * percent_1;
 const static uint32_t   default_max_transaction_cpu_usage            = 3*default_max_block_cpu_usage/4; /// max trx cpu usage in microseconds
-const static uint32_t   default_min_transaction_cpu_usage            = 100; /// min trx cpu usage in microseconds (10000 TPS equiv)
+const static uint32_t   default_min_transaction_cpu_usage            = 90; /// min trx cpu usage in microseconds (10000 TPS equiv)
 const static uint32_t   default_subjective_cpu_leeway_us             = 31000; /// default subjective cpu leeway in microseconds
 
 const static uint32_t   default_max_trx_lifetime                     = 60*60; // 1 hour
@@ -91,7 +91,7 @@ const static uint32_t default_max_wasm_table_elements       = 1024;
 const static uint32_t default_max_wasm_section_elements     = 8192;
 const static uint32_t default_max_wasm_linear_memory_init   = 64*1024;
 const static uint32_t default_max_wasm_func_local_bytes     = 8192;
-const static uint32_t default_max_wasm_nested_structures    = 1024;
+const static uint32_t default_max_wasm_nested_structures    = 2048;
 const static uint32_t default_max_wasm_symbol_bytes         = 8192;
 const static uint32_t default_max_wasm_module_bytes         = 20*1024*1024;
 const static uint32_t default_max_wasm_code_bytes           = 20*1024*1024;
