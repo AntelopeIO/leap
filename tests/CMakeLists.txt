@@ -172,12 +172,14 @@ add_test(NAME distributed-transactions-test COMMAND tests/distributed-transactio
 set_property(TEST distributed-transactions-test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME distributed-transactions-speculative-test COMMAND tests/distributed-transactions-test.py -d 2 -p 4 -n 6 --speculative -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST distributed-transactions-speculative-test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME distributed-transactions-if-test COMMAND tests/distributed-transactions-test.py -d 2 -p 4 -n 6 --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST distributed-transactions-if-test PROPERTY LABELS nonparallelizable_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2175
+#add_test(NAME distributed-transactions-if-test COMMAND tests/distributed-transactions-test.py -d 2 -p 4 -n 6 --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST distributed-transactions-if-test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME restart-scenarios-test-resync COMMAND tests/restart-scenarios-test.py -c resync -p4 -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST restart-scenarios-test-resync PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME restart-scenarios-if-test-resync COMMAND tests/restart-scenarios-test.py -c resync -p4 -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST restart-scenarios-if-test-resync PROPERTY LABELS nonparallelizable_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2175
+#add_test(NAME restart-scenarios-if-test-resync COMMAND tests/restart-scenarios-test.py -c resync -p4 -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST restart-scenarios-if-test-resync PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME restart-scenarios-test-hard_replay COMMAND tests/restart-scenarios-test.py -c hardReplay -p4 -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST restart-scenarios-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
 # requires https://github.com/AntelopeIO/leap/issues/2141
@@ -295,8 +297,9 @@ set_property(TEST nodeos_startup_catchup_if_lr_test PROPERTY LABELS long_running
 
 add_test(NAME nodeos_short_fork_take_over_test COMMAND tests/nodeos_short_fork_take_over_test.py -v --wallet-port 9905 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_short_fork_take_over_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME nodeos_short_fork_take_over_if_test COMMAND tests/nodeos_short_fork_take_over_test.py -v --activate-if --wallet-port 9905 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_short_fork_take_over_if_test PROPERTY LABELS nonparallelizable_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2175
+#add_test(NAME nodeos_short_fork_take_over_if_test COMMAND tests/nodeos_short_fork_take_over_test.py -v --activate-if --wallet-port 9905 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST nodeos_short_fork_take_over_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_extra_packed_data_test COMMAND tests/nodeos_extra_packed_data_test.py -v -p 2 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_extra_packed_data_test PROPERTY LABELS nonparallelizable_tests)
@@ -308,8 +311,9 @@ set_property(TEST nodeos_producer_watermark_if_lr_test PROPERTY LABELS long_runn
 
 add_test(NAME nodeos_high_transaction_lr_test COMMAND tests/nodeos_high_transaction_test.py -p 4 -n 8 --num-transactions 10000 --max-transactions-per-second 500 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_high_transaction_lr_test PROPERTY LABELS long_running_tests)
-add_test(NAME nodeos_high_transaction_if_lr_test COMMAND tests/nodeos_high_transaction_test.py --activate-if -p 4 -n 8 --num-transactions 10000 --max-transactions-per-second 500 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_high_transaction_if_lr_test PROPERTY LABELS long_running_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2175
+#add_test(NAME nodeos_high_transaction_if_lr_test COMMAND tests/nodeos_high_transaction_test.py --activate-if -p 4 -n 8 --num-transactions 10000 --max-transactions-per-second 500 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST nodeos_high_transaction_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_retry_transaction_lr_test COMMAND tests/nodeos_retry_transaction_test.py -v --num-transactions 100 --max-transactions-per-second 10 --total-accounts 5 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_retry_transaction_lr_test PROPERTY LABELS long_running_tests)
@@ -355,8 +359,9 @@ set_property(TEST light_validation_sync_if_test PROPERTY LABELS nonparallelizabl
 
 add_test(NAME auto_bp_peering_test COMMAND tests/auto_bp_peering_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST auto_bp_peering_test PROPERTY LABELS long_running_tests)
-add_test(NAME auto_bp_peering_if_test COMMAND tests/auto_bp_peering_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST auto_bp_peering_if_test PROPERTY LABELS long_running_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2175 & https://github.com/AntelopeIO/leap/issues/2173
+#add_test(NAME auto_bp_peering_if_test COMMAND tests/auto_bp_peering_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST auto_bp_peering_if_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME gelf_test COMMAND tests/gelf_test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST gelf_test PROPERTY LABELS nonparallelizable_tests)
