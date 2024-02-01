@@ -272,6 +272,8 @@ set_property(TEST nodeos_voting_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_under_min_avail_ram_lr_test COMMAND tests/nodeos_under_min_avail_ram.py -v --wallet-port 9904 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_under_min_avail_ram_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_under_min_avail_ram_if_lr_test COMMAND tests/nodeos_under_min_avail_ram.py -v --active-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_under_min_avail_ram_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_irreversible_mode_lr_test COMMAND tests/nodeos_irreversible_mode_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_irreversible_mode_lr_test PROPERTY LABELS long_running_tests)
