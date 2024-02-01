@@ -61,14 +61,13 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    qc_chain_t chain = get_qc_chain(p, p_branch);
 
    // we expect last_qc_block_num() to always be found except at bootstrap
-   // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num from fork_db.root()
-   // and specify weak.
+   // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num
+   // from fork_db.root(), and specify weak.
    auto bsp_last_qc   = p->last_qc_block_num() ? get_block_by_height(p_branch, *p->last_qc_block_num()) : block_state_ptr{};
 
    bool monotony_check = !fsi.last_vote || p->timestamp() > fsi.last_vote.timestamp;
    // !fsi.last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed
 
-   return VoteDecision::StrongVote; // temp test
    if (!fsi.lock.empty()) {
       // Safety check : check if this proposal extends the proposal we're locked on
       // --------------------------------------------------------------------------
@@ -89,7 +88,8 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
       safety_check   = false;
    }
 
-   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}", ("l",liveness_check)("s",safety_check)("m",monotony_check));
+   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}",
+        ("l",liveness_check)("s",safety_check)("m",monotony_check));
 
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
@@ -115,6 +115,7 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
            ("bsp", !!bsp_last_qc)("lqc",!!p->last_qc_block_num())("f",fork_db.root()->block_num()));
       if (p->last_qc_block_num())
          dlog("last_qc_block_num=${lqc}", ("lqc", *p->last_qc_block_num()));
+
       if (!bsp_last_qc &&  p->last_qc_block_num() && fork_db.root()->block_num() == *p->last_qc_block_num()) {
          // recovery mode (for example when we just switched to IF). Vote weak.
          decision = VoteDecision::StrongVote;
@@ -132,7 +133,8 @@ std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, cons
    if (decision == VoteDecision::StrongVote || decision == VoteDecision::WeakVote) {
       bls_signature sig;
       if (decision == VoteDecision::WeakVote) {
-         // if voting weak, the digest to sign should be a hash of the concatenation of the finalizer_digest and the string "WEAK"
+         // if voting weak, the digest to sign should be a hash of the concatenation of the finalizer_digest
+         // and the string "WEAK"
          std::vector<uint8_t> d;
          d.reserve(digest.data_size() + weak_postfix.size());
          d.insert(d.end(), digest.data(), digest.data() + digest.data_size());
