@@ -141,8 +141,7 @@ std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, cons
          d.insert(d.end(), weak_postfix.cbegin(), weak_postfix.cend());
          sig =  priv_key.sign(d);
       } else {
-         // here ideally `priv_key.sign()` would accept a `std::span` instead of requiring a vector construction
-         sig =  priv_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
+         sig =  priv_key.sign({(uint8_t*)digest.data(), (uint8_t*)digest.data() + digest.data_size()});
       }
       return vote_message{ p->id(), decision == VoteDecision::StrongVote, pub_key, sig };
    }

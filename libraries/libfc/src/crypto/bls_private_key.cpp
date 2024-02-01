@@ -19,7 +19,7 @@ namespace fc::crypto::blslib {
       return bls_signature(proof);
    }
 
-   bls_signature bls_private_key::sign( const std::vector<uint8_t>& message ) const
+   bls_signature bls_private_key::sign( std::span<const uint8_t> message ) const
    {
       bls12_381::g2 sig = bls12_381::sign(_sk, message);
       return bls_signature(sig);

@@ -155,7 +155,7 @@ namespace eosio::chain {
          void resize(size_t num_finalizers) { _bitset.resize(num_finalizers); }
          size_t count() const { return _bitset.count(); }
 
-         bool add_vote(const std::vector<uint8_t>& proposal_digest, size_t index, const bls_public_key& pubkey,
+         bool add_vote(std::span<const uint8_t> proposal_digest, size_t index, const bls_public_key& pubkey,
                        const bls_signature& new_sig);
 
          void reset(size_t num_finalizers);
@@ -170,7 +170,7 @@ namespace eosio::chain {
 
       // thread safe
       std::pair<bool, bool> add_vote(bool strong,
-                                     const std::vector<uint8_t>&proposal_digest,
+                                     std::span<const uint8_t> proposal_digest,
                                      size_t index,
                                      const bls_public_key&pubkey,
                                      const bls_signature&sig,
@@ -202,14 +202,14 @@ namespace eosio::chain {
       votes_t              _strong_votes;
 
       // called by add_vote, already protected by mutex
-      bool add_strong_vote(const std::vector<uint8_t>& proposal_digest,
+      bool add_strong_vote(std::span<const uint8_t> proposal_digest,
                            size_t index,
                            const bls_public_key& pubkey,
                            const bls_signature& sig,
                            uint64_t weight);
 
       // called by add_vote, already protected by mutex
-      bool add_weak_vote(const std::vector<uint8_t>& proposal_digest,
+      bool add_weak_vote(std::span<const uint8_t> proposal_digest,
                          size_t index,
                          const bls_public_key& pubkey,
                          const bls_signature& sig,

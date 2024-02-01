@@ -95,8 +95,8 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
   bls_signature agg_signature = signature;
    
   for (int i = 1 ; i< 21 ;i++){
-    agg_pk = aggregate({agg_pk, pk});
-    agg_signature = aggregate({agg_signature, signature});
+    agg_pk = aggregate(std::array{agg_pk, pk});
+    agg_signature = aggregate(std::array{agg_signature, signature});
   }
 
   // Verify the signature
@@ -120,8 +120,8 @@ BOOST_AUTO_TEST_CASE(bls_agg_sig_verif) try {
 
   bls_signature sig2 = sk2.sign(message_1);
 
-  bls_public_key aggKey = aggregate({pk1, pk2});
-  bls_signature aggSig = aggregate({sig1, sig2});
+  bls_public_key aggKey = aggregate(std::array{pk1, pk2});
+  bls_signature aggSig = aggregate(std::array{sig1, sig2});
 
   // Verify the signature
   bool ok = verify(aggKey, message_1, aggSig);
@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 
   bls_signature sig2 = sk2.sign(message_2);
 
-  bls_signature aggSig = aggregate({sig1, sig2});
+  bls_signature aggSig = aggregate(std::array{sig1, sig2});
 
   std::vector<bls_public_key> pubkeys = {pk1, pk2};
   std::vector<std::vector<uint8_t>> messages = {message_1, message_2};

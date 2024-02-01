@@ -80,8 +80,7 @@ std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const vote_
       auto index = std::distance(finalizers.begin(), it);
       const digest_type& digest = vote.strong ? strong_digest : weak_digest;
       auto [valid, strong] = pending_qc.add_vote(vote.strong,
-#warning TODO change to use std::span if possible
-                                 std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()},
+                                 {(uint8_t*)digest.data(), (uint8_t*)digest.data() + digest.data_size()},
                                  index,
                                  vote.finalizer_key,
                                  vote.sig,
