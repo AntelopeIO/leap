@@ -21,7 +21,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 
-args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running",
+args = TestHelper.parse_args({"--prod-count","--activate-if","--dump-error-details","--keep-logs","-v","--leave-running",
                               "--wallet-port","--unshared"})
 Utils.Debug=args.v
 totalProducerNodes=2
@@ -30,6 +30,7 @@ totalNodes=totalProducerNodes+totalNonProducerNodes
 maxActiveProducers=3
 totalProducers=maxActiveProducers
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 walletPort=args.wallet_port
 
@@ -64,7 +65,7 @@ try:
     # "bridge" shape connects defprocera through defproducerb (in node0) to each other and defproducerc is alone (in node01)
     # and the only connection between those 2 groups is through the bridge node
     if cluster.launch(prodCount=2, topo="bridge", pnodes=totalProducerNodes,
-                      totalNodes=totalNodes, totalProducers=totalProducers,
+                      totalNodes=totalNodes, totalProducers=totalProducers, activateIF=activateIF,
                       specificExtraNodeosArgs=specificExtraNodeosArgs,
                       extraNodeosArgs=extraNodeosArgs) is False:
         Utils.cmdError("launcher")

@@ -15,12 +15,13 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"-p","-n","-d","--keep-logs"
-                            ,"--dump-error-details","-v"
+                            ,"--activate-if","--dump-error-details","-v"
                             ,"--leave-running","--unshared"})
 pnodes=args.p
 delay=args.d
 debug=args.v
 total_nodes=5
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 
 Utils.Debug=debug
@@ -42,7 +43,7 @@ try:
         '2': '--agent-name node-02 --p2p-peer-address localhost:9779 --plugin eosio::net_api_plugin',
         '4': '--agent-name node-04 --p2p-peer-address localhost:9876 --plugin eosio::net_api_plugin',
     }
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo='line', delay=delay, 
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo='line', delay=delay, activateIF=activateIF,
                       specificExtraNodeosArgs=specificArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 

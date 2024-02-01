@@ -18,7 +18,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"-p","-d","-s","-c","--kill-sig","--kill-count","--keep-logs"
-                            ,"--dump-error-details","-v","--leave-running","--unshared"})
+                            ,"--activate-if","--dump-error-details","-v","--leave-running","--unshared"})
 pnodes=args.p
 topo=args.s
 delay=args.d
@@ -27,6 +27,7 @@ debug=args.v
 total_nodes = pnodes
 killCount=args.kill_count if args.kill_count > 0 else 1
 killSignal=args.kill_sig
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 
 seed=1
@@ -48,7 +49,7 @@ try:
     pnodes, topo, delay, chainSyncStrategyStr))
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, activateIF=activateIF) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")
