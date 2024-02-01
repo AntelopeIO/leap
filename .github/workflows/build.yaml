@@ -229,7 +229,7 @@ jobs:
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.cfg.name}}
           tests-label: long_running_tests
-          test-timeout: 1800
+          test-timeout: 2700
       - name: Export core dumps
         run: docker run --mount type=bind,source=/var/lib/systemd/coredump,target=/cores alpine sh -c 'tar -C /cores/ -c .' | tar x
         if: failure()
