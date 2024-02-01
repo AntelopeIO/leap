@@ -359,9 +359,8 @@ set_property(TEST light_validation_sync_if_test PROPERTY LABELS nonparallelizabl
 
 add_test(NAME auto_bp_peering_test COMMAND tests/auto_bp_peering_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST auto_bp_peering_test PROPERTY LABELS long_running_tests)
-# requires https://github.com/AntelopeIO/leap/issues/2175 & https://github.com/AntelopeIO/leap/issues/2173
-#add_test(NAME auto_bp_peering_if_test COMMAND tests/auto_bp_peering_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-#set_property(TEST auto_bp_peering_if_test PROPERTY LABELS long_running_tests)
+add_test(NAME auto_bp_peering_if_test COMMAND tests/auto_bp_peering_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST auto_bp_peering_if_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME gelf_test COMMAND tests/gelf_test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST gelf_test PROPERTY LABELS nonparallelizable_tests)
