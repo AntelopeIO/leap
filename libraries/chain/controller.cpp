@@ -1206,13 +1206,16 @@ struct controller_impl {
                   apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
                }
 
+               elog("emit irreversible_block ${bn}:${id}", ("bn", (*bitr)->block->block_num())("id", (*bitr)->id()));
                emit( self.irreversible_block, std::tie((*bitr)->block, (*bitr)->id()) );
 
                // blog.append could fail due to failures like running out of space.
                // Do it before commit so that in case it throws, DB can be rolled back.
+               elog("blog append irreversible_block ${bn}:${id}", ("bn", (*bitr)->block->block_num())("id", (*bitr)->id()));
                blog.append( (*bitr)->block, (*bitr)->id(), it->get() );
                ++it;
 
+               elog("db commit irreversible_block ${bn}:${id}", ("bn", (*bitr)->block->block_num())("id", (*bitr)->id()));
                db.commit( (*bitr)->block_num() );
                root_id = (*bitr)->id();
             }
@@ -1227,8 +1230,11 @@ struct controller_impl {
 
          if( root_id != forkdb.root()->id() ) {
             branch.emplace_back(forkdb.root());
+            elog("advance_root ${id}", ("id", root_id));
             forkdb.advance_root( root_id );
          }
+
+         elog("forkdb.root() ${id}", ("id", root_id));
 
          // delete branch in thread pool
          boost::asio::post( thread_pool.get_executor(), [branch{std::move(branch)}]() {} );
