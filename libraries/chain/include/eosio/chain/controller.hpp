@@ -90,6 +90,7 @@ namespace eosio::chain {
             flat_set<account_name>   contract_blacklist;
             flat_set< pair<account_name, action_name> > action_blacklist;
             flat_set<public_key_type> key_blacklist;
+            block_timestamp_type     node_startup_time      { fc::time_point::now() };
             path                     data_dir               =  std::filesystem::current_path();
             path                     blocks_dir             =  chain::config::default_blocks_dir_name;
             block_log_config         blog;

@@ -9,12 +9,14 @@
 #include <utility>
 
 namespace eosio::chain {
+   // ----------------------------------------------------------------------------------------
    struct qc_chain_t {
       block_state_ptr b2; // first phase,  prepare
       block_state_ptr b1; // second phase, precommit
       block_state_ptr b;  // third phase,  commit
    };
 
+   // ----------------------------------------------------------------------------------------
    struct finalizer {
       enum class VoteDecision { StrongVote, WeakVote, NoVote };
 
@@ -55,7 +57,8 @@ namespace eosio::chain {
       safety_information        fsi;
 
    private:
-      qc_chain_t     get_qc_chain(const block_state_ptr&  proposal, const fork_database_if_t::branch_type& branch) const;
+      using branch_type = fork_database_if_t::branch_type;
+      qc_chain_t     get_qc_chain(const block_state_ptr&  proposal, const branch_type& branch) const;
       VoteDecision   decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:
@@ -71,13 +74,15 @@ namespace eosio::chain {
       }
    };
 
+   // ----------------------------------------------------------------------------------------
    struct finalizer_set {
       using fsi_map = std::map<bls_public_key, finalizer::safety_information>;
 
-      const std::filesystem::path      persist_file_path;
-      std::set<finalizer, std::less<>> finalizers;
-      fc::datastream<fc::cfile>        persist_file;
-      fsi_map                          inactive_safety_info; // loaded at startup, not mutated afterwards
+      const block_timestamp_type        node_startup_time;     // used for default safety_information
+      const std::filesystem::path       persist_file_path;     // where we save the safety data
+      mutable fc::datastream<fc::cfile> persist_file;          // we want to keep the file open for speed
+      std::set<finalizer, std::less<>>  finalizers;            // the active finalizers for this node
+      fsi_map                           inactive_safety_info;  // loaded at startup, not mutated afterwards
 
       template<class F>
       void maybe_vote(const finalizer_policy &fin_pol,
@@ -111,8 +116,9 @@ namespace eosio::chain {
       void set_keys(const std::map<std::string, std::string>& finalizer_keys);
 
    private:
-      void    save_finalizer_safety_info();
+      void    save_finalizer_safety_info() const;
       fsi_map load_finalizer_safety_info();
+      finalizer::safety_information default_safety_information() const;
    };
 
 }

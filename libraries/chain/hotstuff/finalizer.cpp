@@ -12,13 +12,13 @@ block_state_ptr get_block_by_height(const fork_database_if_t::branch_type& branc
 }
 
 // ----------------------------------------------------------------------------------------
-qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_database_if_t::branch_type& branch) const {
+qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const branch_type& branch) const {
    qc_chain_t res;
 
    // get b2
    // ------
    auto it2 = std::find_if(branch.begin(), branch.end(),
-                           [t=proposal->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
+        [t=proposal->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
    if (it2 == branch.end())
       return res;
    res.b2 = *it2;
@@ -26,7 +26,7 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_d
    // get b1
    // ------
    auto it1 = std::find_if(++it2, branch.end(),
-                           [t=res.b2->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
+        [t=res.b2->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
    if (it1 == branch.end())
       return res;
    res.b1 = *it1;
@@ -34,7 +34,7 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const fork_d
    // get b
    // ------
    auto it = std::find_if(++it1, branch.end(),
-                          [t=res.b1->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
+        [t=res.b1->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
    if (it == branch.end())
       return res;
    res.b = *it;
@@ -67,7 +67,7 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    // we expect last_qc_block_num() to always be found except at bootstrap
    // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num
    // from fork_db.root(), and specify weak.
-   auto bsp_last_qc   = p->last_qc_block_num() ? get_block_by_height(p_branch, *p->last_qc_block_num()) : block_state_ptr{};
+   auto bsp_last_qc = p->last_qc_block_num() ? get_block_by_height(p_branch, *p->last_qc_block_num()) : block_state_ptr{};
 
    bool monotony_check = !fsi.last_vote || p->timestamp() > fsi.last_vote.timestamp;
    // !fsi.last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed
@@ -151,7 +151,7 @@ std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, cons
 }
 
 // ----------------------------------------------------------------------------------------
-void finalizer_set::save_finalizer_safety_info() {
+void finalizer_set::save_finalizer_safety_info() const {
 
    if (!persist_file.is_open()) {
       EOS_ASSERT(!persist_file_path.empty(), finalizer_safety_exception,
@@ -251,7 +251,7 @@ void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer
    for (const auto& [pub_key_str, priv_key_str] : finalizer_keys) {
       auto public_key {bls_public_key{pub_key_str}};
       auto it  = safety_info.find(public_key);
-      auto fsi = it != safety_info.end() ? it->second : finalizer::safety_information{};
+      auto fsi = it != safety_info.end() ? it->second : default_safety_information();
       finalizers.insert(finalizer{public_key, bls_private_key{priv_key_str}, fsi});
    }
 
@@ -268,6 +268,13 @@ void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer
 
    // now only inactive finalizers remain in safety_info => move it to inactive_safety_info
    inactive_safety_info = std::move(safety_info);
+}
+
+
+// ----------------------------------------------------------------------------------------
+finalizer::safety_information finalizer_set::default_safety_information() const {
+   finalizer::safety_information res;
+   return res;
 }
 
 } // namespace eosio::chain
