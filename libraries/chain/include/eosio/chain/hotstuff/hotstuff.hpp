@@ -93,7 +93,7 @@ namespace eosio::chain {
    };
 
    enum class vote_status {
-      succeeded,
+      success,
       duplicate,
       unknown_public_key,
       invalid_signature,

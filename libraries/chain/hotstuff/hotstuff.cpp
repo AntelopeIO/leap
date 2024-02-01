@@ -31,7 +31,7 @@ vote_status pending_quorum_certificate::votes_t::add_vote(const std::vector<uint
    }
    _bitset.set(index);
    _sig = fc::crypto::blslib::aggregate({_sig, new_sig}); // works even if _sig is default initialized (fp2::zero())
-   return vote_status::succeeded;
+   return vote_status::success;
 }
 
 void pending_quorum_certificate::votes_t::reset(size_t num_finalizers) {
@@ -62,7 +62,7 @@ bool pending_quorum_certificate::is_quorum_met() const {
 vote_status pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
                                                         const bls_public_key& pubkey, const bls_signature& sig,
                                                         uint64_t weight) {
-   if (auto s = _strong_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::succeeded)
+   if (auto s = _strong_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success)
       return s;
    _strong_sum += weight;
 
@@ -86,14 +86,14 @@ vote_status pending_quorum_certificate::add_strong_vote(const std::vector<uint8_
       // getting another strong vote...nothing to do
       break;
    }
-   return vote_status::succeeded;
+   return vote_status::success;
 }
 
 // called by add_vote, already protected by mutex
 vote_status pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
                                                       const bls_public_key& pubkey, const bls_signature& sig,
                                                       uint64_t weight) {
-   if (auto s = _weak_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::succeeded)
+   if (auto s = _weak_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success)
       return s;
    _weak_sum += weight;
 
@@ -121,7 +121,7 @@ vote_status pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>
       // getting another weak vote... nothing to do
       break;
    }
-   return vote_status::succeeded;
+   return vote_status::success;
 }
 
 // thread safe, <valid, strong>

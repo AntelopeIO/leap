@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       // add duplicate weak vote
       // -----------------------
       auto ok = weak_vote(qc, digest, 0, weight);
-      BOOST_CHECK(ok != vote_status::succeeded); // vote was a duplicate
+      BOOST_CHECK(ok != vote_status::success); // vote was a duplicate
       BOOST_CHECK_EQUAL(qc.state(), state_t::weak_achieved);
       BOOST_CHECK(qc.is_quorum_met());
 

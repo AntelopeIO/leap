@@ -3703,7 +3703,7 @@ namespace eosio {
       controller& cc = my_impl->chain_plug->chain();
 
       switch( cc.process_vote_message(msg) ) {
-         case vote_status::succeeded:
+         case vote_status::success:
             my_impl->bcast_vote_message(connection_id, msg);
             break;
          case vote_status::unknown_public_key:
