@@ -10,7 +10,7 @@
 #include <fc/io/fstream.hpp>
 #include <fc/io/cfile.hpp>
 #include <fstream>
-#include <shared_mutex>
+#include <mutex>
 
 namespace eosio::chain {
    using boost::multi_index_container;
@@ -57,7 +57,7 @@ namespace eosio::chain {
                                          BOOST_MULTI_INDEX_CONST_MEM_FUN(bs, const block_id_type&, id)>,
                            composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>, sha256_less>>>>;
 
-      std::shared_mutex      mtx;
+      std::mutex             mtx;
       fork_multi_index_type  index;
       bsp                    root; // Only uses the block_header_state_legacy portion
       bsp                    head;
@@ -313,7 +313,7 @@ namespace eosio::chain {
 
    template<class bsp>
    fork_database_t<bsp>::bhsp fork_database_t<bsp>::get_block_header( const block_id_type& id ) const {
-      std::shared_lock g( my->mtx );
+      std::lock_guard g( my->mtx );
       return my->get_block_header_impl( id );
    }
 
@@ -381,19 +381,19 @@ namespace eosio::chain {
 
    template<class bsp>
    bsp fork_database_t<bsp>::root() const {
-      std::shared_lock g( my->mtx );
+      std::lock_guard g( my->mtx );
       return my->root;
    }
 
    template<class bsp>
    bsp fork_database_t<bsp>::head() const {
-      std::shared_lock g( my->mtx );
+      std::lock_guard g( my->mtx );
       return my->head;
    }
 
    template<class bsp>
    bsp fork_database_t<bsp>::pending_head() const {
-      std::shared_lock g( my->mtx );
+      std::lock_guard g( my->mtx );
       const auto& indx = my->index.template get<by_lib_block_num>();
 
       auto itr = indx.lower_bound( false );
@@ -407,9 +407,8 @@ namespace eosio::chain {
 
    template <class bsp>
    fork_database_t<bsp>::branch_type
-   fork_database_t<bsp>::fetch_branch(const block_id_type& h,
-                                          uint32_t trim_after_block_num) const {
-      std::shared_lock g(my->mtx);
+   fork_database_t<bsp>::fetch_branch(const block_id_type& h, uint32_t trim_after_block_num) const {
+      std::lock_guard g(my->mtx);
       return my->fetch_branch_impl(h, trim_after_block_num);
    }
 
@@ -427,7 +426,7 @@ namespace eosio::chain {
 
    template<class bsp>
    bsp fork_database_t<bsp>::search_on_branch( const block_id_type& h, uint32_t block_num ) const {
-      std::shared_lock g( my->mtx );
+      std::lock_guard g( my->mtx );
       return my->search_on_branch_impl( h, block_num );
    }
 
@@ -448,7 +447,7 @@ namespace eosio::chain {
    template <class bsp>
    fork_database_t<bsp>::branch_type_pair
    fork_database_t<bsp>::fetch_branch_from(const block_id_type& first, const block_id_type& second) const {
-      std::shared_lock g(my->mtx);
+      std::lock_guard g(my->mtx);
       return my->fetch_branch_from_impl(first, second);
    }
 
@@ -570,7 +569,7 @@ namespace eosio::chain {
 
    template<class bsp>
    bsp fork_database_t<bsp>::get_block(const block_id_type& id) const {
-      std::shared_lock g( my->mtx );
+      std::lock_guard g( my->mtx );
       return my->get_block_impl(id);
    }
 
