@@ -19,9 +19,6 @@ inline account_name get_expected_producer(const vector<producer_authority>& sche
 
 } // anonymous namespace
 
-#warning TODO Enable test, currently SEGFAULTing https://github.com/AntelopeIO/leap/issues/2175
-#if 0
-
 BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activation, validating_tester ) try {
 
    // Utility function to ensure that producer schedule work as expected
@@ -349,7 +346,6 @@ BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, validating_tester ) try {
 } FC_LOG_AND_RETHROW()
 
 **/
-#endif
 
 BOOST_FIXTURE_TEST_CASE( tmp_placeholder, validating_tester ) try {
    // avoid: Test setup error: no test cases matching filter or all test cases were disabled
