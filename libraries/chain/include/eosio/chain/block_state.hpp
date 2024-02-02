@@ -7,13 +7,13 @@
 
 namespace eosio::chain {
 
-constexpr std::string weak_bls_sig_postfix = "WEAK";
+constexpr std::array weak_bls_sig_postfix = { 'W', 'E', 'A', 'K' };
 using weak_digest_t = std::array<uint8_t, sizeof(digest_type) + weak_bls_sig_postfix.size()>;
 
 inline weak_digest_t create_weak_digest(const digest_type& digest) {
    weak_digest_t res;
    std::memcpy(res.begin(), digest.data(), digest.data_size());
-   std::memcpy(res.begin() + digest.data_size(), weak_bls_sig_postfix.c_str(), weak_bls_sig_postfix.size());
+   std::memcpy(res.begin() + digest.data_size(), weak_bls_sig_postfix.data(), weak_bls_sig_postfix.size());
    return res;
 }
 

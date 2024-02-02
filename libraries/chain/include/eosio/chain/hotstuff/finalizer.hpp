@@ -78,7 +78,7 @@ namespace eosio::chain {
    struct finalizer_set {
       using fsi_map = std::map<bls_public_key, finalizer::safety_information>;
 
-      const block_timestamp_type        node_startup_time;     // used for default safety_information
+      const block_timestamp_type        t_startup;             // nodeos startup time, used for default safety_information
       const std::filesystem::path       persist_file_path;     // where we save the safety data
       mutable fc::datastream<fc::cfile> persist_file;          // we want to keep the file open for speed
       std::set<finalizer, std::less<>>  finalizers;            // the active finalizers for this node
@@ -114,6 +114,8 @@ namespace eosio::chain {
       }
 
       void set_keys(const std::map<std::string, std::string>& finalizer_keys);
+      void finality_transition_notification(block_timestamp_type b1_time, block_id_type b1_id,
+                                            block_timestamp_type b2_time, block_id_type b2_id);
 
    private:
       void    save_finalizer_safety_info() const;

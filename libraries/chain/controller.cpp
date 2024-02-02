@@ -1085,7 +1085,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    my_finalizers(cfg.node_startup_time, cfg.data_dir / "finalizers" / "safety.dat"),
+    my_finalizers{ .t_startup = cfg.node_startup_time, .persist_file_path = cfg.data_dir / "finalizers" / "safety.dat" },
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open([this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
@@ -2739,6 +2739,16 @@ struct controller_impl {
                if (if_extension.new_finalizer_policy) {
                   ilog("Transition to instant finality happening after block ${b}", ("b", forkdb.chain_head->block_num()));
                   if_irreversible_block_num = forkdb.chain_head->block_num();
+
+                  {
+                     // notify finalizers of transition information, so they can update their safety
+                     // information if necessary. See https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw
+                     // [if todo] sett values accurately
+                     auto start_block = forkdb.chain_head;
+                     auto lib_block   = forkdb.chain_head;
+                     my_finalizers.finality_transition_notification(start_block->timestamp(), start_block->id(),
+                                                                    lib_block->timestamp(), lib_block->id());
+                  }
 
                   log_irreversible();
                   return true;

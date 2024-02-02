@@ -277,4 +277,10 @@ finalizer::safety_information finalizer_set::default_safety_information() const 
    return res;
 }
 
+// ----------------------------------------------------------------------------------------
+void finalizer_set::finality_transition_notification(block_timestamp_type b1_time, block_id_type b1_id,
+                                                     block_timestamp_type b2_time, block_id_type b2_id) {
+
+}
+
 } // namespace eosio::chain
