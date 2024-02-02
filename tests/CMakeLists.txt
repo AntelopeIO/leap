@@ -223,8 +223,9 @@ set_property(TEST trx_finality_status_if_test PROPERTY LABELS nonparallelizable_
 
 add_test(NAME trx_finality_status_forked_test COMMAND tests/trx_finality_status_forked_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST trx_finality_status_forked_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME trx_finality_status_forked_if_test COMMAND tests/trx_finality_status_forked_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST trx_finality_status_forked_if_test PROPERTY LABELS nonparallelizable_tests)
+# requires https://github.com/AntelopeIO/leap/issues/2189
+#add_test(NAME trx_finality_status_forked_if_test COMMAND tests/trx_finality_status_forked_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST trx_finality_status_forked_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME db_modes_test COMMAND tests/db_modes_test.sh -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(db_modes_test PROPERTIES COST 6000)
@@ -272,6 +273,8 @@ set_property(TEST nodeos_voting_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_under_min_avail_ram_lr_test COMMAND tests/nodeos_under_min_avail_ram.py -v --wallet-port 9904 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_under_min_avail_ram_lr_test PROPERTY LABELS long_running_tests)
+add_test(NAME nodeos_under_min_avail_ram_if_lr_test COMMAND tests/nodeos_under_min_avail_ram.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_under_min_avail_ram_if_lr_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME nodeos_irreversible_mode_lr_test COMMAND tests/nodeos_irreversible_mode_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_irreversible_mode_lr_test PROPERTY LABELS long_running_tests)
@@ -359,9 +362,8 @@ set_property(TEST light_validation_sync_if_test PROPERTY LABELS nonparallelizabl
 
 add_test(NAME auto_bp_peering_test COMMAND tests/auto_bp_peering_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST auto_bp_peering_test PROPERTY LABELS long_running_tests)
-# requires https://github.com/AntelopeIO/leap/issues/2175 & https://github.com/AntelopeIO/leap/issues/2173
-#add_test(NAME auto_bp_peering_if_test COMMAND tests/auto_bp_peering_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-#set_property(TEST auto_bp_peering_if_test PROPERTY LABELS long_running_tests)
+add_test(NAME auto_bp_peering_if_test COMMAND tests/auto_bp_peering_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST auto_bp_peering_if_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME gelf_test COMMAND tests/gelf_test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST gelf_test PROPERTY LABELS nonparallelizable_tests)

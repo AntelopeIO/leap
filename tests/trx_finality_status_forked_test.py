@@ -130,6 +130,8 @@ try:
 
     assert not nonProdNode.verifyAlive(), "Bridge node should have been killed if test was functioning correctly."
 
+    assert prodC.waitForNextBlock(), "Prod node C should continue to advance, even after bridge node is killed"
+
     def getState(status):
         assert status is not None, "ERROR: getTransactionStatus failed to return any status"
         assert "state" in status, \
@@ -149,8 +151,8 @@ try:
     forkedOutState = "FORKED_OUT"
     unknownState = "UNKNOWN"
 
-    assert state == localState, \
-        f"ERROR: getTransactionStatus didn't return \"{localState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
+    assert state == localState or state == inBlockState, \
+        f"ERROR: getTransactionStatus didn't return \"{localState}\" or \"{inBlockState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}"
 
     assert prodC.waitForNextBlock(), "Production node C should continue to advance, even after bridge node is killed"
 

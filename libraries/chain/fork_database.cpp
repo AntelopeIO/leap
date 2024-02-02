@@ -10,6 +10,7 @@
 #include <fc/io/fstream.hpp>
 #include <fc/io/cfile.hpp>
 #include <fstream>
+#include <mutex>
 
 namespace eosio::chain {
    using boost::multi_index_container;
@@ -56,6 +57,7 @@ namespace eosio::chain {
                                          BOOST_MULTI_INDEX_CONST_MEM_FUN(bs, const block_id_type&, id)>,
                            composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>, sha256_less>>>>;
 
+      std::mutex             mtx;
       fork_multi_index_type  index;
       bsp                    root; // Only uses the block_header_state_legacy portion
       bsp                    head;
@@ -88,6 +90,7 @@ namespace eosio::chain {
 
    template<class bsp>
    void fork_database_t<bsp>::open( const std::filesystem::path& fork_db_file, validator_t& validator ) {
+      std::lock_guard g( my->mtx );
       my->open_impl( fork_db_file, validator );
    }
 
@@ -163,6 +166,7 @@ namespace eosio::chain {
 
    template<class bsp>
    void fork_database_t<bsp>::close(const std::filesystem::path& fork_db_file) {
+      std::lock_guard g( my->mtx );
       my->close_impl(fork_db_file);
    }
 
@@ -230,6 +234,7 @@ namespace eosio::chain {
 
    template<class bsp>
    void fork_database_t<bsp>::reset( const bhs& root_bhs ) {
+      std::lock_guard g( my->mtx );
       my->reset_impl(root_bhs);
    }
 
@@ -244,6 +249,7 @@ namespace eosio::chain {
 
    template<class bsp>
    void fork_database_t<bsp>::rollback_head_to_root() {
+      std::lock_guard g( my->mtx );
       my->rollback_head_to_root_impl();
    }
 
@@ -262,6 +268,7 @@ namespace eosio::chain {
 
    template<class bsp>
    void fork_database_t<bsp>::advance_root( const block_id_type& id ) {
+      std::lock_guard g( my->mtx );
       my->advance_root_impl( id );
    }
 
@@ -302,6 +309,7 @@ namespace eosio::chain {
 
    template<class bsp>
    fork_database_t<bsp>::bhsp fork_database_t<bsp>::get_block_header( const block_id_type& id ) const {
+      std::lock_guard g( my->mtx );
       return my->get_block_header_impl( id );
    }
 
@@ -358,6 +366,7 @@ namespace eosio::chain {
 
    template<class bsp>
    void fork_database_t<bsp>::add( const bsp& n, bool ignore_duplicate ) {
+      std::lock_guard g( my->mtx );
       my->add_impl( n, ignore_duplicate, false,
                     []( block_timestamp_type timestamp,
                         const flat_set<digest_type>& cur_features,
@@ -368,16 +377,19 @@ namespace eosio::chain {
 
    template<class bsp>
    bsp fork_database_t<bsp>::root() const {
+      std::lock_guard g( my->mtx );
       return my->root;
    }
 
    template<class bsp>
    bsp fork_database_t<bsp>::head() const {
+      std::lock_guard g( my->mtx );
       return my->head;
    }
 
    template<class bsp>
    bsp fork_database_t<bsp>::pending_head() const {
+      std::lock_guard g( my->mtx );
       const auto& indx = my->index.template get<by_lib_block_num>();
 
       auto itr = indx.lower_bound( false );
@@ -391,8 +403,8 @@ namespace eosio::chain {
 
    template <class bsp>
    fork_database_t<bsp>::branch_type
-   fork_database_t<bsp>::fetch_branch(const block_id_type& h,
-                                          uint32_t trim_after_block_num) const {
+   fork_database_t<bsp>::fetch_branch(const block_id_type& h, uint32_t trim_after_block_num) const {
+      std::lock_guard g(my->mtx);
       return my->fetch_branch_impl(h, trim_after_block_num);
    }
 
@@ -410,6 +422,7 @@ namespace eosio::chain {
 
    template<class bsp>
    bsp fork_database_t<bsp>::search_on_branch( const block_id_type& h, uint32_t block_num ) const {
+      std::lock_guard g( my->mtx );
       return my->search_on_branch_impl( h, block_num );
    }
 
@@ -430,6 +443,7 @@ namespace eosio::chain {
    template <class bsp>
    fork_database_t<bsp>::branch_type_pair
    fork_database_t<bsp>::fetch_branch_from(const block_id_type& first, const block_id_type& second) const {
+      std::lock_guard g(my->mtx);
       return my->fetch_branch_from_impl(first, second);
    }
 
@@ -496,6 +510,7 @@ namespace eosio::chain {
    /// remove all of the invalid forks built off of this id including this id
    template<class bsp>
    void fork_database_t<bsp>::remove( const block_id_type& id ) {
+      std::lock_guard g( my->mtx );
       return my->remove_impl( id );
    }
 
@@ -523,6 +538,7 @@ namespace eosio::chain {
 
    template<class bsp>
    void fork_database_t<bsp>::mark_valid( const bsp& h ) {
+      std::lock_guard g( my->mtx );
       my->mark_valid_impl( h );
    }
 
@@ -549,6 +565,7 @@ namespace eosio::chain {
 
    template<class bsp>
    bsp fork_database_t<bsp>::get_block(const block_id_type& id) const {
+      std::lock_guard g( my->mtx );
       return my->get_block_impl(id);
    }
 
@@ -563,7 +580,10 @@ namespace eosio::chain {
    // ------------------ fork_database -------------------------
 
    fork_database::fork_database(const std::filesystem::path& data_dir)
-      : data_dir(data_dir) {
+      : data_dir(data_dir)
+        // currently needed because chain_head is accessed before fork database open
+      , fork_db_legacy{std::make_unique<fork_database_legacy_t>(fork_database_legacy_t::legacy_magic_number)}
+   {
    }
 
    fork_database::~fork_database() {
@@ -575,7 +595,6 @@ namespace eosio::chain {
    }
 
    void fork_database::open( validator_t& validator ) {
-      std::lock_guard g(m);
       if (!std::filesystem::is_directory(data_dir))
          std::filesystem::create_directories(data_dir);
 
@@ -599,12 +618,14 @@ namespace eosio::chain {
             );
 
             if (totem == fork_database_legacy_t::legacy_magic_number) {
+               // fork_db_legacy created in constructor
                apply_legacy<void>([&](auto& forkdb) {
                   forkdb.open(fork_db_file, validator);
                });
             } else {
                // file is instant-finality data, so switch to fork_database_if_t
-               vforkdb.emplace<fork_database_if_t>(fork_database_if_t::magic_number);
+               fork_db_if = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
+               legacy = false;
                apply_if<void>([&](auto& forkdb) {
                   forkdb.open(fork_db_file, validator);
                });
@@ -614,11 +635,13 @@ namespace eosio::chain {
    }
 
    void fork_database::switch_from_legacy() {
-      std::lock_guard g(m);
       // no need to close fork_db because we don't want to write anything out, file is removed on open
-      block_state_legacy_ptr head = std::get<fork_database_legacy_t>(vforkdb).chain_head; // will throw if called after transistion
+      // threads may be accessing (or locked on mutex about to access legacy forkdb) so don't delete it until program exit
+      assert(legacy);
+      block_state_legacy_ptr head = fork_db_legacy->chain_head; // will throw if called after transistion
       auto new_head = std::make_shared<block_state>(*head);
-      vforkdb.emplace<fork_database_if_t>(fork_database_if_t::magic_number);
+      fork_db_if = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
+      legacy = false;
       apply_if<void>([&](auto& forkdb) {
          forkdb.chain_head = new_head;
          forkdb.reset(*new_head);
