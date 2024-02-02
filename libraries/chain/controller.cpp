@@ -1551,7 +1551,6 @@ struct controller_impl {
    }
 
    ~controller_impl() {
-      thread_pool.stop();
       pending.reset();
       //only log this not just if configured to, but also if initialization made it to the point we'd log the startup too
       if(okay_to_print_integrity_hash_on_stop && conf.integrity_hash_on_stop)
@@ -3873,12 +3872,12 @@ controller::controller( const config& cfg, protocol_feature_set&& pfs, const cha
 
 controller::~controller() {
    my->abort_block();
-   /* Shouldn't be needed anymore.
-   //close fork_db here, because it can generate "irreversible" signal to this controller,
-   //in case if read-mode == IRREVERSIBLE, we will apply latest irreversible block
-   //for that we need 'my' to be valid pointer pointing to valid controller_impl.
-   my->fork_db.close();
-   */
+   // controller_impl (my) holds a reference to controller (controller_impl.self)
+   // The self is mainly used to access signals defined on controller. Currently
+   // nothing posted to the thread_pool accesses the `self` reference, but to make
+   // sure it is safe in case something is added to the thread pool that does access self,
+   // stop the thread pool before the unique_ptr (my) destructor runs.
+   my->thread_pool.stop();
 }
 
 void controller::add_indices() {
