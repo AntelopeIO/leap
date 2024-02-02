@@ -50,7 +50,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);
    const deque<transaction_metadata_ptr>& trxs_metas()  const { return cached_trxs; }
   
-   std::pair<bool, std::optional<uint32_t>> aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
+   std::pair<vote_status, std::optional<uint32_t>> aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
    void verify_qc(const valid_quorum_certificate& qc) const; // verify given qc is valid with respect block_state
 
    using bhs_t  = block_header_state;

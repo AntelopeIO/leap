@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
          bool strong = (i % 2 == 0); // alternate strong and weak
          auto sig = strong ? private_key[i].sign(strong_digest.to_span()) : private_key[i].sign(weak_digest);
          vote_message vote{ block_id, strong, public_key[i], sig };
-         BOOST_REQUIRE(bsp->aggregate_vote(vote).first);
+         BOOST_REQUIRE(bsp->aggregate_vote(vote).first == vote_status::success);
       }
    }
 
@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bsp->pending_qc = pending_quorum_certificate{ num_finalizers, 1, bsp->active_finalizer_policy->max_weak_sum_before_weak_final() };
 
       vote_message vote {block_id, true, public_key[0], private_key[1].sign(strong_digest.to_span()) };
-      BOOST_REQUIRE(!bsp->aggregate_vote(vote).first);
+      BOOST_REQUIRE(bsp->aggregate_vote(vote).first != vote_status::success);
    }
 
    {  // duplicate votes 
@@ -68,8 +68,8 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bsp->pending_qc = pending_quorum_certificate{ num_finalizers, 1, bsp->active_finalizer_policy->max_weak_sum_before_weak_final() };
 
       vote_message vote {block_id, true, public_key[0], private_key[0].sign(strong_digest.to_span()) };
-      BOOST_REQUIRE(bsp->aggregate_vote(vote).first);
-      BOOST_REQUIRE(!bsp->aggregate_vote(vote).first);
+      BOOST_REQUIRE(bsp->aggregate_vote(vote).first == vote_status::success);
+      BOOST_REQUIRE(bsp->aggregate_vote(vote).first != vote_status::success);
    }
 
    {  // public key does not exit in finalizer set
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(aggregate_vote_test) try {
       bls_public_key new_public_key{ new_private_key.get_public_key() };
 
       vote_message vote {block_id, true, new_public_key, private_key[0].sign(strong_digest.to_span()) };
-      BOOST_REQUIRE(!bsp->aggregate_vote(vote).first);
+      BOOST_REQUIRE(bsp->aggregate_vote(vote).first != vote_status::success);
    }
 } FC_LOG_AND_RETHROW();
 
@@ -125,7 +125,7 @@ void do_quorum_test(const std::vector<uint64_t>& weights,
       if( to_vote[i] ) {
          auto sig = strong ? private_key[i].sign(strong_digest.to_span()) : private_key[i].sign(weak_digest);
          vote_message vote{ block_id, strong, public_key[i], sig };
-         BOOST_REQUIRE(bsp->aggregate_vote(vote).first);
+         BOOST_REQUIRE(bsp->aggregate_vote(vote).first == vote_status::success);
       }
    }
 

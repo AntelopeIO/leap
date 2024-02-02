@@ -70,7 +70,7 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 }
 
 // Called from net threads
-std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const vote_message& vote) {
+std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(const vote_message& vote) {
    const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
                           finalizers.end(),
@@ -79,16 +79,16 @@ std::pair<bool, std::optional<uint32_t>> block_state::aggregate_vote(const vote_
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
       auto digest = vote.strong ? strong_digest.to_span() : std::span<const uint8_t>(weak_digest);
-      auto [valid, strong] = pending_qc.add_vote(vote.strong,
+      auto [status, strong] = pending_qc.add_vote(vote.strong,
                                  digest,
                                  index,
                                  vote.finalizer_key,
                                  vote.sig,
                                  finalizers[index].weight);
-      return {valid, strong ? core.final_on_strong_qc_block_num : std::optional<uint32_t>{}};
+      return {status, strong ? core.final_on_strong_qc_block_num : std::optional<uint32_t>{}};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      return {};
+      return {vote_status::unknown_public_key, {}};
    }
 }
 
@@ -116,12 +116,12 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    // verfify quorum is met
    if( qc.is_strong() ) {
       EOS_ASSERT( strong_weights >= active_finalizer_policy->threshold,
-                  block_validate_exception,
+                  invalid_qc_claim,
                   "strong quorum is not met, strong_weights: ${s}, threshold: ${t}",
                   ("s", strong_weights)("t", active_finalizer_policy->threshold) );
    } else {
       EOS_ASSERT( strong_weights + weak_weights >= active_finalizer_policy->threshold,
-                  block_validate_exception,
+                  invalid_qc_claim,
                   "weak quorum is not met, strong_weights: ${s}, weak_weights: ${w}, threshold: ${t}",
                   ("s", strong_weights)("w", weak_weights)("t", active_finalizer_policy->threshold) );
    }
@@ -155,7 +155,7 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    }
 
    // validate aggregated signature
-   EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),  block_validate_exception, "signature validation failed" );
+   EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),  invalid_qc_claim, "signature validation failed" );
 }
 
 std::optional<quorum_certificate> block_state::get_best_qc() const {

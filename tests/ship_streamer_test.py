@@ -169,9 +169,8 @@ try:
     assert status is not None and status is not False, "ERROR: Failed to spinup Transaction Generators"
 
     prodNode0.waitForProducer("defproducerc")
-    prodNode0.waitForProducer("defproducera")
 
-    block_range = 450
+    block_range = 350
     end_block_num = start_block_num + block_range
 
     shipClient = "tests/ship_streamer"

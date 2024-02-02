@@ -96,6 +96,14 @@ namespace eosio::chain {
       invalid                  // invalid message (other reason)
    };
 
+   enum class vote_status {
+      success,
+      duplicate,
+      unknown_public_key,
+      invalid_signature,
+      unknown_block
+   };
+
    using bls_public_key  = fc::crypto::blslib::bls_public_key;
    using bls_signature   = fc::crypto::blslib::bls_signature;
    using bls_private_key = fc::crypto::blslib::bls_private_key;
@@ -155,8 +163,8 @@ namespace eosio::chain {
          void resize(size_t num_finalizers) { _bitset.resize(num_finalizers); }
          size_t count() const { return _bitset.count(); }
 
-         bool add_vote(std::span<const uint8_t> proposal_digest, size_t index, const bls_public_key& pubkey,
-                       const bls_signature& new_sig);
+         vote_status add_vote(std::span<const uint8_t> proposal_digest, size_t index, const bls_public_key& pubkey,
+                              const bls_signature& new_sig);
 
          void reset(size_t num_finalizers);
       };
@@ -169,12 +177,12 @@ namespace eosio::chain {
       bool   is_quorum_met() const;
 
       // thread safe
-      std::pair<bool, bool> add_vote(bool strong,
-                                     std::span<const uint8_t> proposal_digest,
-                                     size_t index,
-                                     const bls_public_key&pubkey,
-                                     const bls_signature&sig,
-                                     uint64_t weight);
+      std::pair<vote_status, bool> add_vote(bool strong,
+                                            std::span<const uint8_t> proposal_digest,
+                                            size_t index,
+                                            const bls_public_key&pubkey,
+                                            const bls_signature&sig,
+                                            uint64_t weight);
 
       state_t state()  const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;
@@ -202,18 +210,18 @@ namespace eosio::chain {
       votes_t              _strong_votes;
 
       // called by add_vote, already protected by mutex
-      bool add_strong_vote(std::span<const uint8_t> proposal_digest,
-                           size_t index,
-                           const bls_public_key& pubkey,
-                           const bls_signature& sig,
-                           uint64_t weight);
+      vote_status add_strong_vote(std::span<const uint8_t> proposal_digest,
+                                  size_t index,
+                                  const bls_public_key& pubkey,
+                                  const bls_signature& sig,
+                                  uint64_t weight);
 
       // called by add_vote, already protected by mutex
-      bool add_weak_vote(std::span<const uint8_t> proposal_digest,
-                         size_t index,
-                         const bls_public_key& pubkey,
-                         const bls_signature& sig,
-                         uint64_t weight);
+      vote_status add_weak_vote(std::span<const uint8_t> proposal_digest,
+                                size_t index,
+                                const bls_public_key& pubkey,
+                                const bls_signature& sig,
+                                uint64_t weight);
    };
 } //eosio::chain
 

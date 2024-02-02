@@ -255,6 +255,8 @@ namespace eosio { namespace chain {
                                     3030012, "Invalid block extension" )
       FC_DECLARE_DERIVED_EXCEPTION( ill_formed_additional_block_signatures_extension, block_validate_exception,
                                     3030013, "Block includes an ill-formed additional block signature extension" )
+      FC_DECLARE_DERIVED_EXCEPTION( invalid_qc_claim, block_validate_exception,
+                                    3030014, "Block includes an invalid QC claim" )
 
    FC_DECLARE_DERIVED_EXCEPTION( transaction_exception,             chain_exception,
                                  3040000, "Transaction exception" )
