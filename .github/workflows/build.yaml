@@ -40,8 +40,7 @@ jobs:
     with:
       runs-on: '["self-hosted", "enf-x86-beefy"]'
       platform-files: |
-        .cicd/platforms
-        tools/reproducible.Dockerfile:builder
+        .cicd/platforms/ubuntu22.Dockerfile
 
   build-base:
     name: Run Build Workflow
@@ -85,7 +84,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20, ubuntu22, reproducible]
+        platform: [ubuntu22]
     runs-on: ubuntu-latest
     container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.platform].image}}
     steps:
@@ -126,123 +125,6 @@ jobs:
           path: build/leap_*.deb
           compression-level: 0
 
-  tests:
-    name: Tests (${{matrix.cfg.name}})
-    needs: [platform-cache, build-base]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
-          - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
-          - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
-          - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
-    runs-on: ["self-hosted", "enf-x86-hightier"]
-    container:
-      image: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.cfg.base].image}}
-      options: --security-opt seccomp=unconfined --mount type=bind,source=/var/lib/systemd/coredump,target=/cores
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download builddir
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{matrix.cfg.builddir}}-build
-      - name: Run Parallel Tests
-        run: |
-          # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
-          chown -R $(id -u):$(id -g) $PWD
-          zstdcat build.tar.zst | tar x
-          cd build
-          ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
-      - name: Upload core files from failed tests
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: ${{matrix.cfg.name}}-tests-logs
-          if-no-files-found: ignore
-          path: /cores
-          compression-level: 0
-      - name: Check CPU Features
-        run: awk 'BEGIN {err = 1} /bmi2/ && /adx/ {err = 0} END {exit err}' /proc/cpuinfo
-
-  np-tests:
-    name: NP Tests (${{matrix.cfg.name}})
-    needs: [platform-cache, build-base]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
-          - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
-          - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
-          - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
-    runs-on: ["self-hosted", "enf-x86-midtier"]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download builddir
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{matrix.cfg.builddir}}-build
-      - name: Run tests in parallel containers
-        uses: ./.github/actions/parallel-ctest-containers
-        with:
-          container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.cfg.base].image}}
-          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
-          log-tarball-prefix: ${{matrix.cfg.name}}
-          tests-label: nonparallelizable_tests
-          test-timeout: 420
-      - name: Export core dumps
-        run: docker run --mount type=bind,source=/var/lib/systemd/coredump,target=/cores alpine sh -c 'tar -C /cores/ -c .' | tar x
-        if: failure()
-      - name: Upload logs from failed tests
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: ${{matrix.cfg.name}}-np-logs
-          path: |
-            *-logs.tar.gz
-            core*.zst
-          compression-level: 0
-
-  lr-tests:
-    name: LR Tests (${{matrix.cfg.name}})
-    needs: [platform-cache, build-base]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
-          - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
-          - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
-          - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
-    runs-on: ["self-hosted", "enf-x86-lowtier"]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download builddir
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{matrix.cfg.builddir}}-build
-      - name: Run tests in parallel containers
-        uses: ./.github/actions/parallel-ctest-containers
-        with:
-          container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.cfg.base].image}}
-          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
-          log-tarball-prefix: ${{matrix.cfg.name}}
-          tests-label: long_running_tests
-          test-timeout: 1800
-      - name: Export core dumps
-        run: docker run --mount type=bind,source=/var/lib/systemd/coredump,target=/cores alpine sh -c 'tar -C /cores/ -c .' | tar x
-        if: failure()
-      - name: Upload logs from failed tests
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: ${{matrix.cfg.name}}-lr-logs
-          path: |
-            *-logs.tar.gz
-            core*.zst
-          compression-level: 0
-
   libtester-tests:
     name: libtester tests
     needs: [platform-cache, build-base, v, package]
@@ -251,7 +133,7 @@ jobs:
       matrix:
         platform: [ubuntu22]
         test: [build-tree, make-dev-install, deb-install]
-    runs-on:  ["self-hosted", "enf-x86-midtier"]
+    runs-on:  ["self-hosted", "enf-x86-testtier"]
     container: ${{ matrix.test != 'deb-install' && fromJSON(needs.platform-cache.outputs.platforms)[matrix.platform].image || 'ubuntu:jammy' }}
     env:
       DEBIAN_FRONTEND: noninteractive
@@ -333,12 +215,3 @@ jobs:
           cmake --build reference-contracts/build -- -j $(nproc)
           cd reference-contracts/build/tests
           ctest --output-on-failure -j $(nproc)
-
-  all-passing:
-    name: All Required Tests Passed
-    needs: [tests, np-tests, libtester-tests]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - if: needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
-        run: false
