@@ -262,8 +262,8 @@ namespace eosio {
 
    public:
       enum class closing_mode {
-         immediately,
-         back_off
+         immediately,  // closing connection immediately
+         handshake     // sending handshake message
       };
       explicit sync_manager( uint32_t span, uint32_t sync_peer_limit, uint32_t min_blocks_distance );
       static void send_handshakes();
@@ -914,7 +914,6 @@ namespace eosio {
       std::atomic<bool>               block_sync_throttling{false};
       std::atomic<std::chrono::nanoseconds>   last_bytes_sent{0ns};
       std::atomic<boost::asio::ip::port_type> remote_endpoint_port{0};
-      std::atomic<uint64_t>           invalid_finality_msg_total{0};
 
    public:
       boost::asio::io_context::strand           strand;
@@ -1489,7 +1488,6 @@ namespace eosio {
       block_sync_send_start = 0ns;
       block_sync_frame_bytes_sent = 0;
       block_sync_throttling = false;
-      invalid_finality_msg_total = 0;
 
       if( reconnect && !shutdown ) {
          my_impl->connections.start_conn_timer( std::chrono::milliseconds( 100 ),
@@ -3710,8 +3708,8 @@ namespace eosio {
          case vote_status::invalid_signature: // close peer immediately
             close( false ); // do not reconnect after closing
             break;
-         case vote_status::unknown_block: // keep tracking
-            ++invalid_finality_msg_total; // atomic
+         case vote_status::unknown_block: // track the failure
+            block_status_monitor_.rejected();
             break;
          case vote_status::duplicate: // do nothing
             break;
@@ -3770,7 +3768,7 @@ namespace eosio {
 
          std::optional<block_handle> obt;
          bool exception = false;
-         sync_manager::closing_mode close_mode = sync_manager::closing_mode::back_off;
+         sync_manager::closing_mode close_mode = sync_manager::closing_mode::handshake;
          try {
             // this may return null if block is not immediately ready to be processed
             obt = cc.create_block_handle( id, ptr );
@@ -3903,7 +3901,7 @@ namespace eosio {
             }
             // reason==no_reason means accept_block() return false because we are producing, don't call rejected_block which sends handshake
             if( reason != no_reason ) {
-               sync_master->rejected_block( c, blk_num, sync_manager::closing_mode::back_off );
+               sync_master->rejected_block( c, blk_num, sync_manager::closing_mode::handshake );
             }
             dispatcher->rejected_block( blk_id );
          });
