@@ -117,6 +117,7 @@ class TraceApiPluginTest(unittest.TestCase):
     @classmethod
     def tearDownClass(self):
         TraceApiPluginTest.cluster.testFailed = not testSuccessful
+        TraceApiPluginTest.cluster.shutdown()
 
 if __name__ == "__main__":
     unittest.main()
