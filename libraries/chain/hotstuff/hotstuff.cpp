@@ -20,18 +20,18 @@ inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) {
    return r;
 }
 
-bool pending_quorum_certificate::votes_t::add_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
-                                                   const bls_public_key& pubkey, const bls_signature& new_sig) {
+vote_status pending_quorum_certificate::votes_t::add_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
+                                                          const bls_public_key& pubkey, const bls_signature& new_sig) {
    if (_bitset[index]) {
-      return false; // shouldn't be already present
+      return vote_status::duplicate; // shouldn't be already present
    }
    if (!fc::crypto::blslib::verify(pubkey, proposal_digest, new_sig)) {
       wlog( "signature from finalizer ${i} cannot be verified", ("i", index) );
-      return false;
+      return vote_status::invalid_signature;
    }
    _bitset.set(index);
    _sig = fc::crypto::blslib::aggregate({_sig, new_sig}); // works even if _sig is default initialized (fp2::zero())
-   return true;
+   return vote_status::success;
 }
 
 void pending_quorum_certificate::votes_t::reset(size_t num_finalizers) {
@@ -59,11 +59,11 @@ bool pending_quorum_certificate::is_quorum_met() const {
 }
 
 // called by add_vote, already protected by mutex
-bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
-                                                 const bls_public_key& pubkey, const bls_signature& sig,
-                                                 uint64_t weight) {
-   if (!_strong_votes.add_vote(proposal_digest, index, pubkey, sig))
-      return false;
+vote_status pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
+                                                        const bls_public_key& pubkey, const bls_signature& sig,
+                                                        uint64_t weight) {
+   if (auto s = _strong_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success)
+      return s;
    _strong_sum += weight;
 
    switch (_state) {
@@ -86,15 +86,15 @@ bool pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& pro
       // getting another strong vote...nothing to do
       break;
    }
-   return true;
+   return vote_status::success;
 }
 
 // called by add_vote, already protected by mutex
-bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
-                                               const bls_public_key& pubkey, const bls_signature& sig,
-                                               uint64_t weight) {
-   if (!_weak_votes.add_vote(proposal_digest, index, pubkey, sig))
-      return false;
+vote_status pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
+                                                      const bls_public_key& pubkey, const bls_signature& sig,
+                                                      uint64_t weight) {
+   if (auto s = _weak_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success)
+      return s;
    _weak_sum += weight;
 
    switch (_state) {
@@ -121,17 +121,17 @@ bool pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& propo
       // getting another weak vote... nothing to do
       break;
    }
-   return true;
+   return vote_status::success;
 }
 
 // thread safe, <valid, strong>
-std::pair<bool, bool> pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
-                                                           const bls_public_key& pubkey, const bls_signature& sig,
-                                                           uint64_t weight) {
+std::pair<vote_status, bool> pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
+                                                                  const bls_public_key& pubkey, const bls_signature& sig,
+                                                                  uint64_t weight) {
    std::lock_guard g(*_mtx);
-   bool valid = strong ? add_strong_vote(proposal_digest, index, pubkey, sig, weight)
-                       : add_weak_vote(proposal_digest, index, pubkey, sig, weight);
-   return {valid, _state == state_t::strong};
+   vote_status s = strong ? add_strong_vote(proposal_digest, index, pubkey, sig, weight)
+                          : add_weak_vote(proposal_digest, index, pubkey, sig, weight);
+   return {s, _state == state_t::strong};
 }
 
 // thread safe
