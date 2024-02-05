@@ -1215,6 +1215,36 @@ namespace eosio { namespace testing {
                           fc::mutable_variant_object()("finalizer_policy", std::move(fin_policy_variant)));
    }
 
+   transaction_trace_ptr base_tester::set_finalizers(const finalizer_policy_input& input ) {
+      chain::bls_pub_priv_key_map_t local_finalizer_keys;
+      fc::variants finalizer_auths;
+
+      for (const auto& f: input.finalizers) {
+         auto [privkey, pubkey, pop] = get_bls_key( f.name );
+
+         // if it is a local finalizer, set up public to private key mapping for voting
+         if( auto it = std::ranges::find_if(input.local_finalizers, [&](const auto& name) { return name == f.name; }); it != input.local_finalizers.end()) {
+            local_finalizer_keys[pubkey.to_string()] = privkey.to_string();
+         };
+
+         finalizer_auths.emplace_back(
+            fc::mutable_variant_object()
+               ("description", f.name.to_string() + " description")
+               ("weight", f.weight)
+               ("public_key", pubkey.to_string({}))
+               ("pop", pop.to_string({})));
+      }
+
+      control->set_node_finalizer_keys(local_finalizer_keys);
+
+      fc::mutable_variant_object fin_policy_variant;
+      fin_policy_variant("threshold", input.threshold);
+      fin_policy_variant("finalizers", std::move(finalizer_auths));
+
+      return push_action( config::system_account_name, "setfinalizer"_n, config::system_account_name,
+                          fc::mutable_variant_object()("finalizer_policy", std::move(fin_policy_variant)));
+   }
+
    const table_id_object* base_tester::find_table( name code, name scope, name table ) {
       auto tid = control->db().find<table_id_object, by_code_scope_table>(boost::make_tuple(code, scope, table));
       return tid;
