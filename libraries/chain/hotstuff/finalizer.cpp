@@ -46,11 +46,11 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const branch
 bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
    if (ancestor.empty())
       return false;
-   auto cur = fork_db.get_block(descendant->previous());
+   auto cur = fork_db.get_block_header(descendant->previous());
    while (cur) {
-      if (cur->id() == ancestor)
+      if (cur->id == ancestor)
          return true;
-      cur = fork_db.get_block(cur->previous());
+      cur = fork_db.get_block_header(cur->previous());
    }
    return false;
 }
@@ -100,8 +100,9 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    // -----------------------------------------------------------------------------------
    VoteDecision decision = VoteDecision::NoVote;
 
-   if (bsp_last_qc && monotony_check && (liveness_check || safety_check)) {
-      auto [p_start, p_end] = std::make_pair(bsp_last_qc->timestamp(), p->timestamp());
+   if (monotony_check && (liveness_check || safety_check)) {
+      auto [p_start, p_end] = std::make_pair(bsp_last_qc ? bsp_last_qc->timestamp() : p->timestamp(),
+                                             p->timestamp());
 
       bool time_range_disjoint    = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
 
@@ -119,22 +120,15 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
            ("bsp", !!bsp_last_qc)("lqc",!!p->last_qc_block_num())("f",fork_db.root()->block_num()));
       if (p->last_qc_block_num())
          dlog("last_qc_block_num=${lqc}", ("lqc", *p->last_qc_block_num()));
-
-      if (!bsp_last_qc &&  p->last_qc_block_num() && fork_db.root()->block_num() == *p->last_qc_block_num()) {
-         // recovery mode (for example when we just switched to IF). Vote weak.
-         decision = VoteDecision::StrongVote;
-         fsi.last_vote = proposal_ref(p);          // v_height
-         fsi.lock = proposal_ref(p);               // for the Safety and Liveness checks to pass, initially lock on p
-         fsi.last_vote_range_start = p->timestamp();
-      }
    }
-   dlog("Voting ${s}", ("s", decision == VoteDecision::StrongVote ? "strong" : "weak"));
+   if (decision != VoteDecision::NoVote)
+      dlog("Voting ${s}", ("s", decision == VoteDecision::StrongVote ? "strong" : "weak"));
    return decision;
 }
 
 // ----------------------------------------------------------------------------------------
-std::optional<vote_message> finalizer::maybe_vote(const block_state_ptr& p, const digest_type& digest,
-                                                  const fork_database_if_t& fork_db) {
+std::optional<vote_message> finalizer::maybe_vote(const bls_public_key& pub_key, const block_state_ptr& p,
+                                                  const digest_type& digest, const fork_database_if_t& fork_db) {
    finalizer::VoteDecision decision = decide_vote(p, fork_db);
    if (decision == VoteDecision::StrongVote || decision == VoteDecision::WeakVote) {
       bls_signature sig;
@@ -168,8 +162,8 @@ void finalizer_set::save_finalizer_safety_info() const {
       persist_file.seek(0);
       fc::raw::pack(persist_file, finalizer::safety_information::magic);
       fc::raw::pack(persist_file, (uint64_t)finalizers.size());
-      for (const auto& f : finalizers) {
-         fc::raw::pack(persist_file, f.pub_key);
+      for (const auto& [pub_key, f] : finalizers) {
+         fc::raw::pack(persist_file, pub_key);
          fc::raw::pack(persist_file, f.fsi);
       }
       if (first_vote) {
@@ -231,11 +225,11 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
       persist_file.close();
    } catch (const fc::exception& e) {
       edump((e.to_detail_string()));
-      std::filesystem::remove(persist_file_path); // remove file we can't load
+      // std::filesystem::remove(persist_file_path); // don't remove file we can't load
       throw;
    } catch (const std::exception& e) {
       edump((e.what()));
-      std::filesystem::remove(persist_file_path); // remove file we can't load
+      // std::filesystem::remove(persist_file_path); // don't rremove file we can't load
       throw;
    }
    return res;
@@ -252,7 +246,7 @@ void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer
       auto public_key {bls_public_key{pub_key_str}};
       auto it  = safety_info.find(public_key);
       auto fsi = it != safety_info.end() ? it->second : default_safety_information();
-      finalizers.insert(finalizer{public_key, bls_private_key{priv_key_str}, fsi});
+      finalizers[public_key] = finalizer{bls_private_key{priv_key_str}, fsi};
    }
 
    // Now that we have updated the  finalizer_safety_info of our local finalizers,
@@ -280,7 +274,15 @@ finalizer::safety_information finalizer_set::default_safety_information() const 
 // ----------------------------------------------------------------------------------------
 void finalizer_set::finality_transition_notification(block_timestamp_type b1_time, block_id_type b1_id,
                                                      block_timestamp_type b2_time, block_id_type b2_id) {
+   assert(t_startup < b1_time);
+   for (auto& [pub_key, f] : finalizers) {
+      // update only finalizers which are uninitialized
+      if (!f.fsi.last_vote.empty())
+         continue;
 
+      f.fsi.last_vote = finalizer::proposal_ref(b1_id, b1_time);
+      f.fsi.lock      = finalizer::proposal_ref(b2_id, b2_time);
+   }
 }
 
 } // namespace eosio::chain

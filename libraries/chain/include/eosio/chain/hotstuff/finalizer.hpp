@@ -31,6 +31,10 @@ namespace eosio::chain {
             timestamp(p->timestamp())
          {}
 
+         proposal_ref(const block_id_type&id, block_timestamp_type t) :
+            id(id), timestamp(t)
+         {}
+
          void reset() {
             id = block_id_type();
             timestamp = block_timestamp_type();
@@ -38,7 +42,7 @@ namespace eosio::chain {
 
          bool empty() const { return id.empty(); }
 
-         operator bool() const { return id.empty(); }
+         operator bool() const { return !id.empty(); }
       };
 
       struct safety_information {
@@ -52,7 +56,6 @@ namespace eosio::chain {
          safety_information() = default;
       };
 
-      bls_public_key            pub_key;
       bls_private_key           priv_key;
       safety_information        fsi;
 
@@ -62,16 +65,8 @@ namespace eosio::chain {
       VoteDecision   decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:
-      std::optional<vote_message> maybe_vote(const block_state_ptr& bsp, const digest_type& digest,
-                                             const fork_database_if_t& fork_db);
-
-      friend std::strong_ordering operator<=>(const finalizer& a, const finalizer& b) {
-         return a.pub_key <=> b.pub_key;
-      }
-
-      friend std::strong_ordering operator<=>(const finalizer& a, const bls_public_key& k) {
-         return a.pub_key <=> k;
-      }
+      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_state_ptr& bsp,
+                                             const digest_type& digest, const fork_database_if_t& fork_db);
    };
 
    // ----------------------------------------------------------------------------------------
@@ -81,7 +76,7 @@ namespace eosio::chain {
       const block_timestamp_type        t_startup;             // nodeos startup time, used for default safety_information
       const std::filesystem::path       persist_file_path;     // where we save the safety data
       mutable fc::datastream<fc::cfile> persist_file;          // we want to keep the file open for speed
-      std::set<finalizer, std::less<>>  finalizers;            // the active finalizers for this node
+      std::map<bls_public_key, finalizer>  finalizers;            // the active finalizers for this node
       fsi_map                           inactive_safety_info;  // loaded at startup, not mutated afterwards
 
       template<class F>
@@ -96,7 +91,7 @@ namespace eosio::chain {
          // first accumulate all the votes
          for (const auto& f : fin_pol.finalizers) {
             if (auto it = finalizers.find(f.public_key); it != finalizers.end()) {
-               std::optional<vote_message> vote_msg = const_cast<finalizer&>(*it).maybe_vote(bsp, digest, fork_db);
+               std::optional<vote_message> vote_msg = it->second.maybe_vote(it->first, bsp, digest, fork_db);
                if (vote_msg)
                   votes.push_back(std::move(*vote_msg));
             }

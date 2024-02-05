@@ -2743,7 +2743,7 @@ struct controller_impl {
                   {
                      // notify finalizers of transition information, so they can update their safety
                      // information if necessary. See https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw
-                     // [if todo] sett values accurately
+                     // [if todo] set values accurately
                      auto start_block = forkdb.chain_head;
                      auto lib_block   = forkdb.chain_head;
                      my_finalizers.finality_transition_notification(start_block->timestamp(), start_block->id(),
