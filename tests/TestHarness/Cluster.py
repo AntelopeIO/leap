@@ -999,9 +999,9 @@ class Cluster(object):
         # call setfinalizer
         numFins = 0
         for n in launcher.network.nodes.values():
-            if len(n.keys) == 0 or n.keys[0].blspubkey is None:
+            if not n.keys or not n.keys[0].blspubkey:
                 continue
-            if len(n.producers) == 0:
+            if not n.producers:
                 continue
             if n.index == Node.biosNodeId and not biosFinalizer:
                 continue
@@ -1020,9 +1020,9 @@ class Cluster(object):
         for n in launcher.network.nodes.values():
             if n.index == Node.biosNodeId and not biosFinalizer:
                 continue
-            if len(n.keys) == 0 or n.keys[0].blspubkey is None:
+            if not n.keys or not n.keys[0].blspubkey:
                 continue
-            if len(n.producers) == 0:
+            if not n.producers:
                 continue
             setFinStr += f'    {{"description": "finalizer #{finNum}", '
             setFinStr += f'     "weight":1, '
