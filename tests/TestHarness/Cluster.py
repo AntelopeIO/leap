@@ -1,4 +1,3 @@
-import atexit
 import copy
 import subprocess
 import time
@@ -76,7 +75,6 @@ class Cluster(object):
         keepRunning: [True|False] If true, leave nodes running when Cluster is destroyed. Implies keepLogs.
         keepLogs: [True|False] If true, retain log files after cluster shuts down.
         """
-        atexit.register(self.shutdown)
         self.accounts=[]
         self.nodes=[]
         self.unstartedNodes=[]

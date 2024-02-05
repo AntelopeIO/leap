@@ -11,6 +11,7 @@
 
 #include <test_contracts.hpp>
 #include <snapshots.hpp>
+#include "test_wasts.hpp"
 
 using namespace eosio;
 using namespace testing;
@@ -655,6 +656,39 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
    remove(bin_snap_path);
    remove(bin_from_json_snap_path);
    remove(json_snap_path);
+}
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(jumbo_row, SNAPSHOT_SUITE, snapshot_suites)
+{
+   fc::temp_directory tempdir;
+   auto config = tester::default_config(tempdir);
+   config.first.state_size = 64*1024*1024;
+   tester chain(config.first, config.second);
+   chain.execute_setup_policy(setup_policy::full);
+
+   chain.create_accounts({"jumbo"_n});
+   chain.set_code("jumbo"_n, set_jumbo_row_wast);
+   chain.produce_blocks(1);
+
+   signed_transaction trx;
+   action act;
+   act.account = "jumbo"_n;
+   act.name = "jumbo"_n;
+   act.authorization = vector<permission_level>{{"jumbo"_n,config::active_name}};
+   trx.actions.push_back(act);
+
+   chain.set_transaction_headers(trx);
+   trx.sign(tester::get_private_key("jumbo"_n, "active"), chain.control->get_chain_id());
+   chain.push_transaction(trx);
+   chain.produce_blocks(1);
+
+   chain.control->abort_block();
+
+   auto writer = SNAPSHOT_SUITE::get_writer();
+   chain.control->write_snapshot(writer);
+   auto snapshot = SNAPSHOT_SUITE::finalize(writer);
+
+   snapshotted_tester sst(chain.get_config(), SNAPSHOT_SUITE::get_reader(snapshot), 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
