@@ -10,6 +10,7 @@
 #include <boost/asio/basic_stream_socket.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
 #include <fc/scoped_exit.hpp>
+#include <fc/crypto/rand.hpp>
 
 #define BOOST_TEST_MODULE http_plugin unit tests
 #include <boost/test/included/unit_test.hpp>
@@ -572,4 +573,143 @@ BOOST_AUTO_TEST_CASE(test_on_loopback) {
    BOOST_CHECK(on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", "localhost:8888"}));
    BOOST_CHECK(!on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", ":8888"}));
    BOOST_CHECK(!on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", "example.com:8888"}));
+}
+
+BOOST_FIXTURE_TEST_CASE(bytes_in_flight, http_plugin_test_fixture) {
+   http_plugin* http_plugin = init({"--plugin=eosio::http_plugin",
+                                    "--http-server-address=127.0.0.1:8888",
+                                    "--http-max-bytes-in-flight-mb=64"});
+   BOOST_REQUIRE(http_plugin);
+
+   http_plugin->add_api({{std::string("/4megabyte"), api_category::node,
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             fc::blob b;
+                             b.data.resize(4*1024*1024);
+                             fc::rand_bytes(b.data.data(), b.data.size());
+                             cb(200, b);
+                          }}}, appbase::exec_queue::read_write);
+
+   boost::asio::io_context ctx;
+   boost::asio::ip::tcp::resolver resolver(ctx);
+
+   std::list<boost::asio::ip::tcp::socket> connections;
+
+   auto send_4mb_requests = [&](unsigned count) {
+      for(unsigned i = 0; i < count; ++i) {
+         boost::asio::ip::tcp::socket& s = connections.emplace_back(ctx, boost::asio::ip::tcp::v4());
+         //we can't control http_plugin's send buffer, but at least we can control our receive buffer size to help increase
+         // chance of server blocking
+         s.set_option(boost::asio::socket_base::receive_buffer_size(8*1024));
+         s.connect(resolver.resolve("127.0.0.1", "8888")->endpoint());
+         boost::beast::http::request<boost::beast::http::empty_body> req(boost::beast::http::verb::get, "/4megabyte", 11);
+         req.keep_alive(true);
+         req.set(http::field::host, "127.0.0.1:8888");
+         boost::beast::http::write(s, req);
+      }
+   };
+
+   auto drain_http_replies = [&](unsigned max = std::numeric_limits<unsigned>::max()) {
+      std::unordered_map<boost::beast::http::status, size_t> count_of_status_replies;
+      while(connections.size() && max--) {
+         boost::beast::http::response<boost::beast::http::string_body> resp;
+         boost::beast::flat_buffer buffer;
+         boost::beast::http::read(connections.front(), buffer, resp);
+
+         count_of_status_replies[resp.result()]++;
+
+         connections.erase(connections.begin());
+      }
+      return count_of_status_replies;
+   };
+
+
+   //send a single request to start with
+   send_4mb_requests(1u);
+   std::unordered_map<boost::beast::http::status, size_t> r = drain_http_replies();
+   BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 1u);
+
+   //load up 32, this should exceed max
+   send_4mb_requests(32u);
+   r = drain_http_replies();
+   BOOST_REQUIRE_GT(r[boost::beast::http::status::ok], 0u);
+   BOOST_REQUIRE_GT(r[boost::beast::http::status::service_unavailable], 0u);
+   BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::service_unavailable] + r[boost::beast::http::status::ok], 32u);
+
+   //send some more requests
+   send_4mb_requests(10u);
+   r = drain_http_replies();
+   BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 10u);
+
+   //load up some more requests that exceed max
+   send_4mb_requests(32u);
+   //make sure got to the point http threads had responses queued
+   std::this_thread::sleep_for(std::chrono::seconds(1));
+   //now rip these connections out before the responses are completely sent
+   connections.clear();
+   //send some requests that should work still
+   send_4mb_requests(8u);
+   r = drain_http_replies();
+   BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 8u);
+}
+
+BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
+   http_plugin* http_plugin = init({"--plugin=eosio::http_plugin",
+                                    "--http-server-address=127.0.0.1:8888",
+                                    "--http-max-in-flight-requests=16"});
+   BOOST_REQUIRE(http_plugin);
+
+   http_plugin->add_api({{std::string("/doit"), api_category::node,
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             cb(200, "hello");
+                          }}}, appbase::exec_queue::read_write);
+
+   boost::asio::io_context ctx;
+   boost::asio::ip::tcp::resolver resolver(ctx);
+
+   std::list<boost::asio::ip::tcp::socket> connections;
+
+   auto send_requests = [&](unsigned count) {
+      for(unsigned i = 0; i < count; ++i) {
+         boost::asio::ip::tcp::socket& s = connections.emplace_back(ctx, boost::asio::ip::tcp::v4());
+         boost::asio::connect(s, resolver.resolve("127.0.0.1", "8888"));
+         boost::beast::http::request<boost::beast::http::empty_body> req(boost::beast::http::verb::get, "/doit", 11);
+         req.keep_alive(true);
+         req.set(http::field::host, "127.0.0.1:8888");
+         boost::beast::http::write(s, req);
+      }
+   };
+
+   auto drain_http_replies = [&]() {
+      std::unordered_map<boost::beast::http::status, size_t> count_of_status_replies;
+      while(connections.size()) {
+         boost::beast::http::response<boost::beast::http::string_body> resp;
+         boost::beast::flat_buffer buffer;
+         boost::beast::http::read(connections.front(), buffer, resp);
+
+         count_of_status_replies[resp.result()]++;
+
+         BOOST_REQUIRE(resp.keep_alive());
+
+         connections.erase(connections.begin());
+      }
+      return count_of_status_replies;
+   };
+
+
+   //8 requests to start with
+   send_requests(8u);
+   std::unordered_map<boost::beast::http::status, size_t> r = drain_http_replies();
+   BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 8u);
+
+   //24 requests will exceed threshold
+   send_requests(24u);
+   r = drain_http_replies();
+   BOOST_REQUIRE_GT(r[boost::beast::http::status::ok], 0u);
+   BOOST_REQUIRE_GT(r[boost::beast::http::status::service_unavailable], 0u);
+   BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::service_unavailable] + r[boost::beast::http::status::ok], 24u);
+
+   //requests should still work
+   send_requests(8u);
+   r = drain_http_replies();
+   BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 8u);
 }
