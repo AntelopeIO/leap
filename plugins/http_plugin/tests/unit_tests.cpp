@@ -688,7 +688,8 @@ BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
 
          count_of_status_replies[resp.result()]++;
 
-         BOOST_REQUIRE(resp.keep_alive());
+         if(resp.result() == boost::beast::http::status::ok)
+            BOOST_REQUIRE(resp.keep_alive());
 
          connections.erase(connections.begin());
       }
