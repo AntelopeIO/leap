@@ -492,8 +492,9 @@ public:
 
    void run_session() {
       if(auto error_str = verify_max_requests_in_flight(); !error_str.empty()) {
+         res_->keep_alive(false);
          send_busy_response(std::move(error_str));
-         return do_eof();
+         return;
       }
 
       do_read_header();
