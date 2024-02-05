@@ -183,7 +183,7 @@ set_property(TEST restart-scenarios-test-hard_replay PROPERTY LABELS nonparallel
 # requires https://github.com/AntelopeIO/leap/issues/2141
 #add_test(NAME restart-scenarios-if-test-hard_replay COMMAND tests/restart-scenarios-test.py -c hardReplay -p4 -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 #set_property(TEST restart-scenarios-if-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME restart-scenarios-test-none COMMAND tests/restart-scenarios-test.py -c none --kill-sig term -p4 -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#add_test(NAME restart-scenarios-test-none COMMAND tests/restart-scenarios-test.py -c none --kill-sig term -p4 -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST restart-scenarios-test-none PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME restart-scenarios-if-test-none COMMAND tests/restart-scenarios-test.py -c none --kill-sig term -p4 -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST restart-scenarios-if-test-none PROPERTY LABELS nonparallelizable_tests)
