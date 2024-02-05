@@ -202,13 +202,13 @@ public:
    virtual bool verify_max_bytes_in_flight() override {
       auto bytes_in_flight_size = plugin_state_->bytes_in_flight.load();
       if(bytes_in_flight_size > plugin_state_->max_bytes_in_flight) {
-         fc_dlog(plugin_state_->logger, "429 - too many bytes in flight: ${bytes}", ("bytes", bytes_in_flight_size));
+         fc_dlog(plugin_state_->logger, "503 - too many bytes in flight: ${bytes}", ("bytes", bytes_in_flight_size));
          error_results::error_info ei;
-         ei.code = static_cast<int64_t>(http::status::too_many_requests);
+         ei.code = static_cast<int64_t>(http::status::service_unavailable);
          ei.name = "Busy";
          ei.what = "Too many bytes in flight: " + std::to_string( bytes_in_flight_size );
-         error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
-         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::too_many_requests) );
+         error_results results{static_cast<uint16_t>(http::status::service_unavailable), "Busy", ei};
+         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::service_unavailable) );
          return false;
       }
       return true;
@@ -220,13 +220,13 @@ public:
 
       auto requests_in_flight_num = plugin_state_->requests_in_flight.load();
       if(requests_in_flight_num > plugin_state_->max_requests_in_flight) {
-         fc_dlog(plugin_state_->logger, "429 - too many requests in flight: ${requests}", ("requests", requests_in_flight_num));
+         fc_dlog(plugin_state_->logger, "503 - too many requests in flight: ${requests}", ("requests", requests_in_flight_num));
          error_results::error_info ei;
-         ei.code = static_cast<int64_t>(http::status::too_many_requests);
+         ei.code = static_cast<int64_t>(http::status::service_unavailable);
          ei.name = "Busy";
          ei.what = "Too many requests in flight: " + std::to_string( requests_in_flight_num );
-         error_results results{static_cast<uint16_t>(http::status::too_many_requests), "Busy", ei};
-         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::too_many_requests) );
+         error_results results{static_cast<uint16_t>(http::status::service_unavailable), "Busy", ei};
+         send_response( fc::json::to_string( results, fc::time_point::maximum() ), static_cast<unsigned int>(http::status::service_unavailable) );
          return false;
       }
       return true;
