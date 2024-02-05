@@ -100,6 +100,22 @@ try:
     Print("Shutdown unneeded bios node")
     cluster.biosNode.kill(signal.SIGTERM)
 
+    Print("Create a jumbo row")
+    contract = "jumborow"
+    contractDir = "unittests/contracts/%s" % (contract)
+    wasmFile = "%s.wasm" % (contract)
+    abiFile = "%s.abi" % (contract)
+
+    nonProdNode.publishContract(accounts[0], contractDir, wasmFile, abiFile)
+    jumbotxn = {
+
+        "actions": [{"account": "testeraaaaaa","name": "jumbotime",
+                     "authorization": [{"actor": "testeraaaaaa","permission": "active"}],
+                     "data": "",
+                     "compression": "none"}]
+    }
+    nonProdNode.pushTransaction(jumbotxn)
+
     Print("Configure and launch txn generators")
     targetTpsPerGenerator = 10
     testTrxGenDurationSec=60*60

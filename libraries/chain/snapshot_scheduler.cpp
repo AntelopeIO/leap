@@ -219,7 +219,8 @@ void snapshot_scheduler::create_snapshot(next_function<snapshot_information> nex
          std::error_code ec;
          fs::rename(temp_path, pending_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
-                    "Unable to promote temp snapshot to pending for block number ${bn}: [code: ${ec}] ${message}",
+                    "Unable to promote temp snapshot ${t} to pending ${p} for block number ${bn}: [code: ${ec}] ${message}",
+                    ("t", temp_path.generic_string())("p", pending_path.generic_string())
                     ("bn", head_block_num)("ec", ec.value())("message", ec.message()));
          _pending_snapshot_index.emplace(head_id, next, pending_path.generic_string(), snapshot_path.generic_string());
          add_pending_snapshot_info(snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()});
