@@ -1188,27 +1188,46 @@ namespace eosio { namespace testing {
    }
 
    transaction_trace_ptr base_tester::set_finalizers(const vector<account_name>& finalizer_names) {
-      uint64_t threshold = finalizer_names.size() * 2 / 3 + 1;
+      auto num_finalizers = finalizer_names.size();
+      std::vector<finalizer_policy_input::finalizer_info> finalizers_info;
+      finalizers_info.reserve(num_finalizers);
+      for (const auto& f: finalizer_names) {
+         finalizers_info.push_back({.name = f, .weight = 1});
+      }
 
-      chain::bls_pub_priv_key_map_t finalizer_keys;
+      finalizer_policy_input policy_input = {
+         .finalizers       = finalizers_info,
+         .threshold        = num_finalizers * 2 / 3 + 1,
+         .local_finalizers = finalizer_names
+      };
+
+      return set_finalizers(policy_input);
+   }
+
+   transaction_trace_ptr base_tester::set_finalizers(const finalizer_policy_input& input) {
+      chain::bls_pub_priv_key_map_t local_finalizer_keys;
       fc::variants finalizer_auths;
-      for (const auto& n: finalizer_names) {
-         auto [privkey, pubkey, pop] = get_bls_key( n );
 
-         finalizer_keys[pubkey.to_string()] = privkey.to_string();
+      for (const auto& f: input.finalizers) {
+         auto [privkey, pubkey, pop] = get_bls_key( f.name );
+
+         // if it is a local finalizer, set up public to private key mapping for voting
+         if( auto it = std::ranges::find_if(input.local_finalizers, [&](const auto& name) { return name == f.name; }); it != input.local_finalizers.end()) {
+            local_finalizer_keys[pubkey.to_string()] = privkey.to_string();
+         };
+
          finalizer_auths.emplace_back(
             fc::mutable_variant_object()
-               ("description", n.to_string() + " description")
-               ("weight", (uint64_t)1)
+               ("description", f.name.to_string() + " description")
+               ("weight", f.weight)
                ("public_key", pubkey.to_string({}))
                ("pop", pop.to_string({})));
       }
 
-      // configure finalizer keys on controller for signing votes
-      control->set_node_finalizer_keys(finalizer_keys);
+      control->set_node_finalizer_keys(local_finalizer_keys);
 
       fc::mutable_variant_object fin_policy_variant;
-      fin_policy_variant("threshold", threshold);
+      fin_policy_variant("threshold", input.threshold);
       fin_policy_variant("finalizers", std::move(finalizer_auths));
 
       return push_action( config::system_account_name, "setfinalizer"_n, config::system_account_name,

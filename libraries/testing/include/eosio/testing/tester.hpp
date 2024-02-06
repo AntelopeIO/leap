@@ -252,7 +252,24 @@ namespace eosio { namespace testing {
          transaction_trace_ptr       set_producers(const vector<account_name>& producer_names);
          transaction_trace_ptr       set_producer_schedule(const vector<producer_authority>& schedule);
          transaction_trace_ptr       set_producers_legacy(const vector<account_name>& producer_names);
-         transaction_trace_ptr       set_finalizers(const vector<account_name>& finalier_names);
+
+         // libtester uses 1 as weight of each of the finalizer, sets (2/3 finalizers + 1)
+         // as threshold, and makes all finalizers vote QC
+         transaction_trace_ptr  set_finalizers(const vector<account_name>& finalizer_names);
+
+         // Finalizer policy input to set up a test: weights, threshold and local finalizers
+         // which participate voting.
+         struct finalizer_policy_input {
+            struct finalizer_info {
+               account_name name;
+               uint64_t     weight;
+            };
+
+            std::vector<finalizer_info> finalizers;
+            uint64_t                    threshold {0};
+            std::vector<account_name>   local_finalizers;
+         };
+         transaction_trace_ptr  set_finalizers(const finalizer_policy_input& input);
 
          void link_authority( account_name account, account_name code,  permission_name req, action_name type = {} );
          void unlink_authority( account_name account, account_name code, action_name type = {} );
