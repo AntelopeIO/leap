@@ -1,0 +1,126 @@
+{
+  "name": "testnet_",
+  "ssh_helper": {
+    "ssh_cmd": "/usr/bin/ssh",
+    "scp_cmd": "/usr/bin/scp",
+    "ssh_identity": "",
+    "ssh_args": ""
+  },
+  "nodes": {
+      "bios":{
+        "name": "bios",
+        "keys": [
+          {
+            "privkey":"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+            "pubkey":"EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+          }
+        ],
+        "peers": [],
+        "producers": [
+          "eosio"
+        ],
+        "dont_start": false
+      },
+      "testnet_00":{
+        "name": "testnet_00",
+        "keys": [
+          {
+            "privkey":"5Jf4sTk7vwX1MYpLJ2eQFanVvKYXFqGBrCyANPukuP2BJ5WAAKZ",
+            "pubkey":"EOS58B33q9S7oNkgeFfcoW3VJYu4obfDiqn5RHGE2ige6jVjUhymR",
+            "blspubkey":"PUB_BLS_2QQ72DAhKOWKfnBF77AnYn3GqD0M+Yh/05tqKNhqEQ0K4ixhIZ0rKbO2UuonqGAV1KYPgLzIfRz6zMD4iWI3FhOGE+UZ4Le5cELQ3NjOBFagG51XqM8Q1lpUqNanhCoDyfFnLg==",
+            "blsprivkey":"PVT_BLS_XwmVWf21N/j+hYJfo5+VHN1BtMY2wmKdQ7unaX/rzk+EJ5PX",
+            "blspop":"SIG_BLS_jvAPOOkvw19wuEzIt1ot8tn6aLeP55XQtSIY2eP3DMcZvEcdmlWVqNI/M8VNKL8RiN2F7XrRZ6O5cPPh4f3B/XfHOyUd3UXG3p++9m0tu0jCojtWQd6wJmTIR1LQ6DUWAQwBOx8Rd70FoznDEqJS/RZBV03x9FpBDQH7VB6BYs9UztynlWrL8LZaRbi8WNwF9CDzUJJsmOmHMnZO5qcTuo/cmSgV1X03bITdQ4IGq06yExBPepIX9ZZu5XH4QCIBo/fIcg=="
+          }
+        ],
+        "peers": [
+          "bios",
+          "testnet_01",
+          "testnet_02",
+          "testnet_04"
+        ],
+        "producers": [
+          "defproducera"
+        ],
+        "dont_start": false
+      },
+      "testnet_01":{
+        "name": "testnet_01",
+        "keys": [
+          {
+            "privkey":"5HviUPkTEtvF2B1nm8aZUnjma2TzgpKRjuXjwHyy3FME4xDbkZF",
+            "pubkey":"EOS5CbcTDgbks2ptTxvyCbT9HFbzX7PDHUY2wN4DDnVBhhQr2ZNDE",
+            "blspubkey":"PUB_BLS_g86vgFO5G0bcRuaEA95kNFxnsHyzVSOthKKN8MSJ2zLWj+WfCbIBIO73OxgzjVsZarSuMQrcbVu2MktqF6PGlPkPaSuJGnES3FQ0OAfebOMAsPeAd23Ge/3+cPl2OVgXSmHdhA==",
+            "blsprivkey":"PVT_BLS_AtgyGDKJdQWvCNyGJgyu9bWpMS7eQE07zB2nGTlhZ0nCX11C",
+            "blspop":"SIG_BLS_pzPEYt1zLPVbofA1YABSPb1gJdvUdUhREa+pQsj2eTSaEBEnb+w+AwO0cQLgYSYWNWRePIUUvj5MCWqlfIU5ulBL8tqlwdCqQ0o6W915axLq2l1qnbFK/XfN9dRxdJgWPdl57bCGmoii25gdyobgLUZaJzPfivE6iQ981IgGACAb5CRdVH5hPZq8Rab1O64OclwCT/8ho8TdcKoSQj0njbAfp9JZxv5EyuAkaNIQun9rn+vH++37n+nDeV6UgCUEzex3cQ=="
+          }
+        ],
+        "peers": [
+          "bios",
+          "testnet_00",
+          "testnet_02",
+          "testnet_04"
+        ],
+        "producers": [
+          "defproducerb"
+        ],
+        "dont_start": false
+      },
+      "testnet_02":{
+        "name": "testnet_02",
+        "keys": [
+          {
+            "privkey":"5KkQbdxFHr8Pg1N3DEMDdU7emFgUTwQvh99FDJrodFhUbbsAtQT",
+            "pubkey":"EOS6Tkpf8kcDfa32WA9B4nTcEJ64ZdDMSNioDcaL6rzdMwnpzaWJB",
+            "blspubkey":"PUB_BLS_PerMKMuQdZ3N6NEOoQRdlB1BztNWAeHkmzqwcFwEQGEM8QMfv3mrrepX5yM4NKQHYDnfcPIQPpDt0gCi6afvpZgN0JHT4jUaNlbfsJKtbm5mOJcqggddamCKEz2lBC0OS2D5yw==",
+            "blsprivkey":"PVT_BLS_n4AshIQiCqCdIOC/lGkKauVOFE2KelMb3flVvodVsji15FHW",
+            "blspop":"SIG_BLS_oqOzQYpJRvQ88ExpJKmwgna29eXM5umPpLmjfHcdcUUKwS3NMWwvP1hLwLcj4XcU6CuM3RzfRo6PPE2sxrp2fUWpqP0bsuamcOOyF+V6TfJMYuDbepc1Jp9HUdli3X0QE6hL+umbO2PWE4KiCSn9tj9LRyXgc41IY7R/JeQCCQSNXMSWhebdB/KCapfxq8sYEzRhXcZik+bXUDC1AcLXaocvNV6o2nKHtJwQ7YyGXCvFXgMMcQ3PWFlQ8WErmxILOM3Z/w=="
+          }
+        ],
+        "peers": [
+          "bios",
+          "testnet_01",
+          "testnet_00",
+          "testnet_04"
+        ],
+        "producers": [
+          "defproducerc"
+        ],
+        "dont_start": false
+      },
+      "testnet_03":{
+        "name": "testnet_03",
+        "keys": [
+          {
+            "privkey":"5JxTJJegQBpEL1p77TzkN1ompMB9gDwAfjM9chPzFCB4chxmwrE",
+            "pubkey":"EOS52ntDHqA2qj4xVo7KmxdezMRhvvBqpZBuKYJCsgihisxmywpAx",
+            "blspubkey":"PUB_BLS_6C3UlotUoDwruilh6gE+qlKsqY7VrmT6eT3aTr9fC0kZUkQRo13/xMh7MZerbBED2Rho72BLHIaWnT01LLsCFIZg9pSyHBFt3EcKa4p6OyvTkQAFxNb739EYcTVx2n8Gi0d+iw==",
+            "blsprivkey":"PVT_BLS_Tw2Lozr/Qw2/uf13xo6vduAWqzJnWu2o0/s9WalErmkq4RPV",
+            "blspop":"SIG_BLS_mrKA0CFFTP3udLsaWH67ilVf/5dcCHfzJ+P8i+dEuVg4y+td8uyghJqDxnPoitMEjjSqP12kmSZciDXqWD+uGU7nY1YeDK5Tvi7cvd1qSOuATjDuW+amc/5SKp73NLsYwqVFcIex4XF+Quu/NRfDCfLj9ZRPtmuNAUevi2iz0ExeOkQTjQhKksb9ihN+6w4Wk0vJEjt0KbbW2Ny46J+P7PbanH34X9iCV3dT+lqnyp9om0hxKJJIH2R6P5hC2d8Ry8FBAw=="
+          }
+        ],
+        "peers": [
+          "bios",
+          "testnet_04"
+        ],
+        "producers": [
+          "defproducerd"
+        ],
+        "dont_start": false
+      },
+      "testnet_04":{
+        "name": "testnet_04",
+        "keys": [
+        ],
+        "peers": [
+          "bios",
+          "testnet_00",
+          "testnet_01",
+          "testnet_02",
+          "testnet_03"
+        ],
+        "producers": [
+        ],
+        "dont_start": false
+      }
+  }
+}
