@@ -160,7 +160,7 @@ void finalizer_set::save_finalizer_safety_info() const {
    try {
       static bool first_vote = true;
       persist_file.seek(0);
-      fc::raw::pack(persist_file, finalizer::safety_information::magic);
+      fc::raw::pack(persist_file, fsi_t::magic);
       fc::raw::pack(persist_file, (uint64_t)finalizers.size());
       for (const auto& [pub_key, f] : finalizers) {
          fc::raw::pack(persist_file, pub_key);
@@ -212,7 +212,7 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
       persist_file.seek(0);
       uint64_t magic = 0;
       fc::raw::unpack(persist_file, magic);
-      EOS_ASSERT(magic == finalizer::safety_information::magic, finalizer_safety_exception,
+      EOS_ASSERT(magic == fsi_t::magic, finalizer_safety_exception,
                  "bad magic number in finalizer safety persistence file: ${p}", ("p", persist_file_path));
       uint64_t num_finalizers {0};
       fc::raw::unpack(persist_file, num_finalizers);
@@ -245,7 +245,7 @@ void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer
    for (const auto& [pub_key_str, priv_key_str] : finalizer_keys) {
       auto public_key {bls_public_key{pub_key_str}};
       auto it  = safety_info.find(public_key);
-      auto fsi = it != safety_info.end() ? it->second : default_safety_information();
+      auto fsi = it != safety_info.end() ? it->second : default_fsi;
       finalizers[public_key] = finalizer{bls_private_key{priv_key_str}, fsi};
    }
 
@@ -265,24 +265,26 @@ void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer
 }
 
 
-// ----------------------------------------------------------------------------------------
-finalizer::safety_information finalizer_set::default_safety_information() const {
-   finalizer::safety_information res;
-   return res;
-}
-
-// ----------------------------------------------------------------------------------------
-void finalizer_set::finality_transition_notification(block_timestamp_type b1_time, block_id_type b1_id,
-                                                     block_timestamp_type b2_time, block_id_type b2_id) {
-   assert(t_startup < b1_time);
+// --------------------------------------------------------------------------------------------
+// Can be called either:
+//   - when transitioning to IF (before any votes are to be sent)
+//   - at leap startup, if we start at a block which is either within or past the IF transition.
+// In either case, we are never updating existing finalizer safety information. This is only
+// to ensure that the safety information will have defaults that ensure safety as much as
+// possible, and allow for liveness which will allow the finalizers to eventually vote.
+// --------------------------------------------------------------------------------------------
+void finalizer_set::set_default_safety_information(const fsi_t& fsi) {
+   assert(t_startup < fsi.last_vote.timestamp);
    for (auto& [pub_key, f] : finalizers) {
       // update only finalizers which are uninitialized
-      if (!f.fsi.last_vote.empty())
+      if (!f.fsi.last_vote.empty() || !f.fsi.lock.empty())
          continue;
 
-      f.fsi.last_vote = finalizer::proposal_ref(b1_id, b1_time);
-      f.fsi.lock      = finalizer::proposal_ref(b2_id, b2_time);
+      f.fsi = fsi;
    }
+
+   // save it in case set_keys called afterwards.
+   default_fsi = fsi;
 }
 
 } // namespace eosio::chain

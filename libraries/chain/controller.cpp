@@ -2741,13 +2741,18 @@ struct controller_impl {
                   if_irreversible_block_num = forkdb.chain_head->block_num();
 
                   {
-                     // notify finalizers of transition information, so they can update their safety
-                     // information if necessary. See https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw
-                     // [if todo] set values accurately
+                     // If leap started at a block prior to the IF transition, it needs to provide a default safety
+                     // information for those finalizer that don't already have one. This typically should be done when
+                     // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
+                     // to the IF consensus.
+                     // See https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw -  [if todo] set values accurately
+                     // -----------------------------------------------------------------------------------------------
                      auto start_block = forkdb.chain_head;
                      auto lib_block   = forkdb.chain_head;
-                     my_finalizers.finality_transition_notification(start_block->timestamp(), start_block->id(),
-                                                                    lib_block->timestamp(), lib_block->id());
+                     my_finalizers.set_default_safety_information(
+                        finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                       .last_vote = finalizer::proposal_ref(start_block),
+                                                       .lock      = finalizer::proposal_ref(lib_block) });
                   }
 
                   log_irreversible();

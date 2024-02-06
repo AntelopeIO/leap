@@ -26,7 +26,8 @@ namespace eosio::chain {
 
          proposal_ref() = default;
 
-         proposal_ref(const block_state_ptr& p) :
+         template<class bsp>
+         proposal_ref(const bsp& p) :
             id(p->id()),
             timestamp(p->timestamp())
          {}
@@ -49,11 +50,10 @@ namespace eosio::chain {
          block_timestamp_type last_vote_range_start;
          proposal_ref         last_vote;          // v_height under hotstuff
          proposal_ref         lock;               // b_lock under hotstuff
-         bool                 recovery_mode;
 
          static constexpr uint64_t magic = 0x5AFE11115AFE1111ull;
 
-         safety_information() = default;
+         static safety_information default_fsi() { return {block_timestamp_type(), {}, {}}; }
       };
 
       bls_private_key           priv_key;
@@ -71,13 +71,15 @@ namespace eosio::chain {
 
    // ----------------------------------------------------------------------------------------
    struct finalizer_set {
-      using fsi_map = std::map<bls_public_key, finalizer::safety_information>;
+      using fsi_t   = finalizer::safety_information;
+      using fsi_map = std::map<bls_public_key, fsi_t>;
 
       const block_timestamp_type        t_startup;             // nodeos startup time, used for default safety_information
       const std::filesystem::path       persist_file_path;     // where we save the safety data
       mutable fc::datastream<fc::cfile> persist_file;          // we want to keep the file open for speed
-      std::map<bls_public_key, finalizer>  finalizers;            // the active finalizers for this node
+      std::map<bls_public_key, finalizer>  finalizers;         // the active finalizers for this node
       fsi_map                           inactive_safety_info;  // loaded at startup, not mutated afterwards
+      fsi_t                             default_fsi = fsi_t::default_fsi(); // default provided at leap startup
 
       template<class F>
       void maybe_vote(const finalizer_policy &fin_pol,
@@ -108,14 +110,17 @@ namespace eosio::chain {
          }
       }
 
-      void set_keys(const std::map<std::string, std::string>& finalizer_keys);
-      void finality_transition_notification(block_timestamp_type b1_time, block_id_type b1_id,
-                                            block_timestamp_type b2_time, block_id_type b2_id);
+      size_t  size() const { return finalizers.size(); }
+      void    set_keys(const std::map<std::string, std::string>& finalizer_keys);
+      void    set_default_safety_information(const fsi_t& fsi);
+
+      // for testing purposes only
+      const fsi_t& get_fsi(const bls_public_key& k) { return finalizers[k].fsi; }
+      void         set_fsi(const bls_public_key& k, const fsi_t& fsi) { finalizers[k].fsi = fsi; }
 
    private:
       void    save_finalizer_safety_info() const;
       fsi_map load_finalizer_safety_info();
-      finalizer::safety_information default_safety_information() const;
    };
 
 }
