@@ -3006,7 +3006,12 @@ struct controller_impl {
              return bsp->aggregate_vote(vote);
           return {vote_status::unknown_block, {}};
       };
-      auto [status, new_lib] = fork_db.apply_if<std::pair<vote_status, std::optional<uint32_t>>>(do_vote);
+      // TODO: https://github.com/AntelopeIO/leap/issues/2057
+      // TODO: Do not aggregate votes on block_state if in legacy block fork_db
+      auto do_vote_legacy = [](auto&) -> std::pair<vote_status, std::optional<uint32_t>> {
+         return {vote_status::unknown_block, {}};
+      };
+      auto [status, new_lib] = fork_db.apply<std::pair<vote_status, std::optional<uint32_t>>>(do_vote_legacy, do_vote);
       if (new_lib) {
          set_if_irreversible_block_num(*new_lib);
       }
