@@ -156,7 +156,7 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
 
    signed_block_ptr accepted_block;
    block_id_type accepted_id;
-   auto c = chain.control->accepted_block.connect([&](block_signal_params t) {
+   auto c = chain.control->accepted_block().connect([&](block_signal_params t) {
       const auto& [ block, id ] = t;
       auto block_num = block->block_num();
       BOOST_CHECK(block);
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
    });
    signed_block_ptr validated_block;
    block_id_type validated_id;
-   auto c2 = validator.control->accepted_block.connect([&](block_signal_params t) {
+   auto c2 = validator.control->accepted_block().connect([&](block_signal_params t) {
       const auto& [ block, id ] = t;
       auto block_num = block->block_num();
       BOOST_CHECK(block);

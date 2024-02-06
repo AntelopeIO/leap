@@ -52,7 +52,7 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activat
    };
 
    uint32_t lib = 0;
-   control->irreversible_block.connect([&](const block_signal_params& t) {
+   control->irreversible_block().connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
       lib = block->block_num();
    });
