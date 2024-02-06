@@ -3,3 +3,4 @@ target_link_libraries(test_state_history state_history_plugin eosio_testing eosi
 target_include_directories( test_state_history PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../include" )
 
 add_test(test_state_history test_state_history)
+set_property(TEST test_state_history PROPERTY LABELS nonparallelizable_tests)

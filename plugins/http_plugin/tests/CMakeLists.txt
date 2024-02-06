@@ -11,3 +11,4 @@ target_include_directories( http_plugin_unit_tests PUBLIC
                             ${CMAKE_SOURCE_DIR}/plugins/http_plugin/include )
 
 add_test( NAME http_plugin_unit_tests COMMAND http_plugin_unit_tests )
+set_property(TEST http_plugin_unit_tests PROPERTY LABELS nonparallelizable_tests)
