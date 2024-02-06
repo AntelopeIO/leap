@@ -194,7 +194,15 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
    EOS_ASSERT(!persist_file.is_open(), finalizer_safety_exception,
               "Trying to read an already open finalizer safety persistence file: ${p}",
               ("p", persist_file_path));
+
+   if (!std::filesystem::exists(persist_file_path)) {
+      elog( "unable to open finalizer safety persistence file ${p}, file doesn't exist",
+            ("p", persist_file_path));
+      return res;
+   }
+
    persist_file.set_file_path(persist_file_path);
+
    try {
       // if we can't open the finalizer safety file, we return an empty map.
       persist_file.open(fc::cfile::update_rw_mode);
