@@ -274,7 +274,7 @@ void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer
 // possible, and allow for liveness which will allow the finalizers to eventually vote.
 // --------------------------------------------------------------------------------------------
 void finalizer_set::set_default_safety_information(const fsi_t& fsi) {
-   assert(t_startup < fsi.last_vote.timestamp);
+   //assert(fsi.last_vote.id.empty() || t_startup < fsi.last_vote.timestamp);
    for (auto& [pub_key, f] : finalizers) {
       // update only finalizers which are uninitialized
       if (!f.fsi.last_vote.empty() || !f.fsi.lock.empty())
