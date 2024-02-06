@@ -3917,7 +3917,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    BOOST_CHECK_GT(lib, lib_after_transition);
 } FC_LOG_AND_RETHROW() }
 
-void test_finality_transition(const vector<account_name> accounts, const base_tester::finalizer_policy_input& input, bool lib_advancing_expected) {
+void test_finality_transition(const vector<account_name>& accounts, const base_tester::finalizer_policy_input& input, bool lib_advancing_expected) {
    validating_tester t;
 
    uint32_t lib = 0;
@@ -3967,7 +3967,7 @@ BOOST_AUTO_TEST_CASE(threshold_equal_to_half_weight_sum_test) { try {
    };
 
    // threshold set to half of the weight sum of finalizers
-   base_tester::finalizer_policy_input ploicy_input = {
+   base_tester::finalizer_policy_input policy_input = {
       .finalizers       = { {.name = "alice"_n, .weight = 1},
                             {.name = "bob"_n,   .weight = 2},
                             {.name = "carol"_n, .weight = 3} },
@@ -3976,7 +3976,7 @@ BOOST_AUTO_TEST_CASE(threshold_equal_to_half_weight_sum_test) { try {
    };
 
    // threshold must be greater than half of the sum of the weights
-   BOOST_REQUIRE_THROW( test_finality_transition(account_names, ploicy_input, false), eosio_assert_message_exception );
+   BOOST_REQUIRE_THROW( test_finality_transition(account_names, policy_input, false), eosio_assert_message_exception );
 
 } FC_LOG_AND_RETHROW() }
 
@@ -3985,7 +3985,7 @@ BOOST_AUTO_TEST_CASE(votes_equal_to_threshold_test) { try {
       "alice"_n, "bob"_n, "carol"_n
    };
 
-   base_tester::finalizer_policy_input ploicy_input = {
+   base_tester::finalizer_policy_input policy_input = {
       .finalizers       = { {.name = "alice"_n, .weight = 1},
                             {.name = "bob"_n,   .weight = 3},
                             {.name = "carol"_n, .weight = 5} },
@@ -3994,7 +3994,7 @@ BOOST_AUTO_TEST_CASE(votes_equal_to_threshold_test) { try {
    };
 
    // Carol votes with weight 5 and threshold 5
-   test_finality_transition(account_names, ploicy_input, true); // lib_advancing_expected
+   test_finality_transition(account_names, policy_input, true); // lib_advancing_expected
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(votes_greater_than_threshold_test) { try {
@@ -4002,7 +4002,7 @@ BOOST_AUTO_TEST_CASE(votes_greater_than_threshold_test) { try {
       "alice"_n, "bob"_n, "carol"_n
    };
 
-   base_tester::finalizer_policy_input ploicy_input = {
+   base_tester::finalizer_policy_input policy_input = {
       .finalizers       = { {.name = "alice"_n, .weight = 1},
                             {.name = "bob"_n,   .weight = 4},
                             {.name = "carol"_n, .weight = 2} },
@@ -4011,7 +4011,7 @@ BOOST_AUTO_TEST_CASE(votes_greater_than_threshold_test) { try {
    };
 
    // alice and bob vote with weight 5 and threshold 4
-   test_finality_transition(account_names, ploicy_input, true); // lib_advancing_expected
+   test_finality_transition(account_names, policy_input, true); // lib_advancing_expected
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(votes_less_than_threshold_test) { try {
@@ -4019,7 +4019,7 @@ BOOST_AUTO_TEST_CASE(votes_less_than_threshold_test) { try {
       "alice"_n, "bob"_n, "carol"_n
    };
 
-   base_tester::finalizer_policy_input ploicy_input = {
+   base_tester::finalizer_policy_input policy_input = {
       .finalizers       = { {.name = "alice"_n, .weight = 1},
                             {.name = "bob"_n,   .weight = 3},
                             {.name = "carol"_n, .weight = 10} },
@@ -4028,7 +4028,7 @@ BOOST_AUTO_TEST_CASE(votes_less_than_threshold_test) { try {
    };
 
    // alice and bob vote with weight 4 but threshold 8. LIB cannot advance
-   test_finality_transition(account_names, ploicy_input, false); // not expecting lib advancing
+   test_finality_transition(account_names, policy_input, false); // not expecting lib advancing
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

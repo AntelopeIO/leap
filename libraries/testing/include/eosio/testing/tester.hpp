@@ -255,7 +255,7 @@ namespace eosio { namespace testing {
 
          // libtester uses 1 as weight of each of the finalizer, sets (2/3 finalizers + 1)
          // as threshold, and makes all finalizers vote QC
-         transaction_trace_ptr  set_finalizers(const vector<account_name>& finalier_names);
+         transaction_trace_ptr  set_finalizers(const vector<account_name>& finalizer_names);
 
          // Finalizer policy input to set up a test: weights, threshold and local finalizers
          // which participate voting.
