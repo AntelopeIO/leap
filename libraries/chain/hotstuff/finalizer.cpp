@@ -46,7 +46,7 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const branch
 bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
    if (ancestor.empty())
       return false;
-   auto cur = fork_db.get_block_header(descendant->previous());
+   auto cur = fork_db.get_block_header(descendant->previous()); // use `get_block_header` so we can get the root
    while (cur) {
       if (cur->id == ancestor)
          return true;
