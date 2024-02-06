@@ -27,10 +27,6 @@ namespace eosio::chain {
 
    template<class bs>  
    bool first_preferred( const bs& lhs, const bs& rhs ) {
-      // dpos_irreversible_blocknum == std::numeric_limits<uint32_t>::max() after hotstuff activation
-      //   hotstuff block considered preferred over dpos
-      //   hotstuff blocks compared by block_num as both lhs & rhs dpos_irreversible_blocknum is max uint32_t
-      // This can be simplified in a future release that assumes hotstuff already activated
       return std::pair(lhs.irreversible_blocknum(), lhs.block_num()) > std::pair(rhs.irreversible_blocknum(), rhs.block_num());
    }
 

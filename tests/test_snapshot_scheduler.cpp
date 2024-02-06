@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                chain_plugin* chain_plug = app->find_plugin<chain_plugin>();
                plugin_promise.set_value({prod_plug, chain_plug});
 
-               auto bs = chain_plug->chain().block_start.connect([&prod_plug, &at_block_20_promise](uint32_t bn) {
+               auto bs = chain_plug->chain().block_start().connect([&prod_plug, &at_block_20_promise](uint32_t bn) {
                   if(bn == 20u)
                      at_block_20_promise.set_value();
                   // catching pending snapshot

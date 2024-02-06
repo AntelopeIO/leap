@@ -60,7 +60,7 @@ class replay_tester : public base_tester {
    replay_tester(controller::config config, const genesis_state& genesis, OnAppliedTrx&& on_applied_trx) {
       cfg = config;
       base_tester::open(make_protocol_feature_set(), genesis.compute_chain_id(), [&genesis,&control=this->control, &on_applied_trx]() {
-         control->applied_transaction.connect(on_applied_trx);
+         control->applied_transaction().connect(on_applied_trx);
          control->startup( [](){}, []() { return false; }, genesis );
       });
    }

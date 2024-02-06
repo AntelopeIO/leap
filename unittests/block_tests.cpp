@@ -217,11 +217,11 @@ BOOST_AUTO_TEST_CASE(broadcasted_block_test)
   signed_block_ptr bcasted_blk_by_prod_node;
   signed_block_ptr bcasted_blk_by_recv_node;
 
-  producer_node.control->accepted_block.connect( [&](block_signal_params t) {
+  producer_node.control->accepted_block().connect( [&](block_signal_params t) {
     const auto& [ block, id ] = t;
     bcasted_blk_by_prod_node = block;
   });
-  receiving_node.control->accepted_block.connect( [&](block_signal_params t) {
+  receiving_node.control->accepted_block().connect( [&](block_signal_params t) {
     const auto& [ block, id ] = t;
     bcasted_blk_by_recv_node = block;
   });

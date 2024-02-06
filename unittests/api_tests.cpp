@@ -889,7 +889,7 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    other.execute_setup_policy( setup_policy::full );
 
    transaction_trace_ptr other_trace;
-   auto cc = other.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+   auto cc = other.control->applied_transaction().connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if( t && t->id == trace->id ) {
          other_trace = t;
@@ -1467,12 +1467,12 @@ void transaction_tests(T& chain) {
       {
          chain.produce_blocks(10);
          transaction_trace_ptr trace;
-         auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+         auto c = chain.control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
             auto& t = std::get<0>(x);
             if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
          } );
          signed_block_ptr block;
-         auto c2 = chain.control->accepted_block.connect([&](block_signal_params t) {
+         auto c2 = chain.control->accepted_block().connect([&](block_signal_params t) {
             const auto& [ b, id ] = t;
             block = b; });
 
@@ -1652,7 +1652,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_limit) { try {
    chain2.push_block(block);
 
    transaction_trace_ptr trace;
-   auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+   auto c = chain.control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if (t->scheduled) { trace = t; }
    } );
@@ -1687,7 +1687,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    //schedule
    {
       transaction_trace_ptr trace;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t->scheduled) { trace = t; }
       } );
@@ -1710,7 +1710,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    {
       transaction_trace_ptr trace;
       uint32_t count = 0;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; ++count; }
       } );
@@ -1736,7 +1736,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    {
       transaction_trace_ptr trace;
       uint32_t count = 0;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; ++count; }
       } );
@@ -1762,7 +1762,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    //schedule and cancel
    {
       transaction_trace_ptr trace;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; }
       } );
@@ -1785,7 +1785,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    //repeated deferred transactions
    {
       vector<transaction_trace_ptr> traces;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) {
             traces.push_back( t );
@@ -3863,7 +3863,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    validating_tester t;
 
    uint32_t lib = 0;
-   t.control->irreversible_block.connect([&](const block_signal_params& t) {
+   t.control->irreversible_block().connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
       lib = block->block_num();
    });
