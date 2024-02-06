@@ -482,6 +482,7 @@ class Cluster(object):
                         Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start,
                         launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
             node.keys = instance.keys
+            node.isProducer = len(instance.producers) > 0
             if nodeNum == Node.biosNodeId:
                 self.biosNode = node
             else:
@@ -1000,7 +1001,9 @@ class Cluster(object):
         for n in (self.nodes + [self.biosNode]):
             if not n or not n.keys or not n.keys[0].blspubkey:
                 continue
-            if n.nodeId == Node.biosNodeId and not biosFinalizer:
+            if not n.isProducer:
+                continue
+            if n.nodeId == 'bios' and not biosFinalizer:
                 continue
             numFins = numFins + 1
 
@@ -1016,7 +1019,9 @@ class Cluster(object):
         for n in (self.nodes + [self.biosNode]):
             if not n or not n.keys or not n.keys[0].blspubkey:
                 continue
-            if n.nodeId == Node.biosNodeId and not biosFinalizer:
+            if not n.isProducer:
+                continue
+            if n.nodeId == 'bios' and not biosFinalizer:
                 continue
             setFinStr += f'    {{"description": "finalizer #{finNum}", '
             setFinStr += f'     "weight":1, '
@@ -1105,7 +1110,7 @@ class Cluster(object):
             return None
 
         if activateIF:
-            self.activateInstantFinality(biosFinalizer)
+            self.activateInstantFinality(biosFinalizer=biosFinalizer)
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(eosioName)
@@ -1204,7 +1209,7 @@ class Cluster(object):
         #
         # Could activate instant finality here, but have to wait for finality which with all the producers takes a long time
         #         if activateIF:
-        #             self.activateInstantFinality(launcher)
+        #             self.activateInstantFinality()
 
         eosioTokenAccount = copy.deepcopy(eosioAccount)
         eosioTokenAccount.name = 'eosio.token'
