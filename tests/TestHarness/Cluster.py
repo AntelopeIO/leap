@@ -481,6 +481,7 @@ class Cluster(object):
             node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name),
                         Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start,
                         launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            node.keys = instance.keys
             if nodeNum == Node.biosNodeId:
                 self.biosNode = node
             else:
@@ -993,15 +994,13 @@ class Cluster(object):
         Utils.Print(f'Found {len(producerKeys)} producer keys')
         return producerKeys
 
-    def activateInstantFinality(self, launcher, biosFinalizer, pnodes):
+    def activateInstantFinality(self, biosFinalizer=True):
         # call setfinalizer
         numFins = 0
-        for n in launcher.network.nodes.values():
-            if not n.keys or not n.keys[0].blspubkey:
+        for n in (self.nodes + [self.biosNode]):
+            if not n or not n.keys or not n.keys[0].blspubkey:
                 continue
-            if not n.producers:
-                continue
-            if n.index == Node.biosNodeId and not biosFinalizer:
+            if n.nodeId == Node.biosNodeId and not biosFinalizer:
                 continue
             numFins = numFins + 1
 
@@ -1009,18 +1008,15 @@ class Cluster(object):
         if threshold > 2 and threshold == numFins:
             # nodes are often stopped, so do not require all node votes
             threshold = threshold - 1
-        # pnodes does not include biosNode
-        if Utils.Debug: Utils.Print(f"threshold: {threshold}, numFins: {numFins}, pnodes: {pnodes}")
+        if Utils.Debug: Utils.Print(f"threshold: {threshold}, numFins: {numFins}")
         setFinStr =  f'{{"finalizer_policy": {{'
         setFinStr += f'  "threshold": {threshold}, '
         setFinStr += f'  "finalizers": ['
         finNum = 1
-        for n in launcher.network.nodes.values():
-            if n.index == Node.biosNodeId and not biosFinalizer:
+        for n in (self.nodes + [self.biosNode]):
+            if not n or not n.keys or not n.keys[0].blspubkey:
                 continue
-            if not n.keys or not n.keys[0].blspubkey:
-                continue
-            if not n.producers:
+            if n.nodeId == Node.biosNodeId and not biosFinalizer:
                 continue
             setFinStr += f'    {{"description": "finalizer #{finNum}", '
             setFinStr += f'     "weight":1, '
@@ -1109,7 +1105,7 @@ class Cluster(object):
             return None
 
         if activateIF:
-            self.activateInstantFinality(launcher, biosFinalizer, self.productionNodesCount)
+            self.activateInstantFinality(biosFinalizer)
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(eosioName)
