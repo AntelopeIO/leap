@@ -130,6 +130,9 @@ namespace eosio::chain {
       // expected to be called from main thread, accesses chain_head
       void switch_from_legacy();
 
+      bool fork_db_if_present() const { return !!fork_db_if; }
+      bool fork_db_legacy_present() const { return !!fork_db_legacy; }
+
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       std::vector<signed_block_ptr> fetch_branch_from_head();
 

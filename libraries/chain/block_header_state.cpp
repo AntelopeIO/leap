@@ -165,7 +165,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 
    // Finally update block id from header
    // -----------------------------------
-   result.id = result.header.calculate_id();
+   result.block_id = result.header.calculate_id();
 
    return result;
 }
@@ -182,7 +182,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
                                             validator_t& validator) const {
    auto producer = detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, h.timestamp).producer_name;
    
-   EOS_ASSERT( h.previous == id, unlinkable_block_exception, "previous mismatch" );
+   EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch" );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
    EOS_ASSERT( h.confirmed == 0, block_validate_exception, "invalid confirmed ${c}", ("c", h.confirmed) );
 
@@ -205,7 +205,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
    auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
 
    building_block_input bb_input{
-      .parent_id = id,
+      .parent_id = block_id,
       .timestamp = h.timestamp,
       .producer  = producer,
       .new_protocol_feature_activations = std::move(new_protocol_feature_activations)

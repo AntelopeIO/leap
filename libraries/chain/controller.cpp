@@ -245,7 +245,7 @@ struct assembled_block {
    const block_id_type& id() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) -> const block_id_type& { return ab.id; },
-                    [](const assembled_block_if& ab)   -> const block_id_type& { return ab.bhs.id; }},
+               [](const assembled_block_if& ab)   -> const block_id_type& { return ab.bhs.id(); }},
          v);
    }
    
@@ -1558,6 +1558,41 @@ struct controller_impl {
       };
 
       fork_db.apply<void>(finish_init);
+
+      // At Leap startup, we want to provide to our local finalizers the correct safety information
+      // to use if they don't already have one.
+      // If we start at a block prior to the IF transition, that information will be provided when
+      // we create the new `fork_db_if`.
+      // If we start at a block during or after the IF transition, we need to provide this information
+      // at startup.
+      // ---------------------------------------------------------------------------------------------
+      if (fork_db.fork_db_if_present()) {
+         // we are already past the IF transition point where we create the updated fork_db.
+         // so we can't rely on the finalizer safety information update happening duting the transition.
+         // see https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw for details
+         // -------------------------------------------------------------------------------------------
+         if (fork_db.fork_db_legacy_present()) {
+            // fork_db_legacy is present as well, which means that we have not completed the transition
+            auto set_finalizer_defaults = [&](auto& forkdb) -> void {
+               auto lib = forkdb.root();
+               my_finalizers.set_default_safety_information(
+                  finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                 .last_vote = {},
+                                                 .lock      = finalizer::proposal_ref(lib) });
+            };
+            fork_db.apply_if<void>(set_finalizer_defaults);
+         } else {
+            // we are past the IF transition.
+            auto set_finalizer_defaults = [&](auto& forkdb) -> void {
+               auto lib = forkdb.root();
+               my_finalizers.set_default_safety_information(
+                  finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                 .last_vote = {},
+                                                 .lock      = finalizer::proposal_ref(lib) });
+            };
+            fork_db.apply_if<void>(set_finalizer_defaults);
+         }
+      }
    }
 
    ~controller_impl() {
@@ -3196,7 +3231,7 @@ struct controller_impl {
                   ("s1", qc_proof.qc.is_strong())("s2", qc_claim.is_last_qc_strong)("b", block_num) );
 
       // find the claimed block's block state on branch of id
-      auto bsp = fork_db_fetch_bsp_by_num( prev.id, qc_claim.last_qc_block_num );
+      auto bsp = fork_db_fetch_bsp_by_num( prev.id(), qc_claim.last_qc_block_num );
       EOS_ASSERT( bsp,
                   invalid_qc_claim,
                   "Block state was not found in forkdb for last_qc_block_num ${q}. Block number: ${b}",

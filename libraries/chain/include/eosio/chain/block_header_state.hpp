@@ -40,7 +40,7 @@ struct block_header_state_core {
 
 struct block_header_state {
    // ------ data members ------------------------------------------------------------
-   block_id_type                       id;
+   block_id_type                       block_id;
    block_header                        header;
    protocol_feature_activation_set_ptr activated_protocol_features;
 
@@ -62,7 +62,8 @@ struct block_header_state {
 
    // ------ functions -----------------------------------------------------------------
    // [if todo] https://github.com/AntelopeIO/leap/issues/2080
-   digest_type           compute_finalizer_digest() const { return id; };
+   const block_id_type&  id() const { return block_id; }
+   digest_type           compute_finalizer_digest() const { return block_id; };
    block_timestamp_type  timestamp() const { return header.timestamp; }
    account_name          producer() const  { return header.producer; }
    const block_id_type&  previous() const  { return header.previous; }
@@ -96,5 +97,5 @@ using block_header_state_ptr = std::shared_ptr<block_header_state>;
 FC_REFLECT( eosio::chain::block_header_state_core,
             (last_final_block_num)(final_on_strong_qc_block_num)(last_qc_block_num)(finalizer_policy_generation))
 FC_REFLECT( eosio::chain::block_header_state,
-            (id)(header)(activated_protocol_features)(core)(proposal_mtree)(finality_mtree)
+            (block_id)(header)(activated_protocol_features)(core)(proposal_mtree)(finality_mtree)
             (active_finalizer_policy)(active_proposer_policy)(proposer_policies)(finalizer_policies)(header_exts))

@@ -53,7 +53,7 @@ namespace eosio::chain {
 
          static constexpr uint64_t magic = 0x5AFE11115AFE1111ull;
 
-         static safety_information default_fsi() { return {block_timestamp_type(), {}, {}}; }
+         static safety_information unset_fsi() { return {block_timestamp_type(), {}, {}}; }
       };
 
       bls_private_key           priv_key;
@@ -79,7 +79,7 @@ namespace eosio::chain {
       mutable fc::datastream<fc::cfile> persist_file;          // we want to keep the file open for speed
       std::map<bls_public_key, finalizer>  finalizers;         // the active finalizers for this node
       fsi_map                           inactive_safety_info;  // loaded at startup, not mutated afterwards
-      fsi_t                             default_fsi = fsi_t::default_fsi(); // default provided at leap startup
+      fsi_t                             default_fsi = fsi_t::unset_fsi(); // default provided at leap startup
 
       template<class F>
       void maybe_vote(const finalizer_policy &fin_pol,

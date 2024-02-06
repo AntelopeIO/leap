@@ -48,7 +48,7 @@ bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendan
       return false;
    auto cur = fork_db.get_block_header(descendant->previous()); // use `get_block_header` so we can get the root
    while (cur) {
-      if (cur->id == ancestor)
+      if (cur->id() == ancestor)
          return true;
       cur = fork_db.get_block_header(cur->previous());
    }
