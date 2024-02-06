@@ -3921,7 +3921,7 @@ void test_finality_transition(const vector<account_name>& accounts, const base_t
    validating_tester t;
 
    uint32_t lib = 0;
-   t.control->irreversible_block.connect([&](const block_signal_params& t) {
+   t.control->irreversible_block().connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
       lib = block->block_num();
    });
