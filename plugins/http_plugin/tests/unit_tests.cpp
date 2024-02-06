@@ -679,19 +679,17 @@ BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
       }
    };
 
-   auto drain_http_replies = [&]() {
+   auto scan_http_replies = [&]() {
       std::unordered_map<boost::beast::http::status, size_t> count_of_status_replies;
-      while(connections.size()) {
+      for(boost::asio::ip::tcp::socket& c : connections) {
          boost::beast::http::response<boost::beast::http::string_body> resp;
          boost::beast::flat_buffer buffer;
-         boost::beast::http::read(connections.front(), buffer, resp);
+         boost::beast::http::read(c, buffer, resp);
 
          count_of_status_replies[resp.result()]++;
 
          if(resp.result() == boost::beast::http::status::ok)
             BOOST_REQUIRE(resp.keep_alive());
-
-         connections.erase(connections.begin());
       }
       return count_of_status_replies;
    };
@@ -699,18 +697,21 @@ BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
 
    //8 requests to start with
    send_requests(8u);
-   std::unordered_map<boost::beast::http::status, size_t> r = drain_http_replies();
+   std::unordered_map<boost::beast::http::status, size_t> r = scan_http_replies();
    BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 8u);
+   connections.clear();
 
    //24 requests will exceed threshold
    send_requests(24u);
-   r = drain_http_replies();
+   r = scan_http_replies();
    BOOST_REQUIRE_GT(r[boost::beast::http::status::ok], 0u);
    BOOST_REQUIRE_GT(r[boost::beast::http::status::service_unavailable], 0u);
    BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::service_unavailable] + r[boost::beast::http::status::ok], 24u);
+   connections.clear();
 
    //requests should still work
    send_requests(8u);
-   r = drain_http_replies();
+   r = scan_http_replies();
    BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 8u);
+   connections.clear();
 }
