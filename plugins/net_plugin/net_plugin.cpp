@@ -4392,20 +4392,20 @@ namespace eosio {
 
       {
          chain::controller& cc = chain_plug->chain();
-         cc.accepted_block_header.connect( [my = shared_from_this()]( const block_signal_params& t ) {
+         cc.accepted_block_header().connect( [my = shared_from_this()]( const block_signal_params& t ) {
             const auto& [ block, id ] = t;
             my->on_accepted_block_header( block, id );
          } );
 
-         cc.accepted_block.connect( [my = shared_from_this()]( const block_signal_params& t ) {
+         cc.accepted_block().connect( [my = shared_from_this()]( const block_signal_params& t ) {
             my->on_accepted_block();
          } );
-         cc.irreversible_block.connect( [my = shared_from_this()]( const block_signal_params& t ) {
+         cc.irreversible_block().connect( [my = shared_from_this()]( const block_signal_params& t ) {
             const auto& [ block, id ] = t;
             my->on_irreversible_block( id, block->block_num() );
          } );
 
-         cc.voted_block.connect( [my = shared_from_this()]( const vote_message& vote ) {
+         cc.voted_block().connect( [my = shared_from_this()]( const vote_message& vote ) {
             my->on_voted_block(vote);
          } );
       }

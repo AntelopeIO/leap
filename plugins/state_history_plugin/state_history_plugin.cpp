@@ -324,17 +324,17 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
          chain.set_disable_replay_opts(true);
       }
 
-      applied_transaction_connection.emplace(chain.applied_transaction.connect(
+      applied_transaction_connection.emplace(chain.applied_transaction().connect(
           [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
              on_applied_transaction(std::get<0>(t), std::get<1>(t));
           }));
       accepted_block_connection.emplace(
-          chain.accepted_block.connect([&](const block_signal_params& t) {
+          chain.accepted_block().connect([&](const block_signal_params& t) {
              const auto& [ block, id ] = t;
              on_accepted_block(block, id);
           }));
       block_start_connection.emplace(
-          chain.block_start.connect([&](uint32_t block_num) { on_block_start(block_num); }));
+          chain.block_start().connect([&](uint32_t block_num) { on_block_start(block_num); }));
 
       auto                    dir_option = options.at("state-history-dir").as<std::filesystem::path>();
       std::filesystem::path state_history_dir;

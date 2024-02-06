@@ -1343,20 +1343,20 @@ void producer_plugin_impl::plugin_startup() {
 
          chain.set_node_finalizer_keys(_finalizer_keys);
 
-         _accepted_block_connection.emplace(chain.accepted_block.connect([this](const block_signal_params& t) {
+         _accepted_block_connection.emplace(chain.accepted_block().connect([this](const block_signal_params& t) {
             const auto& [ block, id ] = t;
             on_block(block);
           }));
-         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const block_signal_params& t) {
+         _accepted_block_header_connection.emplace(chain.accepted_block_header().connect([this](const block_signal_params& t) {
             const auto& [ block, id ] = t;
             on_block_header(block->producer, block->block_num(), block->timestamp);
          }));
-         _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](const block_signal_params& t) {
+         _irreversible_block_connection.emplace(chain.irreversible_block().connect([this](const block_signal_params& t) {
             const auto& [ block, id ] = t;
             on_irreversible_block(block);
          }));
 
-         _block_start_connection.emplace(chain.block_start.connect([this, &chain](uint32_t bs) {
+         _block_start_connection.emplace(chain.block_start().connect([this, &chain](uint32_t bs) {
             try {
                _snapshot_scheduler.on_start_block(bs, chain);
             } catch (const snapshot_execution_exception& e) {

@@ -1013,12 +1013,12 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
             } );
 
       // relay signals to channels
-      accepted_block_header_connection = chain->accepted_block_header.connect(
+      accepted_block_header_connection = chain->accepted_block_header().connect(
             [this]( const block_signal_params& t ) {
                accepted_block_header_channel.publish( priority::medium, t );
             } );
 
-      accepted_block_connection = chain->accepted_block.connect( [this]( const block_signal_params& t ) {
+      accepted_block_connection = chain->accepted_block().connect( [this]( const block_signal_params& t ) {
          const auto& [ block, id ] = t;
          if (_account_query_db) {
             _account_query_db->commit_block(block);
@@ -1035,7 +1035,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          accepted_block_channel.publish( priority::high, t );
       } );
 
-      irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_signal_params& t ) {
+      irreversible_block_connection = chain->irreversible_block().connect( [this]( const block_signal_params& t ) {
          const auto& [ block, id ] = t;
 
          if (_trx_retry_db) {
@@ -1049,7 +1049,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          irreversible_block_channel.publish( priority::low, t );
       } );
       
-      applied_transaction_connection = chain->applied_transaction.connect(
+      applied_transaction_connection = chain->applied_transaction().connect(
             [this]( std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t ) {
                const auto& [ trace, ptrx ] = t;
                if (_account_query_db) {
@@ -1068,7 +1068,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
             } );
 
       if (_trx_finality_status_processing || _trx_retry_db) {
-         block_start_connection = chain->block_start.connect(
+         block_start_connection = chain->block_start().connect(
             [this]( uint32_t block_num ) {
                if (_trx_retry_db) {
                   _trx_retry_db->on_block_start(block_num);

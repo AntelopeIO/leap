@@ -369,12 +369,12 @@ namespace eosio::chain {
 
          static std::optional<uint64_t> convert_exception_to_error_code( const fc::exception& e );
 
-         signal<void(uint32_t)>             block_start;
-         signal<void(const block_signal_params&)>  accepted_block_header;
-         signal<void(const block_signal_params&)>  accepted_block;
-         signal<void(const block_signal_params&)>  irreversible_block;
-         signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
-         signal<void(const vote_message&)>      voted_block;
+         signal<void(uint32_t)>&                    block_start();
+         signal<void(const block_signal_params&)>&  accepted_block_header();
+         signal<void(const block_signal_params&)>&  accepted_block();
+         signal<void(const block_signal_params&)>&  irreversible_block();
+         signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)>& applied_transaction();
+         signal<void(const vote_message&)>&         voted_block();
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface& get_wasm_interface();
