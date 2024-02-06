@@ -8,6 +8,7 @@
 #include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
+#include <eosio/chain/hotstuff/hotstuff.hpp>
 
 #include <chainbase/pinnable_mapped_file.hpp>
 
@@ -326,7 +327,7 @@ namespace eosio::chain {
          // called by host function set_finalizers
          void set_proposed_finalizers( const finalizer_policy& fin_set );
          // called from net threads
-         bool process_vote_message( const vote_message& msg );
+         vote_status process_vote_message( const vote_message& msg );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;

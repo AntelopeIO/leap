@@ -261,13 +261,17 @@ namespace eosio {
       bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id ); // locks mutex
 
    public:
+      enum class closing_mode {
+         immediately,  // closing connection immediately
+         handshake     // sending handshake message
+      };
       explicit sync_manager( uint32_t span, uint32_t sync_peer_limit, uint32_t min_blocks_distance );
       static void send_handshakes();
       bool syncing_from_peer() const { return sync_state == lib_catchup; }
       bool is_in_sync() const { return sync_state == in_sync; }
       void sync_reset_lib_num( const connection_ptr& conn, bool closing );
       void sync_reassign_fetch( const connection_ptr& c, go_away_reason reason );
-      void rejected_block( const connection_ptr& c, uint32_t blk_num );
+      void rejected_block( const connection_ptr& c, uint32_t blk_num, closing_mode mode );
       void sync_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied );
       void recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency );
       void sync_recv_notice( const connection_ptr& c, const notice_message& msg );
@@ -2437,18 +2441,22 @@ namespace eosio {
    }
 
    // called from connection strand
-   void sync_manager::rejected_block( const connection_ptr& c, uint32_t blk_num ) {
+   void sync_manager::rejected_block( const connection_ptr& c, uint32_t blk_num, closing_mode mode ) {
       c->block_status_monitor_.rejected();
       fc::unique_lock g( sync_mtx );
       sync_last_requested_num = 0;
       if (blk_num < sync_next_expected_num) {
          sync_next_expected_num = my_impl->get_chain_lib_num();
       }
-      if( c->block_status_monitor_.max_events_violated()) {
+      if( mode == closing_mode::immediately || c->block_status_monitor_.max_events_violated()) {
          peer_wlog( c, "block ${bn} not accepted, closing connection", ("bn", blk_num) );
          sync_source.reset();
          g.unlock();
-         c->close();
+         if( mode == closing_mode::immediately ) {
+            c->close( false ); // do not reconnect
+         } else {
+            c->close();
+         }
       } else {
          g.unlock();
          peer_dlog(c, "rejected block ${bn}, sending handshake", ("bn", blk_num));
@@ -3691,8 +3699,22 @@ namespace eosio {
                 ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
                 ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
       controller& cc = my_impl->chain_plug->chain();
-      if( cc.process_vote_message(msg) ) {
-         my_impl->bcast_vote_message(connection_id, msg);
+
+      switch( cc.process_vote_message(msg) ) {
+         case vote_status::success:
+            my_impl->bcast_vote_message(connection_id, msg);
+            break;
+         case vote_status::unknown_public_key:
+         case vote_status::invalid_signature: // close peer immediately
+            close( false ); // do not reconnect after closing
+            break;
+         case vote_status::unknown_block: // track the failure
+            block_status_monitor_.rejected();
+            break;
+         case vote_status::duplicate: // do nothing
+            break;
+         default:
+            assert(false); // should never happen
       }
    }
 
@@ -3746,9 +3768,15 @@ namespace eosio {
 
          std::optional<block_handle> obt;
          bool exception = false;
+         sync_manager::closing_mode close_mode = sync_manager::closing_mode::handshake;
          try {
             // this may return null if block is not immediately ready to be processed
             obt = cc.create_block_handle( id, ptr );
+         } catch( const invalid_qc_claim &ex) {
+            exception = true;
+            close_mode = sync_manager::closing_mode::immediately;
+            fc_wlog( logger, "invalid QC claim exception, connection ${cid}: #${n} ${id}...: ${m}",
+                     ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16))("m",ex.to_string()));
          } catch( const fc::exception& ex ) {
             exception = true;
             fc_ilog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
@@ -3759,8 +3787,8 @@ namespace eosio {
                      ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16)));
          }
          if( exception ) {
-            c->strand.post( [c, id, blk_num=ptr->block_num()]() {
-               my_impl->sync_master->rejected_block( c, blk_num );
+            c->strand.post( [c, id, blk_num=ptr->block_num(), close_mode]() {
+               my_impl->sync_master->rejected_block( c, blk_num, close_mode );
                my_impl->dispatcher->rejected_block( id );
             });
             return;
@@ -3873,7 +3901,7 @@ namespace eosio {
             }
             // reason==no_reason means accept_block() return false because we are producing, don't call rejected_block which sends handshake
             if( reason != no_reason ) {
-               sync_master->rejected_block( c, blk_num );
+               sync_master->rejected_block( c, blk_num, sync_manager::closing_mode::handshake );
             }
             dispatcher->rejected_block( blk_id );
          });
