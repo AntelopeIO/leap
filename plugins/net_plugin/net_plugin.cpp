@@ -2528,7 +2528,7 @@ namespace eosio {
                }
 
                if (sync_last_requested_num == 0) { // block was rejected
-                  sync_next_expected_num = my_impl->get_chain_lib_num();
+                  sync_next_expected_num = my_impl->get_chain_lib_num() + 1;
                } else {
                   sync_next_expected_num = blk_num + 1;
                }
