@@ -591,6 +591,7 @@ public:
    // threads use 11TB (128 * 11 * 8GB)). It is about 11.7% of total VM space
    // in a 64-bit Linux machine (about 128TB).
    static constexpr uint32_t         _ro_max_threads_allowed{128};
+   static constexpr uint32_t         _ro_default_threads_nonproducer{3};
    named_thread_pool<struct read>    _ro_thread_pool;
    fc::microseconds                  _ro_write_window_time_us{200000};
    fc::microseconds                  _ro_read_window_time_us{60000};
@@ -1031,6 +1032,8 @@ void producer_plugin::set_program_options(
    boost::program_options::options_description& command_line_options,
    boost::program_options::options_description& config_file_options)
 {
+   using namespace std::string_literals;
+
    auto default_priv_key = private_key_type::regenerate<fc::ecc::private_key_shim>(fc::sha256::hash(std::string("nathan")));
    auto private_key_default = std::make_pair(default_priv_key.get_public_key(), default_priv_key );
 
@@ -1079,7 +1082,7 @@ void producer_plugin::set_program_options(
          ("snapshots-dir", bpo::value<std::filesystem::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
          ("read-only-threads", bpo::value<uint32_t>(),
-          "Number of worker threads in read-only execution thread pool. Max 8.")
+         ("Number of worker threads in read-only execution thread pool. Defaults to 0 if configured as producer, otherwise defaults to "s + std::to_string(producer_plugin_impl::_ro_default_threads_nonproducer) + ". Max "s + std::to_string(producer_plugin_impl::_ro_max_threads_allowed) + "."s).c_str())
          ("read-only-write-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_write_window_time_us.count()),
           "Time in microseconds the write window lasts.")
          ("read-only-read-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_read_window_time_us.count()),
@@ -1235,7 +1238,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
          auto i = std::find_if(v.cbegin(), v.cend(), [](const std::string& p) { return p.find("eosio::chain_api_plugin") != std::string::npos; });
          if (i != v.cend()) {
             // default to 3 threads for non producer nodes running chain_api_plugin if not specified
-            _ro_thread_pool_size = 3;
+            _ro_thread_pool_size = _ro_default_threads_nonproducer;
             ilog("chain_api_plugin configured, defaulting read-only-threads to ${t}", ("t", _ro_thread_pool_size));
          }
       }
