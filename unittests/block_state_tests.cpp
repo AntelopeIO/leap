@@ -238,7 +238,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       agg_sig = fc::crypto::blslib::aggregate({agg_sig, sig_2});
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), {}, agg_sig);
+      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, agg_sig);
 
       BOOST_REQUIRE_NO_THROW( bsp->verify_qc(qc) );
    }
@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       agg_sig = fc::crypto::blslib::aggregate({agg_sig, strong_sig});
       agg_sig = fc::crypto::blslib::aggregate({agg_sig, weak_sig});
 
-      valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), agg_sig);
+      valid_quorum_certificate qc(bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), agg_sig);
       BOOST_REQUIRE_NO_THROW( bsp->verify_qc(qc) );
    }
 
@@ -272,7 +272,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       }
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), {}, agg_sig);
+      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, agg_sig);
 
       BOOST_REQUIRE_NO_THROW( bsp->verify_qc(qc) );
    }
@@ -289,7 +289,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       }
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, {}, {}, bitset_to_vector(weak_votes), agg_sig);
+      valid_quorum_certificate qc({}, bitset_to_vector(weak_votes), agg_sig);
 
       BOOST_REQUIRE_NO_THROW( bsp->verify_qc(qc) );
    }
@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       agg_sig = fc::crypto::blslib::aggregate({agg_sig, sig_2});
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), {}, agg_sig);
+      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, agg_sig);
 
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_starts_with("strong quorum is not met") );
    }
@@ -317,7 +317,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       agg_sig = fc::crypto::blslib::aggregate({agg_sig, sig_2});
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, {}, {}, bitset_to_vector(weak_votes), agg_sig);
+      valid_quorum_certificate qc({}, bitset_to_vector(weak_votes), agg_sig);
 
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_starts_with("weak quorum is not met") );
    }
@@ -334,7 +334,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       sig = fc::crypto::blslib::aggregate({sig, sig_2});
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), {}, sig);
+      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, sig);
 
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_is("signature validation failed") );
    }
@@ -351,7 +351,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       sig = fc::crypto::blslib::aggregate({sig, sig_2});
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), {}, sig);
+      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, sig);
 
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_is("signature validation failed") );
    }
@@ -369,7 +369,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       sig = fc::crypto::blslib::aggregate({sig, strong_sig});
       sig = fc::crypto::blslib::aggregate({sig, weak_sig});
 
-      valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), sig);
+      valid_quorum_certificate qc(bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), sig);
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_is("signature validation failed") );
    }
 
@@ -386,7 +386,7 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       sig = fc::crypto::blslib::aggregate({sig, strong_sig});
       sig = fc::crypto::blslib::aggregate({sig, weak_sig});
 
-      valid_quorum_certificate qc({}, {}, bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), sig);
+      valid_quorum_certificate qc(bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), sig);
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_is("signature validation failed") );
    }
 } FC_LOG_AND_RETHROW();
