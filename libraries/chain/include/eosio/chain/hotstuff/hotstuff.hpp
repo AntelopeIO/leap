@@ -111,9 +111,7 @@ namespace eosio::chain {
    // -------------------- valid_quorum_certificate -------------------------------------------------
    class valid_quorum_certificate {
    public:
-      valid_quorum_certificate(const fc::sha256& proposal_id,
-                               const std::vector<uint8_t>& proposal_digest,
-                               const std::vector<uint32_t>& strong_votes, //bitset encoding, following canonical order
+      valid_quorum_certificate(const std::vector<uint32_t>& strong_votes, //bitset encoding, following canonical order
                                const std::vector<uint32_t>& weak_votes,   //bitset encoding, following canonical order
                                const bls_signature& sig);
 
@@ -123,16 +121,7 @@ namespace eosio::chain {
       bool is_weak()   const { return !!_weak_votes; }
       bool is_strong() const { return !_weak_votes; }
 
-      // ================== begin compatibility functions =======================
-      // these are present just to make the tests still work. will be removed.
-      // these assume *only* strong votes.
-      quorum_certificate_message to_msg() const;
-      const fc::sha256&          get_proposal_id() const { return _proposal_id; }
-      // ================== end compatibility functions =======================
-
       friend struct fc::reflector<valid_quorum_certificate>;
-      fc::sha256               _proposal_id;     // [todo] remove
-      std::vector<uint8_t>     _proposal_digest; // [todo] remove
       std::optional<hs_bitset> _strong_votes;
       std::optional<hs_bitset> _weak_votes;
       bls_signature            _sig;
@@ -180,26 +169,16 @@ namespace eosio::chain {
       std::pair<vote_status, bool> add_vote(bool strong,
                                             std::span<const uint8_t> proposal_digest,
                                             size_t index,
-                                            const bls_public_key&pubkey,
-                                            const bls_signature&sig,
+                                            const bls_public_key& pubkey,
+                                            const bls_signature& sig,
                                             uint64_t weight);
 
       state_t state()  const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;
 
-      // ================== begin compatibility functions =======================
-      // these are present just to make the tests still work. will be removed.
-      // these assume *only* strong votes.
-      quorum_certificate_message to_msg() const;
-      const fc::sha256&          get_proposal_id() const { return _proposal_id; }
-      std::string                get_votes_string() const;
-      // ================== end compatibility functions =======================
-
    private:
       friend struct fc::reflector<pending_quorum_certificate>;
       friend class qc_chain;
-      fc::sha256           _proposal_id;     // only used in to_msg(). Remove eventually
-      std::vector<uint8_t> _proposal_digest;
       std::unique_ptr<std::mutex> _mtx;
       uint64_t             _quorum {0};
       uint64_t             _max_weak_sum_before_weak_final {0}; // max weak sum before becoming weak_final
@@ -232,5 +211,7 @@ FC_REFLECT(eosio::chain::vote_message, (proposal_id)(strong)(finalizer_key)(sig)
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
 FC_REFLECT(eosio::chain::hs_message, (msg));
-FC_REFLECT(eosio::chain::valid_quorum_certificate, (_proposal_id)(_proposal_digest)(_strong_votes)(_weak_votes)(_sig));
+FC_REFLECT(eosio::chain::valid_quorum_certificate, (_strong_votes)(_weak_votes)(_sig));
+FC_REFLECT(eosio::chain::pending_quorum_certificate, (_quorum)(_max_weak_sum_before_weak_final)(_state)(_strong_sum)(_weak_sum)(_weak_votes)(_strong_votes));
+FC_REFLECT(eosio::chain::pending_quorum_certificate::votes_t, (_bitset)(_sig));
 FC_REFLECT(eosio::chain::quorum_certificate, (block_num)(qc));

@@ -140,8 +140,6 @@ valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate
 
    valid_quorum_certificate valid_qc;
 
-   valid_qc._proposal_id = _proposal_id;
-   valid_qc._proposal_digest = _proposal_digest;
    if( _state == state_t::strong ) {
       valid_qc._strong_votes = _strong_votes._bitset;
       valid_qc._sig          = _strong_votes._sig;
@@ -155,41 +153,15 @@ valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate
    return valid_qc;
 }
 
-// ================== begin compatibility functions =======================
-// these are present just to make the tests still work. will be removed.
-// these assume *only* strong votes.
-quorum_certificate_message pending_quorum_certificate::to_msg() const {
-   return {.proposal_id    = _proposal_id,
-           .strong_votes   = bitset_to_vector(_strong_votes._bitset),
-           .active_agg_sig = _strong_votes._sig};
-}
-
-std::string pending_quorum_certificate::get_votes_string() const {
-   return std::string("strong(\"") + bitset_to_string(_strong_votes._bitset) + "\", weak(\"" +
-          bitset_to_string(_weak_votes._bitset) + "\"";
-}
-// ================== end compatibility functions =======================
-
 valid_quorum_certificate::valid_quorum_certificate(
-   const fc::sha256& proposal_id, const std::vector<uint8_t>& proposal_digest,
    const std::vector<uint32_t>& strong_votes, // bitset encoding, following canonical order
    const std::vector<uint32_t>& weak_votes,   // bitset encoding, following canonical order
    const bls_signature&         sig)
-   : _proposal_id(proposal_id)
-   , _proposal_digest(proposal_digest)
-   , _sig(sig) {
+   : _sig(sig) {
    if (!strong_votes.empty())
       _strong_votes = vector_to_bitset(strong_votes);
    if (!weak_votes.empty())
       _weak_votes = vector_to_bitset(weak_votes);
-}
-
-quorum_certificate_message valid_quorum_certificate::to_msg() const {
-   return {
-      .proposal_id    = _proposal_id,
-      .strong_votes   = _strong_votes ? bitset_to_vector(*_strong_votes) : std::vector<uint32_t>{1, 0},
-      .active_agg_sig = _sig
-   };
 }
 
 } // namespace eosio::chain

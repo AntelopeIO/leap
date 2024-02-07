@@ -47,6 +47,9 @@ block_state::block_state(const block_state_legacy& bsp) {
    const auto& if_extension = std::get<instant_finality_extension>(*ext);
    assert(if_extension.new_finalizer_policy); // required by current transition mechanism
    active_finalizer_policy = std::make_shared<finalizer_policy>(*if_extension.new_finalizer_policy);
+   // TODO: https://github.com/AntelopeIO/leap/issues/2057
+   // TODO: Do not aggregate votes on blocks created from block_state_legacy. This can be removed when #2057 complete.
+   pending_qc = pending_quorum_certificate{active_finalizer_policy->finalizers.size(), active_finalizer_policy->threshold, active_finalizer_policy->max_weak_sum_before_weak_final()};
    active_proposer_policy = std::make_shared<proposer_policy>();
    active_proposer_policy->active_time = bsp.timestamp();
    active_proposer_policy->proposer_schedule = bsp.active_schedule;
