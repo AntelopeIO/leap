@@ -61,6 +61,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/subjective_billing_test.py ${CMAKE_CU
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/get_account_test.py ${CMAKE_CURRENT_BINARY_DIR}/get_account_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_high_transaction_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_high_transaction_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_retry_transaction_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_retry_transaction_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/transition_to_if.py ${CMAKE_CURRENT_BINARY_DIR}/transition_to_if.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trx_finality_status_test.py ${CMAKE_CURRENT_BINARY_DIR}/trx_finality_status_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trx_finality_status_forked_test.py ${CMAKE_CURRENT_BINARY_DIR}/trx_finality_status_forked_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/plugin_http_api_test.py ${CMAKE_CURRENT_BINARY_DIR}/plugin_http_api_test.py COPYONLY)
@@ -129,6 +130,9 @@ add_test(NAME cluster_launcher COMMAND tests/cluster_launcher.py -v ${UNSHARE} W
 set_property(TEST cluster_launcher PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME cluster_launcher_if COMMAND tests/cluster_launcher.py --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST cluster_launcher_if PROPERTY LABELS nonparallelizable_tests)
+
+add_test(NAME transition_to_if COMMAND tests/transition_to_if.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST transition_to_if PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME ship_test COMMAND tests/ship_test.py -v --num-clients 10 --num-requests 5000 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_test PROPERTY LABELS nonparallelizable_tests)
