@@ -2124,8 +2124,8 @@ namespace eosio {
    void sync_manager::request_next_chunk( const connection_ptr& conn ) REQUIRES(sync_mtx) {
       auto chain_info = my_impl->get_chain_info();
 
-      fc_dlog( logger, "sync_last_requested_num: ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, head: ${h}",
-               ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span)("h", chain_info.head_num) );
+      fc_dlog( logger, "sync_last_requested_num: ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, head: ${h}, lib: ${lib}",
+               ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span)("h", chain_info.head_num)("lib", chain_info.lib_num) );
 
       if( chain_info.head_num + sync_req_span < sync_last_requested_num && sync_source && sync_source->current() ) {
          fc_dlog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
@@ -2169,8 +2169,8 @@ namespace eosio {
             sync_last_requested_num = end;
             sync_source = new_sync_source;
             request_sent = true;
-            new_sync_source->strand.post( [new_sync_source, start, end, head_num=chain_info.head_num]() {
-               peer_ilog( new_sync_source, "requesting range ${s} to ${e}, head ${h}", ("s", start)("e", end)("h", head_num) );
+            new_sync_source->strand.post( [new_sync_source, start, end, head_num=chain_info.head_num, lib=chain_info.lib_num]() {
+               peer_ilog( new_sync_source, "requesting range ${s} to ${e}, head ${h}, lib ${lib}", ("s", start)("e", end)("h", head_num)("lib", lib) );
                new_sync_source->request_sync_blocks( start, end );
             } );
          }
@@ -2216,8 +2216,10 @@ namespace eosio {
 
       if( sync_state != lib_catchup ) {
          set_state( lib_catchup );
+         sync_next_expected_num = chain_info.lib_num + 1;
+      } else {
+         sync_next_expected_num = std::max( chain_info.lib_num + 1, sync_next_expected_num );
       }
-      sync_next_expected_num = std::max( chain_info.lib_num + 1, sync_next_expected_num );
 
       request_next_chunk( c );
    }
@@ -2425,11 +2427,10 @@ namespace eosio {
    // called from connection strand
    void sync_manager::rejected_block( const connection_ptr& c, uint32_t blk_num ) {
       c->block_status_monitor_.rejected();
+      // reset sync on rejected block
       fc::unique_lock g( sync_mtx );
       sync_last_requested_num = 0;
-      if (blk_num < sync_next_expected_num) {
-         sync_next_expected_num = my_impl->get_chain_lib_num();
-      }
+      sync_next_expected_num = my_impl->get_chain_lib_num() + 1;
       if( c->block_status_monitor_.max_events_violated()) {
          peer_wlog( c, "block ${bn} not accepted, closing connection", ("bn", blk_num) );
          sync_source.reset();
@@ -2504,7 +2505,11 @@ namespace eosio {
                   c->sync_wait();
                }
 
-               sync_next_expected_num = blk_num + 1;
+               if (sync_last_requested_num == 0) { // block was rejected
+                  sync_next_expected_num = my_impl->get_chain_lib_num() + 1;
+               } else {
+                  sync_next_expected_num = blk_num + 1;
+               }
             }
 
             uint32_t head = my_impl->get_chain_head_num();
@@ -3756,8 +3761,9 @@ namespace eosio {
       // use c in this method instead of this to highlight that all methods called on c-> must be thread safe
       connection_ptr c = shared_from_this();
 
+      uint32_t lib = cc.last_irreversible_block_num();
       try {
-         if( blk_num <= cc.last_irreversible_block_num() || cc.fetch_block_by_id(blk_id) ) {
+         if( blk_num <= lib || cc.fetch_block_by_id(blk_id) ) {
             c->strand.post( [sync_master = my_impl->sync_master.get(),
                              dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
                dispatcher->add_peer_block( blk_id, c->connection_id );
@@ -3774,7 +3780,7 @@ namespace eosio {
 
       fc::microseconds age( fc::time_point::now() - block->timestamp);
       fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection ${cid}, ${v}",
-               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", bsp ? "pre-validated" : "validation pending") );
+               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", bsp ? "pre-validated" : "validation pending")("lib", lib) );
 
       go_away_reason reason = no_reason;
       bool accepted = false;

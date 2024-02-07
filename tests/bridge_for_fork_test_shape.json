@@ -1,0 +1,114 @@
+{
+  "name": "testnet_",
+  "ssh_helper": {
+    "ssh_cmd": "/usr/bin/ssh",
+    "scp_cmd": "/usr/bin/scp",
+    "ssh_identity": "",
+    "ssh_args": ""
+  },
+  "nodes": {
+      "bios":{
+        "name": "bios",
+        "keys": [
+          {
+            "privkey":"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
+            "pubkey":"EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+          }
+        ],
+        "peers": [],
+        "producers": [
+          "eosio"
+        ],
+        "dont_start": false
+      },
+      "testnet_00":{
+        "name": "testnet_00",
+        "keys": [
+          {
+            "privkey":"5Jf4sTk7vwX1MYpLJ2eQFanVvKYXFqGBrCyANPukuP2BJ5WAAKZ",
+            "pubkey":"EOS58B33q9S7oNkgeFfcoW3VJYu4obfDiqn5RHGE2ige6jVjUhymR"
+          }
+        ],
+        "peers": [
+          "bios",
+          "testnet_01",
+          "testnet_02",
+          "testnet_04"
+        ],
+        "producers": [
+          "defproducera"
+        ],
+        "dont_start": false
+      },
+      "testnet_01":{
+        "name": "testnet_01",
+        "keys": [
+          {
+            "privkey":"5HviUPkTEtvF2B1nm8aZUnjma2TzgpKRjuXjwHyy3FME4xDbkZF",
+            "pubkey":"EOS5CbcTDgbks2ptTxvyCbT9HFbzX7PDHUY2wN4DDnVBhhQr2ZNDE"
+          }
+        ],
+        "peers": [
+          "bios",
+          "testnet_00",
+          "testnet_02",
+          "testnet_04"
+        ],
+        "producers": [
+          "defproducerb"
+        ],
+        "dont_start": false
+      },
+      "testnet_02":{
+        "name": "testnet_02",
+        "keys": [
+          {
+            "privkey":"5KkQbdxFHr8Pg1N3DEMDdU7emFgUTwQvh99FDJrodFhUbbsAtQT",
+            "pubkey":"EOS6Tkpf8kcDfa32WA9B4nTcEJ64ZdDMSNioDcaL6rzdMwnpzaWJB"
+          }
+        ],
+        "peers": [
+          "bios",
+          "testnet_01",
+          "testnet_00",
+          "testnet_04"
+        ],
+        "producers": [
+          "defproducerc"
+        ],
+        "dont_start": false
+      },
+      "testnet_03":{
+        "name": "testnet_03",
+        "keys": [
+          {
+            "privkey":"5JxTJJegQBpEL1p77TzkN1ompMB9gDwAfjM9chPzFCB4chxmwrE",
+            "pubkey":"EOS52ntDHqA2qj4xVo7KmxdezMRhvvBqpZBuKYJCsgihisxmywpAx"
+          }
+        ],
+        "peers": [
+          "bios",
+          "testnet_04"
+        ],
+        "producers": [
+          "defproducerd"
+        ],
+        "dont_start": false
+      },
+      "testnet_04":{
+        "name": "testnet_04",
+        "keys": [
+        ],
+        "peers": [
+          "bios",
+          "testnet_00",
+          "testnet_01",
+          "testnet_02",
+          "testnet_03"
+        ],
+        "producers": [
+        ],
+        "dont_start": false
+      }
+  }
+}
