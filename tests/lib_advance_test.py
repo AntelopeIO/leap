@@ -23,7 +23,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 
-args = TestHelper.parse_args({"--activate-if","--dump-error-details","--keep-logs","-v","--leave-running",
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running",
                               "--wallet-port","--unshared"})
 Utils.Debug=args.v
 totalProducerNodes=4
@@ -32,7 +32,6 @@ totalNodes=totalProducerNodes+totalNonProducerNodes
 maxActiveProducers=3
 totalProducers=maxActiveProducers
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
-activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 walletPort=args.wallet_port
 
@@ -54,7 +53,6 @@ try:
     # and the only connection between those 2 groups is through the bridge (node4)
     if cluster.launch(topo="./tests/bridge_for_fork_test_shape.json", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducerNodes, loadSystemContract=False,
-                      activateIF=activateIF, biosFinalizer=False,
                       specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
