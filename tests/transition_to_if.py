@@ -15,8 +15,6 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs = AppArgs()
-appArgs.add(flag="--plugin",action='append',type=str,help="Run nodes with additional plugins")
-
 args=TestHelper.parse_args({"-d","-s","--keep-logs","--dump-error-details","-v","--leave-running","--unshared"},
                             applicationSpecificArgs=appArgs)
 pnodes=4
@@ -41,13 +39,9 @@ try:
     Print(f'producing nodes: {pnodes}, topology: {topo}, delay between nodes launch: {delay} second{"s" if delay != 1 else ""}')
 
     Print("Stand up cluster")
-    if args.plugin:
-        extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
-    else:
-        extraNodeosArgs = ''
     # For now do not load system contract as it does not support setfinalizer
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, prodCount=prod_count, topo=topo, delay=delay, loadSystemContract=False,
-                      activateIF=False, extraNodeosArgs=extraNodeosArgs) is False:
+                      activateIF=False) is False:
         errorExit("Failed to stand up eos cluster.")
 
     assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio", "launch should have waited for production to change"
