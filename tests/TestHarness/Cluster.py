@@ -1460,8 +1460,8 @@ class Cluster(object):
         for f in self.filesToCleanup:
             os.remove(f)
 
-    # Create accounts, if account does not already exist, and validates that the last transaction is received on root node
     def setProds(self, producers):
+        """Call setprods with list of producers"""
         setProdsStr = '{"schedule": ['
         firstTime = True
         for name in producers:
@@ -1485,6 +1485,7 @@ class Cluster(object):
             return None
         return True
 
+    # Create accounts, if account does not already exist, and validates that the last transaction is received on root node
     def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=-1):
         if self.accounts is None:
             return True
