@@ -1339,13 +1339,13 @@ struct controller_impl {
             forkdb.reset( *head );
          } else if( !except_ptr && !check_shutdown() && forkdb.head() ) {
             auto head_block_num = head->block_num();
-            auto branch = forkdb.fetch_branch( forkdb.head()->id() );
+            auto branch = fork_db.fetch_branch_from_head();
             int rev = 0;
             for( auto i = branch.rbegin(); i != branch.rend(); ++i ) {
                if( check_shutdown() ) break;
                if( (*i)->block_num() <= head_block_num ) continue;
                ++rev;
-               replay_push_block<BSP>( (*i)->block, controller::block_status::validated );
+               replay_push_block<BSP>( *i, controller::block_status::validated );
             }
             ilog( "${n} reversible blocks replayed", ("n",rev) );
          }

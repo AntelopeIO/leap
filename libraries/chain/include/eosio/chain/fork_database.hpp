@@ -10,6 +10,8 @@ namespace eosio::chain {
    template<class bsp>
    struct fork_database_impl;
 
+   using block_branch_t = deque<signed_block_ptr>;
+
    /**
     * @class fork_database_t
     * @brief manages light-weight state for all potential unconfirmed forks
@@ -85,6 +87,7 @@ namespace eosio::chain {
        *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
        */
       branch_type fetch_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
+      block_branch_t fetch_block_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
 
 
       /**
@@ -131,7 +134,7 @@ namespace eosio::chain {
       void switch_from_legacy();
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
-      std::vector<signed_block_ptr> fetch_branch_from_head();
+      block_branch_t fetch_branch_from_head() const;
 
       template <class R, class F>
       R apply(const F& f) {

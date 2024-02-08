@@ -72,6 +72,7 @@ namespace eosio::chain {
       void             advance_root_impl( const block_id_type& id );
       void             remove_impl( const block_id_type& id );
       branch_type      fetch_branch_impl( const block_id_type& h, uint32_t trim_after_block_num ) const;
+      block_branch_t   fetch_block_branch_impl( const block_id_type& h, uint32_t trim_after_block_num ) const;
       bsp              search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const;
       void             mark_valid_impl( const bsp& h );
       branch_type_pair fetch_branch_from_impl( const block_id_type& first, const block_id_type& second ) const;
@@ -420,6 +421,25 @@ namespace eosio::chain {
       return result;
    }
 
+   template <class bsp>
+   block_branch_t
+   fork_database_t<bsp>::fetch_block_branch(const block_id_type& h, uint32_t trim_after_block_num) const {
+      std::lock_guard g(my->mtx);
+      return my->fetch_block_branch_impl(h, trim_after_block_num);
+   }
+
+   template <class bsp>
+   block_branch_t
+   fork_database_impl<bsp>::fetch_block_branch_impl(const block_id_type& h, uint32_t trim_after_block_num) const {
+      block_branch_t result;
+      for (auto s = get_block_impl(h); s; s = get_block_impl(s->previous())) {
+         if (s->block_num() <= trim_after_block_num)
+            result.push_back(s->block);
+      }
+
+      return result;
+   }
+
    template<class bsp>
    bsp fork_database_t<bsp>::search_on_branch( const block_id_type& h, uint32_t block_num ) const {
       std::lock_guard g( my->mtx );
@@ -648,15 +668,10 @@ namespace eosio::chain {
       });
    }
 
-   std::vector<signed_block_ptr> fork_database::fetch_branch_from_head() {
-      std::vector<signed_block_ptr> r;
-      apply<void>([&](auto& forkdb) {
-         auto branch = forkdb.fetch_branch(forkdb.head()->id());
-         r.reserve(branch.size());
-         for (auto& b : branch)
-            r.push_back(b->block);
+   block_branch_t fork_database::fetch_branch_from_head() const {
+      return apply<block_branch_t>([&](auto& forkdb) {
+         return forkdb.fetch_block_branch(forkdb.head()->id());
       });
-      return r;
    }
 
    // do class instantiations
