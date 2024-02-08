@@ -2,6 +2,7 @@
 #include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <eosio/chain/fork_database.hpp>
+#include <fc/crypto/bls_utils.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/crypto/sha256.hpp>
@@ -44,6 +45,10 @@ namespace eosio::chain {
          bool empty() const { return id.empty(); }
 
          operator bool() const { return !id.empty(); }
+
+         auto operator==(const proposal_ref& o) const {
+            return id == o.id && timestamp == o.timestamp;
+         }
       };
 
       struct safety_information {
@@ -54,6 +59,12 @@ namespace eosio::chain {
          static constexpr uint64_t magic = 0x5AFE11115AFE1111ull;
 
          static safety_information unset_fsi() { return {block_timestamp_type(), {}, {}}; }
+
+         auto operator==(const safety_information& o) const {
+            return last_vote_range_start == o.last_vote_range_start &&
+               last_vote == o.last_vote &&
+               lock == o.lock;
+         }
       };
 
       bls_private_key           priv_key;
@@ -80,6 +91,8 @@ namespace eosio::chain {
       std::map<bls_public_key, finalizer>  finalizers;         // the active finalizers for this node
       fsi_map                           inactive_safety_info;  // loaded at startup, not mutated afterwards
       fsi_t                             default_fsi = fsi_t::unset_fsi(); // default provided at leap startup
+
+      ~finalizer_set();
 
       template<class F>
       void maybe_vote(const finalizer_policy &fin_pol,
@@ -114,15 +127,27 @@ namespace eosio::chain {
       void    set_keys(const std::map<std::string, std::string>& finalizer_keys);
       void    set_default_safety_information(const fsi_t& fsi);
 
+      // following two member functions could be private, but are used in testing
+      void    save_finalizer_safety_info() const;
+      fsi_map load_finalizer_safety_info();
+
       // for testing purposes only
       const fsi_t& get_fsi(const bls_public_key& k) { return finalizers[k].fsi; }
       void         set_fsi(const bls_public_key& k, const fsi_t& fsi) { finalizers[k].fsi = fsi; }
-
-   private:
-      void    save_finalizer_safety_info() const;
-      fsi_map load_finalizer_safety_info();
    };
 
+}
+
+namespace std {
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer::proposal_ref& r) {
+      os << "proposal_ref(id(" << r.id.str() << "), tstamp(" << r.timestamp.slot << "))";
+      return os;
+   }
+
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer::safety_information& fsi) {
+      os << "fsi(" << fsi.last_vote_range_start.slot << ", " << fsi.last_vote << ", " << fsi.lock << ")";
+      return os;
+   }
 }
 
 FC_REFLECT(eosio::chain::finalizer::proposal_ref, (id)(timestamp))

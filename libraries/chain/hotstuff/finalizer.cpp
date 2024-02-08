@@ -226,7 +226,7 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
       fc::raw::unpack(persist_file, num_finalizers);
       for (size_t i=0; i<num_finalizers; ++i) {
          fsi_map::value_type entry;
-         fc::raw::unpack(persist_file, entry.first);
+         fc::raw::unpack(persist_file, const_cast<bls_public_key&>(entry.first));
          fc::raw::unpack(persist_file, entry.second);
          res.insert(entry);
       }
@@ -241,6 +241,11 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
       throw;
    }
    return res;
+}
+
+// ----------------------------------------------------------------------------------------
+finalizer_set::~finalizer_set() {
+   persist_file.close();
 }
 
 // ----------------------------------------------------------------------------------------
