@@ -1045,6 +1045,7 @@ class Cluster(object):
         if not self.biosNode.waitForTransFinalization(transId, timeout=21*12*3):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a LIB block on server port %d." % (transId, biosNode.port))
             return None
+        return True
 
     def bootstrap(self, launcher,  biosNode, totalNodes, prodCount, totalProducers, pfSetupPolicy, onlyBios=False, onlySetProds=False, loadSystemContract=True, activateIF=False, biosFinalizer=True):
         """Create 'prodCount' init accounts and deposits 10000000000 SYS in each. If prodCount is -1 will initialize all possible producers.
@@ -1110,7 +1111,9 @@ class Cluster(object):
             return None
 
         if activateIF:
-            self.activateInstantFinality(biosFinalizer=biosFinalizer)
+            if not self.activateInstantFinality(biosFinalizer=biosFinalizer):
+                Utils.Print("ERROR: Activate instant finality failed")
+                return None
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(eosioName)
@@ -1458,6 +1461,30 @@ class Cluster(object):
             os.remove(f)
 
     # Create accounts, if account does not already exist, and validates that the last transaction is received on root node
+    def setProds(self, producers):
+        setProdsStr = '{"schedule": ['
+        firstTime = True
+        for name in producers:
+            if firstTime:
+                firstTime = False
+            else:
+                setProdsStr += ','
+            if not self.defProducerAccounts[name]:
+                Utils.Print(f"ERROR: no account key for {name}")
+                return None
+            key = self.defProducerAccounts[name].activePublicKey
+            setProdsStr += '{"producer_name":' + name + ',"authority": ["block_signing_authority_v0", {"threshold":1, "keys":[{"key":' + key + ', "weight":1}]}]}'
+
+        setProdsStr += ' ] }'
+        Utils.Print("setprods: %s" % (setProdsStr))
+        opts = "--permission eosio@active"
+        # pylint: disable=redefined-variable-type
+        trans = self.biosNode.pushMessage("eosio", "setprods", setProdsStr, opts)
+        if trans is None or not trans[0]:
+            Utils.Print("ERROR: Failed to set producer with cmd %s" % (setProdsStr))
+            return None
+        return True
+
     def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=-1):
         if self.accounts is None:
             return True
