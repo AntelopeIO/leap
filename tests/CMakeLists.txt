@@ -16,12 +16,14 @@ target_include_directories( plugin_test PUBLIC
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/p2p_tests/dawn_515/test.sh ${CMAKE_CURRENT_BINARY_DIR}/p2p_tests/dawn_515/test.sh COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/block_log_util_test.py ${CMAKE_CURRENT_BINARY_DIR}/block_log_util_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/block_log_retain_blocks_test.py ${CMAKE_CURRENT_BINARY_DIR}/block_log_retain_blocks_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/bridge_for_fork_test_shape.json ${CMAKE_CURRENT_BINARY_DIR}/bridge_for_fork_test_shape.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cluster_launcher.py ${CMAKE_CURRENT_BINARY_DIR}/cluster_launcher.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/distributed-transactions-test.py ${CMAKE_CURRENT_BINARY_DIR}/distributed-transactions-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/leap_util_bls_test.py ${CMAKE_CURRENT_BINARY_DIR}/leap_util_bls_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/sample-cluster-map.json ${CMAKE_CURRENT_BINARY_DIR}/sample-cluster-map.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/restart-scenarios-test.py ${CMAKE_CURRENT_BINARY_DIR}/restart-scenarios-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/terminate-scenarios-test.py ${CMAKE_CURRENT_BINARY_DIR}/terminate-scenarios-test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/liveness_test.py ${CMAKE_CURRENT_BINARY_DIR}/liveness_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_startup_catchup.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_startup_catchup.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_snapshot_diff_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_snapshot_diff_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_snapshot_forked_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_snapshot_forked_test.py COPYONLY)
@@ -62,6 +64,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/subjective_billing_test.py ${CMAKE_CU
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/get_account_test.py ${CMAKE_CURRENT_BINARY_DIR}/get_account_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_high_transaction_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_high_transaction_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_retry_transaction_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_retry_transaction_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/transition_to_if.py ${CMAKE_CURRENT_BINARY_DIR}/transition_to_if.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trx_finality_status_test.py ${CMAKE_CURRENT_BINARY_DIR}/trx_finality_status_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trx_finality_status_forked_test.py ${CMAKE_CURRENT_BINARY_DIR}/trx_finality_status_forked_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/plugin_http_api_test.py ${CMAKE_CURRENT_BINARY_DIR}/plugin_http_api_test.py COPYONLY)
@@ -130,6 +133,9 @@ add_test(NAME cluster_launcher COMMAND tests/cluster_launcher.py -v ${UNSHARE} W
 set_property(TEST cluster_launcher PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME cluster_launcher_if COMMAND tests/cluster_launcher.py --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST cluster_launcher_if PROPERTY LABELS nonparallelizable_tests)
+
+add_test(NAME transition_to_if COMMAND tests/transition_to_if.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST transition_to_if PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME ship_test COMMAND tests/ship_test.py -v --num-clients 10 --num-requests 5000 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_test PROPERTY LABELS nonparallelizable_tests)
@@ -222,9 +228,8 @@ set_property(TEST trx_finality_status_if_test PROPERTY LABELS nonparallelizable_
 
 add_test(NAME trx_finality_status_forked_test COMMAND tests/trx_finality_status_forked_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST trx_finality_status_forked_test PROPERTY LABELS nonparallelizable_tests)
-# requires https://github.com/AntelopeIO/leap/issues/2189
-#add_test(NAME trx_finality_status_forked_if_test COMMAND tests/trx_finality_status_forked_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-#set_property(TEST trx_finality_status_forked_if_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME trx_finality_status_forked_if_test COMMAND tests/trx_finality_status_forked_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST trx_finality_status_forked_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME db_modes_test COMMAND tests/db_modes_test.sh -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(db_modes_test PROPERTIES COST 6000)
@@ -286,6 +291,9 @@ set_property(TEST nodeos_read_terminate_at_block_lr_test PROPERTY LABELS long_ru
 # requires https://github.com/AntelopeIO/leap/issues/2057 because running in irreversible mode currently switches different than non-irreversible mode
 #add_test(NAME nodeos_read_terminate_at_block_if_lr_test COMMAND tests/nodeos_read_terminate_at_block_test.py --activate-if -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 #set_property(TEST nodeos_read_terminate_at_block_if_lr_test PROPERTY LABELS long_running_tests)
+
+add_test(NAME liveness_test COMMAND tests/liveness_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST liveness_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_chainbase_allocation_test COMMAND tests/nodeos_chainbase_allocation_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_chainbase_allocation_test PROPERTY LABELS nonparallelizable_tests)
