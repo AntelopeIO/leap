@@ -10,7 +10,7 @@ from TestHarness.Node import BlockType
 ###############################################################
 # large-lib-test
 #
-# Test LIB in a network will advance when an invalid larger LIB 
+# Test LIB in a network will advance when an invalid larger LIB
 # than current one is received from a speculative node.
 #
 ###############################################################
@@ -74,6 +74,12 @@ try:
     producingNode.waitForBlock(numBlocksToProduceBeforeRelaunch, blockType=BlockType.lib)
     producingNode.waitForProducer("defproducera")
 
+    Print("Note LIBs before killing node instances")
+    prodLib  = producingNode.getIrreversibleBlockNum(False)
+    spec1Lib = speculativeNode1.getIrreversibleBlockNum(False)
+    spec2Lib = speculativeNode2.getIrreversibleBlockNum(False)
+    Print("prodLib {}, spec1Lib {}, spec2Lib {},".format(prodLib, spec1Lib, spec2Lib))
+
     Print("Kill all node instances.")
     for clusterNode in cluster.nodes:
         clusterNode.kill(signal.SIGTERM)
@@ -94,21 +100,21 @@ try:
     relaunchNode(speculativeNode2, chainArg="--sync-fetch-span 5 ", skipGenesis=False)
 
     Print("Note LIBs")
-    prodLib = producingNode.getIrreversibleBlockNum()
-    specLib1 = speculativeNode1.getIrreversibleBlockNum()
-    specLib2 = speculativeNode2.getIrreversibleBlockNum()
-    Print("prodLib {}, specLib1 {}, specLib2 {},".format(prodLib, specLib1, specLib2))
+    prodLib  = producingNode.getIrreversibleBlockNum(False)
+    spec1Lib = speculativeNode1.getIrreversibleBlockNum(False)
+    spec2Lib = speculativeNode2.getIrreversibleBlockNum(False)
+    Print("prodLib {}, spec1Lib {}, spec2Lib {},".format(prodLib, spec1Lib, spec2Lib))
 
     Print("Wait for {} blocks to produce".format(numBlocksToWaitBeforeChecking))
-    speculativeNode2.waitForBlock( specLib2 + numBlocksToWaitBeforeChecking, blockType=BlockType.lib)
+    speculativeNode2.waitForBlock( spec2Lib + numBlocksToWaitBeforeChecking, blockType=BlockType.lib)
 
     Print("Check whether LIBs advance or not")
-    prodLibAfterWait = producingNode.getIrreversibleBlockNum()
-    specLibAfterWait1 = speculativeNode1.getIrreversibleBlockNum()
-    specLibAfterWait2 = speculativeNode2.getIrreversibleBlockNum()
-    Print("prodLibAfterWait {}, specLibAfterWait1 {}, specLibAfterWait2 {},".format(prodLibAfterWait, specLibAfterWait1, specLibAfterWait2))
+    prodLibAfterWait  = producingNode.getIrreversibleBlockNum(False)
+    spec1LibAfterWait = speculativeNode1.getIrreversibleBlockNum(False)
+    spec2LibAfterWait = speculativeNode2.getIrreversibleBlockNum(False)
+    Print("prodLib {} -> {}, spec1Lib {} -> {}, spec2Lib {} -> {},".format(prodLib, prodLibAfterWait, spec1Lib, spec1LibAfterWait, spec2Lib, spec2LibAfterWait))
 
-    assert prodLibAfterWait > prodLib and specLibAfterWait2 > specLib2, "Either producer ({} -> {})/ second speculative node ({} -> {}) is not advancing".format(prodLib, prodLibAfterWait, specLib2, specLibAfterWait2)
+    assert prodLibAfterWait > prodLib and spec2LibAfterWait > spec2Lib, "Either producer ({} -> {}) or second speculative node ({} -> {}) is not advancing".format(prodLib, prodLibAfterWait, spec2Lib, spec2LibAfterWait)
 
     testSuccessful=True
 
