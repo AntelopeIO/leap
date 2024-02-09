@@ -160,19 +160,19 @@ void finalizer_set::save_finalizer_safety_info() const {
    try {
       persist_file.seek(0);
       fc::raw::pack(persist_file, fsi_t::magic);
-      fc::raw::pack(persist_file, (uint64_t)finalizers.size());
+      fc::raw::pack(persist_file, (uint64_t)(finalizers.size() + inactive_safety_info.size()));
       for (const auto& [pub_key, f] : finalizers) {
          fc::raw::pack(persist_file, pub_key);
          fc::raw::pack(persist_file, f.fsi);
       }
-      if (!inactive_safety_info.empty()) {
+      if (!inactive_safety_info_written) {
          // save also the fsi that was originally present in the file, but which applied to
          // finalizers not configured anymore.
          for (const auto& [pub_key, fsi] : inactive_safety_info) {
             fc::raw::pack(persist_file, pub_key);
             fc::raw::pack(persist_file, fsi);
          }
-         inactive_safety_info.clear();
+         inactive_safety_info_written = true;
       }
       persist_file.flush();
    } catch (const fc::exception& e) {

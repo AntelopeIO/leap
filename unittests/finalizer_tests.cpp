@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
 
    // even though we didn't activate finalizers 1, 5, or 6 in the prior test, and we wrote the safety file,
    // make sure we have not lost the fsi that was set originally for these finalizers.
-   if (0) {
+   {
       finalizer_set fset{.t_startup = block_timestamp_type{}, .persist_file_path = safety_file_path};
       bls_pub_priv_key_map_t local_finalizers = create_local_finalizers<1, 5, 6>(keys);
       fset.set_keys(local_finalizers);
