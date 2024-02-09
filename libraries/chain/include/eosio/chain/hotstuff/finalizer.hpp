@@ -89,7 +89,7 @@ namespace eosio::chain {
       const std::filesystem::path       persist_file_path;     // where we save the safety data
       mutable fc::datastream<fc::cfile> persist_file;          // we want to keep the file open for speed
       std::map<bls_public_key, finalizer>  finalizers;         // the active finalizers for this node
-      fsi_map                           inactive_safety_info;  // loaded at startup, not mutated afterwards
+      mutable fsi_map                   inactive_safety_info;  // loaded at startup, cleared when saved to safety file
       fsi_t                             default_fsi = fsi_t::unset_fsi(); // default provided at leap startup
 
       ~finalizer_set();

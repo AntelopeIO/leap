@@ -158,7 +158,6 @@ void finalizer_set::save_finalizer_safety_info() const {
                  "unable to open finalizer safety persistence file: ${p}", ("p", persist_file_path));
    }
    try {
-      static bool first_vote = true;
       persist_file.seek(0);
       fc::raw::pack(persist_file, fsi_t::magic);
       fc::raw::pack(persist_file, (uint64_t)finalizers.size());
@@ -166,14 +165,14 @@ void finalizer_set::save_finalizer_safety_info() const {
          fc::raw::pack(persist_file, pub_key);
          fc::raw::pack(persist_file, f.fsi);
       }
-      if (first_vote) {
+      if (!inactive_safety_info.empty()) {
          // save also the fsi that was originally present in the file, but which applied to
          // finalizers not configured anymore.
          for (const auto& [pub_key, fsi] : inactive_safety_info) {
             fc::raw::pack(persist_file, pub_key);
             fc::raw::pack(persist_file, fsi);
          }
-         first_vote = false;
+         inactive_safety_info.clear();
       }
       persist_file.flush();
    } catch (const fc::exception& e) {
