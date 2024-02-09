@@ -93,8 +93,6 @@ namespace eosio::chain {
       fsi_t                             default_fsi = fsi_t::unset_fsi(); // default provided at leap startup
       mutable bool                      inactive_safety_info_written{false};
 
-      ~finalizer_set();
-
       template<class F>
       void maybe_vote(const finalizer_policy &fin_pol,
                       const block_state_ptr& bsp,

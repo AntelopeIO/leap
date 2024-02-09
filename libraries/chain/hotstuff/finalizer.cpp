@@ -243,11 +243,6 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
 }
 
 // ----------------------------------------------------------------------------------------
-finalizer_set::~finalizer_set() {
-   persist_file.close();
-}
-
-// ----------------------------------------------------------------------------------------
 void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer_keys) {
    assert(finalizers.empty()); // set_keys should be called only once at startup
    if (finalizer_keys.empty())
