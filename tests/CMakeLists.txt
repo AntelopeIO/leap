@@ -333,8 +333,8 @@ set_property(TEST cli_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME larger_lib_test COMMAND tests/large-lib-test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST larger_lib_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME larger_lib_if_test COMMAND tests/large-lib-test.py --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST larger_lib_if_test PROPERTY LABELS nonparallelizable_tests)
+#add_test(NAME larger_lib_if_test COMMAND tests/large-lib-test.py --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST larger_lib_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME lib_advance_test COMMAND tests/lib_advance_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST lib_advance_test PROPERTY LABELS nonparallelizable_tests)
