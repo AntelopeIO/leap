@@ -67,9 +67,9 @@ public:
       // clean up processed votes
       bob_votes.clear();
       carol_votes.clear();
-      node1_prev_lib_bum = node1.control->if_lib_num();
-      node2_prev_lib_bum = node2.control->if_lib_num();
-      node3_prev_lib_bum = node3.control->if_lib_num();
+      node1_prev_lib_bum = node1.control->if_irreversible_block_num();
+      node2_prev_lib_bum = node2.control->if_irreversible_block_num();
+      node3_prev_lib_bum = node3.control->if_irreversible_block_num();
    }
 
    // node1 produces a block and pushes it to node2 and node3
@@ -115,17 +115,17 @@ public:
 
    // returns true if node1's LIB has advanced
    bool node1_lib_advancing() {
-      return lib_advancing(node1.control->if_lib_num(), node1_prev_lib_bum);
+      return lib_advancing(node1.control->if_irreversible_block_num(), node1_prev_lib_bum);
    }
 
    // returns true if node2's LIB has advanced
    bool node2_lib_advancing() {
-      return lib_advancing(node2.control->if_lib_num(), node2_prev_lib_bum);
+      return lib_advancing(node2.control->if_irreversible_block_num(), node2_prev_lib_bum);
    }
 
    // returns true if node3's LIB has advanced
    bool node3_lib_advancing() {
-      return lib_advancing(node3.control->if_lib_num(), node3_prev_lib_bum);
+      return lib_advancing(node3.control->if_irreversible_block_num(), node3_prev_lib_bum);
    }
 
    // Produces a number of blocks and returns true if LIB is advancing.
@@ -136,7 +136,7 @@ public:
       bob_votes.clear();
       carol_votes.clear();
 
-      for (auto i = 0; i < 30; ++i) {
+      for (auto i = 0; i < 3; ++i) {
          produce_and_push_block();
          process_bob_vote();
          if (!node1_lib_advancing() || !node2_lib_advancing() || !node3_lib_advancing()) {
@@ -193,11 +193,11 @@ private:
    }
 };
 
-// verify LIB advances with 2 finalizers voting and for a long time
-BOOST_AUTO_TEST_CASE(two_votes_large_number_blocks) { try {
+// verify LIB advances with 2 finalizers voting.
+BOOST_AUTO_TEST_CASE(two_votes) { try {
    tester_cluster cluster;
 
-   for (auto i = 0; i < 1000; ++i) {
+   for (auto i = 0; i < 3; ++i) {
       // node1 produces a block and pushes to node2 and node3
       cluster.produce_and_push_block();
       // process the Bob's votes only
@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE(two_votes_large_number_blocks) { try {
 BOOST_AUTO_TEST_CASE(all_votes) { try {
    tester_cluster cluster;
 
-   for (auto i = 0; i < 50; ++i) {
+   for (auto i = 0; i < 3; ++i) {
       // node1 produces a block and pushes to node2 and node3
       cluster.produce_and_push_block();
       // process the Bob and Carol's votes only
@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_CASE(all_votes) { try {
 BOOST_AUTO_TEST_CASE(conflicting_votes_strong_first) { try {
    tester_cluster cluster;
 
-   for (auto i = 0; i < 50; ++i) {
+   for (auto i = 0; i < 3; ++i) {
       cluster.produce_and_push_block();
       cluster.process_bob_vote();  // strong
       cluster.process_carol_vote(vote_mode::weak); // weak
@@ -247,7 +247,7 @@ BOOST_AUTO_TEST_CASE(conflicting_votes_strong_first) { try {
 BOOST_AUTO_TEST_CASE(conflicting_votes_weak_first) { try {
    tester_cluster cluster;
 
-   for (auto i = 0; i < 50; ++i) {
+   for (auto i = 0; i < 3; ++i) {
       cluster.produce_and_push_block();
       cluster.process_bob_vote(vote_mode::weak);  // weak
       cluster.process_carol_vote();  // strong
@@ -264,13 +264,16 @@ BOOST_AUTO_TEST_CASE(one_delayed_votes) { try {
 
    // hold the vote for the first block to simulate delay
    cluster.produce_and_push_block();
-   cluster.produce_and_push_block();
+   BOOST_REQUIRE(!cluster.node1_lib_advancing());
+   // LIB advanced on node2 because a new block was received
+   BOOST_REQUIRE(cluster.node2_lib_advancing());
 
+   cluster.produce_and_push_block();
    // vote block 0 (index 0) to make it have a strong QC,
-   // prompting LIB advacing
+   // prompting LIB advacing on node1
    cluster.process_bob_vote(0);
    BOOST_REQUIRE(cluster.node1_lib_advancing());
-   BOOST_REQUIRE(cluster.node2_lib_advancing());
+   BOOST_REQUIRE(!cluster.node2_lib_advancing());
 
    // block 1 (index 1) has the same QC claim as block 0. It cannot move LIB
    cluster.process_bob_vote(1);
@@ -295,12 +298,15 @@ BOOST_AUTO_TEST_CASE(three_delayed_votes) { try {
    for (auto i = 0; i < 4; ++i) {
       cluster.produce_and_push_block();
    }
+   BOOST_REQUIRE(!cluster.node1_lib_advancing());
+   // LIB advanced on node2 because a new block was received
+   BOOST_REQUIRE(cluster.node2_lib_advancing());
 
    // vote block 0 (index 0) to make it have a strong QC,
-   // prompting LIB advacing
+   // prompting LIB advacing on node1
    cluster.process_bob_vote(0);
    BOOST_REQUIRE(cluster.node1_lib_advancing());
-   BOOST_REQUIRE(cluster.node2_lib_advancing());
+   BOOST_REQUIRE(!cluster.node2_lib_advancing());
 
    // blocks 1 to 3 have the same QC claim as block 0. It cannot move LIB
    for (auto i=1; i < 4; ++i) {

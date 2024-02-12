@@ -3766,7 +3766,7 @@ struct controller_impl {
       }
    }
 
-   uint32_t if_lib_num() const {
+   uint32_t get_if_irreversible_block_num() const {
       return if_irreversible_block_num;
    }
 
@@ -4323,8 +4323,8 @@ void controller::set_if_irreversible_block_num(uint32_t block_num) {
    my->set_if_irreversible_block_num(block_num);
 }
 
-uint32_t controller::if_lib_num() const {
-   return my->if_lib_num();
+uint32_t controller::if_irreversible_block_num() const {
+   return my->get_if_irreversible_block_num();
 }
 
 uint32_t controller::last_irreversible_block_num() const {
