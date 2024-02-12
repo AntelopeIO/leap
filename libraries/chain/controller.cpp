@@ -3766,6 +3766,10 @@ struct controller_impl {
       }
    }
 
+   uint32_t if_lib_num() const {
+      return if_irreversible_block_num;
+   }
+
    uint32_t earliest_available_block_num() const {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db_root_block_num();
    }
@@ -4317,6 +4321,10 @@ void controller::set_if_irreversible_block_num(uint32_t block_num) {
    // needs to be set by qc_chain at startup and as irreversible changes
    assert(block_num > 0);
    my->set_if_irreversible_block_num(block_num);
+}
+
+uint32_t controller::if_lib_num() const {
+   return my->if_lib_num();
 }
 
 uint32_t controller::last_irreversible_block_num() const {
