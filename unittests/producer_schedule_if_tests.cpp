@@ -72,10 +72,10 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activat
 
    // ---- Test first set of producers ----
    // Send set prods action and confirm schedule correctness
-   set_producers(producers);
+   auto trace = set_producers(producers);
    const auto first_prod_schd = get_producer_authorities(producers);
-   // TODO: update expected when lib for instant_finality is working, will change from 26 at that time, 4+12+12
-   confirm_schedule_correctness(first_prod_schd, 1, 26);
+   // called in first round so complete it, skip one round of 12 and start on next round, so block 24
+   confirm_schedule_correctness(first_prod_schd, 1, 24);
 
    // ---- Test second set of producers ----
    vector<account_name> second_set_of_producer = {
@@ -84,8 +84,8 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activat
    // Send set prods action and confirm schedule correctness
    set_producers(second_set_of_producer);
    const auto second_prod_schd = get_producer_authorities(second_set_of_producer);
-   // TODO: update expected when lib for instant_finality is working, will change from 50 at that time, 26+12+12
-   confirm_schedule_correctness(second_prod_schd, 2, 50);
+   // called after block 24, so next,next is 48
+   confirm_schedule_correctness(second_prod_schd, 2, 48);
 
    // ---- Test deliberately miss some blocks ----
    const int64_t num_of_missed_blocks = 5000;
