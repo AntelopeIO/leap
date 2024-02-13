@@ -6,11 +6,13 @@ namespace eosio::chain {
 
 // ----------------------------------------------------------------------------------------
 block_state_ptr get_block_by_num(const fork_database_if_t::branch_type& branch, std::optional<uint32_t> block_num) {
-   if (!block_num)
+   if (!block_num || branch.empty())
       return block_state_ptr{};
-   auto it = std::find_if(branch.begin(), branch.end(),
-                          [&](const block_state_ptr& bsp) { return bsp->block_num() == *block_num; });
-   return it == branch.end() ? block_state_ptr{} : *it;
+
+   // a branch always contains consecutive block numbers, starting with the highest
+   uint32_t first = branch[0]->block_num();
+   uint32_t dist  = first - *block_num;
+   return dist < branch.size() ? branch[dist] : block_state_ptr{};
 }
 
 // ----------------------------------------------------------------------------------------
@@ -19,27 +21,19 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const branch
 
    // get b2
    // ------
-   auto it2 = std::find_if(branch.begin(), branch.end(),
-        [t=proposal->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
-   if (it2 == branch.end())
+   res.b2 = get_block_by_num(branch, proposal->core.last_qc_block_num);
+   if (!res.b2)
       return res;
-   res.b2 = *it2;
 
    // get b1
    // ------
-   auto it1 = std::find_if(++it2, branch.end(),
-        [t=res.b2->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
-   if (it1 == branch.end())
+   res.b1 = get_block_by_num(branch, res.b2->core.last_qc_block_num);
+   if (!res.b1)
       return res;
-   res.b1 = *it1;
 
    // get b
    // ------
-   auto it = std::find_if(++it1, branch.end(),
-        [t=res.b1->core.last_qc_block_num](const block_state_ptr& bsp) { return bsp->block_num() == t; });
-   if (it == branch.end())
-      return res;
-   res.b = *it;
+   res.b = get_block_by_num(branch, res.b1->core.last_qc_block_num);
 
    return res;
 }
