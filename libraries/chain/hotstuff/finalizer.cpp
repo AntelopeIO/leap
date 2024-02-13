@@ -137,8 +137,6 @@ void my_finalizers_t::save_finalizer_safety_info() const {
           std::filesystem::create_directories(persist_file_path.parent_path());
       persist_file.set_file_path(persist_file_path);
       persist_file.open(fc::cfile::truncate_rw_mode);
-      EOS_ASSERT(persist_file.is_open(), finalizer_safety_exception,
-                 "unable to open finalizer safety persistence file: ${p}", ("p", persist_file_path));
    }
    try {
       persist_file.seek(0);
@@ -196,8 +194,6 @@ my_finalizers_t::fsi_map my_finalizers_t::load_finalizer_safety_info() {
       elog( "unable to open finalizer safety persistence file ${p}, using defaults", ("p", persist_file_path));
       return res;
    }
-   EOS_ASSERT(persist_file.is_open(), finalizer_safety_exception,
-              "unable to open finalizer safety persistence file: ${p}", ("p", persist_file_path));
    try {
       persist_file.seek(0);
       uint64_t magic = 0;
@@ -207,10 +203,11 @@ my_finalizers_t::fsi_map my_finalizers_t::load_finalizer_safety_info() {
       uint64_t num_finalizers {0};
       fc::raw::unpack(persist_file, num_finalizers);
       for (size_t i=0; i<num_finalizers; ++i) {
-         fsi_map::value_type entry;
-         fc::raw::unpack(persist_file, const_cast<bls_public_key&>(entry.first));
-         fc::raw::unpack(persist_file, entry.second);
-         res.insert(entry);
+         bls_public_key pubkey;
+         fsi_t fsi;
+         fc::raw::unpack(persist_file, pubkey);
+         fc::raw::unpack(persist_file, fsi);
+         res.emplace(pubkey, fsi);
       }
       persist_file.close();
    } catch (const fc::exception& e) {
