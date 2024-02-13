@@ -158,7 +158,8 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    }
 
    // validate aggregated signature
-   EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),  invalid_qc_claim, "signature validation failed" );
+   EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),
+               invalid_qc_claim, "signature validation failed" );
 }
 
 std::optional<quorum_certificate> block_state::get_best_qc() const {

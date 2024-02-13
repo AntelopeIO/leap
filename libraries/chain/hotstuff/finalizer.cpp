@@ -5,9 +5,11 @@
 namespace eosio::chain {
 
 // ----------------------------------------------------------------------------------------
-block_state_ptr get_block_by_height(const fork_database_if_t::branch_type& branch, uint32_t block_num) {
+block_state_ptr get_block_by_num(const fork_database_if_t::branch_type& branch, std::optional<uint32_t> block_num) {
+   if (!block_num)
+      return block_state_ptr{};
    auto it = std::find_if(branch.begin(), branch.end(),
-                          [&](const block_state_ptr& bsp) { return bsp->block_num() == block_num; });
+                          [&](const block_state_ptr& bsp) { return bsp->block_num() == *block_num; });
    return it == branch.end() ? block_state_ptr{} : *it;
 }
 
@@ -67,7 +69,7 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& p, const 
    // we expect last_qc_block_num() to always be found except at bootstrap
    // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num
    // from fork_db.root(), and specify weak.
-   auto bsp_last_qc = p->last_qc_block_num() ? get_block_by_height(p_branch, *p->last_qc_block_num()) : block_state_ptr{};
+   auto bsp_last_qc = get_block_by_num(p_branch, p->last_qc_block_num());
 
    bool monotony_check = !fsi.last_vote || p->timestamp() > fsi.last_vote.timestamp;
    // !fsi.last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed

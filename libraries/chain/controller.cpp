@@ -223,10 +223,10 @@ struct assembled_block {
    R apply_legacy(F&& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit(overloaded{[&](assembled_block_legacy& ab) { std::forward<F>(f)(ab); },
-                               [&](assembled_block_if& ab)   {}}, v);
+                               [&](assembled_block_if& ab)     {}}, v);
       else
          return std::visit(overloaded{[&](assembled_block_legacy& ab) -> R { return std::forward<F>(f)(ab); },
-                                      [&](assembled_block_if& ab)   -> R { return {}; }}, v);
+                                      [&](assembled_block_if& ab)     -> R { return {}; }}, v);
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -245,35 +245,35 @@ struct assembled_block {
    const block_id_type& id() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) -> const block_id_type& { return ab.id; },
-               [](const assembled_block_if& ab)   -> const block_id_type& { return ab.bhs.id(); }},
+                    [](const assembled_block_if& ab)     -> const block_id_type& { return ab.bhs.id(); }},
          v);
    }
    
    block_timestamp_type timestamp() const {
       return std::visit(
-         overloaded{[](const assembled_block_legacy& ab)  { return ab.pending_block_header_state.timestamp; },
-                    [](const assembled_block_if& ab)    { return ab.bhs.header.timestamp; }},
+         overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.timestamp; },
+                    [](const assembled_block_if& ab)     { return ab.bhs.header.timestamp; }},
          v);
    }
 
    uint32_t block_num() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.block_num; },
-                    [](const assembled_block_if& ab)   { return ab.bhs.block_num(); }},
+                    [](const assembled_block_if& ab)     { return ab.bhs.block_num(); }},
          v);
    }
 
    account_name producer() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.producer; },
-                    [](const assembled_block_if& ab)   { return ab.active_producer_authority.producer_name; }},
+                    [](const assembled_block_if& ab)     { return ab.active_producer_authority.producer_name; }},
          v);
    }
 
    const block_header& header() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) -> const block_header& { return *ab.unsigned_block; },
-                    [](const assembled_block_if& ab)   -> const block_header& { return ab.bhs.header; }},
+                    [](const assembled_block_if& ab)     -> const block_header& { return ab.bhs.header; }},
          v);
    }
 
@@ -1575,7 +1575,7 @@ struct controller_impl {
       // ---------------------------------------------------------------------------------------------
       if (fork_db.fork_db_if_present()) {
          // we are already past the IF transition point where we create the updated fork_db.
-         // so we can't rely on the finalizer safety information update happening duting the transition.
+         // so we can't rely on the finalizer safety information update happening during the transition.
          // see https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw for details
          // -------------------------------------------------------------------------------------------
          if (fork_db.fork_db_legacy_present()) {
