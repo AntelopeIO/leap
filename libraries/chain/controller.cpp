@@ -3002,8 +3002,13 @@ struct controller_impl {
    vote_status process_vote_message( const vote_message& vote ) {
       auto do_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
           auto bsp = forkdb.get_block(vote.proposal_id);
-          if (bsp)
-             return bsp->aggregate_vote(vote);
+          if (bsp) {
+             auto [vote_state, state, block_num] = bsp->aggregate_vote(vote);
+             if (vote_state == vote_status::success && state == pending_quorum_certificate::state_t::strong) { // if block_num then strong vote
+                forkdb.update_best_qc_strong(bsp->id());
+             }
+             return {vote_state, block_num};
+          }
           return {vote_status::unknown_block, {}};
       };
       // TODO: https://github.com/AntelopeIO/leap/issues/2057

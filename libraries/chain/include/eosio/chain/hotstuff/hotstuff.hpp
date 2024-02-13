@@ -162,12 +162,9 @@ namespace eosio::chain {
       bool   is_quorum_met() const;
 
       // thread safe
-      std::pair<vote_status, bool> add_vote(bool strong,
-                                            const std::vector<uint8_t>& proposal_digest,
-                                            size_t index,
-                                            const bls_public_key& pubkey,
-                                            const bls_signature& sig,
-                                            uint64_t weight);
+      std::pair<vote_status, state_t>
+      add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
+               const bls_public_key& pubkey, const bls_signature& sig, uint64_t weight);
 
       state_t state()  const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;

@@ -72,7 +72,8 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 }
 
 // Called from net threads
-std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(const vote_message& vote) {
+std::tuple<vote_status, pending_quorum_certificate::state_t, std::optional<uint32_t>>
+block_state::aggregate_vote(const vote_message& vote) {
    const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
                           finalizers.end(),
@@ -81,17 +82,20 @@ std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(cons
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
       const digest_type& digest = vote.strong ? strong_digest : weak_digest;
-      auto [status, strong] = pending_qc.add_vote(vote.strong,
+      auto [status, state] = pending_qc.add_vote(vote.strong,
 #warning TODO change to use std::span if possible
                                  std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()},
                                  index,
                                  vote.finalizer_key,
                                  vote.sig,
                                  finalizers[index].weight);
-      return {status, strong ? core.final_on_strong_qc_block_num : std::optional<uint32_t>{}};
+      std::optional<uint32_t> new_lib{};
+      if (status == vote_status::success && state == pending_quorum_certificate::state_t::strong)
+         new_lib = core.final_on_strong_qc_block_num;
+      return {status, state, new_lib};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      return {vote_status::unknown_public_key, {}};
+      return {vote_status::unknown_public_key, pending_quorum_certificate::state_t::unrestricted, {}};
    }
 }
 
@@ -169,7 +173,7 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
       if( valid_qc ) {
          return quorum_certificate{ block_number, *valid_qc };
       } else {
-         return std::nullopt;;
+         return std::nullopt;
       }
    }
 
@@ -188,5 +192,25 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
       *valid_qc : // tie broke by valid_qc
       valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
    return quorum_certificate{ block_number, best_qc };
-}   
+}
+
+bool block_state::is_best_qc_strong() const {
+   // if pending_qc does not have a valid QC, consider valid_qc only
+   if( !pending_qc.is_quorum_met() ) {
+      return valid_qc ? valid_qc->is_strong() : false;
+   }
+
+   bool pending_is_strong = pending_qc.state() == pending_quorum_certificate::state_t::strong;
+
+   // if valid_qc does not have value, consider pending only
+   if (!valid_qc) {
+      return pending_is_strong;
+   }
+
+   // Both valid_qc and pending have value. Compare them and select a better one.
+   // Strong beats weak. Tie break by valid_qc.
+   return valid_qc->is_strong() == pending_is_strong ? valid_qc->is_strong() :
+          valid_qc->is_strong() ? valid_qc->is_strong() : pending_is_strong;
+}
+
 } /// eosio::chain

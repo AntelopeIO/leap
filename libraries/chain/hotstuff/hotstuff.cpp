@@ -124,14 +124,14 @@ vote_status pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>
    return vote_status::success;
 }
 
-// thread safe, <valid, strong>
-std::pair<vote_status, bool> pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
-                                                                  const bls_public_key& pubkey, const bls_signature& sig,
-                                                                  uint64_t weight) {
+// thread safe
+std::pair<vote_status, pending_quorum_certificate::state_t>
+pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
+                                     const bls_public_key& pubkey, const bls_signature& sig, uint64_t weight) {
    std::lock_guard g(*_mtx);
    vote_status s = strong ? add_strong_vote(proposal_digest, index, pubkey, sig, weight)
                           : add_weak_vote(proposal_digest, index, pubkey, sig, weight);
-   return {s, _state == state_t::strong};
+   return {s, _state};
 }
 
 // thread safe

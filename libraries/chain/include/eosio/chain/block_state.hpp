@@ -32,14 +32,17 @@ struct block_state : public block_header_state {     // block_header_state provi
    void                   set_valid(bool b)         { validated = b; }
    uint32_t               irreversible_blocknum() const { return core.last_final_block_num; }
    std::optional<quorum_certificate> get_best_qc() const;
+   bool is_best_qc_strong() const;
 
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);
    const deque<transaction_metadata_ptr>& trxs_metas()  const { return cached_trxs; }
-  
-   std::pair<vote_status, std::optional<uint32_t>> aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
+
+   // vote_status, pending_qc state, last_final_block_num
+   std::tuple<vote_status, pending_quorum_certificate::state_t, std::optional<uint32_t>>
+   aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
    void verify_qc(const valid_quorum_certificate& qc) const; // verify given qc is valid with respect block_state
 
    using bhs_t  = block_header_state;
