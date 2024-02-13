@@ -56,7 +56,7 @@ bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendan
 }
 
 // ----------------------------------------------------------------------------------------
-finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const fork_database_if_t& fork_db) {
+finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& p, const fork_database_if_t& fork_db) {
    bool safety_check   = false;
    bool liveness_check = false;
 
@@ -98,7 +98,7 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
    // -----------------------------------------------------------------------------------
-   VoteDecision decision = VoteDecision::NoVote;
+   vote_decision decision = vote_decision::no_vote;
 
    if (monotony_check && (liveness_check || safety_check)) {
       auto [p_start, p_end] = std::make_pair(bsp_last_qc ? bsp_last_qc->timestamp() : p->timestamp(),
@@ -114,32 +114,32 @@ finalizer::VoteDecision finalizer::decide_vote(const block_state_ptr& p, const f
       if (chain.b1 && chain.b1->timestamp() > fsi.lock.timestamp)
          fsi.lock = proposal_ref(chain.b1);                // commit phase on b1
 
-      decision = enough_for_strong_vote ? VoteDecision::StrongVote : VoteDecision::WeakVote;
+      decision = enough_for_strong_vote ? vote_decision::strong_vote : vote_decision::weak_vote;
    } else {
       dlog("bsp_last_qc=${bsp}, last_qc_block_num=${lqc}, fork_db root block_num=${f}",
            ("bsp", !!bsp_last_qc)("lqc",!!p->last_qc_block_num())("f",fork_db.root()->block_num()));
       if (p->last_qc_block_num())
          dlog("last_qc_block_num=${lqc}", ("lqc", *p->last_qc_block_num()));
    }
-   if (decision != VoteDecision::NoVote)
-      dlog("Voting ${s}", ("s", decision == VoteDecision::StrongVote ? "strong" : "weak"));
+   if (decision != vote_decision::no_vote)
+      dlog("Voting ${s}", ("s", decision == vote_decision::strong_vote ? "strong" : "weak"));
    return decision;
 }
 
 // ----------------------------------------------------------------------------------------
 std::optional<vote_message> finalizer::maybe_vote(const bls_public_key& pub_key, const block_state_ptr& p,
                                                   const digest_type& digest, const fork_database_if_t& fork_db) {
-   finalizer::VoteDecision decision = decide_vote(p, fork_db);
-   if (decision == VoteDecision::StrongVote || decision == VoteDecision::WeakVote) {
+   finalizer::vote_decision decision = decide_vote(p, fork_db);
+   if (decision == vote_decision::strong_vote || decision == vote_decision::weak_vote) {
       bls_signature sig;
-      if (decision == VoteDecision::WeakVote) {
+      if (decision == vote_decision::weak_vote) {
          // if voting weak, the digest to sign should be a hash of the concatenation of the finalizer_digest
          // and the string "WEAK"
          sig =  priv_key.sign(create_weak_digest(digest));
       } else {
          sig =  priv_key.sign({(uint8_t*)digest.data(), (uint8_t*)digest.data() + digest.data_size()});
       }
-      return vote_message{ p->id(), decision == VoteDecision::StrongVote, pub_key, sig };
+      return vote_message{ p->id(), decision == vote_decision::strong_vote, pub_key, sig };
    }
    return {};
 }

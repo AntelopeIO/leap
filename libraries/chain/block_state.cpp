@@ -81,7 +81,7 @@ std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(cons
 
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
-      auto digest = vote.strong ? strong_digest.to_span() : std::span<const uint8_t>(weak_digest);
+      auto digest = vote.strong ? strong_digest.to_uint8_span() : std::span<const uint8_t>(weak_digest);
       auto [status, strong] = pending_qc.add_vote(vote.strong,
                                  digest,
                                  index,

@@ -23,8 +23,8 @@ class sha256
     char*       data();
     size_t      data_size() const { return 256 / 8; }
 
-    std::span<const uint8_t> to_span() const {
-       return {(const uint8_t*)data(),  (const uint8_t*)data() + data_size()};
+    std::span<const uint8_t> to_uint8_span() const {
+       return {reinterpret_cast<const uint8_t*>(data()),  reinterpret_cast<const uint8_t*>(data()) + data_size()};
     }
 
     bool empty()const {

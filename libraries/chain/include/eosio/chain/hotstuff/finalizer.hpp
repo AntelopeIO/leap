@@ -19,7 +19,7 @@ namespace eosio::chain {
 
    // ----------------------------------------------------------------------------------------
    struct finalizer {
-      enum class VoteDecision { StrongVote, WeakVote, NoVote };
+      enum class vote_decision { strong_vote, weak_vote, no_vote };
 
       struct proposal_ref {
          block_id_type         id;
@@ -27,13 +27,13 @@ namespace eosio::chain {
 
          proposal_ref() = default;
 
-         template<class bsp>
-         proposal_ref(const bsp& p) :
+         template<class Bsp>
+         proposal_ref(const Bsp& p) :
             id(p->id()),
             timestamp(p->timestamp())
          {}
 
-         proposal_ref(const block_id_type&id, block_timestamp_type t) :
+         proposal_ref(const block_id_type& id, block_timestamp_type t) :
             id(id), timestamp(t)
          {}
 
@@ -72,8 +72,8 @@ namespace eosio::chain {
 
    private:
       using branch_type = fork_database_if_t::branch_type;
-      qc_chain_t     get_qc_chain(const block_state_ptr&  proposal, const branch_type& branch) const;
-      VoteDecision   decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
+      qc_chain_t     get_qc_chain(const block_state_ptr& proposal, const branch_type& branch) const;
+      vote_decision  decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:
       std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_state_ptr& bsp,
@@ -94,7 +94,7 @@ namespace eosio::chain {
       mutable bool                      inactive_safety_info_written{false};
 
       template<class F>
-      void maybe_vote(const finalizer_policy &fin_pol,
+      void maybe_vote(const finalizer_policy& fin_pol,
                       const block_state_ptr& bsp,
                       const fork_database_if_t& fork_db,
                       const digest_type& digest,
@@ -112,13 +112,9 @@ namespace eosio::chain {
          }
          // then save the safety info and, if successful, gossip the votes
          if (!votes.empty()) {
-            try {
-               save_finalizer_safety_info();
-               for (const auto& vote : votes)
-                  std::forward<F>(process_vote)(vote);
-            } catch(...) {
-               throw;
-            }
+            save_finalizer_safety_info();
+            for (const auto& vote : votes)
+               std::forward<F>(process_vote)(vote);
          }
       }
 

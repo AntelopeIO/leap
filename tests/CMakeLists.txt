@@ -331,8 +331,9 @@ set_property(TEST nodeos_retry_transaction_if_lr_test PROPERTY LABELS long_runni
 add_test(NAME cli_test COMMAND tests/cli_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST cli_test PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME larger_lib_test COMMAND tests/large-lib-test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST larger_lib_test PROPERTY LABELS nonparallelizable_tests)
+# following test removed (both if and dpos versions) - see https://github.com/AntelopeIO/leap/issues/2232
+#add_test(NAME larger_lib_test COMMAND tests/large-lib-test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST larger_lib_test PROPERTY LABELS nonparallelizable_tests)
 #add_test(NAME larger_lib_if_test COMMAND tests/large-lib-test.py --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 #set_property(TEST larger_lib_if_test PROPERTY LABELS nonparallelizable_tests)
 
