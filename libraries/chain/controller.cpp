@@ -1092,7 +1092,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    my_finalizers{ .t_startup = cfg.node_startup_time, .persist_file_path = cfg.finalizers_dir / "safety.dat" },
+    my_finalizers{ .t_startup = fc::time_point::now(), .persist_file_path = cfg.finalizers_dir / "safety.dat" },
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open([this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
@@ -1576,7 +1576,7 @@ struct controller_impl {
       if (fork_db.fork_db_if_present()) {
          // we are already past the IF transition point where we create the updated fork_db.
          // so we can't rely on the finalizer safety information update happening during the transition.
-         // see https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw for details
+         // see https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
          // -------------------------------------------------------------------------------------------
          if (fork_db.fork_db_legacy_present()) {
             // fork_db_legacy is present as well, which means that we have not completed the transition
@@ -2780,7 +2780,8 @@ struct controller_impl {
                      // information for those finalizers that don't already have one. This typically should be done when
                      // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
                      // to the IF consensus.
-                     // See https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw -  [if todo] set values accurately
+                     // See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
+                     // [if todo] set values accurately
                      // -----------------------------------------------------------------------------------------------
                      auto start_block = forkdb.chain_head;
                      auto lib_block   = forkdb.chain_head;
@@ -3084,6 +3085,10 @@ struct controller_impl {
 
       // Each finalizer configured on the node which is present in the active finalizer policy
       // may create and sign a vote
+      // TODO: as a future optimization, we could run maybe_vote on a thread (it would need a
+      // lock around the file access). We should document that the voted_block is emitted
+      // off the main thread. net_plugin is fine for this to be emitted from any thread.
+      // Just need to update the comment in net_plugin
       my_finalizers.maybe_vote(
           *bsp->active_finalizer_policy, bsp, fork_db, finalizer_digest, [&](const vote_message& vote) {
               // net plugin subscribed to this signal. it will broadcast the vote message

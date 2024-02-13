@@ -30,7 +30,7 @@ namespace fc::crypto::blslib {
    };
 
    bool aggregate_verify(std::span<const bls_public_key> pubkeys,
-                         std::span<const std::vector<uint8_t>> messages,
+                         std::span<const std::vector<uint8_t>> messages, // should be `std::span<const std::span<const uint8_t>>`
                          const bls_signature& signature) {
       std::vector<bls12_381::g1> ks;
       ks.reserve(pubkeys.size());

@@ -27,8 +27,8 @@ namespace eosio::chain {
 
          proposal_ref() = default;
 
-         template<class Bsp>
-         proposal_ref(const Bsp& p) :
+         template<class BSP>
+         proposal_ref(const BSP& p) :
             id(p->id()),
             timestamp(p->timestamp())
          {}

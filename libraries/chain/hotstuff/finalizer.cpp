@@ -234,11 +234,11 @@ my_finalizers_t::fsi_map my_finalizers_t::load_finalizer_safety_info() {
       persist_file.close();
    } catch (const fc::exception& e) {
       edump((e.to_detail_string()));
-      // std::filesystem::remove(persist_file_path); // don't remove file we can't load
+      // don't remove file we can't load
       throw;
    } catch (const std::exception& e) {
       edump((e.what()));
-      // std::filesystem::remove(persist_file_path); // don't rremove file we can't load
+      // don't rremove file we can't load
       throw;
    }
    return res;
