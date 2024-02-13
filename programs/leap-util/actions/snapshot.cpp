@@ -73,10 +73,11 @@ int snapshot_actions::run_subcommand() {
    const auto& temp_dir = dir.path();
    std::filesystem::path state_dir = temp_dir / "state";
    std::filesystem::path blocks_dir = temp_dir / "blocks";
+   std::filesystem::path finalizers_dir = temp_dir / "finalizers";
    std::unique_ptr<controller> control;
    controller::config cfg;
-   cfg.data_dir   = temp_dir;
    cfg.blocks_dir = blocks_dir;
+   cfg.finalizers_dir = finalizers_dir;
    cfg.state_dir  = state_dir;
    cfg.state_size = opt->db_size * 1024 * 1024;
    cfg.state_guard_size = opt->guard_size * 1024 * 1024;

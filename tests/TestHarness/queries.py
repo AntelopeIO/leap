@@ -688,10 +688,10 @@ class NodeosQueries:
             headBlockNumTag = "head_block_num"
             return info[headBlockNumTag]
 
-    def getIrreversibleBlockNum(self, printIt=True):
+    def getIrreversibleBlockNum(self):
         info = self.getInfo(exitOnError=True)
         if info is not None:
-            if printIt:
+            if Utils.Debug:
                 Utils.Print("current lib: %d" % (info["last_irreversible_block_num"]))
             return info["last_irreversible_block_num"]
 

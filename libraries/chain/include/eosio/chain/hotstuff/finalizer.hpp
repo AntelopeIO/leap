@@ -44,7 +44,7 @@ namespace eosio::chain {
 
          bool empty() const { return id.empty(); }
 
-         operator bool() const { return !id.empty(); }
+         explicit operator bool() const { return !id.empty(); }
 
          auto operator==(const proposal_ref& o) const {
             return id == o.id && timestamp == o.timestamp;
@@ -81,7 +81,7 @@ namespace eosio::chain {
    };
 
    // ----------------------------------------------------------------------------------------
-   struct finalizer_set {
+   struct my_finalizers_t {
       using fsi_t   = finalizer::safety_information;
       using fsi_map = std::map<bls_public_key, fsi_t>;
 

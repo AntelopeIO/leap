@@ -58,26 +58,26 @@ bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendan
 }
 
 // ----------------------------------------------------------------------------------------
-finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& p, const fork_database_if_t& fork_db) {
+finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db) {
    bool safety_check   = false;
    bool liveness_check = false;
 
-   auto p_branch = fork_db.fetch_branch(p->id());
+   auto p_branch = fork_db.fetch_branch(proposal->id());
 
-   qc_chain_t chain = get_qc_chain(p, p_branch);
+   qc_chain_t chain = get_qc_chain(proposal, p_branch);
 
    // we expect last_qc_block_num() to always be found except at bootstrap
    // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num
    // from fork_db.root(), and specify weak.
-   auto bsp_last_qc = get_block_by_num(p_branch, p->last_qc_block_num());
+   auto bsp_last_qc = get_block_by_num(p_branch, proposal->last_qc_block_num());
 
-   bool monotony_check = !fsi.last_vote || p->timestamp() > fsi.last_vote.timestamp;
+   bool monotony_check = !fsi.last_vote || proposal->timestamp() > fsi.last_vote.timestamp;
    // !fsi.last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed
 
    if (!fsi.lock.empty()) {
       // Safety check : check if this proposal extends the proposal we're locked on
       // --------------------------------------------------------------------------
-      if (extends(fork_db, p, fsi.lock.id))
+      if (extends(fork_db, proposal, fsi.lock.id))
          safety_check = true;
 
       // Liveness check : check if the height of this proposal's justification is higher
@@ -103,14 +103,14 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& p, const 
    vote_decision decision = vote_decision::no_vote;
 
    if (monotony_check && (liveness_check || safety_check)) {
-      auto [p_start, p_end] = std::make_pair(bsp_last_qc ? bsp_last_qc->timestamp() : p->timestamp(),
-                                             p->timestamp());
+      auto [p_start, p_end] = std::make_pair(bsp_last_qc ? bsp_last_qc->timestamp() : proposal->timestamp(),
+                                             proposal->timestamp());
 
       bool time_range_disjoint    = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
 
-      bool enough_for_strong_vote = time_range_disjoint || extends(fork_db, p, fsi.last_vote.id);
+      bool enough_for_strong_vote = time_range_disjoint || extends(fork_db, proposal, fsi.last_vote.id);
 
-      fsi.last_vote             = proposal_ref(p);          // v_height
+      fsi.last_vote             = proposal_ref(proposal);          // v_height
       fsi.last_vote_range_start = p_start;
 
       if (chain.b1 && chain.b1->timestamp() > fsi.lock.timestamp)
@@ -119,9 +119,9 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& p, const 
       decision = enough_for_strong_vote ? vote_decision::strong_vote : vote_decision::weak_vote;
    } else {
       dlog("bsp_last_qc=${bsp}, last_qc_block_num=${lqc}, fork_db root block_num=${f}",
-           ("bsp", !!bsp_last_qc)("lqc",!!p->last_qc_block_num())("f",fork_db.root()->block_num()));
-      if (p->last_qc_block_num())
-         dlog("last_qc_block_num=${lqc}", ("lqc", *p->last_qc_block_num()));
+           ("bsp", !!bsp_last_qc)("lqc",!!proposal->last_qc_block_num())("f",fork_db.root()->block_num()));
+      if (proposal->last_qc_block_num())
+         dlog("last_qc_block_num=${lqc}", ("lqc", *proposal->last_qc_block_num()));
    }
    if (decision != vote_decision::no_vote)
       dlog("Voting ${s}", ("s", decision == vote_decision::strong_vote ? "strong" : "weak"));
@@ -147,7 +147,7 @@ std::optional<vote_message> finalizer::maybe_vote(const bls_public_key& pub_key,
 }
 
 // ----------------------------------------------------------------------------------------
-void finalizer_set::save_finalizer_safety_info() const {
+void my_finalizers_t::save_finalizer_safety_info() const {
 
    if (!persist_file.is_open()) {
       EOS_ASSERT(!persist_file_path.empty(), finalizer_safety_exception,
@@ -187,7 +187,7 @@ void finalizer_set::save_finalizer_safety_info() const {
 }
 
 // ----------------------------------------------------------------------------------------
-finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
+my_finalizers_t::fsi_map my_finalizers_t::load_finalizer_safety_info() {
    fsi_map res;
 
    EOS_ASSERT(!persist_file_path.empty(), finalizer_safety_exception,
@@ -245,7 +245,7 @@ finalizer_set::fsi_map finalizer_set::load_finalizer_safety_info() {
 }
 
 // ----------------------------------------------------------------------------------------
-void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer_keys) {
+void my_finalizers_t::set_keys(const std::map<std::string, std::string>& finalizer_keys) {
    assert(finalizers.empty()); // set_keys should be called only once at startup
    if (finalizer_keys.empty())
       return;
@@ -254,7 +254,7 @@ void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer
    for (const auto& [pub_key_str, priv_key_str] : finalizer_keys) {
       auto public_key {bls_public_key{pub_key_str}};
       auto it  = safety_info.find(public_key);
-      auto fsi = it != safety_info.end() ? it->second : default_fsi;
+      const auto& fsi = it != safety_info.end() ? it->second : default_fsi;
       finalizers[public_key] = finalizer{bls_private_key{priv_key_str}, fsi};
    }
 
@@ -282,8 +282,7 @@ void finalizer_set::set_keys(const std::map<std::string, std::string>& finalizer
 // to ensure that the safety information will have defaults that ensure safety as much as
 // possible, and allow for liveness which will allow the finalizers to eventually vote.
 // --------------------------------------------------------------------------------------------
-void finalizer_set::set_default_safety_information(const fsi_t& fsi) {
-   //assert(fsi.last_vote.id.empty() || t_startup < fsi.last_vote.timestamp);
+void my_finalizers_t::set_default_safety_information(const fsi_t& fsi) {
    for (auto& [pub_key, f] : finalizers) {
       // update only finalizers which are uninitialized
       if (!f.fsi.last_vote.empty() || !f.fsi.lock.empty())

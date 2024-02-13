@@ -75,9 +75,9 @@ try:
     producingNode.waitForProducer("defproducera")
 
     Print("Note LIBs before killing node instances")
-    prodLib  = producingNode.getIrreversibleBlockNum(False)
-    spec1Lib = speculativeNode1.getIrreversibleBlockNum(False)
-    spec2Lib = speculativeNode2.getIrreversibleBlockNum(False)
+    prodLib  = producingNode.getIrreversibleBlockNum()
+    spec1Lib = speculativeNode1.getIrreversibleBlockNum()
+    spec2Lib = speculativeNode2.getIrreversibleBlockNum()
     Print("prodLib {}, spec1Lib {}, spec2Lib {},".format(prodLib, spec1Lib, spec2Lib))
 
     Print("Kill all node instances.")
@@ -100,18 +100,18 @@ try:
     relaunchNode(speculativeNode2, chainArg="--sync-fetch-span 5 ", skipGenesis=False)
 
     Print("Note LIBs")
-    prodLib  = producingNode.getIrreversibleBlockNum(False)
-    spec1Lib = speculativeNode1.getIrreversibleBlockNum(False)
-    spec2Lib = speculativeNode2.getIrreversibleBlockNum(False)
+    prodLib  = producingNode.getIrreversibleBlockNum()
+    spec1Lib = speculativeNode1.getIrreversibleBlockNum()
+    spec2Lib = speculativeNode2.getIrreversibleBlockNum()
     Print("prodLib {}, spec1Lib {}, spec2Lib {},".format(prodLib, spec1Lib, spec2Lib))
 
     Print("Wait for {} blocks to produce".format(numBlocksToWaitBeforeChecking))
     speculativeNode2.waitForBlock( spec2Lib + numBlocksToWaitBeforeChecking, blockType=BlockType.lib)
 
     Print("Check whether LIBs advance or not")
-    prodLibAfterWait  = producingNode.getIrreversibleBlockNum(False)
-    spec1LibAfterWait = speculativeNode1.getIrreversibleBlockNum(False)
-    spec2LibAfterWait = speculativeNode2.getIrreversibleBlockNum(False)
+    prodLibAfterWait  = producingNode.getIrreversibleBlockNum()
+    spec1LibAfterWait = speculativeNode1.getIrreversibleBlockNum()
+    spec2LibAfterWait = speculativeNode2.getIrreversibleBlockNum()
     Print("prodLib {} -> {}, spec1Lib {} -> {}, spec2Lib {} -> {},".format(prodLib, prodLibAfterWait, spec1Lib, spec1LibAfterWait, spec2Lib, spec2LibAfterWait))
 
     assert prodLibAfterWait > prodLib and spec2LibAfterWait > spec2Lib, "Either producer ({} -> {}) or second speculative node ({} -> {}) is not advancing".format(prodLib, prodLibAfterWait, spec2Lib, spec2LibAfterWait)

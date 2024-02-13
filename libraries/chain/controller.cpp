@@ -823,7 +823,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
-   finalizer_set                   my_finalizers;
+   my_finalizers_t                   my_finalizers;
    std::atomic<bool>               writing_snapshot = false;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
@@ -1092,7 +1092,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    my_finalizers{ .t_startup = cfg.node_startup_time, .persist_file_path = cfg.data_dir / "finalizers" / "safety.dat" },
+    my_finalizers{ .t_startup = cfg.node_startup_time, .persist_file_path = cfg.finalizers_dir / "safety.dat" },
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open([this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
@@ -2776,8 +2776,8 @@ struct controller_impl {
                   if_irreversible_block_num = forkdb.chain_head->block_num();
 
                   {
-                     // If leap started at a block prior to the IF transition, it needs to provide a default safety
-                     // information for those finalizer that don't already have one. This typically should be done when
+                     // If Leap started at a block prior to the IF transition, it needs to provide a default safety
+                     // information for those finalizers that don't already have one. This typically should be done when
                      // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
                      // to the IF consensus.
                      // See https://hackmd.io/JKIz2TWNTq-xcWyNX4hRvw -  [if todo] set values accurately
