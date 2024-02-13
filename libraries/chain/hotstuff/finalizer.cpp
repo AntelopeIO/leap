@@ -39,19 +39,6 @@ qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const branch
 }
 
 // ----------------------------------------------------------------------------------------
-bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
-   if (ancestor.empty())
-      return false;
-   auto cur = fork_db.get_block_header(descendant->previous()); // use `get_block_header` so we can get the root
-   while (cur) {
-      if (cur->id() == ancestor)
-         return true;
-      cur = fork_db.get_block_header(cur->previous());
-   }
-   return false;
-}
-
-// ----------------------------------------------------------------------------------------
 finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db) {
    bool safety_check   = false;
    bool liveness_check = false;
@@ -71,7 +58,7 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
    if (!fsi.lock.empty()) {
       // Safety check : check if this proposal extends the proposal we're locked on
       // --------------------------------------------------------------------------
-      if (extends(fork_db, proposal, fsi.lock.id))
+      if (fork_db.extends(proposal, fsi.lock.id))
          safety_check = true;
 
       // Liveness check : check if the height of this proposal's justification is higher
@@ -102,7 +89,7 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
 
       bool time_range_disjoint    = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
 
-      bool enough_for_strong_vote = time_range_disjoint || extends(fork_db, proposal, fsi.last_vote.id);
+      bool enough_for_strong_vote = time_range_disjoint || fork_db.extends(proposal, fsi.last_vote.id);
 
       fsi.last_vote             = proposal_ref(proposal);          // v_height
       fsi.last_vote_range_start = p_start;
