@@ -1,6 +1,5 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain_plugin/trx_retry_db.hpp>
-#include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/authorization_manager.hpp>

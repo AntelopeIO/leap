@@ -78,7 +78,7 @@ auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    return bsp;
 }
 
-using branch_type_legacy = fork_database_t<block_state_legacy_ptr>::branch_type;
+using branch_type_legacy = fork_database_legacy_t::branch_type;
 
 template<class BRANCH_TYPE>
 void add_forked( unapplied_transaction_queue& queue, const BRANCH_TYPE& forked_branch ) {

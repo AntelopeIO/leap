@@ -951,7 +951,7 @@ struct controller_impl {
 
    // --------------- access fork_db root ----------------------------------------------------------------------
    bool fork_db_has_root() const {
-      return fork_db.apply<bool>([&](const auto& forkdb) { return !!forkdb.root(); });
+      return fork_db.apply<bool>([&](const auto& forkdb) { return !!forkdb.has_root(); });
    }
 
    block_id_type fork_db_root_block_id() const {
@@ -984,9 +984,9 @@ struct controller_impl {
       return prev->block_num();
    }
 
-   void fork_db_reset_to_head() {
+   void fork_db_reset_root_to_head() {
       return fork_db.apply<void>([&](auto& forkdb) {
-         forkdb.reset(*forkdb.chain_head);
+         forkdb.reset_root(*forkdb.chain_head);
       });
    }
 
@@ -1279,7 +1279,7 @@ struct controller_impl {
    void replay(std::function<bool()> check_shutdown) {
       auto blog_head = blog.head();
       if( !fork_db_has_root() ) {
-         fork_db_reset_to_head();
+         fork_db_reset_root_to_head();
          if (!blog_head)
             return;
       }
@@ -1314,7 +1314,7 @@ struct controller_impl {
                ilog( "fork database head ${h}, root ${r}", ("h", pending_head->block_num())( "r", forkdb.root()->block_num() ) );
                if( pending_head->block_num() < head->block_num() || head->block_num() < forkdb.root()->block_num() ) {
                   ilog( "resetting fork database with new last irreversible block as the new root: ${id}", ("id", head->id()) );
-                  forkdb.reset( *head );
+                  forkdb.reset_root( *head );
                } else if( head->block_num() != forkdb.root()->block_num() ) {
                   auto new_root = forkdb.search_on_branch( pending_head->id(), head->block_num() );
                   EOS_ASSERT( new_root, fork_database_exception,
@@ -1336,7 +1336,7 @@ struct controller_impl {
 
          if (snapshot_head_block != 0 && !blog_head) {
             // loading from snapshot without a block log so fork_db can't be considered valid
-            forkdb.reset( *head );
+            forkdb.reset_root( *head );
          } else if( !except_ptr && !check_shutdown() && forkdb.head() ) {
             auto head_block_num = head->block_num();
             auto branch = fork_db.fetch_branch_from_head();
@@ -1351,7 +1351,7 @@ struct controller_impl {
          }
 
          if( !forkdb.head() ) {
-            forkdb.reset( *head );
+            forkdb.reset_root( *head );
          }
 
          auto end = fc::time_point::now();
@@ -1419,7 +1419,7 @@ struct controller_impl {
          initialize_blockchain_state(genesis); // sets head to genesis state
 
          if( !forkdb.head() ) {
-            forkdb.reset( *forkdb.chain_head );
+            forkdb.reset_root( *forkdb.chain_head );
          }
       };
 
