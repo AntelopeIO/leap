@@ -1271,7 +1271,7 @@ struct controller_impl {
          genheader.pending_schedule.schedule_hash = fc::sha256::hash(initial_legacy_schedule);
          genheader.header.timestamp               = genesis.initial_timestamp;
          genheader.header.action_mroot            = genesis.compute_chain_id();
-         genheader.id                             = genheader.header.calculate_id();
+         genheader.block_id                       = genheader.header.calculate_id();
          genheader.block_num                      = genheader.header.block_num();
 
          forkdb.chain_head = std::make_shared<block_state_legacy>();

@@ -142,7 +142,7 @@ protected:
  *  @brief defines the minimum state necessary to validate transaction headers
  */
 struct block_header_state_legacy : public detail::block_header_state_legacy_common {
-   block_id_type                        id;
+   block_id_type                        block_id;
    signed_block_header                  header;
    detail::schedule_info                pending_schedule;
    protocol_feature_activation_set_ptr  activated_protocol_features;
@@ -170,8 +170,9 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
    uint32_t             calc_dpos_last_irreversible( account_name producer_of_next_block )const;
 
+   const block_id_type&   id() const { return block_id; }
    producer_authority     get_scheduled_producer( block_timestamp_type t )const;
-   const block_id_type&   prev()const { return header.previous; }
+   const block_id_type&   previous()const { return header.previous; }
    digest_type            sig_digest()const;
    void                   sign( const signer_callback_type& signer );
    void                   verify_signee()const;
@@ -202,7 +203,7 @@ FC_REFLECT( eosio::chain::detail::schedule_info,
 )
 
 FC_REFLECT_DERIVED(  eosio::chain::block_header_state_legacy, (eosio::chain::detail::block_header_state_legacy_common),
-                     (id)
+                     (block_id)
                      (header)
                      (pending_schedule)
                      (activated_protocol_features)
