@@ -20,7 +20,7 @@
 // APIs are provided to modify/delay/reoder/remove votes from node2 and node3 to node1.
 
 
-class finality_tester {
+class finality_cluster {
 public:
 
    enum class vote_mode {
@@ -29,7 +29,7 @@ public:
    };
 
    // Construct a test network and activate IF.
-   finality_tester() {
+   finality_cluster() {
       using namespace eosio::testing;
 
       setup_node(node1, "node1"_n);
