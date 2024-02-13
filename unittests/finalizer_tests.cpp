@@ -29,8 +29,8 @@ std::vector<fsi_t> create_random_fsi(size_t count) {
    res.reserve(count);
    for (size_t i=0; i<count; ++i) {
       res.push_back(fsi_t{tstamp(i),
-                          proposal_ref{sha256::hash("vote"), tstamp(i*100 + 3)},
-                          proposal_ref{sha256::hash("lock"), tstamp(i*100)} });
+                          proposal_ref{sha256::hash((const char *)"vote"), tstamp(i*100 + 3)},
+                          proposal_ref{sha256::hash((const char *)"lock"), tstamp(i*100)} });
       if (i)
          assert(res.back() != res[0]);
    }
@@ -68,7 +68,9 @@ BOOST_AUTO_TEST_CASE( basic_finalizer_safety_file_io ) try {
    fc::temp_directory tempdir;
    auto safety_file_path = tempdir.path() / "finalizers" / "safety.dat";
 
-   fsi_t fsi { tstamp(0), proposal_ref{sha256::hash("vote"), tstamp(7)}, proposal_ref{sha256::hash("lock"), tstamp(3)} };
+   fsi_t fsi { tstamp(0),
+               proposal_ref{sha256::hash((const char *)"vote"), tstamp(7)},
+               proposal_ref{sha256::hash((const char *)"lock"), tstamp(3)} };
 
    bls_keys_t k("alice"_n);
    bls_pub_priv_key_map_t local_finalizers = { { k.pubkey_str, k.privkey_str } };

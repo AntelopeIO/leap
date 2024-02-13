@@ -288,7 +288,7 @@ namespace eosio::chain {
 
       block_header_state_legacy result( std::move( *static_cast<detail::block_header_state_legacy_common*>(this) ) );
 
-      result.block_id = h.calculate_id();
+      result.id       = h.calculate_id();
       result.header   = h;
 
       result.header_exts = std::move(exts);
