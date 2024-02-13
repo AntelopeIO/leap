@@ -45,7 +45,7 @@ namespace eosio::chain {
       }
 
       result.block_num                                       = block_num + 1;
-      result.previous                                        = block_id;
+      result.previous                                        = id;
       result.timestamp                                       = when;
       result.confirmed                                       = num_prev_blocks_to_confirm;
       result.active_schedule_version                         = active_schedule.version;
@@ -55,7 +55,7 @@ namespace eosio::chain {
       result.producer                                        = proauth.producer_name;
 
       result.blockroot_merkle = blockroot_merkle;
-      result.blockroot_merkle.append( block_id );
+      result.blockroot_merkle.append( id );
 
       /// grow the confirmed count
       static_assert(std::numeric_limits<uint8_t>::max() >= (config::max_producers * 2 / 3) + 1, "8bit confirmations may not be able to hold all of the needed confirmations");
@@ -448,7 +448,7 @@ namespace eosio::chain {
       producer_to_last_implied_irb          = std::move(snapshot.producer_to_last_implied_irb);
       valid_block_signing_authority         = block_signing_authority_v0{ 1, {{std::move(snapshot.block_signing_key), 1}} };
       confirm_count                         = std::move(snapshot.confirm_count);
-      block_id                              = snapshot.id;
+      id                                    = snapshot.id;
       header                                = std::move(snapshot.header);
       pending_schedule.schedule_lib_num     = snapshot.pending_schedule.schedule_lib_num;
       pending_schedule.schedule_hash        = snapshot.pending_schedule.schedule_hash;
