@@ -9,12 +9,12 @@ finality_test_cluster::finality_test_cluster() {
    setup_node(node2, "node2"_n);
 
    // collect node1's votes
-   node[node1].node.control->voted_block().connect( [&]( const eosio::chain::vote_message& vote ) {
-      node[node1].votes.emplace_back(vote);
+   node1.node.control->voted_block().connect( [&]( const eosio::chain::vote_message& vote ) {
+      node1.votes.emplace_back(vote);
    });
    // collect node2's votes
-   node[node2].node.control->voted_block().connect( [&]( const eosio::chain::vote_message& vote ) {
-      node[node2].votes.emplace_back(vote);
+   node2.node.control->voted_block().connect( [&]( const eosio::chain::vote_message& vote ) {
+      node2.votes.emplace_back(vote);
    });
 
    // form a 3-chain to make LIB advacing on node0
@@ -32,17 +32,17 @@ finality_test_cluster::finality_test_cluster() {
    FC_ASSERT(node2_lib_advancing(), "LIB has not advanced on node2");
 
    // clean up processed votes
-   for (size_t i = 0; i < node.size(); ++i) {
-      node[i].votes.clear();
-      node[i].prev_lib_num = node[i].node.control->if_irreversible_block_num();
+   for (auto& n : node) {
+      n.votes.clear();
+      n.prev_lib_num = n.node.control->if_irreversible_block_num();
    }
 }
 
 // node0 produces a block and pushes it to node1 and node2
 void finality_test_cluster::produce_and_push_block() {
-   auto b = node[node0].node.produce_block();
-   node[node1].node.push_block(b);
-   node[node2].node.push_block(b);
+   auto b = node0.node.produce_block();
+   node1.node.push_block(b);
+   node2.node.push_block(b);
 }
 
 // send node1's vote identified by "index" in the collected votes
@@ -85,8 +85,8 @@ bool finality_test_cluster::node2_lib_advancing() {
 // node1_votes and node2_votes when starting.
 bool finality_test_cluster::produce_blocks_and_verify_lib_advancing() {
    // start from fresh
-   node[node1].votes.clear();
-   node[node2].votes.clear();
+   node1.votes.clear();
+   node2.votes.clear();
 
    for (auto i = 0; i < 3; ++i) {
       produce_and_push_block();
@@ -100,55 +100,55 @@ bool finality_test_cluster::produce_blocks_and_verify_lib_advancing() {
 }
 
 void finality_test_cluster::node1_corrupt_vote_proposal_id() {
-   node1_orig_vote = node[node1].votes[0];
+   node1_orig_vote = node1.votes[0];
 
-   if( node[node1].votes[0].proposal_id.data()[0] == 'a' ) {
-      node[node1].votes[0].proposal_id.data()[0] = 'b';
+   if( node1.votes[0].proposal_id.data()[0] == 'a' ) {
+      node1.votes[0].proposal_id.data()[0] = 'b';
    } else {
-      node[node1].votes[0].proposal_id.data()[0] = 'a';
+      node1.votes[0].proposal_id.data()[0] = 'a';
    }
 }
 
 void finality_test_cluster::node1_corrupt_vote_finalizer_key() {
-   node1_orig_vote = node[node1].votes[0];
+   node1_orig_vote = node1.votes[0];
 
    // corrupt the finalizer_key
-   if( node[node1].votes[0].finalizer_key._pkey.x.d[0] == 1 ) {
-      node[node1].votes[0].finalizer_key._pkey.x.d[0] = 2;
+   if( node1.votes[0].finalizer_key._pkey.x.d[0] == 1 ) {
+      node1.votes[0].finalizer_key._pkey.x.d[0] = 2;
    } else {
-      node[node1].votes[0].finalizer_key._pkey.x.d[0] = 1;
+      node1.votes[0].finalizer_key._pkey.x.d[0] = 1;
    }
 }
 
 void finality_test_cluster::node1_corrupt_vote_signature() {
-   node1_orig_vote = node[node1].votes[0];
+   node1_orig_vote = node1.votes[0];
 
    // corrupt the signature
-   if( node[node1].votes[0].sig._sig.x.c0.d[0] == 1 ) {
-      node[node1].votes[0].sig._sig.x.c0.d[0] = 2;
+   if( node1.votes[0].sig._sig.x.c0.d[0] == 1 ) {
+      node1.votes[0].sig._sig.x.c0.d[0] = 2;
    } else {
-      node[node1].votes[0].sig._sig.x.c0.d[0] = 1;
+      node1.votes[0].sig._sig.x.c0.d[0] = 1;
    }
 }
 
 void finality_test_cluster::node1_restore_to_original_vote() {
-   node[node1].votes[0] = node1_orig_vote;
+   node1.votes[0] = node1_orig_vote;
 }
 
-bool finality_test_cluster::lib_advancing(size_t node_index) {
-   auto curr_lib_num = node[node_index].node.control->if_irreversible_block_num();
-   auto advancing = curr_lib_num > node[node_index].prev_lib_num;
+bool finality_test_cluster::lib_advancing(node_info& node) {
+   auto curr_lib_num = node.node.control->if_irreversible_block_num();
+   auto advancing = curr_lib_num > node.prev_lib_num;
    // update pre_lib_num for next time check
-   node[node_index].prev_lib_num = curr_lib_num;
+   node.prev_lib_num = curr_lib_num;
    return advancing;
 }
 
 // private methods follow
-void finality_test_cluster::setup_node(size_t index, eosio::chain::account_name local_finalizer) {
+void finality_test_cluster::setup_node(node_info& node, eosio::chain::account_name local_finalizer) {
    using namespace eosio::testing;
 
-   node[index].node.produce_block();
-   node[index].node.produce_block();
+   node.node.produce_block();
+   node.node.produce_block();
 
    // activate hotstuff
    eosio::testing::base_tester::finalizer_policy_input policy_input = {
@@ -158,8 +158,8 @@ void finality_test_cluster::setup_node(size_t index, eosio::chain::account_name 
       .threshold        = 2,
       .local_finalizers = {local_finalizer}
    };
-   node[index].node.set_finalizers(policy_input);
-   auto block = node[index].node.produce_block();
+   node.node.set_finalizers(policy_input);
+   auto block = node.node.produce_block();
 
    // this block contains the header extension for the instant finality
    std::optional<eosio::chain::block_header_extension> ext = block->extract_header_extension(eosio::chain::instant_finality_extension::extension_id());
@@ -171,18 +171,18 @@ void finality_test_cluster::setup_node(size_t index, eosio::chain::account_name 
 }
 
 // send a vote to node0
-eosio::chain::vote_status finality_test_cluster::process_vote(size_t node_index, size_t vote_index, vote_mode mode) {
-   FC_ASSERT( vote_index < node[node_index].votes.size(), "out of bound index in process_vote" );
-   auto& vote = node[node_index].votes[vote_index];
+eosio::chain::vote_status finality_test_cluster::process_vote(node_info& node, size_t vote_index, vote_mode mode) {
+   FC_ASSERT( vote_index < node.votes.size(), "out of bound index in process_vote" );
+   auto& vote = node.votes[vote_index];
    if( mode == vote_mode::strong ) {
       vote.strong = true;
    } else {
       vote.strong = false;
    }
-   return node[node0].node.control->process_vote_message( vote );
+   return node0.node.control->process_vote_message( vote );
 }
 
-eosio::chain::vote_status finality_test_cluster::process_vote(size_t node_index, vote_mode mode) {
-   auto vote_index = node[node_index].votes.size() - 1;
-   return process_vote( node_index, vote_index, mode );
+eosio::chain::vote_status finality_test_cluster::process_vote(node_info& node, vote_mode mode) {
+   auto vote_index = node.votes.size() - 1;
+   return process_vote( node, vote_index, mode );
 }

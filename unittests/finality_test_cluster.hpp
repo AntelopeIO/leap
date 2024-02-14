@@ -74,10 +74,6 @@ public:
 
 private:
 
-   static constexpr size_t node0 = 0;  // node0 index in nodes array
-   static constexpr size_t node1 = 1;  // node1 index in nodes array
-   static constexpr size_t node2 = 2;  // node2 index in nodes array
-
    struct node_info {
       eosio::testing::tester                  node;
       uint32_t                                prev_lib_num{0};
@@ -85,17 +81,21 @@ private:
    };
    std::array<node_info, 3> node;
 
+   node_info& node0 = node[0];
+   node_info& node1 = node[1];
+   node_info& node2 = node[2];
+
    eosio::chain::vote_message node1_orig_vote;
 
    // sets up "node_index" node
-   void setup_node(size_t index, eosio::chain::account_name local_finalizer);
+   void setup_node(node_info& node, eosio::chain::account_name local_finalizer);
 
    // returns true if LIB advances on "node_index" node
-   bool lib_advancing(size_t node_index);
+   bool lib_advancing(node_info& node);
 
    // send "vote_index" vote on "node_index" node to node0
-   eosio::chain::vote_status process_vote(size_t node_index, size_t vote_index, vote_mode mode);
+   eosio::chain::vote_status process_vote(node_info& node, size_t vote_index, vote_mode mode);
 
    // send the latest vote on "node_index" node to node0
-   eosio::chain::vote_status process_vote(size_t node_index, vote_mode mode);
+   eosio::chain::vote_status process_vote(node_info& node, vote_mode mode);
 };
