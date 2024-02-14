@@ -673,9 +673,9 @@ struct building_block {
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
                            if( bb.parent.is_needed(*qc) ) {
-                              qc_data = qc_data_t{ *qc, qc_claim_t{ qc->block_num, qc->qc.is_strong() }};
+                              qc_data = qc_data_t{ *qc, qc_claim_t{ qc->block_num, qc->block_timestamp, qc->qc.is_strong() }};
                            } else {
-                              qc_data = qc_data_t{ {}, qc_claim_t{ qc->block_num, qc->qc.is_strong() }};
+                              qc_data = qc_data_t{ {},  qc_claim_t{ qc->block_num, qc->block_timestamp, qc->qc.is_strong() }};
                            }
                            break;
                         }

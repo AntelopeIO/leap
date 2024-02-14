@@ -33,7 +33,8 @@ struct block_header_state_core {
    uint32_t                last_final_block_num = 0;       // last irreversible (final) block.
    std::optional<uint32_t> final_on_strong_qc_block_num;   // will become final if this header achives a strong QC.
    std::optional<uint32_t> last_qc_block_num;              //
-   uint32_t                finalizer_policy_generation;    // 
+   block_timestamp_type    last_qc_block_timestamp;        // The block timestamp of the most recent ancestor block that has a QC justification
+   uint32_t                finalizer_policy_generation;    //
 
    block_header_state_core next(qc_claim_t incoming) const;
 };
@@ -95,7 +96,7 @@ using block_header_state_ptr = std::shared_ptr<block_header_state>;
 }
 
 FC_REFLECT( eosio::chain::block_header_state_core,
-            (last_final_block_num)(final_on_strong_qc_block_num)(last_qc_block_num)(finalizer_policy_generation))
+            (last_final_block_num)(final_on_strong_qc_block_num)(last_qc_block_num)(last_qc_block_timestamp)(finalizer_policy_generation))
 FC_REFLECT( eosio::chain::block_header_state,
             (block_id)(header)(activated_protocol_features)(core)(proposal_mtree)(finality_mtree)
             (active_finalizer_policy)(active_proposer_policy)(proposer_policies)(finalizer_policies)(header_exts))
