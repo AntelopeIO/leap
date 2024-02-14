@@ -35,11 +35,6 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
 
    auto p_branch = fork_db.fetch_branch(proposal->id());
 
-   // we expect last_qc_block_num() to always be found except at bootstrap
-   // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num
-   // from fork_db.root(), and specify weak.
-   auto bsp_last_qc = get_block_by_num(p_branch, proposal->last_qc_block_num());
-
    bool monotony_check = !fsi.last_vote || proposal->timestamp() > fsi.last_vote.timestamp;
    // !fsi.last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed
 
@@ -53,7 +48,7 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
       // than the height of the proposal I'm locked on.
       // This allows restoration of liveness if a replica is locked on a stale proposal
       // -------------------------------------------------------------------------------
-      if (bsp_last_qc && bsp_last_qc->timestamp() > fsi.lock.timestamp)
+      if (proposal->last_qc_block_timestamp() > fsi.lock.timestamp)
          liveness_check = true;
    } else {
       // Safety and Liveness both fail if `fsi.lock` is empty. It should not happen.
@@ -72,8 +67,7 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
    vote_decision decision = vote_decision::no_vote;
 
    if (monotony_check && (liveness_check || safety_check)) {
-      auto [p_start, p_end] = std::make_pair(bsp_last_qc ? bsp_last_qc->timestamp() : proposal->timestamp(),
-                                             proposal->timestamp());
+      auto [p_start, p_end] = std::make_pair(proposal->last_qc_block_timestamp(), proposal->timestamp());
 
       bool time_range_disjoint    = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
 
@@ -88,8 +82,8 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
 
       decision = enough_for_strong_vote ? vote_decision::strong_vote : vote_decision::weak_vote;
    } else {
-      dlog("bsp_last_qc=${bsp}, last_qc_block_num=${lqc}, fork_db root block_num=${f}",
-           ("bsp", !!bsp_last_qc)("lqc",!!proposal->last_qc_block_num())("f",fork_db.root()->block_num()));
+      dlog("last_qc_block_num=${lqc}, fork_db root block_num=${f}",
+           ("lqc",!!proposal->last_qc_block_num())("f",fork_db.root()->block_num()));
       if (proposal->last_qc_block_num())
          dlog("last_qc_block_num=${lqc}", ("lqc", *proposal->last_qc_block_num()));
    }
