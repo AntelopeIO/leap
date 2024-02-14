@@ -34,7 +34,6 @@ struct block_state : public block_header_state {     // block_header_state provi
    std::optional<quorum_certificate> get_best_qc() const;
    bool is_best_qc_strong() const;
 
-   protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);

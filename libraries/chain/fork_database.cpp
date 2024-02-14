@@ -349,7 +349,7 @@ namespace eosio::chain {
                const auto& pfa = exts.lower_bound(protocol_feature_activation::extension_id())->second;
                const auto& new_protocol_features = std::get<protocol_feature_activation>(pfa).protocol_features;
                validator(n->timestamp(),
-                         static_cast<bs*>(prev_bh.get())->get_activated_protocol_features()->protocol_features,
+                         prev_bh.get()->get_activated_protocol_features()->protocol_features,
                          new_protocol_features);
             }
          }

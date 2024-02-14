@@ -74,6 +74,7 @@ struct block_header_state {
    const block_id_type&  previous() const  { return header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
    const producer_authority_schedule& active_schedule_auth()  const { return active_proposer_policy->proposer_schedule; }
+   const protocol_feature_activation_set_ptr& get_activated_protocol_features() const { return activated_protocol_features; }
 
    block_header_state next(block_header_state_input& data) const;
 
@@ -84,7 +85,6 @@ struct block_header_state {
       return qc.block_num > core.last_qc_block_num;
    }
 
-   flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    const vector<digest_type>& get_new_protocol_feature_activations() const;
    producer_authority get_scheduled_producer(block_timestamp_type t) const;
    uint32_t active_schedule_version() const;
