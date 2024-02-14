@@ -3105,10 +3105,12 @@ struct controller_impl {
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
       const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
-      if( block_exts.count(quorum_certificate_extension::extension_id()) == 0 ) {
+      auto qc_ext_id = quorum_certificate_extension::extension_id();
+
+      if( block_exts.count(qc_ext_id) == 0 ) {
          return;
       }
-      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
+      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& received_qc = qc_ext.qc.qc;
 
       const auto bsp = fork_db_fetch_bsp_by_num( bsp_in->previous(), qc_ext.qc.block_num );
@@ -3195,7 +3197,8 @@ struct controller_impl {
       // validate QC claim against previous block QC info
 
       // new claimed QC block number cannot be smaller than previous block's
-      EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_claim.last_qc_block_num,
+      EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_claim.last_qc_block_num &&
+                  qc_claim.last_qc_block_timestamp >= prev_qc_claim.last_qc_block_timestamp,
                   invalid_qc_claim,
                   "Block #${b} claims a last_qc_block_num (${n1}) less than the previous block's (${n2})",
                   ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_claim.last_qc_block_num)("b", block_num) );
@@ -3229,7 +3232,7 @@ struct controller_impl {
       const auto& qc_proof = qc_ext.qc;
 
       // Check QC information in header extension and block extension match
-      EOS_ASSERT( qc_proof.block_num == qc_claim.last_qc_block_num,
+      EOS_ASSERT( qc_proof.block_num == qc_claim.last_qc_block_num && qc_proof.block_timestamp == qc_claim.last_qc_block_timestamp,
                   invalid_qc_claim,
                   "Block #${b}: Mismatch between qc.block_num (${n1}) in block extension and last_qc_block_num (${n2}) in header extension",
                   ("n1", qc_proof.block_num)("n2", qc_claim.last_qc_block_num)("b", block_num) );
