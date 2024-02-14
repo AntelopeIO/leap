@@ -9,98 +9,6 @@ namespace eosio::chain {
 
    using block_branch_t = deque<signed_block_ptr>;
 
-   struct block_state_forkdb_adaptor {
-   private:
-      block_header_state_core current_core; // only modify/access while holding forkdb lock
-      block_state_ptr bsp;
-
-   public:
-      using bs               = block_state_ptr::element_type;
-      using bhsp             = bs::bhsp_t;
-      using bhs              = bhsp::element_type;
-      using bsp_t            = block_state_ptr;
-
-      explicit block_state_forkdb_adaptor(block_state_ptr bsp)
-      : current_core(bsp->core), bsp(std::move(bsp)) {}
-
-      block_state_forkdb_adaptor(const block_state_forkdb_adaptor&) = delete;
-      block_state_forkdb_adaptor() = delete;
-      block_state_forkdb_adaptor& operator=(const block_state_forkdb_adaptor&) = delete;
-      block_state_forkdb_adaptor(block_state_forkdb_adaptor&&) = default;
-
-      void update_best_qc_strong() {
-         if (current_core.last_qc_block_num != bsp->block_num())
-            current_core = current_core.next(qc_claim_t{.last_qc_block_num = bsp->block_num(), .is_last_qc_strong = true});
-      }
-
-      // although valid is mutated and accessed, it should all be from the main thread or protected by forkdb mutex
-      void set_valid(bool v) { bsp->set_valid(v); } // not thread safe
-      bool is_valid() const { return bsp->is_valid(); } // not thread safe
-
-      // only safe to call while holding fork_database lock
-      uint32_t last_final_block_num() const {
-         return current_core.last_final_block_num;
-      }
-      // only safe to call while holding fork_database lock
-      uint32_t final_on_strong_qc_block_num() const {
-         return current_core.final_on_strong_qc_block_num.value_or(last_final_block_num());
-      }
-      // only safe to call while holding fork_database lock
-      uint32_t last_qc_block_num() const {
-         return current_core.last_qc_block_num;
-      }
-
-      // thread safe
-      uint32_t block_height() const { return bsp->timestamp().slot; }
-      uint32_t block_num() const { return bsp->block_num(); }
-      const block_id_type& id() const { return bsp->id(); }
-      const block_id_type& previous() const { return bsp->previous(); }
-      const block_state_ptr& get() const { return bsp; }
-      const signed_block_ptr& block() const { return bsp->block; }
-      explicit operator bool() const noexcept { return !!bsp; }
-   };
-
-   // thread safe
-   struct block_state_legacy_forkdb_adaptor {
-   private:
-      block_state_legacy_ptr bsp;
-
-   public:
-      using bs               = block_state_legacy_ptr::element_type;
-      using bhsp             = bs::bhsp_t;
-      using bhs              = bhsp::element_type;
-      using bsp_t            = block_state_legacy_ptr;
-
-      explicit block_state_legacy_forkdb_adaptor(block_state_legacy_ptr bsp) : bsp(std::move(bsp)) {}
-
-      block_state_legacy_forkdb_adaptor(const block_state_legacy_forkdb_adaptor&) = delete;
-      block_state_legacy_forkdb_adaptor() = delete;
-      block_state_legacy_forkdb_adaptor& operator=(const block_state_legacy_forkdb_adaptor&) = delete;
-      block_state_legacy_forkdb_adaptor(block_state_legacy_forkdb_adaptor&&) = default;
-
-      void update_best_qc_strong() {} // no-op for legacy
-
-      // although valid is mutated and accessed, it should all be from the main thread or protected by forkdb mutex
-      void set_valid(bool v) { bsp->set_valid(v); } // not thread safe
-      bool is_valid() const { return bsp->is_valid(); }
-
-      // maintains the equivalent of legacy behavior
-      uint32_t last_final_block_num() const { return bsp->irreversible_blocknum(); }
-      uint32_t final_on_strong_qc_block_num() const { return bsp->irreversible_blocknum(); }
-      uint32_t last_qc_block_num() const { return bsp->irreversible_blocknum(); }
-
-      uint32_t block_height() const { return bsp->block_num(); }
-      uint32_t block_num() const { return bsp->block_num(); }
-      const block_id_type& id() const { return bsp->id(); }
-      const block_id_type& previous() const { return bsp->previous(); }
-      const block_state_legacy_ptr& get() const { return bsp; }
-      const signed_block_ptr& block() const { return bsp->block; }
-      explicit operator bool() const noexcept { return !!bsp; }
-   };
-
-   using block_state_legacy_forkdb_adaptor_ptr = std::shared_ptr<block_state_legacy_forkdb_adaptor>;
-   using block_state_forkdb_adaptor_ptr = std::shared_ptr<block_state_forkdb_adaptor>;
-
    /**
     * @class fork_database_t
     * @brief manages light-weight state for all potential unconfirmed forks
@@ -115,17 +23,16 @@ namespace eosio::chain {
     * fork_database should be used instead of fork_database_t directly as it manages
     * the different supported types.
     */
-   template<class BSAdaptorPtr>  // either block_state_legacy_forkdb_adaptor_ptr or block_state_forkdb_adaptor_ptr
+   template<class BSP>  // either block_state_legacy_ptr or block_state_ptr
    class fork_database_t {
    public:
       static constexpr uint32_t legacy_magic_number = 0x30510FDB;
       static constexpr uint32_t magic_number = 0x4242FDB;
 
-      using bs               = BSAdaptorPtr::element_type::bs;
-      using bhsp             = bs::bhsp_t;
-      using bhs              = bhsp::element_type;
-      using bsp_t            = BSAdaptorPtr::element_type::bsp_t;
-      using bsp              = bsp_t;
+      using BS               = BSP::element_type;
+      using BHSP             = BS::bhsp_t;
+      using BHS              = BHSP::element_type;
+      using bsp_t            = BSP;
       using branch_type      = deque<bsp_t>;
       using branch_type_pair = pair<branch_type, branch_type>;
       
@@ -134,14 +41,14 @@ namespace eosio::chain {
       void open( const std::filesystem::path& fork_db_file, validator_t& validator );
       void close( const std::filesystem::path& fork_db_file );
 
-      bhsp get_block_header( const block_id_type& id ) const;
-      bsp  get_block( const block_id_type& id ) const;
+      BHSP get_block_header( const block_id_type& id ) const;
+      BSP  get_block( const block_id_type& id ) const;
 
       /**
        *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
        *  The head will also be reset to point to the root.
        */
-      void reset_root( const bhs& root_bhs );
+      void reset_root( const BHS& root_bhs );
 
       /**
        *  Removes validated flag from all blocks in fork database and resets head to point to the root.
@@ -157,17 +64,17 @@ namespace eosio::chain {
        *  Add block state to fork database.
        *  Must link to existing block in fork database or the root.
        */
-      void add( const bsp& next_block, bool ignore_duplicate = false );
+      void add( const BSP& next_block, bool ignore_duplicate = false );
 
       void remove( const block_id_type& id );
 
       bool has_root() const;
-      bsp  root() const; // undefined if !has_root()
-      bsp  head() const;
-      bsp  pending_head() const;
+      BSP  root() const; // undefined if !has_root()
+      BSP  head() const;
+      BSP  pending_head() const;
 
       // only accessed by main thread, no mutex protection
-      bsp  chain_head;
+      BSP  chain_head;
 
       /**
        *  Returns the sequence of block states resulting from trimming the branch from the
@@ -185,7 +92,7 @@ namespace eosio::chain {
        *  Returns the block state with a block number of `block_num` that is on the branch that
        *  contains a block with an id of`h`, or the empty shared pointer if no such block can be found.
        */
-      bsp  search_on_branch( const block_id_type& h, uint32_t block_num ) const;
+      BSP  search_on_branch( const block_id_type& h, uint32_t block_num ) const;
 
       /**
        *  Given two head blocks, return two branches of the fork graph that
@@ -193,7 +100,7 @@ namespace eosio::chain {
        */
       branch_type_pair fetch_branch_from(const block_id_type& first, const block_id_type& second) const;
 
-      void mark_valid( const bsp& h );
+      void mark_valid( const BSP& h );
 
       /**
        * Update block_state_core for best qc strong
@@ -201,11 +108,11 @@ namespace eosio::chain {
       void update_best_qc_strong( const block_id_type& id );
 
    private:
-      unique_ptr<fork_database_impl<BSAdaptorPtr>> my;
+      unique_ptr<fork_database_impl<BSP>> my;
    };
 
-   using fork_database_legacy_t = fork_database_t<block_state_legacy_forkdb_adaptor_ptr>;
-   using fork_database_if_t     = fork_database_t<block_state_forkdb_adaptor_ptr>;
+   using fork_database_legacy_t = fork_database_t<block_state_legacy_ptr>;
+   using fork_database_if_t     = fork_database_t<block_state_ptr>;
 
    /**
     * Provides mechanism for opening the correct type

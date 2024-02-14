@@ -7,6 +7,8 @@
 
 namespace eosio::chain {
 
+   struct block_state_legacy_accessor;
+
    struct block_state_legacy : public block_header_state_legacy {
       using bhs_t  = block_header_state_legacy;
       using bhsp_t = block_header_state_legacy_ptr;
@@ -39,20 +41,21 @@ namespace eosio::chain {
       block_timestamp_type   timestamp()             const { return header.timestamp; }
       account_name           producer()              const { return header.producer; }
       const extensions_type& header_extensions()     const { return header.header_extensions; }
-      bool                   is_valid()              const { return validated; }
-      void                   set_valid(bool b)             { validated = b; }
-      
+
       const producer_authority_schedule&     active_schedule_auth()  const { return block_header_state_legacy_common::active_schedule; }
       const producer_authority_schedule*     pending_schedule_auth() const { return &block_header_state_legacy::pending_schedule.schedule; }
       const deque<transaction_metadata_ptr>& trxs_metas()            const { return _cached_trxs; }
 
       
+      using fork_db_block_state_accessor = block_state_legacy_accessor;
    private: // internal use only, not thread safe
+      friend struct block_state_legacy_accessor;
       friend struct fc::reflector<block_state_legacy>;
       friend struct controller_impl;
       friend struct completed_block;
       friend struct block_state;
 
+      bool is_valid() const { return validated; }
       bool is_pub_keys_recovered()const { return _pub_keys_recovered; }
       
       deque<transaction_metadata_ptr> extract_trxs_metas() {
