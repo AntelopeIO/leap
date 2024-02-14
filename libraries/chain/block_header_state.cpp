@@ -47,9 +47,7 @@ block_header_state_core block_header_state_core::next(qc_claim_t incoming) const
 
       // next block which can become irreversible is the block with
       // old last_qc_block_num
-      if (old_last_qc_block_num.has_value()) {
-         result.final_on_strong_qc_block_num = *old_last_qc_block_num;
-      }
+      result.final_on_strong_qc_block_num = old_last_qc_block_num;
    } else {
       // new final_on_strong_qc_block_num should not be present
       result.final_on_strong_qc_block_num.reset();

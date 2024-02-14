@@ -6,8 +6,8 @@
 namespace eosio::chain {
 
 struct qc_claim_t {
-   uint32_t last_qc_block_num; // The block height of the most recent ancestor block that has a QC justification
-   bool     is_last_qc_strong; // Whether the QC for the block referenced by last_qc_block_height is strong or weak.
+   uint32_t last_qc_block_num = 0; // The block height of the most recent ancestor block that has a QC justification
+   bool     is_last_qc_strong = false; // Whether the QC for the block referenced by last_qc_block_height is strong or weak.
 };
 
 struct instant_finality_extension : fc::reflect_init {

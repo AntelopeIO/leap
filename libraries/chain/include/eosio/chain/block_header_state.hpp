@@ -38,8 +38,8 @@ struct block_header_state_input : public building_block_input {
 struct block_header_state_core {
    uint32_t                last_final_block_num = 0;       // last irreversible (final) block.
    std::optional<uint32_t> final_on_strong_qc_block_num;   // will become final if this header achives a strong QC.
-   std::optional<uint32_t> last_qc_block_num;              //
-   uint32_t                finalizer_policy_generation;    // 
+   uint32_t                last_qc_block_num = 0;
+   uint32_t                finalizer_policy_generation = 0;
 
    block_header_state_core next(qc_claim_t incoming) const;
 };
@@ -81,7 +81,7 @@ struct block_header_state {
 
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
-      return !core.last_qc_block_num || qc.block_num > *core.last_qc_block_num;
+      return qc.block_num > core.last_qc_block_num;
    }
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }

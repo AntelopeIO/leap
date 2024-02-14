@@ -47,7 +47,7 @@ namespace eosio::chain {
       }
       // only safe to call while holding fork_database lock
       uint32_t last_qc_block_num() const {
-         return current_core.last_qc_block_num.value_or(final_on_strong_qc_block_num());
+         return current_core.last_qc_block_num;
       }
 
       // thread safe
