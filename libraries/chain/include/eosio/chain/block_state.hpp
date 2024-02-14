@@ -43,6 +43,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    uint32_t               irreversible_blocknum() const { return core.last_final_block_num; }
    std::optional<quorum_certificate> get_best_qc() const;
    std::optional<uint32_t>           last_qc_block_num() const { return core.last_qc_block_num; }
+   std::optional<uint32_t>           final_on_strong_qc_block_num() const { return core.final_on_strong_qc_block_num; }
       
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }

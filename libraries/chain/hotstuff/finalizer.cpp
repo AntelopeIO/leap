@@ -15,6 +15,7 @@ block_state_ptr get_block_by_num(const fork_database_if_t::branch_type& branch, 
    return dist < branch.size() ? branch[dist] : block_state_ptr{};
 }
 
+// ----------------------------------------------------------------------------------------
 bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
    if (ancestor.empty())
       return false;
@@ -28,36 +29,11 @@ bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendan
 }
 
 // ----------------------------------------------------------------------------------------
-qc_chain_t finalizer::get_qc_chain(const block_state_ptr& proposal, const branch_type& branch) const {
-   qc_chain_t res;
-
-   // get b2
-   // ------
-   res.b2 = get_block_by_num(branch, proposal->core.last_qc_block_num);
-   if (!res.b2)
-      return res;
-
-   // get b1
-   // ------
-   res.b1 = get_block_by_num(branch, res.b2->core.last_qc_block_num);
-   if (!res.b1)
-      return res;
-
-   // get b
-   // ------
-   res.b = get_block_by_num(branch, res.b1->core.last_qc_block_num);
-
-   return res;
-}
-
-// ----------------------------------------------------------------------------------------
 finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db) {
    bool safety_check   = false;
    bool liveness_check = false;
 
    auto p_branch = fork_db.fetch_branch(proposal->id());
-
-   qc_chain_t chain = get_qc_chain(proposal, p_branch);
 
    // we expect last_qc_block_num() to always be found except at bootstrap
    // in `assemble_block()`, if we don't find a qc in the ancestors of the proposed block, we use block_num
@@ -103,11 +79,12 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
 
       bool enough_for_strong_vote = time_range_disjoint || extends(fork_db, proposal, fsi.last_vote.id);
 
-      fsi.last_vote             = proposal_ref(proposal);          // v_height
+      fsi.last_vote             = proposal_ref(proposal);
       fsi.last_vote_range_start = p_start;
 
-      if (chain.b1 && chain.b1->timestamp() > fsi.lock.timestamp)
-         fsi.lock = proposal_ref(chain.b1);                // commit phase on b1
+      auto bsp_final_on_strong_qc =  get_block_by_num(p_branch, proposal->final_on_strong_qc_block_num());
+      if (enough_for_strong_vote && bsp_final_on_strong_qc && bsp_final_on_strong_qc->timestamp() > fsi.lock.timestamp)
+         fsi.lock = proposal_ref(bsp_final_on_strong_qc);
 
       decision = enough_for_strong_vote ? vote_decision::strong_vote : vote_decision::weak_vote;
    } else {
