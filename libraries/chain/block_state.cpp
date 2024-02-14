@@ -88,9 +88,11 @@ std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(cons
                                  vote.finalizer_key,
                                  vote.sig,
                                  finalizers[index].weight);
-      return {status,
-              (status == vote_status::success && strong) ?
-                 core.final_on_strong_qc_block_num : std::optional<uint32_t>{}};
+
+      std::optional<uint32_t> new_lib{};
+      if (status == vote_status::success && strong)
+         new_lib = core.final_on_strong_qc_block_num;
+      return {status, new_lib};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
       return {vote_status::unknown_public_key, {}};

@@ -4,32 +4,32 @@
 finality_test_cluster::finality_test_cluster() {
    using namespace eosio::testing;
 
+   setup_node(node0, "node0"_n);
    setup_node(node1, "node1"_n);
    setup_node(node2, "node2"_n);
-   setup_node(node3, "node3"_n);
 
+   // collect node1's votes
+   node[node1].node.control->voted_block().connect( [&]( const eosio::chain::vote_message& vote ) {
+      node[node1].votes.emplace_back(vote);
+   });
    // collect node2's votes
    node[node2].node.control->voted_block().connect( [&]( const eosio::chain::vote_message& vote ) {
       node[node2].votes.emplace_back(vote);
    });
-   // collect node3's votes
-   node[node3].node.control->voted_block().connect( [&]( const eosio::chain::vote_message& vote ) {
-      node[node3].votes.emplace_back(vote);
-   });
 
-   // form a 3-chain to make LIB advacing on node1
-   // node1's vote (internal voting) and node2's vote make the quorum
+   // form a 3-chain to make LIB advacing on node0
+   // node0's vote (internal voting) and node1's vote make the quorum
    for (auto i = 0; i < 3; ++i) {
       produce_and_push_block();
-      process_node2_vote();
+      process_node1_vote();
    }
-   FC_ASSERT(node1_lib_advancing(), "LIB has not advanced on node1");
+   FC_ASSERT(node0_lib_advancing(), "LIB has not advanced on node0");
 
-   // QC extension in the block sent to node2 and node3 makes them LIB advancing
+   // QC extension in the block sent to node1 and node2 makes them LIB advancing
    produce_and_push_block();
-   process_node2_vote();
+   process_node1_vote();
+   FC_ASSERT(node1_lib_advancing(), "LIB has not advanced on node1");
    FC_ASSERT(node2_lib_advancing(), "LIB has not advanced on node2");
-   FC_ASSERT(node3_lib_advancing(), "LIB has not advanced on node3");
 
    // clean up processed votes
    for (size_t i = 0; i < node.size(); ++i) {
@@ -38,11 +38,21 @@ finality_test_cluster::finality_test_cluster() {
    }
 }
 
-// node1 produces a block and pushes it to node2 and node3
+// node0 produces a block and pushes it to node1 and node2
 void finality_test_cluster::produce_and_push_block() {
-   auto b = node[node1].node.produce_block();
+   auto b = node[node0].node.produce_block();
+   node[node1].node.push_block(b);
    node[node2].node.push_block(b);
-   node[node3].node.push_block(b);
+}
+
+// send node1's vote identified by "index" in the collected votes
+eosio::chain::vote_status finality_test_cluster::process_node1_vote(uint32_t vote_index, vote_mode mode) {
+   return process_vote( node1, vote_index, mode );
+}
+
+// send node1's latest vote
+eosio::chain::vote_status finality_test_cluster::process_node1_vote(vote_mode mode) {
+   return process_vote( node1, mode );
 }
 
 // send node2's vote identified by "index" in the collected votes
@@ -55,14 +65,9 @@ eosio::chain::vote_status finality_test_cluster::process_node2_vote(vote_mode mo
    return process_vote( node2, mode );
 }
 
-// send node3's vote identified by "index" in the collected votes
-eosio::chain::vote_status finality_test_cluster::process_node3_vote(uint32_t vote_index, vote_mode mode) {
-   return process_vote( node3, vote_index, mode );
-}
-
-// send node3's latest vote
-eosio::chain::vote_status finality_test_cluster::process_node3_vote(vote_mode mode) {
-   return process_vote( node3, mode );
+// returns true if node0's LIB has advanced
+bool finality_test_cluster::node0_lib_advancing() {
+   return lib_advancing(node0);
 }
 
 // returns true if node1's LIB has advanced
@@ -75,23 +80,18 @@ bool finality_test_cluster::node2_lib_advancing() {
    return lib_advancing(node2);
 }
 
-// returns true if node3's LIB has advanced
-bool finality_test_cluster::node3_lib_advancing() {
-   return lib_advancing(node3);
-}
-
 // Produces a number of blocks and returns true if LIB is advancing.
 // This function can be only used at the end of a test as it clears
-// node2_votes and node3_votes when starting.
+// node1_votes and node2_votes when starting.
 bool finality_test_cluster::produce_blocks_and_verify_lib_advancing() {
    // start from fresh
+   node[node1].votes.clear();
    node[node2].votes.clear();
-   node[node3].votes.clear();
 
    for (auto i = 0; i < 3; ++i) {
       produce_and_push_block();
-      process_node2_vote();
-      if (!node1_lib_advancing() || !node2_lib_advancing() || !node3_lib_advancing()) {
+      process_node1_vote();
+      if (!node0_lib_advancing() || !node1_lib_advancing() || !node2_lib_advancing()) {
          return false;
       }
    }
@@ -99,40 +99,40 @@ bool finality_test_cluster::produce_blocks_and_verify_lib_advancing() {
    return true;
 }
 
-void finality_test_cluster::node2_corrupt_vote_proposal_id() {
-   node2_orig_vote = node[node2].votes[0];
+void finality_test_cluster::node1_corrupt_vote_proposal_id() {
+   node1_orig_vote = node[node1].votes[0];
 
-   if( node[node2].votes[0].proposal_id.data()[0] == 'a' ) {
-      node[node2].votes[0].proposal_id.data()[0] = 'b';
+   if( node[node1].votes[0].proposal_id.data()[0] == 'a' ) {
+      node[node1].votes[0].proposal_id.data()[0] = 'b';
    } else {
-      node[node2].votes[0].proposal_id.data()[0] = 'a';
+      node[node1].votes[0].proposal_id.data()[0] = 'a';
    }
 }
 
-void finality_test_cluster::node2_corrupt_vote_finalizer_key() {
-   node2_orig_vote = node[node2].votes[0];
+void finality_test_cluster::node1_corrupt_vote_finalizer_key() {
+   node1_orig_vote = node[node1].votes[0];
 
    // corrupt the finalizer_key
-   if( node[node2].votes[0].finalizer_key._pkey.x.d[0] == 1 ) {
-      node[node2].votes[0].finalizer_key._pkey.x.d[0] = 2;
+   if( node[node1].votes[0].finalizer_key._pkey.x.d[0] == 1 ) {
+      node[node1].votes[0].finalizer_key._pkey.x.d[0] = 2;
    } else {
-      node[node2].votes[0].finalizer_key._pkey.x.d[0] = 1;
+      node[node1].votes[0].finalizer_key._pkey.x.d[0] = 1;
    }
 }
 
-void finality_test_cluster::node2_corrupt_vote_signature() {
-   node2_orig_vote = node[node2].votes[0];
+void finality_test_cluster::node1_corrupt_vote_signature() {
+   node1_orig_vote = node[node1].votes[0];
 
    // corrupt the signature
-   if( node[node2].votes[0].sig._sig.x.c0.d[0] == 1 ) {
-      node[node2].votes[0].sig._sig.x.c0.d[0] = 2;
+   if( node[node1].votes[0].sig._sig.x.c0.d[0] == 1 ) {
+      node[node1].votes[0].sig._sig.x.c0.d[0] = 2;
    } else {
-      node[node2].votes[0].sig._sig.x.c0.d[0] = 1;
+      node[node1].votes[0].sig._sig.x.c0.d[0] = 1;
    }
 }
 
-void finality_test_cluster::node2_restore_to_original_vote() {
-   node[node2].votes[0] = node2_orig_vote;
+void finality_test_cluster::node1_restore_to_original_vote() {
+   node[node1].votes[0] = node1_orig_vote;
 }
 
 bool finality_test_cluster::lib_advancing(size_t node_index) {
@@ -152,9 +152,9 @@ void finality_test_cluster::setup_node(size_t index, eosio::chain::account_name 
 
    // activate hotstuff
    eosio::testing::base_tester::finalizer_policy_input policy_input = {
-      .finalizers       = { {.name = "node1"_n, .weight = 1},
-                            {.name = "node2"_n, .weight = 1},
-                            {.name = "node3"_n, .weight = 1}},
+      .finalizers       = { {.name = "node0"_n, .weight = 1},
+                            {.name = "node1"_n, .weight = 1},
+                            {.name = "node2"_n, .weight = 1}},
       .threshold        = 2,
       .local_finalizers = {local_finalizer}
    };
@@ -170,7 +170,7 @@ void finality_test_cluster::setup_node(size_t index, eosio::chain::account_name 
    BOOST_TEST(fin_policy->generation == 1);
 }
 
-// send a vote to node1
+// send a vote to node0
 eosio::chain::vote_status finality_test_cluster::process_vote(size_t node_index, size_t vote_index, vote_mode mode) {
    FC_ASSERT( vote_index < node[node_index].votes.size(), "out of bound index in process_vote" );
    auto& vote = node[node_index].votes[vote_index];
@@ -179,7 +179,7 @@ eosio::chain::vote_status finality_test_cluster::process_vote(size_t node_index,
    } else {
       vote.strong = false;
    }
-   return node[node1].node.control->process_vote_message( vote );
+   return node[node0].node.control->process_vote_message( vote );
 }
 
 eosio::chain::vote_status finality_test_cluster::process_vote(size_t node_index, vote_mode mode) {
