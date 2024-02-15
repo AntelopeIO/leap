@@ -9,6 +9,27 @@
 #include <compare>
 #include <utility>
 
+// -------------------------------------------------------------------------------------------
+// this file defines the classes:
+//
+// finalizer:
+// ---------
+//     - holds the bls12 private key which allows the finalizer to sign proposals (the
+//       proposal is assumed to have been previously validated for correctness). These
+//       signatures will be aggregated by block proposers into quorum certificates, which
+//       are an essential part of the Savanna consensus algorithm.
+//     - every time a finalizer votes, it may update its own safety info in memory
+//     - finalizer safety info is appropriately initialized (iff not already present
+//       in the persistent file) at Leap startup.
+//
+//  my_finalizers_t:
+//  ---------------
+//     - stores the set of finalizers currently active on this node.
+//     - manages a `finalizer safety` file (`safety.dat`) which tracks the active finalizers
+//       safety info (file is updated after each vote), and also the safety information for
+//       every finalizer which has been active on this node (using the same `finalizer-dir`)
+// -------------------------------------------------------------------------------------------
+
 namespace eosio::chain {
    // ----------------------------------------------------------------------------------------
    struct finalizer {
