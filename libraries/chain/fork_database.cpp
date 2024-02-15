@@ -410,7 +410,7 @@ namespace eosio::chain {
    fork_database_t<bsp>::branch_type
    fork_database_impl<bsp>::fetch_branch_impl(const block_id_type& h, uint32_t trim_after_block_num) const {
       branch_type result;
-      result.reserve(8);
+      result.reserve(index.size());
       for (auto s = get_block_impl(h); s; s = get_block_impl(s->previous())) {
          if (s->block_num() <= trim_after_block_num)
             result.push_back(s);
@@ -430,7 +430,7 @@ namespace eosio::chain {
    fork_database_t<bsp>::full_branch_type
    fork_database_impl<bsp>::fetch_full_branch_impl(const block_id_type& h) const {
       full_branch_type result;
-      result.reserve(8);
+      result.reserve(index.size());
       for (auto s = get_block_impl(h); s; s = get_block_impl(s->previous())) {
          result.push_back(s);
       }

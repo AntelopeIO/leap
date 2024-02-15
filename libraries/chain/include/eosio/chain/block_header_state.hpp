@@ -30,11 +30,11 @@ struct block_header_state_input : public building_block_input {
 };
 
 struct block_header_state_core {
-   uint32_t                last_final_block_num = 0;       // last irreversible (final) block.
+   uint32_t                last_final_block_num{0};        // last irreversible (final) block.
    std::optional<uint32_t> final_on_strong_qc_block_num;   // will become final if this header achives a strong QC.
-   std::optional<uint32_t> last_qc_block_num;              //
+   std::optional<uint32_t> last_qc_block_num;              // The block number of the most recent ancestor block that has a QC justification
    block_timestamp_type    last_qc_block_timestamp;        // The block timestamp of the most recent ancestor block that has a QC justification
-   uint32_t                finalizer_policy_generation;    //
+   uint32_t                finalizer_policy_generation{0}; //
 
    block_header_state_core next(qc_claim_t incoming) const;
 };
