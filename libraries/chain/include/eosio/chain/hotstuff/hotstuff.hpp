@@ -125,6 +125,8 @@ namespace eosio::chain {
                                 const bls_public_key& pubkey,
                                 const bls_signature& sig,
                                 uint64_t weight);
+
+      bool is_quorum_met_no_lock() const;
    };
 } //eosio::chain
 
