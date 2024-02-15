@@ -5,7 +5,7 @@
 namespace eosio::chain {
 
 // ----------------------------------------------------------------------------------------
-block_state_ptr get_block_by_num(const fork_database_if_t::branch_type& branch, std::optional<uint32_t> block_num) {
+block_header_state_ptr get_block_by_num(const fork_database_if_t::full_branch_type& branch, std::optional<uint32_t> block_num) {
    if (!block_num || branch.empty())
       return block_state_ptr{};
 
@@ -16,16 +16,9 @@ block_state_ptr get_block_by_num(const fork_database_if_t::branch_type& branch, 
 }
 
 // ----------------------------------------------------------------------------------------
-bool extends(const fork_database_if_t& fork_db, const block_state_ptr& descendant, const block_id_type& ancestor) {
-   if (ancestor.empty())
-      return false;
-   auto cur = fork_db.get_block_header(descendant->previous()); // use `get_block_header` so we can get the root
-   while (cur) {
-      if (cur->id() == ancestor)
-         return true;
-      cur = fork_db.get_block_header(cur->previous());
-   }
-   return false;
+bool extends(const fork_database_if_t::full_branch_type& branch, const block_id_type& id)  {
+   return !branch.empty() &&
+      std::any_of(++branch.cbegin(), branch.cend(), [&](const auto& h) { return h->id() == id; });
 }
 
 // ----------------------------------------------------------------------------------------
@@ -41,6 +34,8 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
       return vote_decision::no_vote;
    }
 
+   std::optional<full_branch_type> p_branch; // a branch that includes the root.
+
    if (!fsi.lock.empty()) {
       // Liveness check : check if the height of this proposal's justification is higher
       // than the height of the proposal I'm locked on.
@@ -50,7 +45,8 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
 
       if (!liveness_check) {
          // Safety check : check if this proposal extends the proposal we're locked on
-         safety_check = extends(fork_db, proposal, fsi.lock.id);
+         p_branch = fork_db.fetch_full_branch(proposal->id());
+         safety_check = extends(*p_branch, fsi.lock.id);
       }
    } else {
       // Safety and Liveness both fail if `fsi.lock` is empty. It should not happen.
@@ -72,13 +68,19 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
       auto [p_start, p_end] = std::make_pair(proposal->last_qc_block_timestamp(), proposal->timestamp());
 
       bool time_range_disjoint  = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
-      bool voting_strong        = time_range_disjoint || extends(fork_db, proposal, fsi.last_vote.id);
+      bool voting_strong        = time_range_disjoint;
+      if (!voting_strong) {
+         if (!p_branch)
+            p_branch = fork_db.fetch_full_branch(proposal->id());
+         voting_strong = extends(*p_branch, fsi.last_vote.id);
+      }
 
       fsi.last_vote             = proposal_ref(proposal);
       fsi.last_vote_range_start = p_start;
 
-      auto p_branch               = fork_db.fetch_branch(proposal->id());
-      auto bsp_final_on_strong_qc =  get_block_by_num(p_branch, proposal->final_on_strong_qc_block_num());
+      if (!p_branch)
+         p_branch = fork_db.fetch_full_branch(proposal->id());
+      auto bsp_final_on_strong_qc =  get_block_by_num(*p_branch, proposal->final_on_strong_qc_block_num());
       if (voting_strong && bsp_final_on_strong_qc && bsp_final_on_strong_qc->timestamp() > fsi.lock.timestamp)
          fsi.lock = proposal_ref(bsp_final_on_strong_qc);
 

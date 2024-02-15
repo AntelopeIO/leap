@@ -64,7 +64,8 @@ namespace eosio::chain {
       safety_information        fsi;
 
    private:
-      using branch_type = fork_database_if_t::branch_type;
+      using branch_type      = fork_database_if_t::branch_type;
+      using full_branch_type = fork_database_if_t::full_branch_type;
       vote_decision  decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:

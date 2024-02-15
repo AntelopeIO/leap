@@ -38,6 +38,7 @@ namespace eosio::chain {
       
       using fork_db_t        = fork_database_t<bsp>;
       using branch_type      = fork_db_t::branch_type;
+      using full_branch_type = fork_db_t::full_branch_type;
       using branch_type_pair = fork_db_t::branch_type_pair;
 
       using fork_multi_index_type = multi_index_container<
@@ -72,6 +73,7 @@ namespace eosio::chain {
       void             advance_root_impl( const block_id_type& id );
       void             remove_impl( const block_id_type& id );
       branch_type      fetch_branch_impl( const block_id_type& h, uint32_t trim_after_block_num ) const;
+      full_branch_type fetch_full_branch_impl(const block_id_type& h) const;
       bsp              search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const;
       void             mark_valid_impl( const bsp& h );
       branch_type_pair fetch_branch_from_impl( const block_id_type& first, const block_id_type& second ) const;
@@ -408,11 +410,31 @@ namespace eosio::chain {
    fork_database_t<bsp>::branch_type
    fork_database_impl<bsp>::fetch_branch_impl(const block_id_type& h, uint32_t trim_after_block_num) const {
       branch_type result;
+      result.reserve(8);
       for (auto s = get_block_impl(h); s; s = get_block_impl(s->previous())) {
          if (s->block_num() <= trim_after_block_num)
             result.push_back(s);
       }
 
+      return result;
+   }
+
+   template <class bsp>
+   fork_database_t<bsp>::full_branch_type
+   fork_database_t<bsp>::fetch_full_branch(const block_id_type& h) const {
+      std::lock_guard g(my->mtx);
+      return my->fetch_full_branch_impl(h);
+   }
+
+   template <class bsp>
+   fork_database_t<bsp>::full_branch_type
+   fork_database_impl<bsp>::fetch_full_branch_impl(const block_id_type& h) const {
+      full_branch_type result;
+      result.reserve(8);
+      for (auto s = get_block_impl(h); s; s = get_block_impl(s->previous())) {
+         result.push_back(s);
+      }
+      result.push_back(root);
       return result;
    }
 
