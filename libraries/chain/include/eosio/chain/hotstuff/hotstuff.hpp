@@ -1,6 +1,6 @@
 #pragma once
 
-#include "eosio/chain/block_timestamp.hpp"
+#include <eosio/chain/block_timestamp.hpp>
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/bls_signature.hpp>

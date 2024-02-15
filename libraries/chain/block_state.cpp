@@ -168,7 +168,7 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
       if( valid_qc ) {
          return quorum_certificate{ block_num(), timestamp(), *valid_qc };
       } else {
-         return std::nullopt;;
+         return std::nullopt;
       }
    }
 

@@ -33,23 +33,25 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
    bool safety_check   = false;
    bool liveness_check = false;
 
-   auto p_branch = fork_db.fetch_branch(proposal->id());
-
    bool monotony_check = !fsi.last_vote || proposal->timestamp() > fsi.last_vote.timestamp;
    // !fsi.last_vote means we have never voted on a proposal, so the protocol feature just activated and we can proceed
 
-   if (!fsi.lock.empty()) {
-      // Safety check : check if this proposal extends the proposal we're locked on
-      // --------------------------------------------------------------------------
-      if (extends(fork_db, proposal, fsi.lock.id))
-         safety_check = true;
+   if (!monotony_check) {
+      dlog("monotony check failed for proposal ${p}, cannot vote", ("p", proposal->id()));
+      return vote_decision::no_vote;
+   }
 
+   if (!fsi.lock.empty()) {
       // Liveness check : check if the height of this proposal's justification is higher
       // than the height of the proposal I'm locked on.
       // This allows restoration of liveness if a replica is locked on a stale proposal
       // -------------------------------------------------------------------------------
-      if (proposal->last_qc_block_timestamp() > fsi.lock.timestamp)
-         liveness_check = true;
+      liveness_check = proposal->last_qc_block_timestamp() > fsi.lock.timestamp;
+
+      if (!liveness_check) {
+         // Safety check : check if this proposal extends the proposal we're locked on
+         safety_check = extends(fork_db, proposal, fsi.lock.id);
+      }
    } else {
       // Safety and Liveness both fail if `fsi.lock` is empty. It should not happen.
       // `fsi.lock` is initially set to `lib` when switching to IF or starting from a snapshot.
@@ -58,29 +60,29 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
       safety_check   = false;
    }
 
-   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}",
-        ("l",liveness_check)("s",safety_check)("m",monotony_check));
+   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}, ${can} vote",
+        ("l",liveness_check)("s",safety_check)("m",monotony_check)("can",(liveness_check || safety_check)?"can":"cannot"));
 
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
    // -----------------------------------------------------------------------------------
    vote_decision decision = vote_decision::no_vote;
 
-   if (monotony_check && (liveness_check || safety_check)) {
+   if (liveness_check || safety_check) {
       auto [p_start, p_end] = std::make_pair(proposal->last_qc_block_timestamp(), proposal->timestamp());
 
-      bool time_range_disjoint    = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
-
-      bool enough_for_strong_vote = time_range_disjoint || extends(fork_db, proposal, fsi.last_vote.id);
+      bool time_range_disjoint  = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
+      bool voting_strong        = time_range_disjoint || extends(fork_db, proposal, fsi.last_vote.id);
 
       fsi.last_vote             = proposal_ref(proposal);
       fsi.last_vote_range_start = p_start;
 
+      auto p_branch               = fork_db.fetch_branch(proposal->id());
       auto bsp_final_on_strong_qc =  get_block_by_num(p_branch, proposal->final_on_strong_qc_block_num());
-      if (enough_for_strong_vote && bsp_final_on_strong_qc && bsp_final_on_strong_qc->timestamp() > fsi.lock.timestamp)
+      if (voting_strong && bsp_final_on_strong_qc && bsp_final_on_strong_qc->timestamp() > fsi.lock.timestamp)
          fsi.lock = proposal_ref(bsp_final_on_strong_qc);
 
-      decision = enough_for_strong_vote ? vote_decision::strong_vote : vote_decision::weak_vote;
+      decision = voting_strong ? vote_decision::strong_vote : vote_decision::weak_vote;
    } else {
       dlog("last_qc_block_num=${lqc}, fork_db root block_num=${f}",
            ("lqc",!!proposal->last_qc_block_num())("f",fork_db.root()->block_num()));

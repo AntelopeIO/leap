@@ -672,5 +672,5 @@ namespace eosio { namespace chain {
    FC_DECLARE_DERIVED_EXCEPTION( finalizer_exception,    chain_exception,
                                  3260000, "Finalizer exception" )
       FC_DECLARE_DERIVED_EXCEPTION( finalizer_safety_exception, finalizer_exception,
-                                    3260001, "Protocol feature validation exception" )
+                                    3260001, "Finalizer safety file exception" )
 } } // eosio::chain

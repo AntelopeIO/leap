@@ -11,13 +11,6 @@
 
 namespace eosio::chain {
    // ----------------------------------------------------------------------------------------
-   struct qc_chain_t {
-      block_state_ptr b2; // first phase,  prepare
-      block_state_ptr b1; // second phase, precommit
-      block_state_ptr b;  // third phase,  commit
-   };
-
-   // ----------------------------------------------------------------------------------------
    struct finalizer {
       enum class vote_decision { strong_vote, weak_vote, no_vote };
 
@@ -28,7 +21,7 @@ namespace eosio::chain {
          proposal_ref() = default;
 
          template<class BSP>
-         proposal_ref(const BSP& p) :
+         explicit proposal_ref(const BSP& p) :
             id(p->id()),
             timestamp(p->timestamp())
          {}
@@ -53,8 +46,8 @@ namespace eosio::chain {
 
       struct safety_information {
          block_timestamp_type last_vote_range_start;
-         proposal_ref         last_vote;          // v_height under hotstuff
-         proposal_ref         lock;               // b_lock under hotstuff
+         proposal_ref         last_vote;
+         proposal_ref         lock;
 
          static constexpr uint64_t magic = 0x5AFE11115AFE1111ull;
 
@@ -72,7 +65,6 @@ namespace eosio::chain {
 
    private:
       using branch_type = fork_database_if_t::branch_type;
-      qc_chain_t     get_qc_chain(const block_state_ptr& proposal, const branch_type& branch) const;
       vote_decision  decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:
