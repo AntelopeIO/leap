@@ -227,6 +227,7 @@ BOOST_AUTO_TEST_CASE(lost_votes) { try {
    BOOST_REQUIRE(cluster.produce_blocks_and_verify_lib_advancing());
 } FC_LOG_AND_RETHROW() }
 
+#warning "Re-enable these tests"
 #if 0
 BOOST_AUTO_TEST_CASE(one_weak_vote) { try {
    finality_test_cluster cluster;

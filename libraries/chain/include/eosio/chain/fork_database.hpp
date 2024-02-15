@@ -88,7 +88,7 @@ namespace eosio::chain {
       branch_type fetch_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
 
       /**
-       *  Returns full branch of `block_header_state` pointers all the way to the fork_db root.
+       *  eturns full branch of block_header_state pointers including the root.
        *  The order of the sequence is in descending block number order.
        *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
        */
