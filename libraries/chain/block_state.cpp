@@ -170,7 +170,7 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
    // if pending_qc does not have a valid QC, consider valid_qc only
    if( !pending_qc.is_quorum_met() ) {
       if( valid_qc ) {
-         return quorum_certificate{ block_num(), timestamp(), *valid_qc };
+         return quorum_certificate{ block_num(), *valid_qc };
       } else {
          return std::nullopt;
       }
@@ -181,7 +181,7 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
 
    // if valid_qc does not have value, consider valid_qc_from_pending only
    if( !valid_qc ) {
-      return quorum_certificate{ block_num(), timestamp(), valid_qc_from_pending };
+      return quorum_certificate{ block_num(), valid_qc_from_pending };
    }
 
    // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
@@ -190,7 +190,7 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
       valid_qc->is_strong() == valid_qc_from_pending.is_strong() ?
       *valid_qc : // tie broke by valid_qc
       valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
-   return quorum_certificate{ block_num(), timestamp(), best_qc };
+   return quorum_certificate{ block_num(), best_qc };
 }
 
 } /// eosio::chain

@@ -672,10 +672,11 @@ struct building_block {
                            EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent_id()), block_validate_exception,
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
+                           auto qc_claim = qc_claim_t{ qc->block_num, (*it)->timestamp(), qc->qc.is_strong() };
                            if( bb.parent.is_needed(*qc) ) {
-                              qc_data = qc_data_t{ *qc, qc_claim_t{ qc->block_num, qc->block_timestamp, qc->qc.is_strong() }};
+                              qc_data = qc_data_t{ *qc, qc_claim };
                            } else {
-                              qc_data = qc_data_t{ {},  qc_claim_t{ qc->block_num, qc->block_timestamp, qc->qc.is_strong() }};
+                              qc_data = qc_data_t{ {},  qc_claim };
                            }
                            break;
                         }
@@ -3232,7 +3233,7 @@ struct controller_impl {
       const auto& qc_proof = qc_ext.qc;
 
       // Check QC information in header extension and block extension match
-      EOS_ASSERT( qc_proof.block_num == qc_claim.last_qc_block_num && qc_proof.block_timestamp == qc_claim.last_qc_block_timestamp,
+      EOS_ASSERT( qc_proof.block_num == qc_claim.last_qc_block_num,
                   invalid_qc_claim,
                   "Block #${b}: Mismatch between qc.block_num (${n1}) in block extension and last_qc_block_num (${n2}) in header extension",
                   ("n1", qc_proof.block_num)("n2", qc_claim.last_qc_block_num)("b", block_num) );

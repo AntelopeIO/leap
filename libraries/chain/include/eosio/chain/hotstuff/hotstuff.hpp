@@ -59,7 +59,6 @@ namespace eosio::chain {
    // quorum_certificate
    struct quorum_certificate {
       uint32_t                 block_num;
-      block_timestamp_type     block_timestamp;
       valid_quorum_certificate qc;
    };
 
@@ -141,4 +140,4 @@ FC_REFLECT(eosio::chain::vote_message, (proposal_id)(strong)(finalizer_key)(sig)
 FC_REFLECT(eosio::chain::valid_quorum_certificate, (_strong_votes)(_weak_votes)(_sig));
 FC_REFLECT(eosio::chain::pending_quorum_certificate, (_quorum)(_max_weak_sum_before_weak_final)(_state)(_strong_sum)(_weak_sum)(_weak_votes)(_strong_votes));
 FC_REFLECT(eosio::chain::pending_quorum_certificate::votes_t, (_bitset)(_sig));
-FC_REFLECT(eosio::chain::quorum_certificate, (block_num)(block_timestamp)(qc));
+FC_REFLECT(eosio::chain::quorum_certificate, (block_num)(qc));
