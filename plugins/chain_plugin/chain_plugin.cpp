@@ -162,6 +162,7 @@ public:
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
    {}
 
+   std::filesystem::path             finalizers_dir;
    std::filesystem::path             blocks_dir;
    std::filesystem::path             state_dir;
    bool                              readonly = false;
@@ -274,6 +275,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.")
          ("state-dir", bpo::value<std::filesystem::path>()->default_value(config::default_state_dir_name),
           "the location of the state directory (absolute path or relative to application data dir)")
+         ("finalizers-dir", bpo::value<std::filesystem::path>()->default_value(config::default_finalizers_dir_name),
+          "the location of the finalizers safety data directory (absolute path or relative to application data dir)")
          ("protocol-features-dir", bpo::value<std::filesystem::path>()->default_value("protocol_features"),
           "the location of the protocol_features directory (absolute path or relative to application config dir)")
          ("checkpoint", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
@@ -547,6 +550,14 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          }
       }
 
+      if( options.count( "finalizers-dir" )) {
+         auto fd = options.at( "finalizers-dir" ).as<std::filesystem::path>();
+         if( fd.is_relative())
+            finalizers_dir = app().data_dir() / fd;
+         else
+            finalizers_dir = fd;
+      }
+
       if( options.count( "blocks-dir" )) {
          auto bld = options.at( "blocks-dir" ).as<std::filesystem::path>();
          if( bld.is_relative())
@@ -600,6 +611,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
       abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
 
+      chain_config->finalizers_dir = finalizers_dir;
       chain_config->blocks_dir = blocks_dir;
       chain_config->state_dir = state_dir;
       chain_config->read_only = readonly;

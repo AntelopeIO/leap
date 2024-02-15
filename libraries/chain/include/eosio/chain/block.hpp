@@ -56,16 +56,6 @@ namespace eosio { namespace chain {
       static constexpr uint16_t extension_id() { return 2; }
       static constexpr bool     enforce_unique() { return true; }
 
-      additional_block_signatures_extension() = default;
-
-      additional_block_signatures_extension( const vector<signature_type>& signatures )
-      :signatures( signatures )
-      {}
-
-      additional_block_signatures_extension( vector<signature_type>&& signatures )
-      :signatures( std::move(signatures) )
-      {}
-
       void reflector_init();
 
       vector<signature_type> signatures;
@@ -74,16 +64,6 @@ namespace eosio { namespace chain {
    struct quorum_certificate_extension : fc::reflect_init {
       static constexpr uint16_t extension_id() { return 3; }
       static constexpr bool     enforce_unique() { return true; }
-
-      quorum_certificate_extension() = default;
-
-      quorum_certificate_extension( const quorum_certificate& qc)
-      :qc( qc )
-      {}
-
-      quorum_certificate_extension( quorum_certificate&& qc)
-      :qc( std::move(qc) )
-      {}
 
       void reflector_init();
 

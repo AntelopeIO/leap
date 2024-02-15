@@ -80,6 +80,7 @@ set(CHAIN_WEBASSEMBLY_SOURCES
 )
 
 set(CHAIN_HOTSTUFF_SOURCES
+   hotstuff/finalizer.cpp
    hotstuff/instant_finality_extension.cpp
    hotstuff/hotstuff.cpp
 )

@@ -27,6 +27,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/hotstuff/finalizer.hpp>
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
@@ -114,6 +115,14 @@ class maybe_session {
 
    private:
       std::optional<database::session>     _session;
+};
+
+struct qc_data_t {
+   std::optional<quorum_certificate> qc; // Comes either from traversing branch from parent and calling get_best_qc()
+                                         // or from an incoming block extension.
+   qc_claim_t qc_claim;                  // describes the above qc. In rare cases (bootstrap, starting from snapshot,
+                                         // disaster recovery), we may not have a qc so we use the `lib` block_num
+                                         // and specify `weak`.
 };
 
 struct completed_block {
@@ -214,10 +223,10 @@ struct assembled_block {
    R apply_legacy(F&& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit(overloaded{[&](assembled_block_legacy& ab) { std::forward<F>(f)(ab); },
-                               [&](assembled_block_if& ab)   {}}, v);
+                               [&](assembled_block_if& ab)     {}}, v);
       else
          return std::visit(overloaded{[&](assembled_block_legacy& ab) -> R { return std::forward<F>(f)(ab); },
-                                      [&](assembled_block_if& ab)   -> R { return {}; }}, v);
+                                      [&](assembled_block_if& ab)     -> R { return {}; }}, v);
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -236,35 +245,35 @@ struct assembled_block {
    const block_id_type& id() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) -> const block_id_type& { return ab.id; },
-                    [](const assembled_block_if& ab)   -> const block_id_type& { return ab.bhs.id; }},
+                    [](const assembled_block_if& ab)     -> const block_id_type& { return ab.bhs.id(); }},
          v);
    }
    
    block_timestamp_type timestamp() const {
       return std::visit(
-         overloaded{[](const assembled_block_legacy& ab)  { return ab.pending_block_header_state.timestamp; },
-                    [](const assembled_block_if& ab)    { return ab.bhs.header.timestamp; }},
+         overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.timestamp; },
+                    [](const assembled_block_if& ab)     { return ab.bhs.header.timestamp; }},
          v);
    }
 
    uint32_t block_num() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.block_num; },
-                    [](const assembled_block_if& ab)   { return ab.bhs.block_num(); }},
+                    [](const assembled_block_if& ab)     { return ab.bhs.block_num(); }},
          v);
    }
 
    account_name producer() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.producer; },
-                    [](const assembled_block_if& ab)   { return ab.active_producer_authority.producer_name; }},
+                    [](const assembled_block_if& ab)     { return ab.active_producer_authority.producer_name; }},
          v);
    }
 
    const block_header& header() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) -> const block_header& { return *ab.unsigned_block; },
-                    [](const assembled_block_if& ab)   -> const block_header& { return ab.bhs.header; }},
+                    [](const assembled_block_if& ab)     -> const block_header& { return ab.bhs.header; }},
          v);
    }
 
@@ -663,10 +672,11 @@ struct building_block {
                            EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent_id()), block_validate_exception,
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
+                           auto qc_claim = qc_claim_t{ qc->block_num, (*it)->timestamp(), qc->qc.is_strong() };
                            if( bb.parent.is_needed(*qc) ) {
-                              qc_data = qc_data_t{ *qc, qc_claim_t{ qc->block_num, qc->qc.is_strong() }};
+                              qc_data = qc_data_t{ *qc, qc_claim };
                            } else {
-                              qc_data = qc_data_t{ {}, qc_claim_t{ qc->block_num, qc->qc.is_strong() }};
+                              qc_data = qc_data_t{ {},  qc_claim };
                            }
                            break;
                         }
@@ -814,7 +824,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
-   bls_key_map_t                   node_finalizer_keys;
+   my_finalizers_t                   my_finalizers;
    std::atomic<bool>               writing_snapshot = false;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
@@ -1083,6 +1093,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
+    my_finalizers{ .t_startup = fc::time_point::now(), .persist_file_path = cfg.finalizers_dir / "safety.dat" },
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open([this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
@@ -1555,6 +1566,41 @@ struct controller_impl {
       };
 
       fork_db.apply<void>(finish_init);
+
+      // At Leap startup, we want to provide to our local finalizers the correct safety information
+      // to use if they don't already have one.
+      // If we start at a block prior to the IF transition, that information will be provided when
+      // we create the new `fork_db_if`.
+      // If we start at a block during or after the IF transition, we need to provide this information
+      // at startup.
+      // ---------------------------------------------------------------------------------------------
+      if (fork_db.fork_db_if_present()) {
+         // we are already past the IF transition point where we create the updated fork_db.
+         // so we can't rely on the finalizer safety information update happening during the transition.
+         // see https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
+         // -------------------------------------------------------------------------------------------
+         if (fork_db.fork_db_legacy_present()) {
+            // fork_db_legacy is present as well, which means that we have not completed the transition
+            auto set_finalizer_defaults = [&](auto& forkdb) -> void {
+               auto lib = forkdb.root();
+               my_finalizers.set_default_safety_information(
+                  finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                 .last_vote = {},
+                                                 .lock      = finalizer::proposal_ref(lib) });
+            };
+            fork_db.apply_if<void>(set_finalizer_defaults);
+         } else {
+            // we are past the IF transition.
+            auto set_finalizer_defaults = [&](auto& forkdb) -> void {
+               auto lib = forkdb.root();
+               my_finalizers.set_default_safety_information(
+                  finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                 .last_vote = {},
+                                                 .lock      = finalizer::proposal_ref(lib) });
+            };
+            fork_db.apply_if<void>(set_finalizer_defaults);
+         }
+      }
    }
 
    ~controller_impl() {
@@ -2719,7 +2765,7 @@ struct controller_impl {
             log_irreversible();
          }
 
-         fork_db.apply_if<void>([&](auto& forkdb) { create_and_send_vote_msg(forkdb.chain_head); });
+         fork_db.apply_if<void>([&](auto& forkdb) { create_and_send_vote_msg(forkdb.chain_head, forkdb); });
 
          // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
          auto transition = [&](auto& forkdb) -> bool {
@@ -2729,6 +2775,22 @@ struct controller_impl {
                if (if_extension.new_finalizer_policy) {
                   ilog("Transition to instant finality happening after block ${b}", ("b", forkdb.chain_head->block_num()));
                   if_irreversible_block_num = forkdb.chain_head->block_num();
+
+                  {
+                     // If Leap started at a block prior to the IF transition, it needs to provide a default safety
+                     // information for those finalizers that don't already have one. This typically should be done when
+                     // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
+                     // to the IF consensus.
+                     // See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
+                     // [if todo] set values accurately
+                     // -----------------------------------------------------------------------------------------------
+                     auto start_block = forkdb.chain_head;
+                     auto lib_block   = forkdb.chain_head;
+                     my_finalizers.set_default_safety_information(
+                        finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                       .last_vote = finalizer::proposal_ref(start_block),
+                                                       .lock      = finalizer::proposal_ref(lib_block) });
+                  }
 
                   log_irreversible();
                   return true;
@@ -2998,62 +3060,58 @@ struct controller_impl {
       } FC_CAPTURE_AND_RETHROW();
    } /// apply_block
 
+
    // called from net threads and controller's thread pool
    vote_status process_vote_message( const vote_message& vote ) {
-      auto do_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
-          auto bsp = forkdb.get_block(vote.proposal_id);
-          if (bsp)
-             return bsp->aggregate_vote(vote);
-          return {vote_status::unknown_block, {}};
+      auto aggregate_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
+         auto bsp = forkdb.get_block(vote.proposal_id);
+         if (bsp)
+            return bsp->aggregate_vote(vote);
+         return {vote_status::unknown_block, {}};
       };
       // TODO: https://github.com/AntelopeIO/leap/issues/2057
       // TODO: Do not aggregate votes on block_state if in legacy block fork_db
-      auto do_vote_legacy = [](auto&) -> std::pair<vote_status, std::optional<uint32_t>> {
+      auto aggregate_vote_legacy = [](auto&) -> std::pair<vote_status, std::optional<uint32_t>> {
          return {vote_status::unknown_block, {}};
       };
-      auto [status, new_lib] = fork_db.apply<std::pair<vote_status, std::optional<uint32_t>>>(do_vote_legacy, do_vote);
+      auto [status, new_lib] = fork_db.apply<std::pair<vote_status, std::optional<uint32_t>>>(aggregate_vote_legacy, aggregate_vote);
       if (new_lib) {
          set_if_irreversible_block_num(*new_lib);
       }
       return status;
-   };
+   }
 
-   void create_and_send_vote_msg(const block_state_ptr& bsp) {
-#warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
-      bool strong = true;
+   void create_and_send_vote_msg(const block_state_ptr& bsp, const fork_database_if_t& fork_db) {
+      auto finalizer_digest = bsp->compute_finalizer_digest();
 
-      // A vote is created and signed by each finalizer configured on the node that
-      // in active finalizer policy
-      for (const auto& f: bsp->active_finalizer_policy->finalizers) {
-         auto it = node_finalizer_keys.find( f.public_key );
-         if( it != node_finalizer_keys.end() ) {
-            const auto& private_key = it->second;
-            const auto& digest = bsp->compute_finalizer_digest();
+      // Each finalizer configured on the node which is present in the active finalizer policy
+      // may create and sign a vote
+      // TODO: as a future optimization, we could run maybe_vote on a thread (it would need a
+      // lock around the file access). We should document that the voted_block is emitted
+      // off the main thread. net_plugin is fine for this to be emitted from any thread.
+      // Just need to update the comment in net_plugin
+      my_finalizers.maybe_vote(
+          *bsp->active_finalizer_policy, bsp, fork_db, finalizer_digest, [&](const vote_message& vote) {
+              // net plugin subscribed to this signal. it will broadcast the vote message
+              // on receiving the signal
+              emit(voted_block, vote);
 
-            auto sig =  private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
-
-            // construct the vote message
-            vote_message vote{ bsp->id(), strong, f.public_key, sig };
-
-            // net plugin subscribed this signal. it will broadcast the vote message
-            // on receiving the signal
-            emit( voted_block, vote );
-
-            boost::asio::post(thread_pool.get_executor(), [control=this, vote]() {
-               control->process_vote_message(vote);
-            });
-         }
-      }
+              // also aggregate our own vote into the pending_qc for this block.
+              boost::asio::post(thread_pool.get_executor(),
+                                [control = this, vote]() { control->process_vote_message(vote); });
+          });
    }
 
    // expected to be called from application thread as it modifies bsp->valid_qc,
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
       const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
-      if( block_exts.count(quorum_certificate_extension::extension_id()) == 0 ) {
+      auto qc_ext_id = quorum_certificate_extension::extension_id();
+
+      if( block_exts.count(qc_ext_id) == 0 ) {
          return;
       }
-      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
+      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& received_qc = qc_ext.qc.qc;
 
       const auto bsp = fork_db_fetch_bsp_by_num( bsp_in->previous(), qc_ext.qc.block_num );
@@ -3140,7 +3198,8 @@ struct controller_impl {
       // validate QC claim against previous block QC info
 
       // new claimed QC block number cannot be smaller than previous block's
-      EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_claim.last_qc_block_num,
+      EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_claim.last_qc_block_num &&
+                  qc_claim.last_qc_block_timestamp >= prev_qc_claim.last_qc_block_timestamp,
                   invalid_qc_claim,
                   "Block #${b} claims a last_qc_block_num (${n1}) less than the previous block's (${n2})",
                   ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_claim.last_qc_block_num)("b", block_num) );
@@ -3186,7 +3245,7 @@ struct controller_impl {
                   ("s1", qc_proof.qc.is_strong())("s2", qc_claim.is_last_qc_strong)("b", block_num) );
 
       // find the claimed block's block state on branch of id
-      auto bsp = fork_db_fetch_bsp_by_num( prev.id, qc_claim.last_qc_block_num );
+      auto bsp = fork_db_fetch_bsp_by_num( prev.id(), qc_claim.last_qc_block_num );
       EOS_ASSERT( bsp,
                   invalid_qc_claim,
                   "Block state was not found in forkdb for last_qc_block_num ${q}. Block number: ${b}",
@@ -3809,9 +3868,7 @@ struct controller_impl {
    }
 
    void set_node_finalizer_keys(const bls_pub_priv_key_map_t& finalizer_keys) {
-      for (const auto& k : finalizer_keys) {
-         node_finalizer_keys[bls_public_key{k.first}] = bls_private_key{k.second};
-      }
+      my_finalizers.set_keys(finalizer_keys);
    }
 
    bool irreversible_mode() const { return read_mode == db_read_mode::IRREVERSIBLE; }

@@ -7,6 +7,16 @@
 
 namespace eosio::chain {
 
+constexpr std::array weak_bls_sig_postfix = { 'W', 'E', 'A', 'K' };
+using weak_digest_t = std::array<uint8_t, sizeof(digest_type) + weak_bls_sig_postfix.size()>;
+
+inline weak_digest_t create_weak_digest(const digest_type& digest) {
+   weak_digest_t res;
+   std::memcpy(res.begin(), digest.data(), digest.data_size());
+   std::memcpy(res.begin() + digest.data_size(), weak_bls_sig_postfix.data(), weak_bls_sig_postfix.size());
+   return res;
+}
+
 struct block_state_legacy;
 
 struct block_state : public block_header_state {     // block_header_state provides parent link
@@ -14,7 +24,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    signed_block_ptr           block;
    bool                       validated = false;     // We have executed the block's trxs and verified that action merkle root (block id) matches.
    digest_type                strong_digest;         // finalizer_digest (strong, cached so we can quickly validate votes)
-   digest_type                weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
+   weak_digest_t              weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
    pending_quorum_certificate pending_qc;            // where we accumulate votes we receive
    std::optional<valid_quorum_certificate> valid_qc; // best qc received from the network inside block extension
 
@@ -23,7 +33,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    deque<transaction_metadata_ptr> cached_trxs;
 
    // ------ functions -----------------------------------------------------------------
-   const block_id_type&   id()                const { return block_header_state::id; }
+   const block_id_type&   id()                const { return block_header_state::id(); }
    const block_id_type&   previous()          const { return block_header_state::previous(); }
    uint32_t               block_num()         const { return block_header_state::block_num(); }
    block_timestamp_type   timestamp()         const { return block_header_state::timestamp(); }
@@ -32,7 +42,9 @@ struct block_state : public block_header_state {     // block_header_state provi
    void                   set_valid(bool b)         { validated = b; }
    uint32_t               irreversible_blocknum() const { return core.last_final_block_num; }
    std::optional<quorum_certificate> get_best_qc() const;
-
+   std::optional<uint32_t>           last_qc_block_num() const { return core.last_qc_block_num; }
+   std::optional<uint32_t>           final_on_strong_qc_block_num() const { return core.final_on_strong_qc_block_num; }
+      
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();

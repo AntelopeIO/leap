@@ -176,6 +176,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       genesis_state gs{};
       {
          controller::config chain_config = controller::config();
+         chain_config.finalizers_dir = temp;
          chain_config.blocks_dir = temp;
          chain_config.state_dir = temp;
 

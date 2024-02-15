@@ -24,7 +24,8 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_empty_values_test)
    emplace_extension(
       header.header_extensions,
       instant_finality_extension::extension_id(),
-      fc::raw::pack( instant_finality_extension{qc_claim_t{last_qc_block_num, is_last_qc_strong}, std::optional<finalizer_policy>{}, std::shared_ptr<proposer_policy>{}} )
+      fc::raw::pack( instant_finality_extension{qc_claim_t{last_qc_block_num, block_timestamp_type(0), is_last_qc_strong},
+                                                std::optional<finalizer_policy>{}, std::shared_ptr<proposer_policy>{}} )
    );
 
    std::optional<block_header_extension> ext = header.extract_header_extension(instant_finality_extension::extension_id());
@@ -45,7 +46,8 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_uniqueness_test)
    emplace_extension(
       header.header_extensions,
       instant_finality_extension::extension_id(),
-      fc::raw::pack( instant_finality_extension{qc_claim_t{0, false}, {std::nullopt}, std::shared_ptr<proposer_policy>{}} )
+      fc::raw::pack( instant_finality_extension{qc_claim_t{0, block_timestamp_type(0), false}, {std::nullopt},
+                                                std::shared_ptr<proposer_policy>{}} )
    );
 
    std::vector<finalizer_authority> finalizers { {"test description", 50, fc::crypto::blslib::bls_public_key{"PUB_BLS_MPPeebAPxt/ibL2XPuZVGpADjGn+YEVPPoYmTZeBD6Ok2E19M8SnmDGSdZBf2qwSuJim+8H83EsTpEn3OiStWBiFeJYfVRLlEsZuSF0SYYwtVteY48n+KeE1IWzlSAkSyBqiGA==" }} };
@@ -59,7 +61,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_uniqueness_test)
    emplace_extension(
       header.header_extensions,
       instant_finality_extension::extension_id(),
-      fc::raw::pack( instant_finality_extension{qc_claim_t{100, true}, new_finalizer_policy, new_proposer_policy} )
+      fc::raw::pack( instant_finality_extension{qc_claim_t{100, block_timestamp_type(100), true}, new_finalizer_policy, new_proposer_policy} )
    );
    
    BOOST_CHECK_THROW(header.validate_and_extract_header_extensions(), invalid_block_header_extension);
@@ -70,6 +72,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_values_test)
 {
    block_header       header;
    constexpr uint32_t last_qc_block_num {10};
+   const block_timestamp_type last_qc_block_timestamp(10);
    constexpr bool     is_last_qc_strong {true};
    
    std::vector<finalizer_authority> finalizers { {"test description", 50, fc::crypto::blslib::bls_public_key{"PUB_BLS_MPPeebAPxt/ibL2XPuZVGpADjGn+YEVPPoYmTZeBD6Ok2E19M8SnmDGSdZBf2qwSuJim+8H83EsTpEn3OiStWBiFeJYfVRLlEsZuSF0SYYwtVteY48n+KeE1IWzlSAkSyBqiGA==" }} };
@@ -83,7 +86,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_values_test)
    emplace_extension(
       header.header_extensions,
       instant_finality_extension::extension_id(),
-      fc::raw::pack( instant_finality_extension{qc_claim_t{last_qc_block_num, is_last_qc_strong}, new_finalizer_policy, new_proposer_policy} )
+      fc::raw::pack( instant_finality_extension{qc_claim_t{last_qc_block_num, last_qc_block_timestamp, is_last_qc_strong}, new_finalizer_policy, new_proposer_policy} )
    );
 
    std::optional<block_header_extension> ext = header.extract_header_extension(instant_finality_extension::extension_id());
@@ -92,6 +95,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_values_test)
    const auto& if_extension = std::get<instant_finality_extension>(*ext);
 
    BOOST_REQUIRE_EQUAL( if_extension.qc_claim.last_qc_block_num, last_qc_block_num );
+   BOOST_REQUIRE( if_extension.qc_claim.last_qc_block_timestamp == last_qc_block_timestamp );
    BOOST_REQUIRE_EQUAL( if_extension.qc_claim.is_last_qc_strong, is_last_qc_strong );
 
    BOOST_REQUIRE( !!if_extension.new_finalizer_policy );

@@ -210,8 +210,11 @@ namespace eosio::chain {
       if (new_finalizer_policy) {
          new_finalizer_policy->generation = 1;
          // set current block_num as qc_claim.last_qc_block_num in the IF extension
+         qc_claim_t initial_if_claim { .last_qc_block_num = block_num,
+                                       .last_qc_block_timestamp = timestamp,
+                                       .is_last_qc_strong = false };
          emplace_extension(h.header_extensions, instant_finality_extension::extension_id(),
-                           fc::raw::pack(instant_finality_extension{ { block_num, false }, std::move(new_finalizer_policy), {} }));
+                           fc::raw::pack(instant_finality_extension{ initial_if_claim, std::move(new_finalizer_policy), {} }));
       }
 
       return h;
@@ -287,8 +290,8 @@ namespace eosio::chain {
 
       block_header_state_legacy result( std::move( *static_cast<detail::block_header_state_legacy_common*>(this) ) );
 
-      result.id      = h.calculate_id();
-      result.header  = h;
+      result.id       = h.calculate_id();
+      result.header   = h;
 
       result.header_exts = std::move(exts);
 

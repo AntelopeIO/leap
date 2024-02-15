@@ -5,8 +5,7 @@
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
-#include <fc/crypto/bls_private_key.hpp>
-#include <fc/crypto/bls_public_key.hpp>
+#include <eosio/testing/bls_utils.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -24,18 +23,6 @@ eosio::chain::asset core_from_string(const std::string& s) {
 namespace eosio { namespace testing {
 
    fc::logger test_logger = fc::logger::get();
-
-   inline auto get_bls_private_key( name keyname ) {
-      auto secret = fc::sha256::hash(keyname.to_string());
-      std::vector<uint8_t> seed(secret.data_size());
-      memcpy(seed.data(), secret.data(), secret.data_size());
-      return crypto::blslib::bls_private_key(seed);
-   }
-
-   inline std::tuple<crypto::blslib::bls_private_key, crypto::blslib::bls_public_key, crypto::blslib::bls_signature> get_bls_key( name keyname ) {
-      const auto private_key = get_bls_private_key(keyname);
-      return { private_key, private_key.get_public_key(), private_key.proof_of_possession() };
-   }
 
    // required by boost::unit_test::data
    std::ostream& operator<<(std::ostream& os, setup_policy p) {

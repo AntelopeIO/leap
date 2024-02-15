@@ -205,8 +205,8 @@ set_property(TEST terminate-scenarios-if-test-resync PROPERTY LABELS nonparallel
 # requires https://github.com/AntelopeIO/leap/issues/2141
 #add_test(NAME terminate-scenarios-if-test-replay COMMAND tests/terminate-scenarios-test.py -c replay --terminate-at-block 10 --kill-sig term --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 #set_property(TEST terminate-scenarios-if-test-replay PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME terminate-scenarios-if-test-hard_replay COMMAND tests/terminate-scenarios-test.py -c hardReplay --terminate-at-block 10 --kill-sig term --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST terminate-scenarios-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
+#add_test(NAME terminate-scenarios-if-test-hard_replay COMMAND tests/terminate-scenarios-test.py -c hardReplay --terminate-at-block 10 --kill-sig term --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST terminate-scenarios-if-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME validate_dirty_db_test COMMAND tests/validate-dirty-db.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST validate_dirty_db_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME keosd_auto_launch_test COMMAND tests/keosd_auto_launch_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -331,10 +331,11 @@ set_property(TEST nodeos_retry_transaction_if_lr_test PROPERTY LABELS long_runni
 add_test(NAME cli_test COMMAND tests/cli_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST cli_test PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME larger_lib_test COMMAND tests/large-lib-test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST larger_lib_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME larger_lib_if_test COMMAND tests/large-lib-test.py --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST larger_lib_if_test PROPERTY LABELS nonparallelizable_tests)
+# following test removed (both if and dpos versions) - see https://github.com/AntelopeIO/leap/issues/2232
+#add_test(NAME larger_lib_test COMMAND tests/large-lib-test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST larger_lib_test PROPERTY LABELS nonparallelizable_tests)
+#add_test(NAME larger_lib_if_test COMMAND tests/large-lib-test.py --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+#set_property(TEST larger_lib_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME lib_advance_test COMMAND tests/lib_advance_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST lib_advance_test PROPERTY LABELS nonparallelizable_tests)

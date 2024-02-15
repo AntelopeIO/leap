@@ -1,6 +1,7 @@
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/block_state_legacy.hpp>
+#include <eosio/chain/hotstuff/finalizer.hpp>
 #include <eosio/chain/exceptions.hpp>
 
 #include <fc/crypto/bls_utils.hpp>
@@ -12,7 +13,7 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    : block_header_state(prev.next(*b, pfs, validator))
    , block(std::move(b))
    , strong_digest(compute_finalizer_digest())
-   , weak_digest(compute_finalizer_digest())
+   , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
 {}
 
@@ -21,7 +22,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
    , strong_digest(compute_finalizer_digest())
-   , weak_digest(compute_finalizer_digest())
+   , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
    , pub_keys_recovered(true) // probably not needed
    , cached_trxs(std::move(trx_metas))
@@ -35,7 +36,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
 
 // Used for transition from dpos to instant-finality
 block_state::block_state(const block_state_legacy& bsp) {
-   block_header_state::id = bsp.id();
+   block_header_state::block_id = bsp.id();
    header = bsp.header;
    core.last_final_block_num = bsp.block_num(); // [if todo] instant transition is not acceptable
    activated_protocol_features = bsp.activated_protocol_features;
@@ -80,10 +81,9 @@ std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(cons
 
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
-      const digest_type& digest = vote.strong ? strong_digest : weak_digest;
+      auto digest = vote.strong ? strong_digest.to_uint8_span() : std::span<const uint8_t>(weak_digest);
       auto [status, strong] = pending_qc.add_vote(vote.strong,
-#warning TODO change to use std::span if possible
-                                 std::vector<uint8_t>{digest.data(), digest.data() + digest.data_size()},
+                                 digest,
                                  index,
                                  vote.finalizer_key,
                                  vote.sig,
@@ -158,22 +158,21 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
 
    if( qc._weak_votes ) {
       pubkeys.emplace_back(aggregate_pubkeys(*qc._weak_votes));
-      digests.emplace_back(std::vector<uint8_t>{weak_digest.data(), weak_digest.data() + weak_digest.data_size()});
+      digests.emplace_back(std::vector<uint8_t>{weak_digest.begin(), weak_digest.end()});
    }
 
    // validate aggregated signature
-   EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),  invalid_qc_claim, "signature validation failed" );
+   EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),
+               invalid_qc_claim, "signature validation failed" );
 }
 
 std::optional<quorum_certificate> block_state::get_best_qc() const {
-   auto block_number = block_num();
-
    // if pending_qc does not have a valid QC, consider valid_qc only
    if( !pending_qc.is_quorum_met() ) {
       if( valid_qc ) {
-         return quorum_certificate{ block_number, *valid_qc };
+         return quorum_certificate{ block_num(), *valid_qc };
       } else {
-         return std::nullopt;;
+         return std::nullopt;
       }
    }
 
@@ -182,7 +181,7 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
 
    // if valid_qc does not have value, consider valid_qc_from_pending only
    if( !valid_qc ) {
-      return quorum_certificate{ block_number, valid_qc_from_pending };
+      return quorum_certificate{ block_num(), valid_qc_from_pending };
    }
 
    // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
@@ -191,6 +190,7 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
       valid_qc->is_strong() == valid_qc_from_pending.is_strong() ?
       *valid_qc : // tie broke by valid_qc
       valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
-   return quorum_certificate{ block_number, best_qc };
-}   
+   return quorum_certificate{ block_num(), best_qc };
+}
+
 } /// eosio::chain

@@ -34,9 +34,10 @@ namespace eosio::chain {
       using bhsp             = bs::bhsp_t;
       using bhs              = bhsp::element_type;
       using bsp_t            = bsp;
-      using branch_type      = deque<bsp>;
+      using branch_type      = std::vector<bsp>;
+      using full_branch_type = std::vector<bhsp>;
       using branch_type_pair = pair<branch_type, branch_type>;
-      
+
       explicit fork_database_t(uint32_t magic_number = legacy_magic_number);
 
       void open( const std::filesystem::path& fork_db_file, validator_t& validator );
@@ -86,6 +87,12 @@ namespace eosio::chain {
        */
       branch_type fetch_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
 
+      /**
+       *  eturns full branch of block_header_state pointers including the root.
+       *  The order of the sequence is in descending block number order.
+       *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
+       */
+      full_branch_type fetch_full_branch( const block_id_type& h ) const;
 
       /**
        *  Returns the block state with a block number of `block_num` that is on the branch that
@@ -129,6 +136,9 @@ namespace eosio::chain {
 
       // expected to be called from main thread, accesses chain_head
       void switch_from_legacy();
+
+      bool fork_db_if_present() const { return !!fork_db_if; }
+      bool fork_db_legacy_present() const { return !!fork_db_legacy; }
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       std::vector<signed_block_ptr> fetch_branch_from_head();
