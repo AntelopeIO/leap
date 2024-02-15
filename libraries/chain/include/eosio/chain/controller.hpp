@@ -270,6 +270,7 @@ namespace eosio::chain {
          // Called by qc_chain to indicate the current irreversible block num
          // After hotstuff is activated, this should be called on startup by qc_chain
          void set_if_irreversible_block_num(uint32_t block_num);
+         uint32_t if_irreversible_block_num() const;
 
          uint32_t last_irreversible_block_num() const;
          block_id_type last_irreversible_block_id() const;
