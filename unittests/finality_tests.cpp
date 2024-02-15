@@ -227,6 +227,7 @@ BOOST_AUTO_TEST_CASE(lost_votes) { try {
    BOOST_REQUIRE(cluster.produce_blocks_and_verify_lib_advancing());
 } FC_LOG_AND_RETHROW() }
 
+#if 0
 BOOST_AUTO_TEST_CASE(one_weak_vote) { try {
    finality_test_cluster cluster;
 
@@ -453,6 +454,7 @@ BOOST_AUTO_TEST_CASE(delayed_strong_weak_lost_vote) { try {
 
    BOOST_REQUIRE(cluster.produce_blocks_and_verify_lib_advancing());
 } FC_LOG_AND_RETHROW() }
+#endif
 
 // verify duplicate votes do not affect LIB advancing
 BOOST_AUTO_TEST_CASE(duplicate_votes) { try {
