@@ -1,14 +1,15 @@
 #include <eosio/chain/hotstuff/finalizer.hpp>
+#include <eosio/chain/hotstuff/finalizer.ipp> // implementation of finalizer methods
+
 #include <boost/test/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
 #include <eosio/testing/bls_utils.hpp>
+
 
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
-using fsi_t        = finalizer::safety_information;
-using proposal_ref = finalizer::proposal_ref;
 using tstamp       = block_timestamp_type;
 
 struct bls_keys_t {
@@ -24,13 +25,14 @@ struct bls_keys_t {
    }
 };
 
-std::vector<fsi_t> create_random_fsi(size_t count) {
-   std::vector<fsi_t> res;
+template<class FSI>
+std::vector<FSI> create_random_fsi(size_t count) {
+   std::vector<FSI> res;
    res.reserve(count);
    for (size_t i=0; i<count; ++i) {
-      res.push_back(fsi_t{tstamp(i),
-                          proposal_ref{sha256::hash((const char *)"vote"), tstamp(i*100 + 3)},
-                          proposal_ref{sha256::hash((const char *)"lock"), tstamp(i*100)} });
+      res.push_back(FSI{tstamp(i),
+                        proposal_ref{sha256::hash((const char *)"vote"), tstamp(i*100 + 3)},
+                        proposal_ref{sha256::hash((const char *)"lock"), tstamp(i*100)} });
       if (i)
          assert(res.back() != res[0]);
    }
@@ -57,8 +59,8 @@ bls_pub_priv_key_map_t create_local_finalizers(const std::vector<bls_keys_t>& ke
    return res;
 }
 
-template <size_t... I>
-void set_fsi(my_finalizers_t& fset, const std::vector<bls_keys_t>& keys, const std::vector<fsi_t>& fsi) {
+template <class FSI_VEC, size_t... I>
+void set_fsi(my_finalizers_t& fset, const std::vector<bls_keys_t>& keys, const FSI_VEC& fsi) {
    ((fset.set_fsi(keys[I].pubkey, fsi[I])), ...);
 }
 
@@ -68,6 +70,7 @@ BOOST_AUTO_TEST_CASE( basic_finalizer_safety_file_io ) try {
    fc::temp_directory tempdir;
    auto safety_file_path = tempdir.path() / "finalizers" / "safety.dat";
 
+   using fsi_t = finalizer_safety_information;
    fsi_t fsi { tstamp(0),
                proposal_ref{sha256::hash((const char *)"vote"), tstamp(7)},
                proposal_ref{sha256::hash((const char *)"lock"), tstamp(3)} };
@@ -100,7 +103,8 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
    fc::temp_directory tempdir;
    auto safety_file_path = tempdir.path() / "finalizers" / "safety.dat";
 
-   std::vector<fsi_t> fsi = create_random_fsi(10);
+   using fsi_t = finalizer_safety_information;
+   std::vector<fsi_t> fsi = create_random_fsi<fsi_t>(10);
    std::vector<bls_keys_t> keys = create_keys(10);
 
    {
@@ -108,7 +112,7 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
       bls_pub_priv_key_map_t local_finalizers = create_local_finalizers<1, 3, 5, 6>(keys);
       fset.set_keys(local_finalizers);
 
-      set_fsi<1, 3, 5, 6>(fset, keys, fsi);
+      set_fsi<decltype(fsi), 1, 3, 5, 6>(fset, keys, fsi);
       fset.save_finalizer_safety_info();
 
       // at this point we have saved the finalizer safety file, containing a specific fsi for finalizers <1, 3, 5, 6>
@@ -154,6 +158,61 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
 
 } FC_LOG_AND_RETHROW()
 
+// ---------------------------------------------------------------------------------------
+// emulations of block_header_state and fork_database sufficient for instantiating a
+// finalizer.
+// ---------------------------------------------------------------------------------------
+struct mock_bhs {
+   block_id_type        block_id;
+   block_timestamp_type block_timestamp;
+
+   const block_id_type& id() const { return block_id; }
+   block_timestamp_type timestamp() const { return block_timestamp; }
+};
+
+using mock_bhsp = std::shared_ptr<mock_bhs>;
+
+// ---------------------------------------------------------------------------------------
+struct mock_bs : public mock_bhs {};
+
+using mock_bsp = std::shared_ptr<mock_bs>;
+
+// ---------------------------------------------------------------------------------------
+struct mock_forkdb {
+   using bsp              = mock_bsp;
+   using bhsp             = mock_bhsp;
+   using full_branch_type = std::vector<bhsp>;
+
+   bhsp root() const {  return branch.back(); }
+
+   full_branch_type fetch_full_branch(const block_id_type& id) const {
+      auto it = std::find_if(branch.cbegin(), branch.cend(), [&](const bhsp& p) { return p->id() == id; });
+      assert(it != branch.cend());
+      return full_branch_type(it, branch.cend());
+   };
+
+   full_branch_type branch;
+};
+
+// real finalizer, using mock_forkdb and mock_bsp
+using test_finalizer = finalizer_tpl<mock_forkdb>;
+
+// ---------------------------------------------------------------------------------------
+BOOST_AUTO_TEST_CASE( decide_vote_monotony_check ) try {
+   fc::temp_directory tempdir;
+   auto safety_file_path = tempdir.path() / "finalizers" / "safety.dat";
+
+   using fsi_t = finalizer_safety_information;
+   fsi_t fsi { tstamp(0),
+               proposal_ref{sha256::hash((const char *)"vote"), tstamp(7)},
+               proposal_ref{sha256::hash((const char *)"lock"), tstamp(3)} };
+
+   bls_keys_t k("alice"_n);
+   bls_pub_priv_key_map_t local_finalizers = { { k.pubkey_str, k.privkey_str } };
+
+   test_finalizer finalizer{k.privkey, finalizer_safety_information{fsi}};
+
+} FC_LOG_AND_RETHROW()
 
 
 

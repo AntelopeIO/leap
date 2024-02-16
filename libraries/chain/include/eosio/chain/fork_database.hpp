@@ -24,12 +24,13 @@ namespace eosio::chain {
     * fork_database should be used instead of fork_database_t directly as it manages
     * the different supported types.
     */
-   template<class bsp>  // either block_state_legacy_ptr or block_state_ptr
+   template<class BSP>  // either block_state_legacy_ptr or block_state_ptr
    class fork_database_t {
    public:
       static constexpr uint32_t legacy_magic_number = 0x30510FDB;
       static constexpr uint32_t magic_number = 0x4242FDB;
 
+      using bsp              = BSP;
       using bs               = bsp::element_type;
       using bhsp             = bs::bhsp_t;
       using bhs              = bhsp::element_type;

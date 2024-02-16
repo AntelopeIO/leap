@@ -697,7 +697,7 @@ struct building_block {
                   qc_data ? qc_data->qc_claim : std::optional<qc_claim_t>{}
                };
 
-               assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
+               assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
                                                       std::move(bb.pending_trx_metas), std::move(bb.pending_trx_receipts),
                                                       qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}};
 
@@ -1584,9 +1584,9 @@ struct controller_impl {
             auto set_finalizer_defaults = [&](auto& forkdb) -> void {
                auto lib = forkdb.root();
                my_finalizers.set_default_safety_information(
-                  finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
-                                                 .last_vote = {},
-                                                 .lock      = finalizer::proposal_ref(lib) });
+                  finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                .last_vote = {},
+                                                .lock      = proposal_ref(lib) });
             };
             fork_db.apply_if<void>(set_finalizer_defaults);
          } else {
@@ -1594,9 +1594,9 @@ struct controller_impl {
             auto set_finalizer_defaults = [&](auto& forkdb) -> void {
                auto lib = forkdb.root();
                my_finalizers.set_default_safety_information(
-                  finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
-                                                 .last_vote = {},
-                                                 .lock      = finalizer::proposal_ref(lib) });
+                  finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                .last_vote = {},
+                                                .lock      = proposal_ref(lib) });
             };
             fork_db.apply_if<void>(set_finalizer_defaults);
          }
@@ -2787,9 +2787,9 @@ struct controller_impl {
                      auto start_block = forkdb.chain_head;
                      auto lib_block   = forkdb.chain_head;
                      my_finalizers.set_default_safety_information(
-                        finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
-                                                       .last_vote = finalizer::proposal_ref(start_block),
-                                                       .lock      = finalizer::proposal_ref(lib_block) });
+                        finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                      .last_vote = proposal_ref(start_block->id(), start_block->timestamp()),
+                                                      .lock      = proposal_ref(lib_block->id(),   lib_block->timestamp()) });
                   }
 
                   log_irreversible();
