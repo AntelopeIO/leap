@@ -71,7 +71,8 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 
    // header
    // ------
-   result.header = block_header {
+   result.header = signed_block_header {
+      block_header {
       .timestamp         = input.timestamp, // [greg todo] do we have to do the slot++ stuff from the legacy version?
       .producer          = input.producer,
       .confirmed         = 0,
@@ -79,7 +80,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .transaction_mroot = input.transaction_mroot,
       .action_mroot      = input.action_mroot,
       .schedule_version  = header.schedule_version
-   };
+   }};
 
    // activated protocol features
    // ---------------------------
@@ -180,13 +181,13 @@ block_header_state block_header_state::next(block_header_state_input& input) con
  *
  *  If the header specifies new_producers then apply them accordingly.
  */
-block_header_state block_header_state::next(const signed_block_header& h, const protocol_feature_set& pfs,
-                                            validator_t& validator) const {
+block_header_state block_header_state::next(const signed_block_header& h, validator_t& validator) const {
    auto producer = detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, h.timestamp).producer_name;
    
    EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch" );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
    EOS_ASSERT( h.confirmed == 0, block_validate_exception, "invalid confirmed ${c}", ("c", h.confirmed) );
+   EOS_ASSERT( !h.new_producers, producer_schedule_exception, "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures" );
 
    auto exts = h.validate_and_extract_header_extensions();
 
@@ -197,6 +198,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
       auto  pfa_entry = exts.lower_bound(protocol_feature_activation::extension_id());
       auto& pfa_ext   = std::get<protocol_feature_activation>(pfa_entry->second);
       new_protocol_feature_activations = std::move(pfa_ext.protocol_features);
+      validator( timestamp(), activated_protocol_features->protocol_features, new_protocol_feature_activations );
    }
 
    // retrieve instant_finality_extension data from block header extension

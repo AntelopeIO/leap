@@ -332,7 +332,7 @@ struct assembled_block {
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
-                                                                               std::move(ab.trx_receipts), ab.qc);
+                                                                               std::move(ab.trx_receipts), ab.qc, signer);
                                       return completed_block{std::move(bsp)};
                                    }},
                         v);

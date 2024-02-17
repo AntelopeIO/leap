@@ -7,6 +7,8 @@
 
 namespace eosio::chain {
 
+using signer_callback_type = std::function<std::vector<signature_type>(const digest_type&)>;
+
 constexpr std::array weak_bls_sig_postfix = { 'W', 'E', 'A', 'K' };
 using weak_digest_t = std::array<uint8_t, sizeof(digest_type) + weak_bls_sig_postfix.size()>;
 
@@ -63,9 +65,13 @@ struct block_state : public block_header_state {     // block_header_state provi
                const validator_t& validator, bool skip_validate_signee);
 
    block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-               deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc);
+               deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
+               const signer_callback_type& signer);
 
    explicit block_state(const block_state_legacy& bsp);
+
+   void sign(const signer_callback_type& signer);
+   void verify_signee(const std::vector<signature_type>& additional_signatures) const;
 };
 
 using block_state_ptr = std::shared_ptr<block_state>;
