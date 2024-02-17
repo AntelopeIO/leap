@@ -71,8 +71,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 
    // header
    // ------
-   result.header = signed_block_header {
-      block_header {
+   result.header = {
       .timestamp         = input.timestamp, // [greg todo] do we have to do the slot++ stuff from the legacy version?
       .producer          = input.producer,
       .confirmed         = 0,
@@ -80,7 +79,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .transaction_mroot = input.transaction_mroot,
       .action_mroot      = input.action_mroot,
       .schedule_version  = header.schedule_version
-   }};
+   };
 
    // activated protocol features
    // ---------------------------

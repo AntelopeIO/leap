@@ -42,7 +42,7 @@ struct block_header_state_core {
 struct block_header_state {
    // ------ data members ------------------------------------------------------------
    block_id_type                       block_id;
-   signed_block_header                 header;
+   block_header                        header;
    protocol_feature_activation_set_ptr activated_protocol_features;
 
    block_header_state_core             core;

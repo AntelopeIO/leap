@@ -18,7 +18,7 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
 {
    // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures pre-validated here
    if( !skip_validate_signee ) {
-      auto sigs = detail::extract_additional_signatures(b);
+      auto sigs = detail::extract_additional_signatures(block);
       verify_signee(sigs);
    }
 }
@@ -218,7 +218,7 @@ void block_state::sign( const signer_callback_type& signer ) {
    auto sigs = signer( block_id );
 
    EOS_ASSERT(!sigs.empty(), no_block_signatures, "Signer returned no signatures");
-   header.producer_signature = sigs.back();
+   block->producer_signature = sigs.back();
    sigs.pop_back();
 
    verify_signee(sigs);
@@ -237,7 +237,7 @@ void block_state::verify_signee(const std::vector<signature_type>& additional_si
    );
 
    std::set<public_key_type> keys;
-   keys.emplace(fc::crypto::public_key( header.producer_signature, block_id, true ));
+   keys.emplace(fc::crypto::public_key( block->producer_signature, block_id, true ));
 
    for (const auto& s: additional_signatures) {
       auto res = keys.emplace(s, block_id, true);
