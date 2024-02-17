@@ -255,7 +255,7 @@ namespace eosio { namespace testing {
 
          // libtester uses 1 as weight of each of the finalizer, sets (2/3 finalizers + 1)
          // as threshold, and makes all finalizers vote QC
-         transaction_trace_ptr  set_finalizers(const vector<account_name>& finalizer_names);
+         std::pair<transaction_trace_ptr, std::vector<fc::crypto::blslib::bls_private_key>> set_finalizers(const vector<account_name>& finalizer_names);
 
          // Finalizer policy input to set up a test: weights, threshold and local finalizers
          // which participate voting.
@@ -269,7 +269,7 @@ namespace eosio { namespace testing {
             uint64_t                    threshold {0};
             std::vector<account_name>   local_finalizers;
          };
-         transaction_trace_ptr  set_finalizers(const finalizer_policy_input& input);
+         std::pair<transaction_trace_ptr, std::vector<fc::crypto::blslib::bls_private_key>> set_finalizers(const finalizer_policy_input& input);
 
          void link_authority( account_name account, account_name code,  permission_name req, action_name type = {} );
          void unlink_authority( account_name account, account_name code, action_name type = {} );

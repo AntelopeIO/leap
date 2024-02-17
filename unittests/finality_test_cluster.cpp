@@ -158,7 +158,11 @@ void finality_test_cluster::setup_node(node_info& node, eosio::chain::account_na
       .threshold        = 2,
       .local_finalizers = {local_finalizer}
    };
-   node.node.set_finalizers(policy_input);
+
+   auto [trace_ptr, priv_keys] = node.node.set_finalizers(policy_input);
+   FC_ASSERT( priv_keys.size() == 1, "number of private keys should be 1" );
+   node.priv_key = priv_keys[0];  // we only have one private key
+
    auto block = node.node.produce_block();
 
    // this block contains the header extension for the instant finality
@@ -178,7 +182,13 @@ eosio::chain::vote_status finality_test_cluster::process_vote(node_info& node, s
       vote.strong = true;
    } else {
       vote.strong = false;
+
+      // fetch the strong digest
+      auto strong_digest = node.node.control->get_strong_digest_by_id(vote.proposal_id);
+      // convert the strong digest to weak and sign it
+      vote.sig = node.priv_key.sign(eosio::chain::create_weak_digest(strong_digest));
    }
+
    return node0.node.control->process_vote_message( vote );
 }
 

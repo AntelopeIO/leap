@@ -1860,6 +1860,18 @@ struct controller_impl {
       );
    }
 
+   digest_type get_strong_digest_by_id( const block_id_type& id ) const {
+      return fork_db.apply<digest_type>(
+         overloaded{
+            [](const fork_database_legacy_t&) -> digest_type { return digest_type{}; },
+            [&](const fork_database_if_t& forkdb) -> digest_type {
+               auto bsp = forkdb.get_block(id);
+               return bsp ? bsp->strong_digest : digest_type{};
+            }
+         }
+      );
+   }
+
    fc::sha256 calculate_integrity_hash() {
       fc::sha256::encoder enc;
       auto hash_writer = std::make_shared<integrity_hash_snapshot_writer>(enc);
@@ -4462,6 +4474,10 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
 
    return id;
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
+
+digest_type controller::get_strong_digest_by_id( const block_id_type& id ) const {
+   return my->get_strong_digest_by_id(id);
+}
 
 fc::sha256 controller::calculate_integrity_hash() { try {
    return my->calculate_integrity_hash();

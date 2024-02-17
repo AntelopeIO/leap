@@ -289,6 +289,8 @@ namespace eosio::chain {
          std::optional<signed_block_header> fetch_block_header_by_id( const block_id_type& id )const;
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
+         // thread-safe
+         digest_type get_strong_digest_by_id( const block_id_type& id ) const; // used in unittests
 
          fc::sha256 calculate_integrity_hash();
          void write_snapshot( const snapshot_writer_ptr& snapshot );
