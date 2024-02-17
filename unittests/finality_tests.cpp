@@ -297,7 +297,7 @@ BOOST_AUTO_TEST_CASE(two_weak_votes) { try {
    BOOST_REQUIRE(cluster.produce_blocks_and_verify_lib_advancing());
 } FC_LOG_AND_RETHROW() }
 
-BOOST_AUTO_TEST_CASE(interwined_weak_votes) { try {
+BOOST_AUTO_TEST_CASE(intertwined_weak_votes) { try {
    finality_test_cluster cluster;
 
    // Weak vote
