@@ -100,7 +100,7 @@ finalizer_tpl<FORK_DB>::vote_decision finalizer_tpl<FORK_DB>::decide_vote(const 
 // ----------------------------------------------------------------------------------------
 template<class FORK_DB>
 std::optional<vote_message> finalizer_tpl<FORK_DB>::maybe_vote(const bls_public_key& pub_key, const FORK_DB::bsp& p,
-                                                                    const digest_type& digest, const FORK_DB& fork_db) {
+                                                               const digest_type& digest, const FORK_DB& fork_db) {
    finalizer::vote_decision decision = decide_vote(p, fork_db);
    if (decision == vote_decision::strong_vote || decision == vote_decision::weak_vote) {
       bls_signature sig;

@@ -10,7 +10,8 @@ using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
-using tstamp       = block_timestamp_type;
+using tstamp  = block_timestamp_type;
+using fsi_t   = finalizer_safety_information;
 
 struct bls_keys_t {
    bls_private_key privkey;
@@ -35,6 +36,17 @@ std::vector<FSI> create_random_fsi(size_t count) {
                         proposal_ref{sha256::hash((const char *)"lock"), tstamp(i*100)} });
       if (i)
          assert(res.back() != res[0]);
+   }
+   return res;
+}
+
+std::vector<proposal_ref> create_proposal_refs(size_t count) {
+   std::vector<proposal_ref> res;
+   res.reserve(count);
+   for (size_t i=0; i<count; ++i) {
+      std::string id_str {"vote"};
+      id_str += std::to_string(i);
+      res.push_back(proposal_ref{sha256::hash(id_str.c_str()), tstamp(i)});
    }
    return res;
 }
@@ -69,11 +81,11 @@ BOOST_AUTO_TEST_SUITE(finalizer_tests)
 BOOST_AUTO_TEST_CASE( basic_finalizer_safety_file_io ) try {
    fc::temp_directory tempdir;
    auto safety_file_path = tempdir.path() / "finalizers" / "safety.dat";
+   auto proposals { create_proposal_refs(10) };
 
-   using fsi_t = finalizer_safety_information;
-   fsi_t fsi { tstamp(0),
-               proposal_ref{sha256::hash((const char *)"vote"), tstamp(7)},
-               proposal_ref{sha256::hash((const char *)"lock"), tstamp(3)} };
+   fsi_t fsi { .last_vote_range_start = tstamp(0),
+               .last_vote = proposals[6],
+               .lock = proposals[2] };
 
    bls_keys_t k("alice"_n);
    bls_pub_priv_key_map_t local_finalizers = { { k.pubkey_str, k.privkey_str } };
@@ -103,7 +115,6 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
    fc::temp_directory tempdir;
    auto safety_file_path = tempdir.path() / "finalizers" / "safety.dat";
 
-   using fsi_t = finalizer_safety_information;
    std::vector<fsi_t> fsi = create_random_fsi<fsi_t>(10);
    std::vector<bls_keys_t> keys = create_keys(10);
 
@@ -158,15 +169,19 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
 
 } FC_LOG_AND_RETHROW()
 
+#include "bhs_core.hpp"
+
 // ---------------------------------------------------------------------------------------
 // emulations of block_header_state and fork_database sufficient for instantiating a
 // finalizer.
 // ---------------------------------------------------------------------------------------
 struct mock_bhs {
+   uint32_t             block_number;
    block_id_type        block_id;
    block_timestamp_type block_timestamp;
 
-   const block_id_type& id() const { return block_id; }
+   uint32_t             block_num() const { return block_number; }
+   const block_id_type& id()        const { return block_id; }
    block_timestamp_type timestamp() const { return block_timestamp; }
 };
 
@@ -176,6 +191,22 @@ using mock_bhsp = std::shared_ptr<mock_bhs>;
 struct mock_bs : public mock_bhs {};
 
 using mock_bsp = std::shared_ptr<mock_bs>;
+
+// ---------------------------------------------------------------------------------------
+struct mock_proposal {
+   uint32_t             block_number;
+   std::string          proposer_name;
+   block_timestamp_type block_timestamp;
+
+   uint32_t             block_num() const { return block_number; }
+   const std::string&   proposer()  const { return proposer_name; }
+   block_timestamp_type timestamp() const { return block_timestamp; }
+
+   mock_bhs to_bhs() const {
+      std::string id_str = proposer_name + std::to_string(block_number);
+      return mock_bhs{block_num(), sha256::hash(id_str.c_str()), timestamp() };
+   }
+};
 
 // ---------------------------------------------------------------------------------------
 struct mock_forkdb {
@@ -199,20 +230,32 @@ using test_finalizer = finalizer_tpl<mock_forkdb>;
 
 // ---------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE( decide_vote_monotony_check ) try {
-   fc::temp_directory tempdir;
-   auto safety_file_path = tempdir.path() / "finalizers" / "safety.dat";
+   auto proposals { create_proposal_refs(10) };
+   fsi_t fsi      { .last_vote_range_start = tstamp(0),
+                    .last_vote = proposals[6],
+                    .lock = proposals[2] };
 
-   using fsi_t = finalizer_safety_information;
-   fsi_t fsi { tstamp(0),
-               proposal_ref{sha256::hash((const char *)"vote"), tstamp(7)},
-               proposal_ref{sha256::hash((const char *)"lock"), tstamp(3)} };
+   bls_keys_t     k("alice"_n);
+   test_finalizer finalizer{k.privkey, fsi};
 
-   bls_keys_t k("alice"_n);
-   bls_pub_priv_key_map_t local_finalizers = { { k.pubkey_str, k.privkey_str } };
-
-   test_finalizer finalizer{k.privkey, finalizer_safety_information{fsi}};
 
 } FC_LOG_AND_RETHROW()
+
+
+// ---------------------------------------------------------------------------------------
+BOOST_AUTO_TEST_CASE( proposal_sim_1 ) try {
+   fsi_t fsi; // default uninitialized values, no previous lock or vote
+
+   bls_keys_t     k("alice"_n);
+   test_finalizer finalizer{k.privkey, fsi};
+
+
+
+
+} FC_LOG_AND_RETHROW()
+
+
+
 
 
 
