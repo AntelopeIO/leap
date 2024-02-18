@@ -82,7 +82,7 @@ struct block_header_state {
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    const vector<digest_type>& get_new_protocol_feature_activations() const;
-   producer_authority get_scheduled_producer(block_timestamp_type t) const;
+   const producer_authority& get_scheduled_producer(block_timestamp_type t) const;
 };
 
 using block_header_state_ptr = std::shared_ptr<block_header_state>;

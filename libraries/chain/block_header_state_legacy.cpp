@@ -19,7 +19,7 @@ namespace eosio::chain {
       return blocknums[ index ];
    }
 
-   producer_authority block_header_state_legacy::get_scheduled_producer( block_timestamp_type t ) const {
+   const producer_authority& block_header_state_legacy::get_scheduled_producer( block_timestamp_type t ) const {
       return detail::get_scheduled_producer(active_schedule.producers, t);
    }
 
@@ -34,7 +34,7 @@ namespace eosio::chain {
         (when = header.timestamp).slot++;
       }
 
-      auto proauth = get_scheduled_producer(when);
+      const auto& proauth = get_scheduled_producer(when);
 
       auto itr = producer_to_last_produced.find( proauth.producer_name );
       if( itr != producer_to_last_produced.end() ) {

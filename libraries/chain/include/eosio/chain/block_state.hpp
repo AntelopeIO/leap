@@ -66,12 +66,12 @@ struct block_state : public block_header_state {     // block_header_state provi
 
    block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
                deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
-               const signer_callback_type& signer);
+               const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
 
    explicit block_state(const block_state_legacy& bsp);
 
-   void sign(const signer_callback_type& signer);
-   void verify_signee(const std::vector<signature_type>& additional_signatures) const;
+   void sign(const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
+   void verify_signee(const std::vector<signature_type>& additional_signatures, const block_signing_authority& valid_block_signing_authority) const;
 };
 
 using block_state_ptr = std::shared_ptr<block_state>;

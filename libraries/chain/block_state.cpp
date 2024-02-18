@@ -19,13 +19,14 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures pre-validated here
    if( !skip_validate_signee ) {
       auto sigs = detail::extract_additional_signatures(block);
-      verify_signee(sigs);
+      const auto& valid_block_signing_authority = prev.get_scheduled_producer(timestamp()).authority;
+      verify_signee(sigs, valid_block_signing_authority);
    }
 }
 
 block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
                          deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
-                         const signer_callback_type& signer)
+                         const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
    , strong_digest(compute_finalizer_digest())
@@ -40,7 +41,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
       emplace_extension(block->block_extensions, quorum_certificate_extension::extension_id(), fc::raw::pack( *qc ));
    }
 
-   sign(signer);
+   sign(signer, valid_block_signing_authority);
 }
 
 // Used for transition from dpos to instant-finality
@@ -214,20 +215,18 @@ void inject_additional_signatures( signed_block& b, const std::vector<signature_
    }
 }
 
-void block_state::sign( const signer_callback_type& signer ) {
+void block_state::sign(const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority ) {
    auto sigs = signer( block_id );
 
    EOS_ASSERT(!sigs.empty(), no_block_signatures, "Signer returned no signatures");
    block->producer_signature = sigs.back();
    sigs.pop_back();
 
-   verify_signee(sigs);
+   verify_signee(sigs, valid_block_signing_authority);
    inject_additional_signatures(*block, sigs);
 }
 
-void block_state::verify_signee(const std::vector<signature_type>& additional_signatures) const {
-   auto valid_block_signing_authority = get_scheduled_producer(timestamp()).authority;
-
+void block_state::verify_signee(const std::vector<signature_type>& additional_signatures, const block_signing_authority& valid_block_signing_authority) const {
    auto num_keys_in_authority = std::visit([](const auto &a){ return a.keys.size(); }, valid_block_signing_authority);
    EOS_ASSERT(1 + additional_signatures.size() <= num_keys_in_authority, wrong_signing_key,
               "number of block signatures (${num_block_signatures}) exceeds number of keys in block signing authority (${num_keys})",
