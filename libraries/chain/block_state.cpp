@@ -28,7 +28,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
                          deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
                          const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority)
    : block_header_state(bhs)
-   , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
+   , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
@@ -219,7 +219,7 @@ void block_state::sign(const signer_callback_type& signer, const block_signing_a
    auto sigs = signer( block_id );
 
    EOS_ASSERT(!sigs.empty(), no_block_signatures, "Signer returned no signatures");
-   block->producer_signature = sigs.back();
+   block->producer_signature = sigs.back(); // last is producer signature, rest are additional signatures to inject in the block extension
    sigs.pop_back();
 
    verify_signee(sigs, valid_block_signing_authority);
@@ -229,7 +229,7 @@ void block_state::sign(const signer_callback_type& signer, const block_signing_a
 void block_state::verify_signee(const std::vector<signature_type>& additional_signatures, const block_signing_authority& valid_block_signing_authority) const {
    auto num_keys_in_authority = std::visit([](const auto &a){ return a.keys.size(); }, valid_block_signing_authority);
    EOS_ASSERT(1 + additional_signatures.size() <= num_keys_in_authority, wrong_signing_key,
-              "number of block signatures (${num_block_signatures}) exceeds number of keys in block signing authority (${num_keys})",
+              "number of block signatures (${num_block_signatures}) exceeds number of keys (${num_keys}) in block signing authority: ${authority}",
               ("num_block_signatures", 1 + additional_signatures.size())
               ("num_keys", num_keys_in_authority)
               ("authority", valid_block_signing_authority)
@@ -240,7 +240,7 @@ void block_state::verify_signee(const std::vector<signature_type>& additional_si
 
    for (const auto& s: additional_signatures) {
       auto res = keys.emplace(s, block_id, true);
-      EOS_ASSERT(res.second, wrong_signing_key, "block signed by same key twice", ("key", *res.first));
+      EOS_ASSERT(res.second, wrong_signing_key, "block signed by same key twice: ${key}", ("key", *res.first));
    }
 
    bool is_satisfied = false;
@@ -249,11 +249,11 @@ void block_state::verify_signee(const std::vector<signature_type>& additional_si
    std::tie(is_satisfied, relevant_sig_count) = producer_authority::keys_satisfy_and_relevant(keys, valid_block_signing_authority);
 
    EOS_ASSERT(relevant_sig_count == keys.size(), wrong_signing_key,
-              "block signed by unexpected key",
-              ("signing_keys", keys)("authority", valid_block_signing_authority));
+              "block signed by unexpected key: ${signing_keys}, expected: ${authority}. ${c} != ${s}",
+              ("signing_keys", keys)("authority", valid_block_signing_authority)("c", relevant_sig_count)("s", keys.size()));
 
    EOS_ASSERT(is_satisfied, wrong_signing_key,
-              "block signatures do not satisfy the block signing authority",
+              "block signatures ${signing_keys} do not satisfy the block signing authority: ${authority}",
               ("signing_keys", keys)("authority", valid_block_signing_authority));
 }
 

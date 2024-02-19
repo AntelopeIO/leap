@@ -177,8 +177,6 @@ block_header_state block_header_state::next(block_header_state_input& input) con
  *
  *  Given a signed block header, generate the expected template based upon the header time,
  *  then validate that the provided header matches the template.
- *
- *  If the header specifies new_producers then apply them accordingly.
  */
 block_header_state block_header_state::next(const signed_block_header& h, validator_t& validator) const {
    auto producer = detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, h.timestamp).producer_name;
