@@ -73,8 +73,7 @@ struct block_header_state {
    const producer_authority_schedule& active_schedule_auth()  const { return active_proposer_policy->proposer_schedule; }
 
    block_header_state next(block_header_state_input& data) const;
-
-   block_header_state next(const signed_block_header& h, const protocol_feature_set& pfs, validator_t& validator) const;
+   block_header_state next(const signed_block_header& h, validator_t& validator) const;
 
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
@@ -83,13 +82,7 @@ struct block_header_state {
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    const vector<digest_type>& get_new_protocol_feature_activations() const;
-   producer_authority get_scheduled_producer(block_timestamp_type t) const;
-   uint32_t active_schedule_version() const;
-   signed_block_header make_block_header(const checksum256_type& transaction_mroot,
-                                         const checksum256_type& action_mroot,
-                                         const std::optional<producer_authority_schedule>& new_producers,
-                                         vector<digest_type>&& new_protocol_feature_activations,
-                                         const protocol_feature_set& pfs) const;
+   const producer_authority& get_scheduled_producer(block_timestamp_type t) const;
 };
 
 using block_header_state_ptr = std::shared_ptr<block_header_state>;

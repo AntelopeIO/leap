@@ -322,7 +322,7 @@ struct assembled_block {
    }
 
    completed_block complete_block(const protocol_feature_set& pfs, validator_t validator,
-                                  const signer_callback_type& signer) {
+                                  const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority) {
       return std::visit(overloaded{[&](assembled_block_legacy& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
@@ -332,7 +332,8 @@ struct assembled_block {
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
-                                                                               std::move(ab.trx_receipts), ab.qc);
+                                                                               std::move(ab.trx_receipts), ab.qc, signer,
+                                                                               valid_block_signing_authority);
                                       return completed_block{std::move(bsp)};
                                    }},
                         v);
@@ -4217,10 +4218,12 @@ void controller::assemble_and_complete_block( block_report& br, const signer_cal
    my->assemble_block();
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
+   const auto& valid_block_signing_authority = my->head_active_schedule_auth().get_scheduled_producer(ab.timestamp()).authority;
    my->pending->_block_stage = ab.complete_block(
       my->protocol_features.get_protocol_feature_set(),
       [](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features, const vector<digest_type>& new_features) {},
-      signer_callback);
+      signer_callback,
+      valid_block_signing_authority);
 
    br = my->pending->_block_report;
 }
