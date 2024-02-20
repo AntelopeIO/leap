@@ -32,7 +32,7 @@ struct block_header_state_input : public building_block_input {
 struct block_header_state_core {
    uint32_t                last_final_block_num{0};        // last irreversible (final) block.
    std::optional<uint32_t> final_on_strong_qc_block_num;   // will become final if this header achives a strong QC.
-   std::optional<uint32_t> last_qc_block_num;              // The block number of the most recent ancestor block that has a QC justification
+   uint32_t                last_qc_block_num;              // The block number of the most recent ancestor block that has a QC justification
    block_timestamp_type    last_qc_block_timestamp;        // The block timestamp of the most recent ancestor block that has a QC justification
    uint32_t                finalizer_policy_generation{0}; //
 
@@ -70,6 +70,7 @@ struct block_header_state {
    const block_id_type&  previous() const  { return header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
    block_timestamp_type  last_qc_block_timestamp() const { return core.last_qc_block_timestamp; }
+   uint32_t              last_qc_block_num() const { return core.last_qc_block_num; }
    const producer_authority_schedule& active_schedule_auth()  const { return active_proposer_policy->proposer_schedule; }
 
    block_header_state next(block_header_state_input& data) const;
@@ -78,7 +79,7 @@ struct block_header_state {
 
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
-      return !core.last_qc_block_num || qc.block_num > *core.last_qc_block_num;
+      return qc.block_num > core.last_qc_block_num;
    }
 
    flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
