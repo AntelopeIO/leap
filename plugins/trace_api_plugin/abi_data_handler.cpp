@@ -31,7 +31,10 @@ namespace eosio::trace_api {
                   auto params = serializer_p->binary_to_variant(type_name, action.data, abi_yield);
                   if constexpr (std::is_same_v<T, action_trace_v1>) {
                      if(action.return_value.size() > 0) {
-                        ret_data = serializer_p->binary_to_variant(type_name, action.return_value, abi_yield);
+                        auto return_type_name = serializer_p->get_action_result_type(action_name);
+                        if (!return_type_name.empty()) {
+                           ret_data = serializer_p->binary_to_variant(return_type_name, action.return_value, abi_yield);
+                        }
                      }
                   }
                   return {params, ret_data};
