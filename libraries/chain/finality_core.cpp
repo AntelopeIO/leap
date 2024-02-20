@@ -162,13 +162,9 @@ namespace eosio::chain {
          size_t links_index = 0; // Default to no garbage collection (if last_final_block_num does not change).
 
          if (last_final_block_num() < new_last_final_block_num) {
-            // new_blocks_nums found the new_last_final_block_num from a link that had a source_block_num
-            // equal to new_final_on_strong_qc_block_num.
-            // The index within links was (new_final_on_strong_qc_block_num - last_final_block_num).
-            // All prior links can be garbage collected.
-
-            links_index = new_last_final_block_num - last_final_block_num();
-            while ( links_index < links.size() && links[links_index].target_block_num == last_final_block_num() ) {
+            // All prior links between last_final_block_num() and new_last_final_block_num - 1
+            // can be garbage collected.
+            while ( links_index < links.size() && links[links_index].target_block_num != new_last_final_block_num ) {
                ++links_index;
             }
 
