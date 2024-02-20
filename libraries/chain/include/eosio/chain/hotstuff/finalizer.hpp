@@ -82,8 +82,8 @@ namespace eosio::chain {
    struct finalizer_tpl {
       enum class vote_decision { strong_vote, weak_vote, no_vote };
 
-      bls_private_key           priv_key;
-      finalizer_safety_information        fsi;
+      bls_private_key               priv_key;
+      finalizer_safety_information  fsi;
 
    private:
       using full_branch_type = FORK_DB::full_branch_type;

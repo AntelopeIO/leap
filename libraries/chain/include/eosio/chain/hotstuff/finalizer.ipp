@@ -6,12 +6,12 @@ template<class FORK_DB>
 typename FORK_DB::bhsp
 get_block_by_num(const typename FORK_DB::full_branch_type& branch, std::optional<uint32_t> block_num) {
    if (!block_num || branch.empty())
-      return block_state_ptr{};
+      return {};
 
    // a branch always contains consecutive block numbers, starting with the highest
    uint32_t first = branch[0]->block_num();
    uint32_t dist  = first - *block_num;
-   return dist < branch.size() ? branch[dist] : block_state_ptr{};
+   return dist < branch.size() ? branch[dist] : typename FORK_DB::bhsp{};
 }
 
 // ----------------------------------------------------------------------------------------
@@ -90,7 +90,7 @@ finalizer_tpl<FORK_DB>::vote_decision finalizer_tpl<FORK_DB>::decide_vote(const 
       dlog("last_qc_block_num=${lqc}, fork_db root block_num=${f}",
            ("lqc",!!proposal->last_qc_block_num())("f",fork_db.root()->block_num()));
       if (proposal->last_qc_block_num())
-         dlog("last_qc_block_num=${lqc}", ("lqc", *proposal->last_qc_block_num()));
+         dlog("last_qc_block_num=${lqc}", ("lqc", proposal->last_qc_block_num()));
    }
    if (decision != vote_decision::no_vote)
       dlog("Voting ${s}", ("s", decision == vote_decision::strong_vote ? "strong" : "weak"));
