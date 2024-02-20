@@ -317,7 +317,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
             ("c", 2)
             ("d", 3);
 
-      auto actual = handler.serialize_to_variant(action_trace_t);
+      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
       BOOST_REQUIRE(!std::get<1>(actual));
