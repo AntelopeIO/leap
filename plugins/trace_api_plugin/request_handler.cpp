@@ -41,25 +41,22 @@ namespace {
          yield();
 
          const auto& a = actions.at(index);
-         auto common_mvo = fc::mutable_variant_object();
+         auto action_variant = fc::mutable_variant_object();
 
-         common_mvo("global_sequence", a.global_sequence)
+         action_variant("global_sequence", a.global_sequence)
                ("receiver", a.receiver.to_string())
                ("account", a.account.to_string())
                ("action", a.action.to_string())
                ("authorization", process_authorizations(a.authorization, yield))
                ("data", fc::to_hex(a.data.data(), a.data.size()));
 
-         auto action_variant = fc::mutable_variant_object();
          if constexpr(std::is_same_v<ActionTrace, action_trace_v0>){
-            action_variant(std::move(common_mvo));
             auto [params, return_data] = data_handler(a, yield);
             if (!params.is_null()) {
                action_variant("params", params);
             }
          }
          else if constexpr(std::is_same_v<ActionTrace, action_trace_v1>){
-            action_variant(std::move(common_mvo));
             action_variant("return_value", fc::to_hex(a.return_value.data(),a.return_value.size())) ;
             auto [params, return_data] = data_handler(a, yield);
             if (!params.is_null()) {
