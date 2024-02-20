@@ -105,11 +105,15 @@ namespace eosio::chain {
          {
             assert(last_final_block_num() <= final_on_strong_qc_block_num); // Satisfied by invariant 2.
 
+            // Returns existing last_final_block_num and final_on_strong_qc_block_num
+            // if QC claim is weak
             if (!most_recent_ancestor_with_qc.is_strong_qc) {
                return {last_final_block_num(), final_on_strong_qc_block_num};
             }
 
-            if (most_recent_ancestor_with_qc.block_num < links.front().source_block_num) {
+            // Returns existing last_final_block_num and final_on_strong_qc_block_num
+            // if QC claim is too late (prior to the last_final_block_num)
+            if (most_recent_ancestor_with_qc.block_num < last_final_block_num()) {
                return {last_final_block_num(), final_on_strong_qc_block_num};
             }
 
