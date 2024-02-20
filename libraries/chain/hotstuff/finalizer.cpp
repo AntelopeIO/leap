@@ -88,8 +88,7 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
    } else {
       dlog("last_qc_block_num=${lqc}, fork_db root block_num=${f}",
            ("lqc",!!proposal->last_qc_block_num())("f",fork_db.root()->block_num()));
-      if (proposal->last_qc_block_num())
-         dlog("last_qc_block_num=${lqc}", ("lqc", *proposal->last_qc_block_num()));
+      dlog("last_qc_block_num=${lqc}", ("lqc", proposal->last_qc_block_num()));
    }
    if (decision != vote_decision::no_vote)
       dlog("Voting ${s}", ("s", decision == vote_decision::strong_vote ? "strong" : "weak"));
