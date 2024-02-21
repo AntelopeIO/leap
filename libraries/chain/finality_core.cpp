@@ -86,7 +86,7 @@ namespace eosio::chain {
     *  @post returned core has last_final_block_num() >= this->last_final_block_num()
     */
    finality_core finality_core::next(const block_ref& current_block, const qc_claim& most_recent_ancestor_with_qc) const
-   {
+{
       assert(current_block.block_num() == current_block_num()); // Satisfied by precondition 1.
       
       assert(refs.empty() || (refs.back().block_num() + 1 == current_block.block_num())); // Satisfied by precondition 2.
@@ -94,63 +94,75 @@ namespace eosio::chain {
 
       assert(most_recent_ancestor_with_qc.block_num <= current_block_num()); // Satisfied by precondition 3.
 
-      assert(refs.empty() ||
-             ((latest_qc_claim().block_num < most_recent_ancestor_with_qc.block_num) ||
-              ((latest_qc_claim().block_num == most_recent_ancestor_with_qc.block_num) &&
-               (!latest_qc_claim().is_strong_qc || most_recent_ancestor_with_qc.is_strong_qc)))); // Satisfied by precondition 4.
+      assert(latest_qc_claim() <= most_recent_ancestor_with_qc) // Satisfied by precondition 4.
 
-      finality_core next_core;
+      core next_core;
 
-      auto new_block_nums = [&]() -> std::pair<block_num_type, block_num_type> 
+      auto new_block_nums = [&]() -> std::tuple<block_num_type, block_num_type, block_num_type> 
          {
-            assert(last_final_block_num() <= final_on_strong_qc_block_num); // Satisfied by invariant 2.
+            // Invariant 2 guarantees that:
+            // last_final_block_num() <= links.front().source_block_num <= final_on_strong_qc_block_num  <= latest_qc_claim().block_num
 
-            // Returns existing last_final_block_num and final_on_strong_qc_block_num
-            // if QC claim is weak
+            assert(links.front().source_block_num <= most_recent_ancestor_with_qc.block_num); // Satisfied by invariant 2 and precondition 4.
+
+            // No changes on new claim of weak QC.
             if (!most_recent_ancestor_with_qc.is_strong_qc) {
-               return {last_final_block_num(), final_on_strong_qc_block_num};
-            }
-
-            // Returns existing last_final_block_num and final_on_strong_qc_block_num
-            // if QC claim is too late.
-            if (most_recent_ancestor_with_qc.block_num < links.front().source_block_num) {
-               return {last_final_block_num(), final_on_strong_qc_block_num};
+               return {last_final_block_num(), links.front().source_block_num, final_on_strong_qc_block_num};
             }
 
             const auto& link1 = get_qc_link_from(most_recent_ancestor_with_qc.block_num);
 
-            // TODO: Show the following hold true:
-            // final_on_strong_qc_block_num <= link1.target_block_num <= current_block_num().
-            // link1.target_block_num == current_block_num() iff refs.empty() == true.
+            // By the post-condition of get_qc_link_from, link1.source_block_num == most_recent_ancestor_with_qc.block_num.
+            // By the invariant on qc_link, link1.target_block_num <= link1.source_block_num.
+            // Therefore, link1.target_block_num <= most_recent_ancestor_with_qc.block_num.
+            // And also by precondition 3, link1.target_block_num <= current_block_num().
 
-            // Since last_final_block_num() <= final_on_strong_qc_block_num 
-            // and final_on_strong_qc_block_num <= link1.target_block_num,
-            // then last_final_block_num() <= link1.target_block_num.
+            // If refs.empty() == true, then by invariant 3, link1 == links.front() == links.back() and so
+            // link1.target_block_num == current_block_num().
 
-            if (!link1.is_link_strong) {
-               return {last_final_block_num(), link1.target_block_num};
-            }
+            // Otherwise, if refs.empty() == false, consider two cases.
+            // Case 1: link1 != links.back()
+            //   In this case, link1.target_block_num <= link1.source_block_num < links.back().source_block_num.
+            //   The strict inequality is justified by invariant 7.
+            //   Therefore, link1.target_block_num < current_block_num().
+            // Case 2: link1 == links.back()
+            //   In this case, link1.target_block_num < link1.source_block_num == links.back().source_block_num.
+            //   The strict inequality is justified because the only the target_block_num and source_block_num of a qc_link
+            //   can be equal is for genesis block. And link mapping genesis block number to genesis block number can only
+            //   possibly exist for links.front().
+            //   Therefore, link1.target_block_num < current_block_num().
 
-            if (link1.target_block_num < links.front().source_block_num) {
-               return {last_final_block_num(), link1.target_block_num};
+            // So, link1.target_block_num == current_block_num() iff refs.empty() == true.
+
+            assert(final_on_strong_qc_block_num <= link1.target_block_num); // TODO: Show that this is always true.
+
+            // Finality does not advance if a better 3-chain is not found.
+            if (!link1.is_link_strong || (link1.target_block_num < links.front().source_block_num)) {
+               return {last_final_block_num(), links.front().source_block_num, link1.target_block_num};
             }
 
             const auto& link2 = get_qc_link_from(link1.target_block_num);
 
-            // TODO: Show the following hold true:
-            // last_final_block_num() <= link2.target_block_num
-            // link2.target_block_num <= link1.target_block_num
-            // link1.target_block_num <= most_recent_ancestor_with_qc.block_num
+            // By the post-condition of get_qc_link_from, link2.source_block_num == link1.target_block_num.
+            // By the invariant on qc_link, link2.target_block_num <= link2.source_block_num.
+            // Therefore, link2.target_block_num <= link1.target_block_num.
 
-            return {link2.target_block_num, link1.target_block_num}; 
+            // Wherever link2 is found within links, it must be the case that links.front().target_block_num <= link2.target_block_num.
+            // This is justified by invariant 7.
+            // Therefore, last_final_block_num() <= link2.target_block_num.
+
+            return {link2.target_block_num, link2.source_block_num, link1.target_block_num}; 
          };
 
-      const auto [new_last_final_block_num, new_final_on_strong_qc_block_num] = new_block_nums();
-      assert(new_last_final_block_num <= new_final_on_strong_qc_block_num); // Satisfied by justification in new_block_nums.
+      const auto [new_last_final_block_num, new_links_front_source_block_num, new_final_on_strong_qc_block_num] = new_block_nums();
+
+      assert(new_last_final_block_num <= new_links_front_source_block_num); // Satisfied by justification in new_block_nums.
+      assert(new_links_front_source_block_num <= new_final_on_strong_qc_block_num); // Satisfied by justification in new_block_nums.
       assert(new_final_on_strong_qc_block_num <= most_recent_ancestor_with_qc.block_num); // Satisfied by justification in new_block_nums.
 
-      assert(final_on_strong_qc_block_num <= new_final_on_strong_qc_block_num); // Satisfied by justifications in new_block_nums.
       assert(last_final_block_num() <= new_last_final_block_num); // Satisfied by justifications in new_block_nums.
+      assert(links.front().source_block_num <= new_links_front_source_block_num); // Satisfied by justification in new_block_nums.
+      assert(final_on_strong_qc_block_num <= new_final_on_strong_qc_block_num); // Satisfied by justifications in new_block_nums.
 
       next_core.final_on_strong_qc_block_num = new_final_on_strong_qc_block_num;
       // Post-condition 3 is satisfied, assuming next_core will be returned without further modifications to next_core.final_on_strong_qc_block_num.
@@ -159,17 +171,9 @@ namespace eosio::chain {
 
       // Setup next_core.links by garbage collecting unnecessary links and then adding the new QC link.
       {
-         size_t links_index = 0; // Default to no garbage collection (if last_final_block_num does not change).
+         const size_t links_index = new_links_front_source_block_num - links.front().source_block_num;
 
-         if (last_final_block_num() < new_last_final_block_num) {
-            // All prior links between last_final_block_num() and new_last_final_block_num - 1
-            // can be garbage collected.
-            while ( links_index < links.size() && links[links_index].target_block_num != new_last_final_block_num ) {
-               ++links_index;
-            }
-
-            assert(links_index < links.size()); // Satisfied by justification in this->get_qc_link_from(next_core.final_on_strong_qc_block_num).
-         }
+         assert(links_index < links.size()); // Satisfied by justification in this->get_qc_link_from(new_links_front_source_block_num).
 
          next_core.links.reserve(links.size() - links_index + 1);
 
@@ -197,7 +201,7 @@ namespace eosio::chain {
 
       // Setup next_core.refs by garbage collecting unnecessary block references in the refs and then adding the new block reference.
       {
-         const size_t refs_index = next_core.last_final_block_num() - last_final_block_num();
+         const size_t refs_index = new_last_final_block_num - last_final_block_num();
 
          // Using the justifications in new_block_nums, 0 <= ref_index <= (current_block_num() - last_final_block_num).
          // If refs.empty() == true, then by invariant 3, current_block_num() == last_final_block_num, and therefore ref_index == 0.
@@ -213,7 +217,7 @@ namespace eosio::chain {
          // Garbage collect unnecessary block references
          std::copy(refs.cbegin() + refs_index, refs.cend(), std::back_inserter(next_core.refs));
 
-         assert(refs.empty() || (next_core.refs.front().block_num() == new_last_final_block_num)); // Satisfied by choice of refs_index.
+         assert(refs.empty() || (refs.front().block_num() == new_last_final_block_num)); // Satisfied by choice of refs_index.
 
          // Add new block reference
          next_core.refs.emplace_back(current_block);
@@ -232,7 +236,7 @@ namespace eosio::chain {
          // If this->refs.empty() == false, then adding the current_block to the end does not change the fact that
          // refs.front().block_num() is still equal to new_last_final_block_num.
 
-         assert(refs.empty() || (next_core.refs.front().block_num() == new_last_final_block_num)); // Satisfied by justification above.
+         assert(refs.front().block_num() == new_last_final_block_num); // Satisfied by justification above.
 
          // Because it was also already shown earlier that links.front().target_block_num == new_last_final_block_num,
          // then the justification above satisfies the remaining equalities needed to satisfy invariant 4 for next_core.
@@ -245,6 +249,7 @@ namespace eosio::chain {
       // Invariants 1 to 7 were verified to be satisfied for the current value of next_core at various points above. 
       // (And so, the remaining invariants for next_core are also automatically satisfied.)
    }
+};
 } /// eosio::chain
 
 #if 0
