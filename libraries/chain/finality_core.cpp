@@ -2,10 +2,45 @@
 #include <eosio/chain/block_header.hpp>
 
 namespace eosio::chain {
+   /**
+    *  @pre block_id is not null
+    *  @returns the extracted block_num from block_id
+    */
    block_num_type block_ref::block_num() const {
       return block_header::num_from_id(block_id);
    }
 
+   /**
+    *  @pre none
+    *
+    *  @post returned core has current_block_num() == block_num
+    *  @post returned core has latest_qc_claim() == {.block_num=block_num, .is_strong_qc=false}
+    *  @post returned core has final_on_strong_qc_block_num == block_num
+    *  @post returned core has last_final_block_num() == block_num
+    */
+   finality_core finality_core::create_core_for_genesis_block(block_num_type block_num)
+   {
+      return finality_core {
+         .links                        = {
+            qc_link{
+               .source_block_num = block_num,
+               .target_block_num = block_num,
+               .is_link_strong    = false,
+            },
+         },
+         .refs                         = {},
+         .final_on_strong_qc_block_num = block_num,
+      };
+
+      // Invariants 1 to 7 can be easily verified to be satisfied for the returned core.
+      // (And so, remaining invariants are also automatically satisfied.)
+   }
+
+   /**
+    *  @pre this->links.empty() == false
+    *  @post none
+    *  @returns block number of the core
+    */
    block_num_type finality_core::current_block_num() const
    {
       assert(!links.empty()); // Satisfied by invariant 1.
@@ -13,6 +48,11 @@ namespace eosio::chain {
       return links.back().source_block_num;
    }
 
+   /**
+    *  @pre this->links.empty() == false
+    *  @post none
+    *  @returns last final block_num in respect to the core
+    */
    block_num_type finality_core::last_final_block_num() const
    {
       assert(!links.empty()); // Satisfied by invariant 1.
@@ -20,6 +60,11 @@ namespace eosio::chain {
       return links.front().target_block_num;
    }
 
+   /**
+    *  @pre this->links.empty() == false
+    *  @post none
+    *  @returns latest qc_claim made by the core
+    */
    qc_claim finality_core::latest_qc_claim() const
    {
       assert(!links.empty()); // Satisfied by invariant 1.

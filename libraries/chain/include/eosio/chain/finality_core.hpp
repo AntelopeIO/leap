@@ -54,28 +54,35 @@ struct finality_core
    // 8. current_block_num() - last_final_block_num() == refs.size() (always implied by invariants 3 to 6)
    // 9. current_block_num() - links.front().source_block_num == links.size() - 1 (always implied by invariants 1 and 7)
 
-   static finality_core create_core_for_genesis_block(block_num_type block_num)
-   {
-      return finality_core {
-         .links                        = {
-            qc_link{
-               .source_block_num = block_num,
-               .target_block_num = block_num,
-               .is_link_strong    = false,
-            },
-         },
-         .refs                         = {},
-         .final_on_strong_qc_block_num = block_num,
-      };
+   /**
+    *  @pre none
+    *
+    *  @post returned core has current_block_num() == block_num
+    *  @post returned core has latest_qc_claim() == {.block_num=block_num, .is_strong_qc=false}
+    *  @post returned core has final_on_strong_qc_block_num == block_num
+    *  @post returned core has last_final_block_num() == block_num
+    */
+   static finality_core create_core_for_genesis_block(block_num_type block_num);
 
-      // Invariants 1 to 7 can be easily verified to be satisfied for the returned core. 
-      // (And so, remaining invariants are also automatically satisfied.)
-   };
-
+   /**
+    *  @pre this->links.empty() == false
+    *  @post none
+    *  @returns block number of the core
+    */
    block_num_type current_block_num() const;
 
+   /**
+    *  @pre this->links.empty() == false
+    *  @post none
+    *  @returns last final block_num in respect to the core
+    */
    block_num_type last_final_block_num() const;
 
+   /**
+    *  @pre this->links.empty() == false
+    *  @post none
+    *  @returns latest qc_claim made by the core
+    */
    qc_claim latest_qc_claim() const;
 
    /**
