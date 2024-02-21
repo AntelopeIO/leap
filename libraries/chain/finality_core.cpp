@@ -86,7 +86,7 @@ namespace eosio::chain {
     *  @post returned core has last_final_block_num() >= this->last_final_block_num()
     */
    finality_core finality_core::next(const block_ref& current_block, const qc_claim& most_recent_ancestor_with_qc) const
-{
+   {
       assert(current_block.block_num() == current_block_num()); // Satisfied by precondition 1.
       
       assert(refs.empty() || (refs.back().block_num() + 1 == current_block.block_num())); // Satisfied by precondition 2.
@@ -94,11 +94,12 @@ namespace eosio::chain {
 
       assert(most_recent_ancestor_with_qc.block_num <= current_block_num()); // Satisfied by precondition 3.
 
-      assert(latest_qc_claim() <= most_recent_ancestor_with_qc) // Satisfied by precondition 4.
+      assert(refs.empty() ||
+             ((latest_qc_claim().block_num < most_recent_ancestor_with_qc.block_num) ||
+              ((latest_qc_claim().block_num == most_recent_ancestor_with_qc.block_num) &&
+               (!latest_qc_claim().is_strong_qc || most_recent_ancestor_with_qc.is_strong_qc)))); // Satisfied by precondition 4. (latest_qc_claim() <= most_recent_ancestor_with_qc)
 
-      core next_core;
-
-      auto new_block_nums = [&]() -> std::tuple<block_num_type, block_num_type, block_num_type> 
+      auto new_block_nums = [&]() -> std::tuple<block_num_type, block_num_type, block_num_type>
          {
             // Invariant 2 guarantees that:
             // last_final_block_num() <= links.front().source_block_num <= final_on_strong_qc_block_num  <= latest_qc_claim().block_num
@@ -151,7 +152,7 @@ namespace eosio::chain {
             // This is justified by invariant 7.
             // Therefore, last_final_block_num() <= link2.target_block_num.
 
-            return {link2.target_block_num, link2.source_block_num, link1.target_block_num}; 
+            return {link2.target_block_num, link2.source_block_num, link1.target_block_num};
          };
 
       const auto [new_last_final_block_num, new_links_front_source_block_num, new_final_on_strong_qc_block_num] = new_block_nums();
@@ -163,6 +164,8 @@ namespace eosio::chain {
       assert(last_final_block_num() <= new_last_final_block_num); // Satisfied by justifications in new_block_nums.
       assert(links.front().source_block_num <= new_links_front_source_block_num); // Satisfied by justification in new_block_nums.
       assert(final_on_strong_qc_block_num <= new_final_on_strong_qc_block_num); // Satisfied by justifications in new_block_nums.
+
+      finality_core next_core;
 
       next_core.final_on_strong_qc_block_num = new_final_on_strong_qc_block_num;
       // Post-condition 3 is satisfied, assuming next_core will be returned without further modifications to next_core.final_on_strong_qc_block_num.
@@ -217,7 +220,7 @@ namespace eosio::chain {
          // Garbage collect unnecessary block references
          std::copy(refs.cbegin() + refs_index, refs.cend(), std::back_inserter(next_core.refs));
 
-         assert(refs.empty() || (refs.front().block_num() == new_last_final_block_num)); // Satisfied by choice of refs_index.
+         assert(refs.empty() || (next_core.refs.front().block_num() == new_last_final_block_num)); // Satisfied by choice of refs_index.
 
          // Add new block reference
          next_core.refs.emplace_back(current_block);
@@ -236,7 +239,7 @@ namespace eosio::chain {
          // If this->refs.empty() == false, then adding the current_block to the end does not change the fact that
          // refs.front().block_num() is still equal to new_last_final_block_num.
 
-         assert(refs.front().block_num() == new_last_final_block_num); // Satisfied by justification above.
+         assert(refs.empty() || next_core.refs.front().block_num() == new_last_final_block_num); // Satisfied by justification above.
 
          // Because it was also already shown earlier that links.front().target_block_num == new_last_final_block_num,
          // then the justification above satisfies the remaining equalities needed to satisfy invariant 4 for next_core.
@@ -249,7 +252,6 @@ namespace eosio::chain {
       // Invariants 1 to 7 were verified to be satisfied for the current value of next_core at various points above. 
       // (And so, the remaining invariants for next_core are also automatically satisfied.)
    }
-};
 } /// eosio::chain
 
 #if 0
