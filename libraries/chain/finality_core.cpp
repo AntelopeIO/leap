@@ -1,6 +1,11 @@
 #include <eosio/chain/finality_core.hpp>
 #include <eosio/chain/block_header.hpp>
 
+#warning Remove undef NDEBUG for assert before RC
+//Undefine NDEBUG to enable assertions in CICD.
+#undef NDEBUG
+#include <cassert>
+
 namespace eosio::chain {
    /**
     *  @pre block_id is not null
