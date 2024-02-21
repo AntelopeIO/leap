@@ -20,7 +20,7 @@ namespace fc::crypto::blslib {
          explicit bls_private_key(std::span<const uint8_t> seed ) {
             _sk = bls12_381::secret_key(seed);
          }
-         explicit bls_private_key(const std::string& base64str);
+         explicit bls_private_key(const std::string& base64urlstr);
 
          bls_private_key& operator=( const bls_private_key& ) = default;
 

@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_uniqueness_test)
                                                 std::shared_ptr<proposer_policy>{}} )
    );
 
-   std::vector<finalizer_authority> finalizers { {"test description", 50, fc::crypto::blslib::bls_public_key{"PUB_BLS_MPPeebAPxt/ibL2XPuZVGpADjGn+YEVPPoYmTZeBD6Ok2E19M8SnmDGSdZBf2qwSuJim+8H83EsTpEn3OiStWBiFeJYfVRLlEsZuSF0SYYwtVteY48n+KeE1IWzlSAkSyBqiGA==" }} };
+   std::vector<finalizer_authority> finalizers { {"test description", 50, fc::crypto::blslib::bls_public_key{"PUB_BLS_qVbh4IjYZpRGo8U_0spBUM-u-r_G0fMo4MzLZRsKWmm5uyeQTp74YFaMN9IDWPoVVT5rj_Tw1gvps6K9_OZ6sabkJJzug3uGfjA6qiaLbLh5Fnafwv-nVgzzzBlU2kwRrcHc8Q==" }} };
    finalizer_policy new_finalizer_policy;
    new_finalizer_policy.generation = 1;
    new_finalizer_policy.threshold = 100;
@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_values_test)
    const block_timestamp_type last_qc_block_timestamp(10);
    constexpr bool     is_last_qc_strong {true};
    
-   std::vector<finalizer_authority> finalizers { {"test description", 50, fc::crypto::blslib::bls_public_key{"PUB_BLS_MPPeebAPxt/ibL2XPuZVGpADjGn+YEVPPoYmTZeBD6Ok2E19M8SnmDGSdZBf2qwSuJim+8H83EsTpEn3OiStWBiFeJYfVRLlEsZuSF0SYYwtVteY48n+KeE1IWzlSAkSyBqiGA==" }} };
+   std::vector<finalizer_authority> finalizers { {"test description", 50, fc::crypto::blslib::bls_public_key{"PUB_BLS_qVbh4IjYZpRGo8U_0spBUM-u-r_G0fMo4MzLZRsKWmm5uyeQTp74YFaMN9IDWPoVVT5rj_Tw1gvps6K9_OZ6sabkJJzug3uGfjA6qiaLbLh5Fnafwv-nVgzzzBlU2kwRrcHc8Q==" }} };
    finalizer_policy new_finalizer_policy;
    new_finalizer_policy.generation = 1;
    new_finalizer_policy.threshold = 100;
@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE(instant_finality_extension_with_values_test)
    BOOST_REQUIRE_EQUAL(if_extension.new_finalizer_policy->threshold, 100u);
    BOOST_REQUIRE_EQUAL(if_extension.new_finalizer_policy->finalizers[0].description, "test description");
    BOOST_REQUIRE_EQUAL(if_extension.new_finalizer_policy->finalizers[0].weight, 50u);
-   BOOST_REQUIRE_EQUAL(if_extension.new_finalizer_policy->finalizers[0].public_key.to_string(), "PUB_BLS_MPPeebAPxt/ibL2XPuZVGpADjGn+YEVPPoYmTZeBD6Ok2E19M8SnmDGSdZBf2qwSuJim+8H83EsTpEn3OiStWBiFeJYfVRLlEsZuSF0SYYwtVteY48n+KeE1IWzlSAkSyBqiGA==");
+   BOOST_REQUIRE_EQUAL(if_extension.new_finalizer_policy->finalizers[0].public_key.to_string(), "PUB_BLS_qVbh4IjYZpRGo8U_0spBUM-u-r_G0fMo4MzLZRsKWmm5uyeQTp74YFaMN9IDWPoVVT5rj_Tw1gvps6K9_OZ6sabkJJzug3uGfjA6qiaLbLh5Fnafwv-nVgzzzBlU2kwRrcHc8Q==");
 
    BOOST_REQUIRE( !!if_extension.new_proposer_policy );
    BOOST_REQUIRE_EQUAL(if_extension.new_proposer_policy->schema_version, 1u);
