@@ -89,8 +89,8 @@ namespace eosio::chain {
    {
       assert(current_block.block_num() == current_block_num()); // Satisfied by precondition 1.
       
-      assert(refs.empty() || (refs.back().timestamp <= current_block.timestamp)); // Satisfied by precondition 2.
       assert(refs.empty() || (refs.back().block_num() + 1 == current_block.block_num())); // Satisfied by precondition 2.
+      assert(refs.empty() || (refs.back().timestamp < current_block.timestamp)); // Satisfied by precondition 2.
 
       assert(most_recent_ancestor_with_qc.block_num <= current_block_num()); // Satisfied by precondition 3.
 
