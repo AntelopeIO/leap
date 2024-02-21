@@ -27,6 +27,8 @@ struct qc_claim
 {
    block_num_type  block_num {0};
    bool            is_strong_qc {false};
+
+   auto operator<=>(const qc_claim&) const = default;
 };
 
 struct finality_core
@@ -38,7 +40,7 @@ struct finality_core
 
    // Invariants:
    // 1. links.empty() == false
-   // 2. last_final_block_num() <= final_on_strong_qc_block_num <= latest_qc_claim().block_num
+   // 2. last_final_block_num() <= links.front().source_block_num <= final_on_strong_qc_block_num <= latest_qc_claim().block_num
    // 3. If refs.empty() == true, then (links.size() == 1) and 
    //                                  (links.back().target_block_num == links.back().source_block_num == final_on_strong_qc_block_num == last_final_block_num())
    // 4. If refs.empty() == false, then refs.front().block_num() == links.front().target_block_num == last_final_block_num()

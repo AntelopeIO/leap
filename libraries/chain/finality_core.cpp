@@ -78,7 +78,7 @@ namespace eosio::chain {
     *  @pre current_block.block_num() == this->current_block_num()
     *  @pre If this->refs.empty() == false, then current_block is the block after the one referenced by this->refs.back()
     *  @pre this->latest_qc_claim().block_num <= most_recent_ancestor_with_qc.block_num <= this->current_block_num()
-    *  @pre this->latest_qc_claim() <= most_recent_ancestor_with_qc ( (this->latest_qc_claim().block_num == most_recent_ancestor_with_qc.block_num) && most_recent_ancestor_with_qc.is_strong_qc ). When block_num is the same, most_recent_ancestor_with_qc must be stronger than latest_qc_claim()
+    *  @pre this->latest_qc_claim() <= most_recent_ancestor_with_qc
     *
     *  @post returned core has current_block_num() == this->current_block_num() + 1
     *  @post returned core has latest_qc_claim() == most_recent_ancestor_with_qc
@@ -94,10 +94,7 @@ namespace eosio::chain {
 
       assert(most_recent_ancestor_with_qc.block_num <= current_block_num()); // Satisfied by precondition 3.
 
-      assert(refs.empty() ||
-             ((latest_qc_claim().block_num < most_recent_ancestor_with_qc.block_num) ||
-              ((latest_qc_claim().block_num == most_recent_ancestor_with_qc.block_num) &&
-               (!latest_qc_claim().is_strong_qc || most_recent_ancestor_with_qc.is_strong_qc)))); // Satisfied by precondition 4. (latest_qc_claim() <= most_recent_ancestor_with_qc)
+      assert(latest_qc_claim() <= most_recent_ancestor_with_qc); // Satisfied by precondition 4.
 
       auto new_block_nums = [&]() -> std::tuple<block_num_type, block_num_type, block_num_type>
          {
@@ -233,13 +230,13 @@ namespace eosio::chain {
          // Invariant 6 is also clearly satisfied for next_core because invariant 6 is satisfied for *this and the only
          // additional requirements needed are the ones provided by precondition 2.
 
-         // If this->refs.empty() == true, then new_last_final_block_num == last_final_block_num == current_block_num(),
-         // and next_core.refs.size() == 1 and next_core.front() == current_block.
-         // And so, next_core.front().block_num() == new_last_final_block_num.
+         // If this->refs.empty() == true, then new_last_final_block_num == this->last_final_block_num() == this->current_block_num(),
+         // and next_core.refs.size() == 1 and next_core.refs.front() == current_block.
+         // And so, next_core.refs.front().block_num() == new_last_final_block_num.
          // If this->refs.empty() == false, then adding the current_block to the end does not change the fact that
-         // refs.front().block_num() is still equal to new_last_final_block_num.
+         // next_core.refs.front().block_num() is still equal to new_last_final_block_num.
 
-         assert(refs.empty() || next_core.refs.front().block_num() == new_last_final_block_num); // Satisfied by justification above.
+         assert(next_core.refs.front().block_num() == new_last_final_block_num); // Satisfied by justification above.
 
          // Because it was also already shown earlier that links.front().target_block_num == new_last_final_block_num,
          // then the justification above satisfies the remaining equalities needed to satisfy invariant 4 for next_core.
