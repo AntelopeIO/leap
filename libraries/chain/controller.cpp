@@ -701,11 +701,9 @@ struct building_block {
                };
 
                // Get parent block reference.
-               auto parent_timestamp = timestamp();
-               parent_timestamp.slot--;
                block_ref parent_block {
                   .block_id  = parent_id(),
-                  .timestamp = parent_timestamp
+                  .timestamp = bb.parent.timestamp()
                };
 
                block_header_state_input bhs_input{
