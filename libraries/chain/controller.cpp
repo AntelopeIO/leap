@@ -417,9 +417,6 @@ struct building_block {
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
-      // Members below (as well as non-const members of building_block_common) start from initial state and are mutated as the block is built.
-      std::shared_ptr<proposer_policy>           new_proposer_policy;
-
       building_block_if(const block_header_state& parent, const building_block_input& input)
          : building_block_common(input.new_protocol_feature_activations)
          , parent (parent)
@@ -483,19 +480,6 @@ struct building_block {
       std::visit([&](auto& bb) { bb.new_finalizer_policy = fin_pol; }, v);
    }
 
-   int64_t set_proposed_producers( std::vector<producer_authority> producers ) {
-      return std::visit(
-         overloaded{[](building_block_legacy&) -> int64_t { return -1; },
-                    [&](building_block_if& bb) -> int64_t {
-                       bb.new_proposer_policy = std::make_shared<proposer_policy>();
-                       bb.new_proposer_policy->active_time = detail::get_next_next_round_block_time(bb.timestamp);
-                       bb.new_proposer_policy->proposer_schedule.producers = std::move(producers);
-                       bb.new_proposer_policy->proposer_schedule.version = bb.get_next_proposer_schedule_version();
-                       return bb.new_proposer_policy->proposer_schedule.version;
-                    }},
-         v);
-   }
-
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& bb) { return std::move(bb.pending_trx_metas); }, v);
    }
@@ -547,6 +531,14 @@ struct building_block {
                         v);
    }
 
+   int64_t get_next_proposer_schedule_version() const {
+      return std::visit(
+         overloaded{[](const building_block_legacy&) -> int64_t { return -1; },
+                    [&](const building_block_if& bb) -> int64_t { return bb.get_next_proposer_schedule_version(); }
+                   },
+         v);
+   }
+
    size_t& num_new_protocol_features_activated() {
       return std::visit([](auto& bb) -> size_t& { return bb.num_new_protocol_features_that_have_activated; }, v);
    }
@@ -587,8 +579,6 @@ struct building_block {
                                    [](const building_block_if& bb) -> const producer_authority_schedule* {
                                       if (!bb.parent.proposer_policies.empty())
                                          return &bb.parent.proposer_policies.begin()->second->proposer_schedule;
-                                      if (bb.new_proposer_policy)
-                                         return &bb.new_proposer_policy->proposer_schedule;
                                       return nullptr;
                                    }},
                         v);
@@ -609,6 +599,7 @@ struct building_block {
    assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
                                   fork_database& fork_db,
+                                  std::unique_ptr<proposer_policy> new_proposer_policy,
                                   bool validating,
                                   std::optional<qc_data_t> validating_qc_data) {
       digests_t& action_receipts = action_receipt_digests();
@@ -693,7 +684,7 @@ struct building_block {
                };
 
                block_header_state_input bhs_input{
-                  bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
+                  bb_input, transaction_mroot, action_mroot, std::move(new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
                   qc_data ? qc_data->qc_claim : std::optional<qc_claim_t>{}
                };
@@ -784,6 +775,14 @@ struct pending_state {
          _block_stage);
    }
 
+   int64_t get_next_proposer_schedule_version() const {
+      return std::visit(overloaded{
+                           [](const building_block& stage) -> int64_t { return stage.get_next_proposer_schedule_version(); },
+                           [](const assembled_block&) -> int64_t { assert(false); return -1; },
+                           [](const completed_block&) -> int64_t { assert(false); return -1; }
+                        },
+                        _block_stage);
+   }
 };
 
 struct controller_impl {
@@ -2723,8 +2722,26 @@ struct controller_impl {
             );
          resource_limits.process_block_usage(bb.block_num());
 
+         // Any proposer policy?
+         std::unique_ptr<proposer_policy> new_proposer_policy;
+         auto process_new_proposer_policy = [&](auto& forkdb) -> void {
+            const auto& gpo = db.get<global_property_object>();
+            if (gpo.proposed_schedule_block_num != 0) {
+               new_proposer_policy                    = std::make_unique<proposer_policy>();
+               new_proposer_policy->active_time       = detail::get_next_next_round_block_time(bb.timestamp());
+               new_proposer_policy->proposer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+
+               db.modify( gpo, [&]( auto& gp ) {
+                  gp.proposed_schedule_block_num = 0;
+                  gp.proposed_schedule.version = 0;
+                  gp.proposed_schedule.producers.clear();
+               });
+            }
+         };
+         fork_db.apply_if<void>(process_new_proposer_policy);
+
          auto assembled_block =
-            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), fork_db,
+            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), fork_db, std::move(new_proposer_policy),
                               validating, std::move(validating_qc_data));
 
          // Update TaPoS table:
@@ -2788,6 +2805,14 @@ struct controller_impl {
                if (if_extension.new_finalizer_policy) {
                   ilog("Transition to instant finality happening after block ${b}", ("b", forkdb.chain_head->block_num()));
                   if_irreversible_block_num = forkdb.chain_head->block_num();
+
+                  // cancel any proposed schedule changes, prepare for new ones under instant_finality
+                  const auto& gpo = db.get<global_property_object>();
+                  db.modify(gpo, [&](auto& gp) {
+                     gp.proposed_schedule_block_num = 0;
+                     gp.proposed_schedule.version   = 0;
+                     gp.proposed_schedule.producers.clear();
+                  });
 
                   {
                      // If Leap started at a block prior to the IF transition, it needs to provide a default safety
@@ -4509,12 +4534,30 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
 }
 
 int64_t controller_impl::set_proposed_producers( vector<producer_authority> producers ) {
-   // TODO: zero out gpo.proposed_schedule_block_num and gpo.proposed_schedule on instant finality enabled
-   if (producers.empty())
-      return -1;
+   // Savanna sets the global_property_object.proposed_schedule similar to legacy, but it is only set during the building of the block.
+   // global_property_object is used instead of building_block so that if the transaction fails it is rolledback.
 
-   auto& bb = std::get<building_block>(pending->_block_stage);
-   return bb.set_proposed_producers(std::move(producers));
+   if (producers.empty())
+      return -1; // regardless of disallow_empty_producer_schedule
+
+   assert(pending);
+   const auto& gpo = db.get<global_property_object>();
+   auto cur_block_num = head_block_num() + 1;
+
+   producer_authority_schedule sch;
+
+   sch.version = pending->get_next_proposer_schedule_version();
+   sch.producers = std::move(producers);
+
+   ilog( "proposed producer schedule with version ${v}", ("v", sch.version) );
+
+   // overwrite any existing proposed_schedule set earlier in this block
+   db.modify( gpo, [&]( auto& gp ) {
+      gp.proposed_schedule_block_num = cur_block_num;
+      gp.proposed_schedule = sch;
+   });
+
+   return sch.version;
 }
 
 int64_t controller_impl::set_proposed_producers_legacy( vector<producer_authority> producers ) {
