@@ -31,6 +31,13 @@ struct qc_claim
    auto operator<=>(const qc_claim&) const = default;
 };
 
+struct core_metadata
+{
+   block_num_type  last_final_block_num;
+   block_num_type  final_on_strong_qc_block_num;
+   block_num_type  latest_qc_claim_block_num;
+};
+
 struct finality_core
 {
    std::vector<qc_link>    links; // Captures all relevant links sorted in order of ascending source_block_num.
@@ -98,6 +105,17 @@ struct finality_core
     *  @post returned qc_link has source_block_num == block_num
     */
    const qc_link& get_qc_link_from(block_num_type block_num) const;
+
+   /**
+    *  @pre this->latest_qc_claim().block_num <= most_recent_ancestor_with_qc.block_num <= this->current_block_num()
+    *  @pre this->latest_qc_claim() <= most_recent_ancestor_with_qc
+    *
+    *  @post returned core_metadata has last_final_block_num <= final_on_strong_qc_block_num <= latest_qc_claim_block_num
+    *  @post returned core_metadata has latest_qc_claim_block_num == most_recent_ancestor_with_qc.block_num
+    *  @post returned core_metadata has final_on_strong_qc_block_num >= this->final_on_strong_qc_block_num
+    *  @post returned core_metadata has last_final_block_num >= this->last_final_block_num()
+    */
+   core_metadata next_metadata(const qc_claim& most_recent_ancestor_with_qc) const;
 
    /**
     *  @pre current_block.block_num() == this->current_block_num()

@@ -133,7 +133,7 @@ const qc_link& finality_core::get_qc_link_from(block_num_type block_num) const
  *  @post c.links.front().source_block_num <= std::get<1>(returned_value)
  *  @post c.final_on_strong_qc_block_num <= std::get<2>(returned_value)
  */
-std::tuple<block_num_type, block_num_type, block_num_type> get_new_block_numbers(const core& c, const qc_claim& most_recent_ancestor_with_qc)
+std::tuple<block_num_type, block_num_type, block_num_type> get_new_block_numbers(const finality_core& c, const qc_claim& most_recent_ancestor_with_qc)
 {
    assert(most_recent_ancestor_with_qc.block_num <= c.current_block_num()); // Satisfied by the precondition.
 
@@ -196,10 +196,10 @@ std::tuple<block_num_type, block_num_type, block_num_type> get_new_block_numbers
    return {link2.target_block_num, link2.source_block_num, link1.target_block_num}; 
 }
 
-core_metadata core::next_metadata(const qc_claim& most_recent_ancestor_with_qc) const
+core_metadata finality_core::next_metadata(const qc_claim& most_recent_ancestor_with_qc) const
 {
    assert(most_recent_ancestor_with_qc.block_num <= current_block_num()); // Satisfied by precondition 1.
-   assert(latest_qc_claim() <= most_recent_ancestor_with_qc) // Satisfied by precondition 2.
+   assert(latest_qc_claim() <= most_recent_ancestor_with_qc); // Satisfied by precondition 2.
 
    const auto [new_last_final_block_num, new_links_front_source_block_num, new_final_on_strong_qc_block_num] = 
       get_new_block_numbers(*this, most_recent_ancestor_with_qc);
@@ -234,9 +234,9 @@ finality_core finality_core::next(const block_ref& current_block, const qc_claim
 
    assert(most_recent_ancestor_with_qc.block_num <= current_block_num()); // Satisfied by precondition 3.
 
-   assert(latest_qc_claim() <= most_recent_ancestor_with_qc) // Satisfied by precondition 4.
+   assert(latest_qc_claim() <= most_recent_ancestor_with_qc); // Satisfied by precondition 4.
 
-   core next_core;
+   finality_core next_core;
 
    const auto [new_last_final_block_num, new_links_front_source_block_num, new_final_on_strong_qc_block_num] = 
       get_new_block_numbers(*this, most_recent_ancestor_with_qc);
