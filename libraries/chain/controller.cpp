@@ -695,21 +695,15 @@ struct building_block {
 
                building_block_input bb_input {
                   .parent_id = parent_id(),
+                  .parent_timestamp = bb.parent.timestamp(),
                   .timestamp = timestamp(),
                   .producer  = producer(),
                   .new_protocol_feature_activations = new_protocol_feature_activations()
                };
 
-               // Get parent block reference.
-               block_ref parent_block {
-                  .block_id  = parent_id(),
-                  .timestamp = bb.parent.timestamp()
-               };
-
                block_header_state_input bhs_input{
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  parent_block,
                   qc_data->current_qc_claim
                };
 
@@ -2571,7 +2565,7 @@ struct controller_impl {
          },
          [&](auto& forkdb) { // instant-finality
             maybe_session        session = skip_db_sessions(s) ? maybe_session() : maybe_session(db);
-            building_block_input bbi{forkdb.chain_head->id(), when, forkdb.chain_head->get_scheduled_producer(when).producer_name,
+            building_block_input bbi{forkdb.chain_head->id(), forkdb.chain_head->timestamp(), when, forkdb.chain_head->get_scheduled_producer(when).producer_name,
                                      new_protocol_feature_activations};
             pending.emplace(std::move(session), *forkdb.chain_head, bbi);
          });
