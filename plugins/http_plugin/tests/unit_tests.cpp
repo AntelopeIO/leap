@@ -577,7 +577,7 @@ BOOST_AUTO_TEST_CASE(test_on_loopback) {
 
 BOOST_FIXTURE_TEST_CASE(bytes_in_flight, http_plugin_test_fixture) {
    http_plugin* http_plugin = init({"--plugin=eosio::http_plugin",
-                                    "--http-server-address=127.0.0.1:8888",
+                                    "--http-server-address=127.0.0.1:8891",
                                     "--http-max-bytes-in-flight-mb=64"});
    BOOST_REQUIRE(http_plugin);
 
@@ -600,10 +600,10 @@ BOOST_FIXTURE_TEST_CASE(bytes_in_flight, http_plugin_test_fixture) {
          //we can't control http_plugin's send buffer, but at least we can control our receive buffer size to help increase
          // chance of server blocking
          s.set_option(boost::asio::socket_base::receive_buffer_size(8*1024));
-         s.connect(resolver.resolve("127.0.0.1", "8888")->endpoint());
+         s.connect(resolver.resolve("127.0.0.1", "8891")->endpoint());
          boost::beast::http::request<boost::beast::http::empty_body> req(boost::beast::http::verb::get, "/4megabyte", 11);
          req.keep_alive(true);
-         req.set(http::field::host, "127.0.0.1:8888");
+         req.set(http::field::host, "127.0.0.1:8891");
          boost::beast::http::write(s, req);
       }
    };
@@ -654,7 +654,7 @@ BOOST_FIXTURE_TEST_CASE(bytes_in_flight, http_plugin_test_fixture) {
 
 BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
    http_plugin* http_plugin = init({"--plugin=eosio::http_plugin",
-                                    "--http-server-address=127.0.0.1:8888",
+                                    "--http-server-address=127.0.0.1:8892",
                                     "--http-max-in-flight-requests=16"});
    BOOST_REQUIRE(http_plugin);
 
@@ -671,10 +671,10 @@ BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
    auto send_requests = [&](unsigned count) {
       for(unsigned i = 0; i < count; ++i) {
          boost::asio::ip::tcp::socket& s = connections.emplace_back(ctx, boost::asio::ip::tcp::v4());
-         boost::asio::connect(s, resolver.resolve("127.0.0.1", "8888"));
+         boost::asio::connect(s, resolver.resolve("127.0.0.1", "8892"));
          boost::beast::http::request<boost::beast::http::empty_body> req(boost::beast::http::verb::get, "/doit", 11);
          req.keep_alive(true);
-         req.set(http::field::host, "127.0.0.1:8888");
+         req.set(http::field::host, "127.0.0.1:8892");
          boost::beast::http::write(s, req);
       }
    };
@@ -715,3 +715,6 @@ BOOST_FIXTURE_TEST_CASE(requests_in_flight, http_plugin_test_fixture) {
    BOOST_REQUIRE_EQUAL(r[boost::beast::http::status::ok], 8u);
    connections.clear();
 }
+
+//A warning for future tests: destruction of http_plugin_test_fixture sometimes does not destroy http_plugin's listeners. Tests
+// added in the future should avoid reusing ports of other tests in http_plugin_unit_tests.
