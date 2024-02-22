@@ -239,17 +239,14 @@ BOOST_AUTO_TEST_CASE(one_weak_vote) { try {
 
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
-   // Even though the vote makes a strong QC for the current block,
-   // its final_on_strong_qc_block_num is nullopt due to previous QC was weak.
-   // Cannot advance LIB.
-   BOOST_REQUIRE(!cluster.node0_lib_advancing());
+   BOOST_REQUIRE(cluster.node0_lib_advancing());
    // no 2-chain was formed as prior block was not a strong block
    BOOST_REQUIRE(!cluster.node1_lib_advancing());
 
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
    BOOST_REQUIRE(cluster.node0_lib_advancing());
-   BOOST_REQUIRE(!cluster.node1_lib_advancing());
+   BOOST_REQUIRE(cluster.node1_lib_advancing());
 
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
@@ -283,15 +280,14 @@ BOOST_AUTO_TEST_CASE(two_weak_votes) { try {
 
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
-   // the vote makes a strong QC for the current block, prompting LIB advance on node0
-   BOOST_REQUIRE(!cluster.node0_lib_advancing());
+   BOOST_REQUIRE(cluster.node0_lib_advancing());
    BOOST_REQUIRE(!cluster.node1_lib_advancing());
 
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
    // the vote makes a strong QC for the current block, prompting LIB advance on node0
    BOOST_REQUIRE(cluster.node0_lib_advancing());
-   BOOST_REQUIRE(!cluster.node1_lib_advancing());
+   BOOST_REQUIRE(cluster.node1_lib_advancing());
 
    // now a 3 chain has formed.
    BOOST_REQUIRE(cluster.produce_blocks_and_verify_lib_advancing());
@@ -311,10 +307,7 @@ BOOST_AUTO_TEST_CASE(intertwined_weak_votes) { try {
    // Strong vote
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
-   // Even though the vote makes a strong QC for the current block,
-   // its final_on_strong_qc_block_num is nullopt due to previous QC was weak.
-   // Cannot advance LIB.
-   BOOST_REQUIRE(!cluster.node0_lib_advancing());
+   BOOST_REQUIRE(cluster.node0_lib_advancing());
    // no 2-chain was formed as prior block was not a strong block
    BOOST_REQUIRE(!cluster.node1_lib_advancing());
 
@@ -323,13 +316,13 @@ BOOST_AUTO_TEST_CASE(intertwined_weak_votes) { try {
    cluster.process_node1_vote(finality_test_cluster::vote_mode::weak);
    // A weak QC cannot advance LIB on node0
    BOOST_REQUIRE(!cluster.node0_lib_advancing());
-   BOOST_REQUIRE(!cluster.node1_lib_advancing());
+   BOOST_REQUIRE(cluster.node1_lib_advancing());
 
    // Strong vote
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
    // the vote makes a strong QC for the current block, prompting LIB advance on node0
-   BOOST_REQUIRE(!cluster.node0_lib_advancing());
+   BOOST_REQUIRE(cluster.node0_lib_advancing());
    // no 2-chain was formed as prior block was not a strong block
    BOOST_REQUIRE(!cluster.node1_lib_advancing());
 
@@ -337,7 +330,7 @@ BOOST_AUTO_TEST_CASE(intertwined_weak_votes) { try {
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
    BOOST_REQUIRE(cluster.node0_lib_advancing());
-   BOOST_REQUIRE(!cluster.node1_lib_advancing());
+   BOOST_REQUIRE(cluster.node1_lib_advancing());
 
    BOOST_REQUIRE(cluster.produce_blocks_and_verify_lib_advancing());
 } FC_LOG_AND_RETHROW() }
@@ -361,15 +354,13 @@ BOOST_AUTO_TEST_CASE(weak_delayed_lost_vote) { try {
    // A strong vote
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
-   // The vote makes a strong QC, but final_on_strong_qc is null.
-   // Do not advance LIB
-   BOOST_REQUIRE(!cluster.node0_lib_advancing());
+   BOOST_REQUIRE(cluster.node0_lib_advancing());
    BOOST_REQUIRE(!cluster.node1_lib_advancing());
 
    // A lost vote
    cluster.produce_and_push_block();
    BOOST_REQUIRE(!cluster.node0_lib_advancing());
-   BOOST_REQUIRE(!cluster.node1_lib_advancing());
+   BOOST_REQUIRE(cluster.node1_lib_advancing());
 
    // The delayed vote arrives
    cluster.process_node1_vote(delayed_index);
@@ -414,15 +405,13 @@ BOOST_AUTO_TEST_CASE(delayed_strong_weak_lost_vote) { try {
    // A strong vote
    cluster.produce_and_push_block();
    cluster.process_node1_vote();
-   // The vote makes a strong QC, but final_on_strong_qc is null.
-   // LIB did not advance.
-   BOOST_REQUIRE(!cluster.node0_lib_advancing());
+   BOOST_REQUIRE(cluster.node0_lib_advancing());
    BOOST_REQUIRE(!cluster.node1_lib_advancing());
 
    // A lost vote
    cluster.produce_and_push_block();
    BOOST_REQUIRE(!cluster.node0_lib_advancing());
-   BOOST_REQUIRE(!cluster.node1_lib_advancing());
+   BOOST_REQUIRE(cluster.node1_lib_advancing());
 
    // The delayed vote arrives
    cluster.process_node1_vote(delayed_index);

@@ -48,7 +48,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
 block_state::block_state(const block_state_legacy& bsp) {
    block_header_state::block_id = bsp.id();
    header = bsp.header;
-   core.last_final_block_num = bsp.block_num(); // [if todo] instant transition is not acceptable
+   core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
    activated_protocol_features = bsp.activated_protocol_features;
 
    auto if_ext_id = instant_finality_extension::extension_id();
