@@ -684,7 +684,9 @@ struct building_block {
                      }
 
                      if (!qc) {
-                        dlog("IF genesis Block");
+                        // This only happens when parent block is the IF genesis block.
+                        // There is no most ancestor block which has a QC.
+                        // Construct a default QC claim.
                         qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
                      }
                   });
@@ -698,13 +700,18 @@ struct building_block {
                   .new_protocol_feature_activations = new_protocol_feature_activations()
                };
 
-               // get current block reference
-               block_ref current_block {parent_id(), timestamp()};
+               // Get parent block reference.
+               auto parent_timestamp = timestamp();
+               parent_timestamp.slot--;
+               block_ref parent_block {
+                  .block_id  = parent_id(),
+                  .timestamp = parent_timestamp
+               };
 
                block_header_state_input bhs_input{
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  current_block,
+                  parent_block,
                   qc_data->current_qc_claim
                };
 

@@ -153,7 +153,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
 
    block_ref current_block{
       .block_id  = block_id,
-      .timestamp = h.timestamp
+      .timestamp = timestamp()
    };
 
    block_header_state_input bhs_input{
