@@ -23,12 +23,12 @@ struct qc_link
    bool            is_link_strong {false};
 };
 
-struct qc_claim
+struct qc_claim_t
 {
    block_num_type  block_num {0};
    bool            is_strong_qc {false};
 
-   auto operator<=>(const qc_claim&) const = default;
+   auto operator<=>(const qc_claim_t&) const = default;
 };
 
 struct core_metadata
@@ -90,7 +90,7 @@ struct finality_core
     *  @post none
     *  @returns latest qc_claim made by the core
     */
-   qc_claim latest_qc_claim() const;
+   qc_claim_t latest_qc_claim() const;
 
    /**
     *  @pre last_final_block_num() <= block_num < current_block_num()
@@ -115,7 +115,7 @@ struct finality_core
     *  @post returned core_metadata has final_on_strong_qc_block_num >= this->final_on_strong_qc_block_num
     *  @post returned core_metadata has last_final_block_num >= this->last_final_block_num()
     */
-   core_metadata next_metadata(const qc_claim& most_recent_ancestor_with_qc) const;
+   core_metadata next_metadata(const qc_claim_t& most_recent_ancestor_with_qc) const;
 
    /**
     *  @pre current_block.block_num() == this->current_block_num()
@@ -128,13 +128,12 @@ struct finality_core
     *  @post returned core has final_on_strong_qc_block_num >= this->final_on_strong_qc_block_num
     *  @post returned core has last_final_block_num() >= this->last_final_block_num()
     */
-   finality_core next(const block_ref& current_block, const qc_claim& most_recent_ancestor_with_qc) const;
+   finality_core next(const block_ref& current_block, const qc_claim_t& most_recent_ancestor_with_qc) const;
 };
 
 } /// eosio::chain
 
 FC_REFLECT( eosio::chain::block_ref, (block_id)(timestamp) )
 FC_REFLECT( eosio::chain::qc_link, (source_block_num)(target_block_num)(is_link_strong) )
-FC_REFLECT( eosio::chain::qc_claim, (block_num)(is_strong_qc) )
-FC_REFLECT( eosio::chain::finality_core,
-      (links)(refs)(final_on_strong_qc_block_num))
+FC_REFLECT( eosio::chain::qc_claim_t, (block_num)(is_strong_qc) )
+FC_REFLECT( eosio::chain::finality_core, (links)(refs)(final_on_strong_qc_block_num))

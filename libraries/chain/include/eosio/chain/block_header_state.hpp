@@ -27,7 +27,7 @@ struct block_header_state_input : public building_block_input {
    digest_type                       action_mroot;         // Compute root from  building_block::action_receipt_digests
    std::shared_ptr<proposer_policy>  new_proposer_policy;  // Comes from building_block::new_proposer_policy
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
-   qc_claim                          most_recent_ancestor_with_qc; // Comes from traversing branch from parent and calling get_best_qc()
+   qc_claim_t                        most_recent_ancestor_with_qc; // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
 };
 

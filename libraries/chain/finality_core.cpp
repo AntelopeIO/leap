@@ -71,11 +71,11 @@ block_num_type finality_core::last_final_block_num() const
  *  @post none
  *  @returns latest qc_claim made by the core
  */
-qc_claim finality_core::latest_qc_claim() const
+qc_claim_t finality_core::latest_qc_claim() const
 {
    assert(!links.empty()); // Satisfied by invariant 1.
 
-   return qc_claim{.block_num = links.back().target_block_num, .is_strong_qc = links.back().is_link_strong};
+   return qc_claim_t{.block_num = links.back().target_block_num, .is_strong_qc = links.back().is_link_strong};
 }
 
 /**
@@ -133,7 +133,7 @@ const qc_link& finality_core::get_qc_link_from(block_num_type block_num) const
  *  @post c.links.front().source_block_num <= std::get<1>(returned_value)
  *  @post c.final_on_strong_qc_block_num <= std::get<2>(returned_value)
  */
-std::tuple<block_num_type, block_num_type, block_num_type> get_new_block_numbers(const finality_core& c, const qc_claim& most_recent_ancestor_with_qc)
+std::tuple<block_num_type, block_num_type, block_num_type> get_new_block_numbers(const finality_core& c, const qc_claim_t& most_recent_ancestor_with_qc)
 {
    assert(most_recent_ancestor_with_qc.block_num <= c.current_block_num()); // Satisfied by the precondition.
 
@@ -196,7 +196,7 @@ std::tuple<block_num_type, block_num_type, block_num_type> get_new_block_numbers
    return {link2.target_block_num, link2.source_block_num, link1.target_block_num}; 
 }
 
-core_metadata finality_core::next_metadata(const qc_claim& most_recent_ancestor_with_qc) const
+core_metadata finality_core::next_metadata(const qc_claim_t& most_recent_ancestor_with_qc) const
 {
    assert(most_recent_ancestor_with_qc.block_num <= current_block_num()); // Satisfied by precondition 1.
    assert(latest_qc_claim() <= most_recent_ancestor_with_qc); // Satisfied by precondition 2.
@@ -225,7 +225,7 @@ core_metadata finality_core::next_metadata(const qc_claim& most_recent_ancestor_
  *  @post returned core has final_on_strong_qc_block_num >= this->final_on_strong_qc_block_num
  *  @post returned core has last_final_block_num() >= this->last_final_block_num()
  */
-finality_core finality_core::next(const block_ref& current_block, const qc_claim& most_recent_ancestor_with_qc) const
+finality_core finality_core::next(const block_ref& current_block, const qc_claim_t& most_recent_ancestor_with_qc) const
 {
    assert(current_block.block_num() == current_block_num()); // Satisfied by precondition 1.
    

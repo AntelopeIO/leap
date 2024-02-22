@@ -158,7 +158,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
 
    block_header_state_input bhs_input{
       bb_input,      h.transaction_mroot, h.action_mroot, if_ext.new_proposer_policy, if_ext.new_finalizer_policy,
-      if_ext.new_qc_claim };
+      if_ext.qc_claim };
 
    return next(bhs_input);
 }

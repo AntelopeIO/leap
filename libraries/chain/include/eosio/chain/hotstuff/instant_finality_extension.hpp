@@ -11,21 +11,21 @@ struct instant_finality_extension : fc::reflect_init {
    static constexpr bool     enforce_unique() { return true; }
 
    instant_finality_extension() = default;
-   instant_finality_extension(qc_claim new_qc_claim,
+   instant_finality_extension(qc_claim_t qc_claim,
                               std::optional<finalizer_policy> new_finalizer_policy,
                               std::shared_ptr<proposer_policy> new_proposer_policy) :
-      new_qc_claim(new_qc_claim),
+      qc_claim(qc_claim),
       new_finalizer_policy(std::move(new_finalizer_policy)),
       new_proposer_policy(std::move(new_proposer_policy))
    {}
 
    void reflector_init();
 
-   qc_claim                           new_qc_claim;
+   qc_claim_t                         qc_claim;
    std::optional<finalizer_policy>    new_finalizer_policy;
    std::shared_ptr<proposer_policy>   new_proposer_policy;
 };
 
 } /// eosio::chain
 
-FC_REFLECT( eosio::chain::instant_finality_extension, (new_qc_claim)(new_finalizer_policy)(new_proposer_policy) )
+FC_REFLECT( eosio::chain::instant_finality_extension, (qc_claim)(new_finalizer_policy)(new_proposer_policy) )

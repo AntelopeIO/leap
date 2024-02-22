@@ -120,7 +120,7 @@ class maybe_session {
 struct qc_data_t {
    std::optional<quorum_certificate> qc; // Comes either from traversing branch from parent and calling get_best_qc()
                                          // or from an incoming block extension.
-   qc_claim current_qc_claim;               // describes the above qc. In rare cases (bootstrap, starting from snapshot,
+   qc_claim_t qc_claim;                  // describes the above qc. In rare cases (bootstrap, starting from snapshot,
                                          // disaster recovery), we may not have a qc so we use the `lib` block_num
                                          // and specify `weak`.
 };
@@ -673,11 +673,11 @@ struct building_block {
                            EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent_id()), block_validate_exception,
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
-                           auto claim = qc_claim { qc->block_num, qc->qc.is_strong() };
+                           auto qc_claim = qc_claim_t { qc->block_num, qc->qc.is_strong() };
                            if( bb.parent.is_needed(*qc) ) {
-                              qc_data = qc_data_t{ *qc, claim };
+                              qc_data = qc_data_t{ *qc, qc_claim };
                            } else {
-                              qc_data = qc_data_t{ {},  claim };
+                              qc_data = qc_data_t{ {},  qc_claim };
                            }
                            break;
                         }
@@ -685,7 +685,7 @@ struct building_block {
 
                      if (!qc) {
                         // This only happens when parent block is the IF genesis block.
-                        // There is no most ancestor block which has a QC.
+                        // There is no ancestor block which has a QC.
                         // Construct a default QC claim.
                         qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
                      }
@@ -704,7 +704,7 @@ struct building_block {
                block_header_state_input bhs_input{
                   bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_data->current_qc_claim
+                  qc_data->qc_claim
                };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
@@ -2947,9 +2947,9 @@ struct controller_impl {
          auto exts = b->validate_and_extract_extensions();
          if (auto entry = exts.lower_bound(quorum_certificate_extension::extension_id()); entry != exts.end()) {
             auto& qc_ext = std::get<quorum_certificate_extension>(entry->second);
-            return qc_data_t{ std::move(qc_ext.qc), if_ext.new_qc_claim };
+            return qc_data_t{ std::move(qc_ext.qc), if_ext.qc_claim };
          }
-         return qc_data_t{ {}, if_ext.new_qc_claim };
+         return qc_data_t{ {}, if_ext.qc_claim };
       }
       return {};
    }
@@ -3195,7 +3195,7 @@ struct controller_impl {
 
       assert(header_ext);
       const auto& if_ext   = std::get<instant_finality_extension>(*header_ext);
-      const auto  new_qc_claim = if_ext.new_qc_claim;
+      const auto  new_qc_claim = if_ext.qc_claim;
 
       // If there is a header extension, but the previous block does not have a header extension,
       // ensure the block does not have a QC and the QC claim of the current block has a block_num
@@ -3215,7 +3215,7 @@ struct controller_impl {
       assert(header_ext && prev_header_ext);
 
       const auto& prev_if_ext   = std::get<instant_finality_extension>(*prev_header_ext);
-      const auto  prev_qc_claim = prev_if_ext.new_qc_claim;
+      const auto  prev_qc_claim = prev_if_ext.qc_claim;
 
       // validate QC claim against previous block QC info
 
