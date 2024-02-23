@@ -31,20 +31,21 @@
 // -------------------------------------------------------------------------------------------
 
 namespace eosio::chain {
+   // ----------------------------------------------------------------------------------------
    struct proposal_ref {
       block_id_type         id;
       block_timestamp_type  timestamp;
 
       proposal_ref() = default;
 
-      proposal_ref(const block_id_type& id, block_timestamp_type t) :
-         id(id), timestamp(t)
-      {}
-
       template<class BSP>
       explicit proposal_ref(const BSP& p) :
          id(p->id()),
          timestamp(p->timestamp())
+      {}
+
+      proposal_ref(const block_id_type& id, block_timestamp_type t) :
+         id(id), timestamp(t)
       {}
 
       void reset() {
@@ -56,11 +57,12 @@ namespace eosio::chain {
 
       explicit operator bool() const { return !id.empty(); }
 
-      bool operator==(const proposal_ref& o) const {
+      auto operator==(const proposal_ref& o) const {
          return id == o.id && timestamp == o.timestamp;
       }
    };
 
+   // ----------------------------------------------------------------------------------------
    struct finalizer_safety_information {
       block_timestamp_type last_vote_range_start;
       proposal_ref         last_vote;
@@ -70,7 +72,7 @@ namespace eosio::chain {
 
       static finalizer_safety_information unset_fsi() { return {block_timestamp_type(), {}, {}}; }
 
-      bool operator==(const finalizer_safety_information& o) const {
+      auto operator==(const finalizer_safety_information& o) const {
          return last_vote_range_start == o.last_vote_range_start &&
             last_vote == o.last_vote &&
             lock == o.lock;
@@ -78,24 +80,21 @@ namespace eosio::chain {
    };
 
    // ----------------------------------------------------------------------------------------
-   template<class FORK_DB>
-   struct finalizer_tpl {
+   struct finalizer {
       enum class vote_decision { strong_vote, weak_vote, no_vote };
 
-      bls_private_key               priv_key;
-      finalizer_safety_information  fsi;
+      bls_private_key           priv_key;
+      finalizer_safety_information        fsi;
 
    private:
-      using full_branch_type = FORK_DB::full_branch_type;
+      using branch_type      = fork_database_if_t::branch_type;
+      using full_branch_type = fork_database_if_t::full_branch_type;
+      vote_decision  decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:
-      vote_decision  decide_vote(const FORK_DB::bsp& proposal, const FORK_DB& fork_db);
-
-      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const FORK_DB::bsp& bsp,
-                                             const digest_type& digest, const FORK_DB& fork_db);
+      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_state_ptr& bsp,
+                                             const digest_type& digest, const fork_database_if_t& fork_db);
    };
-
-   using finalizer = finalizer_tpl<fork_database_if_t>;
 
    // ----------------------------------------------------------------------------------------
    struct my_finalizers_t {

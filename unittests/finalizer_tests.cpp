@@ -1,5 +1,4 @@
 #include <eosio/chain/hotstuff/finalizer.hpp>
-#include <eosio/chain/hotstuff/finalizer.ipp> // implementation of finalizer methods
 
 #include <boost/test/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
