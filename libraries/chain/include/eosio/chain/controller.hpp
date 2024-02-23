@@ -91,6 +91,7 @@ namespace eosio::chain {
             flat_set<account_name>   contract_blacklist;
             flat_set< pair<account_name, action_name> > action_blacklist;
             flat_set<public_key_type> key_blacklist;
+            path                     finalizers_dir         =  chain::config::default_finalizers_dir_name;
             path                     blocks_dir             =  chain::config::default_blocks_dir_name;
             block_log_config         blog;
             path                     state_dir              =  chain::config::default_state_dir_name;
@@ -288,6 +289,8 @@ namespace eosio::chain {
          std::optional<signed_block_header> fetch_block_header_by_id( const block_id_type& id )const;
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
+         // thread-safe
+         digest_type get_strong_digest_by_id( const block_id_type& id ) const; // used in unittests
 
          fc::sha256 calculate_integrity_hash();
          void write_snapshot( const snapshot_writer_ptr& snapshot );

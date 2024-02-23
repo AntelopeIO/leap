@@ -1,5 +1,6 @@
 #pragma once
 #include <eosio/chain/block_header.hpp>
+#include <eosio/chain/finality_core.hpp>
 #include <eosio/chain/incremental_merkle.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
@@ -14,43 +15,29 @@ namespace detail { struct schedule_info; };
 
 struct building_block_input {
    block_id_type                     parent_id;
+   block_timestamp_type              parent_timestamp;
    block_timestamp_type              timestamp;
    account_name                      producer;
    vector<digest_type>               new_protocol_feature_activations;
 };
 
-struct qc_data_t {
-   std::optional<quorum_certificate> qc;                   // Comes from traversing branch from parent and calling get_best_qc()
-                                                           // assert(qc->block_num <= num_from_id(previous));
-   qc_claim_t qc_claim;                                    // describes what the above qc proves.
-};
-      
 // this struct can be extracted from a building block
 struct block_header_state_input : public building_block_input {
    digest_type                       transaction_mroot;    // Comes from std::get<checksum256_type>(building_block::trx_mroot_or_receipt_digests)
    digest_type                       action_mroot;         // Compute root from  building_block::action_receipt_digests
    std::shared_ptr<proposer_policy>  new_proposer_policy;  // Comes from building_block::new_proposer_policy
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
-   std::optional<qc_claim_t>         qc_claim;             // Comes from traversing branch from parent and calling get_best_qc()
+   qc_claim_t                        most_recent_ancestor_with_qc; // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
-};
-
-struct block_header_state_core {
-   uint32_t                last_final_block_num = 0;       // last irreversible (final) block.
-   std::optional<uint32_t> final_on_strong_qc_block_num;   // will become final if this header achives a strong QC.
-   uint32_t                last_qc_block_num = 0;
-   uint32_t                finalizer_policy_generation = 0;
-
-   block_header_state_core next(qc_claim_t incoming) const;
 };
 
 struct block_header_state {
    // ------ data members ------------------------------------------------------------
-   block_id_type                       id;
+   block_id_type                       block_id;
    block_header                        header;
    protocol_feature_activation_set_ptr activated_protocol_features;
 
-   block_header_state_core             core;
+   finality_core                       core;
    incremental_merkle_tree             proposal_mtree;
    incremental_merkle_tree             finality_mtree;
 
@@ -68,39 +55,35 @@ struct block_header_state {
 
    // ------ functions -----------------------------------------------------------------
    // [if todo] https://github.com/AntelopeIO/leap/issues/2080
-   digest_type           compute_finalizer_digest() const { return id; };
+   const block_id_type&  id() const { return block_id; }
+   digest_type           compute_finalizer_digest() const { return block_id; };
    block_timestamp_type  timestamp() const { return header.timestamp; }
    account_name          producer() const  { return header.producer; }
    const block_id_type&  previous() const  { return header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
+   block_timestamp_type  last_qc_block_timestamp() const {
+      auto last_qc_block_num  = core.latest_qc_claim().block_num;
+      return core.get_block_reference(last_qc_block_num).timestamp;
+   }
    const producer_authority_schedule& active_schedule_auth()  const { return active_proposer_policy->proposer_schedule; }
    const protocol_feature_activation_set_ptr& get_activated_protocol_features() const { return activated_protocol_features; }
 
    block_header_state next(block_header_state_input& data) const;
-
-   block_header_state next(const signed_block_header& h, const protocol_feature_set& pfs, validator_t& validator) const;
+   block_header_state next(const signed_block_header& h, validator_t& validator) const;
 
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
-      return qc.block_num > core.last_qc_block_num;
+      return qc.block_num > core.latest_qc_claim().block_num;
    }
 
    const vector<digest_type>& get_new_protocol_feature_activations() const;
-   producer_authority get_scheduled_producer(block_timestamp_type t) const;
-   uint32_t active_schedule_version() const;
-   signed_block_header make_block_header(const checksum256_type& transaction_mroot,
-                                         const checksum256_type& action_mroot,
-                                         const std::optional<producer_authority_schedule>& new_producers,
-                                         vector<digest_type>&& new_protocol_feature_activations,
-                                         const protocol_feature_set& pfs) const;
+   const producer_authority& get_scheduled_producer(block_timestamp_type t) const;
 };
 
 using block_header_state_ptr = std::shared_ptr<block_header_state>;
 
 }
 
-FC_REFLECT( eosio::chain::block_header_state_core,
-            (last_final_block_num)(final_on_strong_qc_block_num)(last_qc_block_num)(finalizer_policy_generation))
 FC_REFLECT( eosio::chain::block_header_state,
-            (id)(header)(activated_protocol_features)(core)(proposal_mtree)(finality_mtree)
+            (block_id)(header)(activated_protocol_features)(core)(proposal_mtree)(finality_mtree)
             (active_finalizer_policy)(active_proposer_policy)(proposer_policies)(finalizer_policies)(header_exts))

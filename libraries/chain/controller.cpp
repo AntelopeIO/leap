@@ -27,6 +27,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/hotstuff/finalizer.hpp>
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
@@ -114,6 +115,14 @@ class maybe_session {
 
    private:
       std::optional<database::session>     _session;
+};
+
+struct qc_data_t {
+   std::optional<quorum_certificate> qc; // Comes either from traversing branch from parent and calling get_best_qc()
+                                         // or from an incoming block extension.
+   qc_claim_t qc_claim;                  // describes the above qc. In rare cases (bootstrap, starting from snapshot,
+                                         // disaster recovery), we may not have a qc so we use the `lib` block_num
+                                         // and specify `weak`.
 };
 
 struct completed_block {
@@ -214,10 +223,10 @@ struct assembled_block {
    R apply_legacy(F&& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit(overloaded{[&](assembled_block_legacy& ab) { std::forward<F>(f)(ab); },
-                               [&](assembled_block_if& ab)   {}}, v);
+                               [&](assembled_block_if& ab)     {}}, v);
       else
          return std::visit(overloaded{[&](assembled_block_legacy& ab) -> R { return std::forward<F>(f)(ab); },
-                                      [&](assembled_block_if& ab)   -> R { return {}; }}, v);
+                                      [&](assembled_block_if& ab)     -> R { return {}; }}, v);
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -236,35 +245,35 @@ struct assembled_block {
    const block_id_type& id() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) -> const block_id_type& { return ab.id; },
-                    [](const assembled_block_if& ab)   -> const block_id_type& { return ab.bhs.id; }},
+                    [](const assembled_block_if& ab)     -> const block_id_type& { return ab.bhs.id(); }},
          v);
    }
    
    block_timestamp_type timestamp() const {
       return std::visit(
-         overloaded{[](const assembled_block_legacy& ab)  { return ab.pending_block_header_state.timestamp; },
-                    [](const assembled_block_if& ab)    { return ab.bhs.header.timestamp; }},
+         overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.timestamp; },
+                    [](const assembled_block_if& ab)     { return ab.bhs.header.timestamp; }},
          v);
    }
 
    uint32_t block_num() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.block_num; },
-                    [](const assembled_block_if& ab)   { return ab.bhs.block_num(); }},
+                    [](const assembled_block_if& ab)     { return ab.bhs.block_num(); }},
          v);
    }
 
    account_name producer() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) { return ab.pending_block_header_state.producer; },
-                    [](const assembled_block_if& ab)   { return ab.active_producer_authority.producer_name; }},
+                    [](const assembled_block_if& ab)     { return ab.active_producer_authority.producer_name; }},
          v);
    }
 
    const block_header& header() const {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) -> const block_header& { return *ab.unsigned_block; },
-                    [](const assembled_block_if& ab)   -> const block_header& { return ab.bhs.header; }},
+                    [](const assembled_block_if& ab)     -> const block_header& { return ab.bhs.header; }},
          v);
    }
 
@@ -313,7 +322,7 @@ struct assembled_block {
    }
 
    completed_block complete_block(const protocol_feature_set& pfs, validator_t validator,
-                                  const signer_callback_type& signer) {
+                                  const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority) {
       return std::visit(overloaded{[&](assembled_block_legacy& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
@@ -323,7 +332,8 @@ struct assembled_block {
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
-                                                                               std::move(ab.trx_receipts), ab.qc);
+                                                                               std::move(ab.trx_receipts), ab.qc, signer,
+                                                                               valid_block_signing_authority);
                                       return completed_block{std::move(bsp)};
                                    }},
                         v);
@@ -407,9 +417,6 @@ struct building_block {
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
-      // Members below (as well as non-const members of building_block_common) start from initial state and are mutated as the block is built.
-      std::shared_ptr<proposer_policy>           new_proposer_policy;
-
       building_block_if(const block_header_state& parent, const building_block_input& input)
          : building_block_common(input.new_protocol_feature_activations)
          , parent (parent)
@@ -473,19 +480,6 @@ struct building_block {
       std::visit([&](auto& bb) { bb.new_finalizer_policy = fin_pol; }, v);
    }
 
-   int64_t set_proposed_producers( std::vector<producer_authority> producers ) {
-      return std::visit(
-         overloaded{[](building_block_legacy&) -> int64_t { return -1; },
-                    [&](building_block_if& bb) -> int64_t {
-                       bb.new_proposer_policy = std::make_shared<proposer_policy>();
-                       bb.new_proposer_policy->active_time = detail::get_next_next_round_block_time(bb.timestamp);
-                       bb.new_proposer_policy->proposer_schedule.producers = std::move(producers);
-                       bb.new_proposer_policy->proposer_schedule.version = bb.get_next_proposer_schedule_version();
-                       return bb.new_proposer_policy->proposer_schedule.version;
-                    }},
-         v);
-   }
-
    deque<transaction_metadata_ptr> extract_trx_metas() {
       return std::visit([](auto& bb) { return std::move(bb.pending_trx_metas); }, v);
    }
@@ -537,6 +531,14 @@ struct building_block {
                         v);
    }
 
+   int64_t get_next_proposer_schedule_version() const {
+      return std::visit(
+         overloaded{[](const building_block_legacy&) -> int64_t { return -1; },
+                    [&](const building_block_if& bb) -> int64_t { return bb.get_next_proposer_schedule_version(); }
+                   },
+         v);
+   }
+
    size_t& num_new_protocol_features_activated() {
       return std::visit([](auto& bb) -> size_t& { return bb.num_new_protocol_features_that_have_activated; }, v);
    }
@@ -577,8 +579,6 @@ struct building_block {
                                    [](const building_block_if& bb) -> const producer_authority_schedule* {
                                       if (!bb.parent.proposer_policies.empty())
                                          return &bb.parent.proposer_policies.begin()->second->proposer_schedule;
-                                      if (bb.new_proposer_policy)
-                                         return &bb.new_proposer_policy->proposer_schedule;
                                       return nullptr;
                                    }},
                         v);
@@ -599,6 +599,7 @@ struct building_block {
    assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
                                   fork_database& fork_db,
+                                  std::unique_ptr<proposer_policy> new_proposer_policy,
                                   bool validating,
                                   std::optional<qc_data_t> validating_qc_data) {
       digests_t& action_receipts = action_receipt_digests();
@@ -657,34 +658,45 @@ struct building_block {
                } else {
                   fork_db.apply_if<void>([&](const auto& forkdb) {
                      auto branch = forkdb.fetch_branch(parent_id());
+                     std::optional<quorum_certificate> qc;
                      for( auto it = branch.begin(); it != branch.end(); ++it ) {
-                        auto qc = (*it)->get_best_qc();
+                        qc = (*it)->get_best_qc();
                         if( qc ) {
                            EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent_id()), block_validate_exception,
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
+                           auto qc_claim = qc_claim_t { qc->block_num, qc->qc.is_strong() };
                            if( bb.parent.is_needed(*qc) ) {
-                              qc_data = qc_data_t{ *qc, qc_claim_t{ qc->block_num, qc->qc.is_strong() }};
+                              qc_data = qc_data_t{ *qc, qc_claim };
                            } else {
-                              qc_data = qc_data_t{ {}, qc_claim_t{ qc->block_num, qc->qc.is_strong() }};
+                              qc_data = qc_data_t{ {},  qc_claim };
                            }
                            break;
                         }
                      }
+
+                     if (!qc) {
+                        // This only happens when parent block is the IF genesis block.
+                        // There is no ancestor block which has a QC.
+                        // Construct a default QC claim.
+                        qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
+                     }
                   });
+
                }
 
                building_block_input bb_input {
                   .parent_id = parent_id(),
+                  .parent_timestamp = bb.parent.timestamp(),
                   .timestamp = timestamp(),
                   .producer  = producer(),
                   .new_protocol_feature_activations = new_protocol_feature_activations()
                };
 
                block_header_state_input bhs_input{
-                  bb_input, transaction_mroot, action_mroot, std::move(bb.new_proposer_policy),
+                  bb_input, transaction_mroot, action_mroot, std::move(new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_data ? qc_data->qc_claim : std::optional<qc_claim_t>{}
+                  qc_data->qc_claim
                };
 
                assembled_block::assembled_block_if ab{std::move(bb.active_producer_authority), bb.parent.next(bhs_input),
@@ -773,6 +785,14 @@ struct pending_state {
          _block_stage);
    }
 
+   int64_t get_next_proposer_schedule_version() const {
+      return std::visit(overloaded{
+                           [](const building_block& stage) -> int64_t { return stage.get_next_proposer_schedule_version(); },
+                           [](const assembled_block&) -> int64_t { assert(false); return -1; },
+                           [](const completed_block&) -> int64_t { assert(false); return -1; }
+                        },
+                        _block_stage);
+   }
 };
 
 struct controller_impl {
@@ -814,7 +834,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
-   bls_key_map_t                   node_finalizer_keys;
+   my_finalizers_t                   my_finalizers;
    std::atomic<bool>               writing_snapshot = false;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
@@ -1083,6 +1103,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
+    my_finalizers{ .t_startup = fc::time_point::now(), .persist_file_path = cfg.finalizers_dir / "safety.dat" },
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open([this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
@@ -1555,6 +1576,41 @@ struct controller_impl {
       };
 
       fork_db.apply<void>(finish_init);
+
+      // At Leap startup, we want to provide to our local finalizers the correct safety information
+      // to use if they don't already have one.
+      // If we start at a block prior to the IF transition, that information will be provided when
+      // we create the new `fork_db_if`.
+      // If we start at a block during or after the IF transition, we need to provide this information
+      // at startup.
+      // ---------------------------------------------------------------------------------------------
+      if (fork_db.fork_db_if_present()) {
+         // we are already past the IF transition point where we create the updated fork_db.
+         // so we can't rely on the finalizer safety information update happening during the transition.
+         // see https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
+         // -------------------------------------------------------------------------------------------
+         if (fork_db.fork_db_legacy_present()) {
+            // fork_db_legacy is present as well, which means that we have not completed the transition
+            auto set_finalizer_defaults = [&](auto& forkdb) -> void {
+               auto lib = forkdb.root();
+               my_finalizers.set_default_safety_information(
+                  finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                 .last_vote = {},
+                                                 .lock      = finalizer::proposal_ref(lib) });
+            };
+            fork_db.apply_if<void>(set_finalizer_defaults);
+         } else {
+            // we are past the IF transition.
+            auto set_finalizer_defaults = [&](auto& forkdb) -> void {
+               auto lib = forkdb.root();
+               my_finalizers.set_default_safety_information(
+                  finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                 .last_vote = {},
+                                                 .lock      = finalizer::proposal_ref(lib) });
+            };
+            fork_db.apply_if<void>(set_finalizer_defaults);
+         }
+      }
    }
 
    ~controller_impl() {
@@ -1811,6 +1867,18 @@ struct controller_impl {
       EOS_ASSERT( gpo.chain_id == chain_id, chain_id_type_exception,
                   "chain ID in snapshot (${snapshot_chain_id}) does not match the chain ID that controller was constructed with (${controller_chain_id})",
                   ("snapshot_chain_id", gpo.chain_id)("controller_chain_id", chain_id)
+      );
+   }
+
+   digest_type get_strong_digest_by_id( const block_id_type& id ) const {
+      return fork_db.apply<digest_type>(
+         overloaded{
+            [](const fork_database_legacy_t&) -> digest_type { return digest_type{}; },
+            [&](const fork_database_if_t& forkdb) -> digest_type {
+               auto bsp = forkdb.get_block(id);
+               return bsp ? bsp->strong_digest : digest_type{};
+            }
+         }
       );
    }
 
@@ -2497,7 +2565,7 @@ struct controller_impl {
          },
          [&](auto& forkdb) { // instant-finality
             maybe_session        session = skip_db_sessions(s) ? maybe_session() : maybe_session(db);
-            building_block_input bbi{forkdb.chain_head->id(), when, forkdb.chain_head->get_scheduled_producer(when).producer_name,
+            building_block_input bbi{forkdb.chain_head->id(), forkdb.chain_head->timestamp(), when, forkdb.chain_head->get_scheduled_producer(when).producer_name,
                                      new_protocol_feature_activations};
             pending.emplace(std::move(session), *forkdb.chain_head, bbi);
          });
@@ -2664,8 +2732,26 @@ struct controller_impl {
             );
          resource_limits.process_block_usage(bb.block_num());
 
+         // Any proposer policy?
+         std::unique_ptr<proposer_policy> new_proposer_policy;
+         auto process_new_proposer_policy = [&](auto& forkdb) -> void {
+            const auto& gpo = db.get<global_property_object>();
+            if (gpo.proposed_schedule_block_num != 0) {
+               new_proposer_policy                    = std::make_unique<proposer_policy>();
+               new_proposer_policy->active_time       = detail::get_next_next_round_block_time(bb.timestamp());
+               new_proposer_policy->proposer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+
+               db.modify( gpo, [&]( auto& gp ) {
+                  gp.proposed_schedule_block_num = 0;
+                  gp.proposed_schedule.version = 0;
+                  gp.proposed_schedule.producers.clear();
+               });
+            }
+         };
+         fork_db.apply_if<void>(process_new_proposer_policy);
+
          auto assembled_block =
-            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), fork_db,
+            bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), fork_db, std::move(new_proposer_policy),
                               validating, std::move(validating_qc_data));
 
          // Update TaPoS table:
@@ -2719,7 +2805,7 @@ struct controller_impl {
             log_irreversible();
          }
 
-         fork_db.apply_if<void>([&](auto& forkdb) { create_and_send_vote_msg(forkdb.chain_head); });
+         fork_db.apply_if<void>([&](auto& forkdb) { create_and_send_vote_msg(forkdb.chain_head, forkdb); });
 
          // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
          auto transition = [&](auto& forkdb) -> bool {
@@ -2729,6 +2815,30 @@ struct controller_impl {
                if (if_extension.new_finalizer_policy) {
                   ilog("Transition to instant finality happening after block ${b}", ("b", forkdb.chain_head->block_num()));
                   if_irreversible_block_num = forkdb.chain_head->block_num();
+
+                  // cancel any proposed schedule changes, prepare for new ones under instant_finality
+                  const auto& gpo = db.get<global_property_object>();
+                  db.modify(gpo, [&](auto& gp) {
+                     gp.proposed_schedule_block_num = 0;
+                     gp.proposed_schedule.version   = 0;
+                     gp.proposed_schedule.producers.clear();
+                  });
+
+                  {
+                     // If Leap started at a block prior to the IF transition, it needs to provide a default safety
+                     // information for those finalizers that don't already have one. This typically should be done when
+                     // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
+                     // to the IF consensus.
+                     // See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
+                     // [if todo] set values accurately
+                     // -----------------------------------------------------------------------------------------------
+                     auto start_block = forkdb.chain_head;
+                     auto lib_block   = forkdb.chain_head;
+                     my_finalizers.set_default_safety_information(
+                        finalizer::safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                       .last_vote = finalizer::proposal_ref(start_block),
+                                                       .lock      = finalizer::proposal_ref(lib_block) });
+                  }
 
                   log_irreversible();
                   return true;
@@ -2998,67 +3108,63 @@ struct controller_impl {
       } FC_CAPTURE_AND_RETHROW();
    } /// apply_block
 
+
    // called from net threads and controller's thread pool
    vote_status process_vote_message( const vote_message& vote ) {
-      auto do_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
-          auto bsp = forkdb.get_block(vote.proposal_id);
-          if (bsp) {
-             auto [vote_state, state, block_num] = bsp->aggregate_vote(vote);
-             if (vote_state == vote_status::success && state == pending_quorum_certificate::state_t::strong) { // if block_num then strong vote
-                forkdb.update_best_qc_strong(bsp->id());
-             }
-             return {vote_state, block_num};
-          }
-          return {vote_status::unknown_block, {}};
+      auto aggregate_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
+         auto bsp = forkdb.get_block(vote.proposal_id);
+         if (bsp) {
+            auto [vote_state, state, block_num] = bsp->aggregate_vote(vote);
+            if (vote_state == vote_status::success && state == pending_quorum_certificate::state_t::strong) { // if block_num then strong vote
+               forkdb.update_best_qc_strong(bsp->id());
+            }
+            return {vote_state, block_num};
+         }
+         return {vote_status::unknown_block, {}};
       };
       // TODO: https://github.com/AntelopeIO/leap/issues/2057
       // TODO: Do not aggregate votes on block_state if in legacy block fork_db
-      auto do_vote_legacy = [](auto&) -> std::pair<vote_status, std::optional<uint32_t>> {
+      auto aggregate_vote_legacy = [](auto&) -> std::pair<vote_status, std::optional<uint32_t>> {
          return {vote_status::unknown_block, {}};
       };
-      auto [status, new_lib] = fork_db.apply<std::pair<vote_status, std::optional<uint32_t>>>(do_vote_legacy, do_vote);
+      auto [status, new_lib] = fork_db.apply<std::pair<vote_status, std::optional<uint32_t>>>(aggregate_vote_legacy, aggregate_vote);
       if (new_lib) {
          set_if_irreversible_block_num(*new_lib);
       }
       return status;
-   };
+   }
 
-   void create_and_send_vote_msg(const block_state_ptr& bsp) {
-#warning use decide_vote() for strong after it is implementd by https://github.com/AntelopeIO/leap/issues/2070
-      bool strong = true;
+   void create_and_send_vote_msg(const block_state_ptr& bsp, const fork_database_if_t& fork_db) {
+      auto finalizer_digest = bsp->compute_finalizer_digest();
 
-      // A vote is created and signed by each finalizer configured on the node that
-      // in active finalizer policy
-      for (const auto& f: bsp->active_finalizer_policy->finalizers) {
-         auto it = node_finalizer_keys.find( f.public_key );
-         if( it != node_finalizer_keys.end() ) {
-            const auto& private_key = it->second;
-            const auto& digest = bsp->compute_finalizer_digest();
+      // Each finalizer configured on the node which is present in the active finalizer policy
+      // may create and sign a vote
+      // TODO: as a future optimization, we could run maybe_vote on a thread (it would need a
+      // lock around the file access). We should document that the voted_block is emitted
+      // off the main thread. net_plugin is fine for this to be emitted from any thread.
+      // Just need to update the comment in net_plugin
+      my_finalizers.maybe_vote(
+          *bsp->active_finalizer_policy, bsp, fork_db, finalizer_digest, [&](const vote_message& vote) {
+              // net plugin subscribed to this signal. it will broadcast the vote message
+              // on receiving the signal
+              emit(voted_block, vote);
 
-            auto sig =  private_key.sign(std::vector<uint8_t>(digest.data(), digest.data() + digest.data_size()));
-
-            // construct the vote message
-            vote_message vote{ bsp->id(), strong, f.public_key, sig };
-
-            // net plugin subscribed this signal. it will broadcast the vote message
-            // on receiving the signal
-            emit( voted_block, vote );
-
-            boost::asio::post(thread_pool.get_executor(), [control=this, vote]() {
-               control->process_vote_message(vote);
-            });
-         }
-      }
+              // also aggregate our own vote into the pending_qc for this block.
+              boost::asio::post(thread_pool.get_executor(),
+                                [control = this, vote]() { control->process_vote_message(vote); });
+          });
    }
 
    // expected to be called from application thread as it modifies bsp->valid_qc,
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
       const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
-      if( block_exts.count(quorum_certificate_extension::extension_id()) == 0 ) {
+      auto qc_ext_id = quorum_certificate_extension::extension_id();
+
+      if( block_exts.count(qc_ext_id) == 0 ) {
          return;
       }
-      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts. lower_bound(quorum_certificate_extension::extension_id())->second);
+      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& received_qc = qc_ext.qc.qc;
 
       const auto bsp = fork_db_fetch_bsp_by_num( bsp_in->previous(), qc_ext.qc.block_num );
@@ -3074,14 +3180,14 @@ struct controller_impl {
       // Save the QC. This is safe as the function is called by push_block from application thread.
       bsp->valid_qc = received_qc;
 
-      // advance LIB if QC is strong and final_on_strong_qc_block_num has value
-      if( received_qc.is_strong() && bsp->core.final_on_strong_qc_block_num ) {
+      // advance LIB if QC is strong
+      if( received_qc.is_strong() ) {
          // We evaluate a block extension qc and advance lib if strong.
          // This is done before evaluating the block. It is possible the block
          // will not be valid or forked out. This is safe because the block is
          // just acting as a carrier of this info. It doesn't matter if the block
          // is actually valid as it simply is used as a network message for this data.
-         set_if_irreversible_block_num(*bsp->core.final_on_strong_qc_block_num);
+         set_if_irreversible_block_num(bsp->core.final_on_strong_qc_block_num);
       }
    }
 
@@ -3120,14 +3226,14 @@ struct controller_impl {
 
       assert(header_ext);
       const auto& if_ext   = std::get<instant_finality_extension>(*header_ext);
-      const auto  qc_claim = if_ext.qc_claim;
+      const auto  new_qc_claim = if_ext.qc_claim;
 
       // If there is a header extension, but the previous block does not have a header extension,
-      // ensure the block does not have a QC and the QC claim of the current block has a last_qc_block_num
+      // ensure the block does not have a QC and the QC claim of the current block has a block_num
       // of the current block’s number and that it is a claim of a weak QC. Then return early.
       // -------------------------------------------------------------------------------------------------
       if (!prev_header_ext) {
-         EOS_ASSERT( !qc_extension_present && qc_claim.last_qc_block_num == block_num && qc_claim.is_last_qc_strong == false,
+         EOS_ASSERT( !qc_extension_present && new_qc_claim.block_num == block_num && new_qc_claim.is_strong_qc == false,
                      invalid_qc_claim,
                      "Block #${b}, which is the finality transition block, doesn't have the expected extensions",
                      ("b", block_num) );
@@ -3145,13 +3251,13 @@ struct controller_impl {
       // validate QC claim against previous block QC info
 
       // new claimed QC block number cannot be smaller than previous block's
-      EOS_ASSERT( qc_claim.last_qc_block_num >= prev_qc_claim.last_qc_block_num,
+      EOS_ASSERT( new_qc_claim.block_num >= prev_qc_claim.block_num,
                   invalid_qc_claim,
-                  "Block #${b} claims a last_qc_block_num (${n1}) less than the previous block's (${n2})",
-                  ("n1", qc_claim.last_qc_block_num)("n2", prev_qc_claim.last_qc_block_num)("b", block_num) );
+                  "Block #${b} claims a block_num (${n1}) less than the previous block's (${n2})",
+                  ("n1", new_qc_claim.block_num)("n2", prev_qc_claim.block_num)("b", block_num) );
 
-      if( qc_claim.last_qc_block_num == prev_qc_claim.last_qc_block_num ) {
-         if( qc_claim.is_last_qc_strong == prev_qc_claim.is_last_qc_strong ) {
+      if( new_qc_claim.block_num == prev_qc_claim.block_num ) {
+         if( new_qc_claim.is_strong_qc == prev_qc_claim.is_strong_qc ) {
             // QC block extension is redundant
             EOS_ASSERT( !qc_extension_present,
                         invalid_qc_claim,
@@ -3164,10 +3270,10 @@ struct controller_impl {
          }
 
          // new claimed QC must be stronger than previous if the claimed block number is the same
-         EOS_ASSERT( qc_claim.is_last_qc_strong,
+         EOS_ASSERT( new_qc_claim.is_strong_qc,
                      invalid_qc_claim,
                      "claimed QC (${s1}) must be stricter than previous block's (${s2}) if block number is the same. Block number: ${b}",
-                     ("s1", qc_claim.is_last_qc_strong)("s2", prev_qc_claim.is_last_qc_strong)("b", block_num) );
+                     ("s1", new_qc_claim.is_strong_qc)("s2", prev_qc_claim.is_strong_qc)("b", block_num) );
       }
 
       // At this point, we are making a new claim in this block, so it better include a QC to justify this claim.
@@ -3179,23 +3285,23 @@ struct controller_impl {
       const auto& qc_proof = qc_ext.qc;
 
       // Check QC information in header extension and block extension match
-      EOS_ASSERT( qc_proof.block_num == qc_claim.last_qc_block_num,
+      EOS_ASSERT( qc_proof.block_num == new_qc_claim.block_num,
                   invalid_qc_claim,
-                  "Block #${b}: Mismatch between qc.block_num (${n1}) in block extension and last_qc_block_num (${n2}) in header extension",
-                  ("n1", qc_proof.block_num)("n2", qc_claim.last_qc_block_num)("b", block_num) );
+                  "Block #${b}: Mismatch between qc.block_num (${n1}) in block extension and block_num (${n2}) in header extension",
+                  ("n1", qc_proof.block_num)("n2", new_qc_claim.block_num)("b", block_num) );
 
       // Verify claimed strictness is the same as in proof
-      EOS_ASSERT( qc_proof.qc.is_strong() == qc_claim.is_last_qc_strong,
+      EOS_ASSERT( qc_proof.qc.is_strong() == new_qc_claim.is_strong_qc,
                   invalid_qc_claim,
-                  "QC is_strong (${s1}) in block extension does not match is_last_qc_strong (${s2}) in header extension. Block number: ${b}",
-                  ("s1", qc_proof.qc.is_strong())("s2", qc_claim.is_last_qc_strong)("b", block_num) );
+                  "QC is_strong (${s1}) in block extension does not match is_strong_qc (${s2}) in header extension. Block number: ${b}",
+                  ("s1", qc_proof.qc.is_strong())("s2", new_qc_claim.is_strong_qc)("b", block_num) );
 
       // find the claimed block's block state on branch of id
-      auto bsp = fork_db_fetch_bsp_by_num( prev.id, qc_claim.last_qc_block_num );
+      auto bsp = fork_db_fetch_bsp_by_num( prev.id(), new_qc_claim.block_num );
       EOS_ASSERT( bsp,
                   invalid_qc_claim,
-                  "Block state was not found in forkdb for last_qc_block_num ${q}. Block number: ${b}",
-                  ("q", qc_claim.last_qc_block_num)("b", block_num) );
+                  "Block state was not found in forkdb for block_num ${q}. Block number: ${b}",
+                  ("q", new_qc_claim.block_num)("b", block_num) );
 
       // verify the QC proof against the claimed block
       bsp->verify_qc(qc_proof.qc);
@@ -3814,9 +3920,7 @@ struct controller_impl {
    }
 
    void set_node_finalizer_keys(const bls_pub_priv_key_map_t& finalizer_keys) {
-      for (const auto& k : finalizer_keys) {
-         node_finalizer_keys[bls_public_key{k.first}] = bls_private_key{k.second};
-      }
+      my_finalizers.set_keys(finalizer_keys);
    }
 
    bool irreversible_mode() const { return read_mode == db_read_mode::IRREVERSIBLE; }
@@ -4153,10 +4257,12 @@ void controller::assemble_and_complete_block( block_report& br, const signer_cal
    my->assemble_block();
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
+   const auto& valid_block_signing_authority = my->head_active_schedule_auth().get_scheduled_producer(ab.timestamp()).authority;
    my->pending->_block_stage = ab.complete_block(
       my->protocol_features.get_protocol_feature_set(),
       [](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features, const vector<digest_type>& new_features) {},
-      signer_callback);
+      signer_callback,
+      valid_block_signing_authority);
 
    br = my->pending->_block_report;
 }
@@ -4411,6 +4517,10 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    return id;
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
+digest_type controller::get_strong_digest_by_id( const block_id_type& id ) const {
+   return my->get_strong_digest_by_id(id);
+}
+
 fc::sha256 controller::calculate_integrity_hash() { try {
    return my->calculate_integrity_hash();
 } FC_LOG_AND_RETHROW() }
@@ -4438,12 +4548,30 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
 }
 
 int64_t controller_impl::set_proposed_producers( vector<producer_authority> producers ) {
-   // TODO: zero out gpo.proposed_schedule_block_num and gpo.proposed_schedule on instant finality enabled
-   if (producers.empty())
-      return -1;
+   // Savanna sets the global_property_object.proposed_schedule similar to legacy, but it is only set during the building of the block.
+   // global_property_object is used instead of building_block so that if the transaction fails it is rolledback.
 
-   auto& bb = std::get<building_block>(pending->_block_stage);
-   return bb.set_proposed_producers(std::move(producers));
+   if (producers.empty())
+      return -1; // regardless of disallow_empty_producer_schedule
+
+   assert(pending);
+   const auto& gpo = db.get<global_property_object>();
+   auto cur_block_num = head_block_num() + 1;
+
+   producer_authority_schedule sch;
+
+   sch.version = pending->get_next_proposer_schedule_version();
+   sch.producers = std::move(producers);
+
+   ilog( "proposed producer schedule with version ${v}", ("v", sch.version) );
+
+   // overwrite any existing proposed_schedule set earlier in this block
+   db.modify( gpo, [&]( auto& gp ) {
+      gp.proposed_schedule_block_num = cur_block_num;
+      gp.proposed_schedule = sch;
+   });
+
+   return sch.version;
 }
 
 int64_t controller_impl::set_proposed_producers_legacy( vector<producer_authority> producers ) {

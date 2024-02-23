@@ -1,5 +1,6 @@
 #pragma once
 
+#include <eosio/chain/block_timestamp.hpp>
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/bls_signature.hpp>
@@ -10,14 +11,18 @@
 
 namespace eosio::chain {
 
+   using bls_public_key  = fc::crypto::blslib::bls_public_key;
+   using bls_signature   = fc::crypto::blslib::bls_signature;
+   using bls_private_key = fc::crypto::blslib::bls_private_key;
+
    using hs_bitset = boost::dynamic_bitset<uint32_t>;
-   using bls_key_map_t = std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>;
+   using bls_key_map_t = std::map<bls_public_key, bls_private_key>;
 
    struct vote_message {
       fc::sha256                          proposal_id; //vote on proposal
       bool                                strong{false};
-      fc::crypto::blslib::bls_public_key  finalizer_key;
-      fc::crypto::blslib::bls_signature   sig;
+      bls_public_key                      finalizer_key;
+      bls_signature                       sig;
    };
 
    enum class vote_status {
@@ -53,7 +58,7 @@ namespace eosio::chain {
 
    // quorum_certificate
    struct quorum_certificate {
-      uint32_t block_num;
+      uint32_t                 block_num;
       valid_quorum_certificate qc;
    };
 
@@ -76,7 +81,7 @@ namespace eosio::chain {
          void resize(size_t num_finalizers) { _bitset.resize(num_finalizers); }
          size_t count() const { return _bitset.count(); }
 
-         vote_status add_vote(const std::vector<uint8_t>& proposal_digest, size_t index, const bls_public_key& pubkey,
+         vote_status add_vote(std::span<const uint8_t> proposal_digest, size_t index, const bls_public_key& pubkey,
                               const bls_signature& new_sig);
 
          void reset(size_t num_finalizers);
@@ -90,9 +95,12 @@ namespace eosio::chain {
       bool is_quorum_met() const;
 
       // thread safe
-      std::pair<vote_status, state_t>
-      add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
-               const bls_public_key& pubkey, const bls_signature& sig, uint64_t weight);
+      std::pair<vote_status, state_t> add_vote(bool strong,
+                                               std::span<const uint8_t> proposal_digest,
+                                               size_t index,
+                                               const bls_public_key& pubkey,
+                                               const bls_signature& sig,
+                                               uint64_t weight);
 
       state_t state() const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;
@@ -110,14 +118,14 @@ namespace eosio::chain {
       votes_t              _strong_votes;
 
       // called by add_vote, already protected by mutex
-      vote_status add_strong_vote(const std::vector<uint8_t>& proposal_digest,
+      vote_status add_strong_vote(std::span<const uint8_t> proposal_digest,
                                   size_t index,
                                   const bls_public_key& pubkey,
                                   const bls_signature& sig,
                                   uint64_t weight);
 
       // called by add_vote, already protected by mutex
-      vote_status add_weak_vote(const std::vector<uint8_t>& proposal_digest,
+      vote_status add_weak_vote(std::span<const uint8_t> proposal_digest,
                                 size_t index,
                                 const bls_public_key& pubkey,
                                 const bls_signature& sig,

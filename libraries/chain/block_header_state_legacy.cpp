@@ -19,7 +19,7 @@ namespace eosio::chain {
       return blocknums[ index ];
    }
 
-   producer_authority block_header_state_legacy::get_scheduled_producer( block_timestamp_type t ) const {
+   const producer_authority& block_header_state_legacy::get_scheduled_producer( block_timestamp_type t ) const {
       return detail::get_scheduled_producer(active_schedule.producers, t);
    }
 
@@ -34,7 +34,7 @@ namespace eosio::chain {
         (when = header.timestamp).slot++;
       }
 
-      auto proauth = get_scheduled_producer(when);
+      const auto& proauth = get_scheduled_producer(when);
 
       auto itr = producer_to_last_produced.find( proauth.producer_name );
       if( itr != producer_to_last_produced.end() ) {
@@ -210,8 +210,10 @@ namespace eosio::chain {
       if (new_finalizer_policy) {
          new_finalizer_policy->generation = 1;
          // set current block_num as qc_claim.last_qc_block_num in the IF extension
+         qc_claim_t initial_if_claim { .block_num = block_num,
+                                       .is_strong_qc = false };
          emplace_extension(h.header_extensions, instant_finality_extension::extension_id(),
-                           fc::raw::pack(instant_finality_extension{ { block_num, false }, std::move(new_finalizer_policy), {} }));
+                           fc::raw::pack(instant_finality_extension{ initial_if_claim, std::move(new_finalizer_policy), {} }));
       }
 
       return h;
@@ -287,8 +289,8 @@ namespace eosio::chain {
 
       block_header_state_legacy result( std::move( *static_cast<detail::block_header_state_legacy_common*>(this) ) );
 
-      result.id      = h.calculate_id();
-      result.header  = h;
+      result.id       = h.calculate_id();
+      result.header   = h;
 
       result.header_exts = std::move(exts);
 

@@ -80,6 +80,7 @@ set(CHAIN_WEBASSEMBLY_SOURCES
 )
 
 set(CHAIN_HOTSTUFF_SOURCES
+   hotstuff/finalizer.cpp
    hotstuff/instant_finality_extension.cpp
    hotstuff/hotstuff.cpp
 )
@@ -98,6 +99,7 @@ add_library( eosio_chain
              block_state.cpp
              block_header_state_legacy.cpp
              block_state_legacy.cpp
+             finality_core.cpp
              fork_database.cpp
              controller.cpp
              authorization_manager.cpp

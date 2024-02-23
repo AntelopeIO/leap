@@ -1071,6 +1071,106 @@ BOOST_AUTO_TEST_CASE( get_sender_test ) { try {
    );
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE( protocol_activatation_works_after_transition_to_savanna ) { try {
+   validating_tester c({}, {}, setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::instant_finality);
+   // needed for bios contract
+   const auto& dp = pfm.get_builtin_digest(builtin_protocol_feature_t::bls_primitives);
+   const auto& dw = pfm.get_builtin_digest(builtin_protocol_feature_t::wtmsig_block_signatures);
+   const auto& dwk = pfm.get_builtin_digest(builtin_protocol_feature_t::webauthn_key);
+   c.preactivate_protocol_features( {*d, *dp, *dw, *dwk} );
+   c.produce_block();
+
+   c.set_bios_contract();
+   c.produce_block();
+
+   uint32_t lib = 0;
+   c.control->irreversible_block().connect([&](const block_signal_params& t) {
+      const auto& [ block, id ] = t;
+      lib = block->block_num();
+   });
+
+   c.produce_block();
+
+   vector<account_name> accounts = {
+      "alice"_n, "bob"_n, "carol"_n
+   };
+
+   base_tester::finalizer_policy_input policy_input = {
+      .finalizers       = { {.name = "alice"_n, .weight = 1},
+                            {.name = "bob"_n,   .weight = 3},
+                            {.name = "carol"_n, .weight = 5} },
+      .threshold        = 5,
+      .local_finalizers = {"carol"_n}
+   };
+
+   // Create finalizer accounts
+   c.create_accounts(accounts);
+   c.produce_block();
+
+   // activate savanna
+   c.set_finalizers(policy_input);
+   auto block = c.produce_block(); // this block contains the header extension for the instant finality
+
+   std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
+   BOOST_TEST(!!ext);
+   std::optional<finalizer_policy> fin_policy = std::get<instant_finality_extension>(*ext).new_finalizer_policy;
+   BOOST_TEST(!!fin_policy);
+   BOOST_TEST(fin_policy->finalizers.size() == accounts.size());
+
+   block = c.produce_block(); // savanna now active
+   auto fb = c.control->fetch_block_by_id(block->calculate_id());
+   BOOST_REQUIRE(!!fb);
+   BOOST_TEST(fb == block);
+   ext = fb->extract_header_extension(instant_finality_extension::extension_id());
+   BOOST_REQUIRE(ext);
+
+   auto lib_after_transition = lib;
+
+   c.produce_blocks(4);
+   BOOST_CHECK_GT(lib, lib_after_transition);
+
+   // verify protocol feature activation works under savanna
+
+   const auto& tester1_account = account_name("tester1");
+   const auto& tester2_account = account_name("tester2");
+   c.create_accounts( {tester1_account, tester2_account} );
+   c.produce_block();
+
+   BOOST_CHECK_EXCEPTION(  c.set_code( tester1_account, test_contracts::get_sender_test_wasm() ),
+                           wasm_exception,
+                           fc_exception_message_is( "env.get_sender unresolveable" ) );
+
+   const auto& d2 = pfm.get_builtin_digest( builtin_protocol_feature_t::get_sender );
+   BOOST_REQUIRE( d2 );
+
+   c.preactivate_protocol_features( {*d2} );
+   c.produce_block();
+
+   c.set_code( tester1_account, test_contracts::get_sender_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::get_sender_test_abi() );
+   c.set_code( tester2_account, test_contracts::get_sender_test_wasm() );
+   c.set_abi( tester2_account, test_contracts::get_sender_test_abi() );
+   c.produce_block();
+
+   BOOST_CHECK_EXCEPTION(  c.push_action( tester1_account, "sendinline"_n, tester1_account, mutable_variant_object()
+                                             ("to", tester2_account.to_string())
+                                             ("expected_sender", account_name{}) ),
+                           eosio_assert_message_exception,
+                           eosio_assert_message_is( "sender did not match" ) );
+
+   c.push_action( tester1_account, "sendinline"_n, tester1_account, mutable_variant_object()
+      ("to", tester2_account.to_string())
+      ("expected_sender", tester1_account.to_string())
+   );
+
+   c.push_action( tester1_account, "assertsender"_n, tester1_account, mutable_variant_object()
+      ("expected_sender", account_name{})
+   );
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_CASE( ram_restrictions_test ) { try {
    tester c( setup_policy::preactivate_feature_and_new_bios );
 

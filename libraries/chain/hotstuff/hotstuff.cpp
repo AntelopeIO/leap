@@ -20,7 +20,7 @@ inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) {
    return r;
 }
 
-vote_status pending_quorum_certificate::votes_t::add_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
+vote_status pending_quorum_certificate::votes_t::add_vote(std::span<const uint8_t> proposal_digest, size_t index,
                                                           const bls_public_key& pubkey, const bls_signature& new_sig) {
    if (_bitset[index]) {
       dlog("duplicated vote");
@@ -31,7 +31,7 @@ vote_status pending_quorum_certificate::votes_t::add_vote(const std::vector<uint
       return vote_status::invalid_signature;
    }
    _bitset.set(index);
-   _sig = fc::crypto::blslib::aggregate({_sig, new_sig}); // works even if _sig is default initialized (fp2::zero())
+   _sig = fc::crypto::blslib::aggregate(std::array{_sig, new_sig}); // works even if _sig is default initialized (fp2::zero())
    return vote_status::success;
 }
 
@@ -60,7 +60,7 @@ bool pending_quorum_certificate::is_quorum_met() const {
 }
 
 // called by add_vote, already protected by mutex
-vote_status pending_quorum_certificate::add_strong_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
+vote_status pending_quorum_certificate::add_strong_vote(std::span<const uint8_t> proposal_digest, size_t index,
                                                         const bls_public_key& pubkey, const bls_signature& sig,
                                                         uint64_t weight) {
    if (auto s = _strong_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success) {
@@ -93,7 +93,7 @@ vote_status pending_quorum_certificate::add_strong_vote(const std::vector<uint8_
 }
 
 // called by add_vote, already protected by mutex
-vote_status pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>& proposal_digest, size_t index,
+vote_status pending_quorum_certificate::add_weak_vote(std::span<const uint8_t> proposal_digest, size_t index,
                                                       const bls_public_key& pubkey, const bls_signature& sig,
                                                       uint64_t weight) {
    if (auto s = _weak_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success)
@@ -127,9 +127,9 @@ vote_status pending_quorum_certificate::add_weak_vote(const std::vector<uint8_t>
    return vote_status::success;
 }
 
-// thread safe
+// thread safe, <valid, strong>
 std::pair<vote_status, pending_quorum_certificate::state_t>
-pending_quorum_certificate::add_vote(bool strong, const std::vector<uint8_t>& proposal_digest, size_t index,
+pending_quorum_certificate::add_vote(bool strong, std::span<const uint8_t> proposal_digest, size_t index,
                                      const bls_public_key& pubkey, const bls_signature& sig, uint64_t weight) {
    std::lock_guard g(*_mtx);
    vote_status s = strong ? add_strong_vote(proposal_digest, index, pubkey, sig, weight)
@@ -151,7 +151,7 @@ valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate
    } else if (is_quorum_met_no_lock()) {
       valid_qc._strong_votes = _strong_votes._bitset;
       valid_qc._weak_votes   = _weak_votes._bitset;
-      valid_qc._sig          = fc::crypto::blslib::aggregate({_strong_votes._sig, _weak_votes._sig});
+      valid_qc._sig          = fc::crypto::blslib::aggregate(std::array{_strong_votes._sig, _weak_votes._sig});
    } else
       assert(0); // this should be called only when we have a valid qc.
 

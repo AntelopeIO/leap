@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
+#include <fc/crypto/bls_private_key.hpp>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
@@ -78,6 +79,7 @@ private:
       eosio::testing::tester                  node;
       uint32_t                                prev_lib_num{0};
       std::vector<eosio::chain::vote_message> votes;
+      fc::crypto::blslib::bls_private_key     priv_key;
    };
 
    std::array<node_info, 3> nodes;

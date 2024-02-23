@@ -255,7 +255,7 @@ namespace eosio { namespace testing {
 
          // libtester uses 1 as weight of each of the finalizer, sets (2/3 finalizers + 1)
          // as threshold, and makes all finalizers vote QC
-         transaction_trace_ptr  set_finalizers(const vector<account_name>& finalizer_names);
+         std::pair<transaction_trace_ptr, std::vector<fc::crypto::blslib::bls_private_key>> set_finalizers(const vector<account_name>& finalizer_names);
 
          // Finalizer policy input to set up a test: weights, threshold and local finalizers
          // which participate voting.
@@ -269,7 +269,7 @@ namespace eosio { namespace testing {
             uint64_t                    threshold {0};
             std::vector<account_name>   local_finalizers;
          };
-         transaction_trace_ptr  set_finalizers(const finalizer_policy_input& input);
+         std::pair<transaction_trace_ptr, std::vector<fc::crypto::blslib::bls_private_key>> set_finalizers(const finalizer_policy_input& input);
 
          void link_authority( account_name account, account_name code,  permission_name req, action_name type = {} );
          void unlink_authority( account_name account, account_name code, action_name type = {} );
@@ -417,7 +417,8 @@ namespace eosio { namespace testing {
 
          static std::pair<controller::config, genesis_state> default_config(const fc::temp_directory& tempdir, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}) {
             controller::config cfg;
-            cfg.blocks_dir      = tempdir.path() / config::default_blocks_dir_name;
+            cfg.finalizers_dir = tempdir.path() / config::default_finalizers_dir_name;
+            cfg.blocks_dir = tempdir.path() / config::default_blocks_dir_name;
             cfg.state_dir  = tempdir.path() / config::default_state_dir_name;
             cfg.state_size = 1024*1024*16;
             cfg.state_guard_size = 0;
@@ -583,6 +584,7 @@ namespace eosio { namespace testing {
          FC_ASSERT( vcfg.blocks_dir.filename().generic_string() != "."
                     && vcfg.state_dir.filename().generic_string() != ".", "invalid path names in controller::config" );
 
+         vcfg.finalizers_dir = vcfg.blocks_dir.parent_path() / std::string("v_").append( vcfg.finalizers_dir.filename().generic_string() );
          vcfg.blocks_dir = vcfg.blocks_dir.parent_path() / std::string("v_").append( vcfg.blocks_dir.filename().generic_string() );
          vcfg.state_dir  = vcfg.state_dir.parent_path() / std::string("v_").append( vcfg.state_dir.filename().generic_string() );
 
