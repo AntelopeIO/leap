@@ -7,6 +7,8 @@
 
 namespace eosio::chain {
 
+using signer_callback_type = std::function<std::vector<signature_type>(const digest_type&)>;
+
 constexpr std::array weak_bls_sig_postfix = { 'W', 'E', 'A', 'K' };
 using weak_digest_t = std::array<uint8_t, sizeof(digest_type) + weak_bls_sig_postfix.size()>;
 
@@ -40,11 +42,11 @@ struct block_state : public block_header_state {     // block_header_state provi
    const extensions_type& header_extensions() const { return block_header_state::header.header_extensions; }
    bool                   is_valid()          const { return validated; }
    void                   set_valid(bool b)         { validated = b; }
-   uint32_t               irreversible_blocknum() const { return core.last_final_block_num; }
-   uint32_t               last_qc_block_num() const { return block_header_state::last_qc_block_num(); }
-   std::optional<quorum_certificate>   get_best_qc() const;
-   std::optional<uint32_t>             final_on_strong_qc_block_num() const { return core.final_on_strong_qc_block_num; }
-      
+   uint32_t               irreversible_blocknum() const { return core.last_final_block_num(); }
+   std::optional<quorum_certificate> get_best_qc() const;
+   uint32_t               last_qc_block_num() const { return core.latest_qc_claim().block_num; }
+   uint32_t               final_on_strong_qc_block_num() const { return core.final_on_strong_qc_block_num; }
+
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();
@@ -63,9 +65,13 @@ struct block_state : public block_header_state {     // block_header_state provi
                const validator_t& validator, bool skip_validate_signee);
 
    block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-               deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc);
+               deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
+               const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
 
    explicit block_state(const block_state_legacy& bsp);
+
+   void sign(const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
+   void verify_signee(const std::vector<signature_type>& additional_signatures, const block_signing_authority& valid_block_signing_authority) const;
 };
 
 using block_state_ptr = std::shared_ptr<block_state>;

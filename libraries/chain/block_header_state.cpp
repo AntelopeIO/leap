@@ -12,7 +12,7 @@ namespace eosio::chain {
 // digest_type           compute_finalizer_digest() const { return id; };
 
 
-producer_authority block_header_state::get_scheduled_producer(block_timestamp_type t) const {
+const producer_authority& block_header_state::get_scheduled_producer(block_timestamp_type t) const {
    return detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, t);
 }
 
@@ -22,54 +22,12 @@ const vector<digest_type>& block_header_state::get_new_protocol_feature_activati
 
 #warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
    
-block_header_state_core block_header_state_core::next(qc_claim_t incoming) const {
-   // no state change if last_qc_block_num is the same
-   if (incoming.last_qc_block_num == this->last_qc_block_num) {
-      return {*this};
-   }
-
-   EOS_ASSERT(incoming.last_qc_block_num > this->last_qc_block_num &&
-              incoming.last_qc_block_timestamp > this->last_qc_block_timestamp, block_validate_exception,
-              "new last_qc_block_num ${new} must be greater than old last_qc_block_num ${old}",
-              ("new", incoming.last_qc_block_num)("old", this->last_qc_block_num));
-
-   auto old_last_qc_block_num            = this->last_qc_block_num;
-   auto old_final_on_strong_qc_block_num = this->final_on_strong_qc_block_num;
-
-   block_header_state_core result{*this};
-
-   if (incoming.is_last_qc_strong) {
-      // last QC is strong. We can progress forward.
-
-      // block with old final_on_strong_qc_block_num becomes irreversible
-      if (old_final_on_strong_qc_block_num.has_value()) {
-         result.last_final_block_num = *old_final_on_strong_qc_block_num;
-      }
-
-      // next block which can become irreversible is the block with
-      // old last_qc_block_num
-      result.final_on_strong_qc_block_num = old_last_qc_block_num;
-   } else {
-      // new final_on_strong_qc_block_num should not be present
-      result.final_on_strong_qc_block_num.reset();
-
-      // new last_final_block_num should be the same as the old last_final_block_num
-   }
-
-   // new last_qc_block_num is always the input last_qc_block_num.
-   result.last_qc_block_num       = incoming.last_qc_block_num;
-   result.last_qc_block_timestamp = incoming.last_qc_block_timestamp;
-
-   return result;
-}
-
-
 block_header_state block_header_state::next(block_header_state_input& input) const {
    block_header_state result;
 
    // header
    // ------
-   result.header = block_header {
+   result.header = {
       .timestamp         = input.timestamp, // [greg todo] do we have to do the slot++ stuff from the legacy version?
       .producer          = input.producer,
       .confirmed         = 0,
@@ -123,33 +81,19 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    //      ++input.new_finalizer_policy->generation;
 
 
-   qc_claim_t qc_claim;
-   uint16_t if_ext_id = instant_finality_extension::extension_id();
-
-   if (input.qc_claim) {
-      qc_claim = *input.qc_claim;
-      dlog("qc_claim from input -> final value: ${qci}",("qci", qc_claim));
-   } else {
-      // copy previous qc_claim if we are not provided with a new one
-      // ------------------------------------------------------------
-      auto  if_entry  = header_exts.lower_bound(if_ext_id);
-      if (if_entry != header_exts.end()) {
-         const auto& qci = std::get<instant_finality_extension>(if_entry->second).qc_claim;
-         qc_claim = qci;
-         dlog("qc_claim from existing extension -> final value: ${qci}",("qci",qc_claim));
-      } else {
-         assert(0); // we should always get a previous if extension when in IF mode.
-      }
-   }
-
-   instant_finality_extension new_if_ext {qc_claim,
+   instant_finality_extension new_if_ext {input.most_recent_ancestor_with_qc,
                                           std::move(input.new_finalizer_policy),
                                           std::move(input.new_proposer_policy)};
 
-   // block_header_state_core
+   // finality_core
    // -----------------------
-   result.core = core.next(new_if_ext.qc_claim);
+   block_ref parent_block {
+      .block_id  = input.parent_id,
+      .timestamp = input.parent_timestamp
+   };
+   result.core = core.next(parent_block, input.most_recent_ancestor_with_qc);
 
+   uint16_t if_ext_id = instant_finality_extension::extension_id();
    emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
    result.header_exts.emplace(if_ext_id, std::move(new_if_ext));
 
@@ -175,16 +119,14 @@ block_header_state block_header_state::next(block_header_state_input& input) con
  *
  *  Given a signed block header, generate the expected template based upon the header time,
  *  then validate that the provided header matches the template.
- *
- *  If the header specifies new_producers then apply them accordingly.
  */
-block_header_state block_header_state::next(const signed_block_header& h, const protocol_feature_set& pfs,
-                                            validator_t& validator) const {
+block_header_state block_header_state::next(const signed_block_header& h, validator_t& validator) const {
    auto producer = detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, h.timestamp).producer_name;
    
    EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch" );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
    EOS_ASSERT( h.confirmed == 0, block_validate_exception, "invalid confirmed ${c}", ("c", h.confirmed) );
+   EOS_ASSERT( !h.new_producers, producer_schedule_exception, "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures" );
 
    auto exts = h.validate_and_extract_header_extensions();
 
@@ -195,6 +137,7 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
       auto  pfa_entry = exts.lower_bound(protocol_feature_activation::extension_id());
       auto& pfa_ext   = std::get<protocol_feature_activation>(pfa_entry->second);
       new_protocol_feature_activations = std::move(pfa_ext.protocol_features);
+      validator( timestamp(), activated_protocol_features->protocol_features, new_protocol_feature_activations );
    }
 
    // retrieve instant_finality_extension data from block header extension
@@ -205,9 +148,10 @@ block_header_state block_header_state::next(const signed_block_header& h, const 
    auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
 
    building_block_input bb_input{
-      .parent_id = block_id,
-      .timestamp = h.timestamp,
-      .producer  = producer,
+      .parent_id        = block_id,
+      .parent_timestamp = timestamp(),
+      .timestamp        = h.timestamp,
+      .producer         = producer,
       .new_protocol_feature_activations = std::move(new_protocol_feature_activations)
    };
 

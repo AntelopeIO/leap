@@ -99,6 +99,7 @@ add_library( eosio_chain
              block_state.cpp
              block_header_state_legacy.cpp
              block_state_legacy.cpp
+             finality_core.cpp
              fork_database.cpp
              controller.cpp
              authorization_manager.cpp

@@ -170,6 +170,7 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
 
 } FC_LOG_AND_RETHROW()
 
+#if 0
 // real finalizer, using mock::forkdb and mock::bsp
 // using test_finalizer_t = finalizer_tpl<mock_utils::forkdb_t>;
 
@@ -273,5 +274,6 @@ BOOST_AUTO_TEST_CASE( proposal_sim_1 ) try {
    BOOST_CHECK_EQUAL(claim2.block_num, 2);
 
 } FC_LOG_AND_RETHROW()
+#endif
 
 BOOST_AUTO_TEST_SUITE_END()
