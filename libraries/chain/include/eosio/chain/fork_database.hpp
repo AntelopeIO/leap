@@ -40,6 +40,7 @@ namespace eosio::chain {
       using branch_type_pair = pair<branch_type, branch_type>;
 
       explicit fork_database_t(uint32_t magic_number = legacy_magic_number);
+      ~fork_database_t();
 
       void open( const std::filesystem::path& fork_db_file, validator_t& validator );
       void close( const std::filesystem::path& fork_db_file );

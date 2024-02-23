@@ -164,6 +164,11 @@ namespace eosio::chain {
    }
 
    template<class BSP>
+   fork_database_t<BSP>::~fork_database_t<BSP>() {
+      // close is performed in fork_database::~fork_database()
+   }
+
+   template<class BSP>
    void fork_database_t<BSP>::close(const std::filesystem::path& fork_db_file) {
       std::lock_guard g( my->mtx );
       my->close_impl(fork_db_file);

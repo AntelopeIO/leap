@@ -5,6 +5,7 @@
 #include <eosio/testing/tester.hpp>
 #include <eosio/testing/bls_utils.hpp>
 
+#include "mock_utils.hpp"
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -169,95 +170,108 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
 
 } FC_LOG_AND_RETHROW()
 
-#include "bhs_core.hpp"
+// real finalizer, using mock::forkdb and mock::bsp
+// using test_finalizer_t = finalizer_tpl<mock_utils::forkdb_t>;
+
+block_state_ptr make_bsp(const mock_utils::proposal_t& p, const block_state_ptr& head,
+                         std::optional<qc_claim_t> claim = {}) {
+   block_header_state bhs;
+   auto id = p.calculate_id();
+   // genesis block
+   block_header_state_core new_core;
+   if (p.block_num() > 0)
+      new_core = claim ? head->core.next(*claim) : head->core;
+   bhs = block_header_state{ .block_id = id,
+                             .header = block_header(),
+                             .activated_protocol_features = {},
+                             .core = new_core  };
+   block_state_ptr bsp = std::make_shared<block_state>(block_state{bhs, {}, {}, {}});
+   return bsp;
+}
 
 // ---------------------------------------------------------------------------------------
-// emulations of block_header_state and fork_database sufficient for instantiating a
-// finalizer.
-// ---------------------------------------------------------------------------------------
-struct mock_bhs {
-   uint32_t             block_number;
-   block_id_type        block_id;
-   block_timestamp_type block_timestamp;
+template <class FORKDB, class PROPOSAL>
+struct simulator_t {
+   using finalizer_t = finalizer_tpl<FORKDB>;
+   using bs = typename FORKDB::bs;
+   using bsp = typename FORKDB::bsp;
 
-   uint32_t             block_num() const { return block_number; }
-   const block_id_type& id()        const { return block_id; }
-   block_timestamp_type timestamp() const { return block_timestamp; }
-};
+   bls_keys_t  keys;
+   FORKDB      forkdb;
+   finalizer_t finalizer;
 
-using mock_bhsp = std::shared_ptr<mock_bhs>;
+   simulator_t() :
+      keys("alice"_n),
+      finalizer(keys.privkey) {
 
-// ---------------------------------------------------------------------------------------
-struct mock_bs : public mock_bhs {};
+      auto genesis = make_bsp(mock_utils::proposal_t{0, "n0", block_timestamp_type{0}}, bsp());
+      forkdb.add(genesis);
 
-using mock_bsp = std::shared_ptr<mock_bs>;
+      proposal_ref genesis_ref(genesis);
+      finalizer.fsi = fsi_t{block_timestamp_type(0), genesis_ref, {}};
+   }
 
-// ---------------------------------------------------------------------------------------
-struct mock_proposal {
-   uint32_t             block_number;
-   std::string          proposer_name;
-   block_timestamp_type block_timestamp;
+   std::optional<bool> vote(const bsp& p) {
+      auto decision = finalizer.decide_vote(p, forkdb);
+      switch(decision) {
+      case finalizer_t::vote_decision::strong_vote: return true;
+      case finalizer_t::vote_decision::weak_vote:   return false;
+      default: break;
+      }
+      return {};
+   }
 
-   uint32_t             block_num() const { return block_number; }
-   const std::string&   proposer()  const { return proposer_name; }
-   block_timestamp_type timestamp() const { return block_timestamp; }
+   std::optional<bool> propose(const PROPOSAL& p) {
+      bsp h = make_bsp(p, forkdb.head());
+      forkdb.add(h);
+      auto v = vote(h);
+      return v;
+   }
 
-   mock_bhs to_bhs() const {
-      std::string id_str = proposer_name + std::to_string(block_number);
-      return mock_bhs{block_num(), sha256::hash(id_str.c_str()), timestamp() };
+   std::pair<bsp, bhs_core::qc_claim> add(const PROPOSAL& p, std::optional<bhs_core::qc_claim> _claim = {}) {
+      bsp h = forkdb.head();
+      bhs_core::qc_claim old_claim = _claim ? *_claim : bhs_core::qc_claim{h->last_qc_block_num(), false};
+      bsp new_bsp = make_bsp(p, h, _claim);
+      forkdb.add(new_bsp);
+
+      auto v = vote(new_bsp);
+      if (v)
+         return {forkdb.head(), new_bsp->latest_qc_claim()};
+      return {forkdb.head(), old_claim};
    }
 };
 
-// ---------------------------------------------------------------------------------------
-struct mock_forkdb {
-   using bsp              = mock_bsp;
-   using bhsp             = mock_bhsp;
-   using full_branch_type = std::vector<bhsp>;
-
-   bhsp root() const {  return branch.back(); }
-
-   full_branch_type fetch_full_branch(const block_id_type& id) const {
-      auto it = std::find_if(branch.cbegin(), branch.cend(), [&](const bhsp& p) { return p->id() == id; });
-      assert(it != branch.cend());
-      return full_branch_type(it, branch.cend());
-   };
-
-   full_branch_type branch;
-};
-
-// real finalizer, using mock_forkdb and mock_bsp
-using test_finalizer = finalizer_tpl<mock_forkdb>;
-
+#if 0
 // ---------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE( decide_vote_monotony_check ) try {
    auto proposals { create_proposal_refs(10) };
    fsi_t fsi      { .last_vote_range_start = tstamp(0),
                     .last_vote = proposals[6],
                     .lock = proposals[2] };
+   using namespace mock_utils;
+   simulator_t<fork_database_if_t, proposal_t> sim;
 
-   bls_keys_t     k("alice"_n);
-   test_finalizer finalizer{k.privkey, fsi};
+   auto vote = sim.propose(proposal_t{1, "n0", block_timestamp_type{1}});
+   BOOST_CHECK(vote && *vote);
+   //bls_keys_t     k("alice"_n);
+   //test_finalizer_t finalizer{k.privkey, fsi};
 
 
 } FC_LOG_AND_RETHROW()
-
+#endif
 
 // ---------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE( proposal_sim_1 ) try {
-   fsi_t fsi; // default uninitialized values, no previous lock or vote
+   using namespace mock_utils;
 
-   bls_keys_t     k("alice"_n);
-   test_finalizer finalizer{k.privkey, fsi};
+   simulator_t<forkdb_t, proposal_t> sim;
 
+   auto [head1, claim1] = sim.add(proposal_t{1, "n0", block_timestamp_type{1}}, bhs_core::qc_claim{0, false});
+   BOOST_CHECK_EQUAL(claim1.block_num, 1);
 
-
+   auto [head2, claim2] = sim.add(proposal_t{2, "n0", block_timestamp_type{2}}, claim1);
+   BOOST_CHECK_EQUAL(claim2.block_num, 2);
 
 } FC_LOG_AND_RETHROW()
-
-
-
-
-
-
 
 BOOST_AUTO_TEST_SUITE_END()
