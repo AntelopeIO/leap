@@ -17,7 +17,10 @@ namespace eosio { namespace chain {
    template<uint16_t IntervalMs, uint64_t EpochMs>
    class block_timestamp {
       public:
-         explicit block_timestamp( uint32_t s=0 ) :slot(s){}
+
+         block_timestamp() : slot(0) {}
+
+         explicit block_timestamp( uint32_t s ) :slot(s){}
 
          block_timestamp(const fc::time_point& t) {
             set_time_point(t);
@@ -50,6 +53,8 @@ namespace eosio { namespace chain {
          void operator = (const fc::time_point& t ) {
             set_time_point(t);
          }
+
+         block_timestamp& operator=(const block_timestamp&) = default;
 
          bool   operator > ( const block_timestamp& t )const   { return slot >  t.slot; }
          bool   operator >=( const block_timestamp& t )const   { return slot >= t.slot; }

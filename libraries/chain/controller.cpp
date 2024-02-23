@@ -1596,7 +1596,7 @@ struct controller_impl {
                my_finalizers.set_default_safety_information(
                   finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
                                                 .last_vote = {},
-                                                .lock      = proposal_ref(lib) });
+                                                .lock      = proposal_ref(lib->id(), lib->timestamp()) });
             };
             fork_db.apply_if<void>(set_finalizer_defaults);
          } else {
@@ -1606,7 +1606,7 @@ struct controller_impl {
                my_finalizers.set_default_safety_information(
                   finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
                                                 .last_vote = {},
-                                                .lock      = proposal_ref(lib) });
+                                                .lock      = proposal_ref(lib->id(), lib->timestamp()) });
             };
             fork_db.apply_if<void>(set_finalizer_defaults);
          }
@@ -2805,7 +2805,7 @@ struct controller_impl {
             log_irreversible();
          }
 
-         fork_db.apply_if<void>([&](auto& forkdb) { create_and_send_vote_msg(forkdb.chain_head, forkdb); });
+         fork_db.apply_if<void>([&](auto& forkdb) { create_and_send_vote_msg(forkdb.chain_head); });
 
          // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
          auto transition = [&](auto& forkdb) -> bool {
@@ -3129,7 +3129,7 @@ struct controller_impl {
       return status;
    }
 
-   void create_and_send_vote_msg(const block_state_ptr& bsp, const fork_database_if_t& fork_db) {
+   void create_and_send_vote_msg(const block_state_ptr& bsp) {
       auto finalizer_digest = bsp->compute_finalizer_digest();
 
       // Each finalizer configured on the node which is present in the active finalizer policy
@@ -3139,7 +3139,7 @@ struct controller_impl {
       // off the main thread. net_plugin is fine for this to be emitted from any thread.
       // Just need to update the comment in net_plugin
       my_finalizers.maybe_vote(
-          *bsp->active_finalizer_policy, bsp, fork_db, finalizer_digest, [&](const vote_message& vote) {
+          *bsp->active_finalizer_policy, bsp, finalizer_digest, [&](const vote_message& vote) {
               // net plugin subscribed to this signal. it will broadcast the vote message
               // on receiving the signal
               emit(voted_block, vote);

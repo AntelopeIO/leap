@@ -61,8 +61,6 @@ struct block_header_state {
    account_name          producer() const  { return header.producer; }
    const block_id_type&  previous() const  { return header.previous; }
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
-   uint32_t              last_qc_block_num() const { return core.latest_qc_claim().block_num; }
-   block_timestamp_type  last_qc_block_timestamp() const { return core.get_block_reference(last_qc_block_num()).timestamp; }
    const producer_authority_schedule& active_schedule_auth() const { return active_proposer_policy->proposer_schedule; }
 
    block_header_state next(block_header_state_input& data) const;

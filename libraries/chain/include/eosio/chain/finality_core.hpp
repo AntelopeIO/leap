@@ -13,7 +13,12 @@ struct block_ref
    block_id_type    block_id;
    block_time_type  timestamp;
 
+   bool           empty() const { return block_id.empty(); }
    block_num_type block_num() const; // Extract from block_id.
+
+   bool operator==(const block_ref& o) const {
+      return block_id == o.block_id && timestamp == o.timestamp;
+   }
 };
 
 struct qc_link
@@ -91,6 +96,16 @@ struct finality_core
     *  @returns latest qc_claim made by the core
     */
    qc_claim_t latest_qc_claim() const;
+
+   block_num_type last_qc_block_num() const { return links.back().target_block_num; }
+   block_time_type last_qc_block_timestamp() const { return get_block_reference(last_qc_block_num()).timestamp; }
+
+   /**
+    *  @pre  all finality_core invariants
+    *  @post same
+    *  @returns boolean indicating whether `id` is an ancestor of this block
+    */
+   bool extends(const block_id_type& id) const;
 
    /**
     *  @pre last_final_block_num() <= block_num < current_block_num()

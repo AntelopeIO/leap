@@ -79,6 +79,20 @@ qc_claim_t finality_core::latest_qc_claim() const
 }
 
 /**
+ *  @pre  all finality_core invariants
+ *  @post same
+ *  @returns boolean indicating whether `id` is an ancestor of this block
+ */
+bool finality_core::extends(const block_id_type& id) const {
+   uint32_t block_num = block_header::num_from_id(id);
+   if (block_num >= last_final_block_num() && block_num < current_block_num()) {
+      const block_ref& ref = get_block_reference(block_num);
+      return ref.block_id == id;
+   }
+   return false;
+}
+
+/**
  *  @pre last_final_block_num() <= block_num < current_block_num()
  *
  *  @post returned block_ref has block_num() == block_num
@@ -260,10 +274,8 @@ finality_core finality_core::next(const block_ref& current_block, const qc_claim
 
       assert(links_index < links.size()); // Satisfied by justification in this->get_qc_link_from(new_links_front_source_block_num).
 
-      next_core.links.reserve(links.size() - links_index + 1);
-
       // Garbage collect unnecessary links
-      std::copy(links.cbegin() + links_index, links.cend(), std::back_inserter(next_core.links));
+      next_core.links = { links.cbegin() + links_index, links.cend() };
 
       assert(next_core.last_final_block_num() == new_last_final_block_num); // Satisfied by choice of links_index.
 
@@ -297,11 +309,8 @@ finality_core finality_core::next(const block_ref& current_block, const qc_claim
       assert(!refs.empty() || (refs_index == 0)); // Satisfied by justification above.
       assert(refs.empty() || (refs_index < refs.size())); // Satisfied by justification above.
 
-      next_core.refs.reserve(refs.size() - refs_index + 1);
-
       // Garbage collect unnecessary block references
-      std::copy(refs.cbegin() + refs_index, refs.cend(), std::back_inserter(next_core.refs));
-
+      next_core.refs = {refs.cbegin() + refs_index, refs.cend()};
       assert(refs.empty() || (next_core.refs.front().block_num() == new_last_final_block_num)); // Satisfied by choice of refs_index.
 
       // Add new block reference
