@@ -43,7 +43,7 @@
 #include <string_view>
 #include <stdexcept>
 
-namespace code {
+namespace fc {
 
 // Interface:
 // Defaults allow for use:
@@ -72,6 +72,14 @@ RetString base64_decode(const String& s, bool remove_linebreaks = false);
 
 template <typename RetString = std::string>
 RetString base64_encode(const unsigned char* s, size_t len, bool url = false);
+
+// Convenient methods for existing Leap uses
+
+std::string base64_encode(char const* s, unsigned int len);
+std::vector<char> base64_decode( const std::string& s);
+std::string base64url_encode(const char* s, size_t len);
+std::string base64url_encode(const std::string& s);
+std::vector<char> base64url_decode(const std::string& s);
 
 namespace detail {
  //
@@ -318,4 +326,24 @@ inline RetString base64_encode_mime(const String& s) {
    return detail::encode_mime<RetString, String>(s);
 }
 
-} // namespace code
+// Convenient methods for existing Leap uses
+inline std::string base64_encode(char const* s, unsigned int len) {
+   return base64_encode<std::string>((unsigned char const*)s, len, false);
+}
+
+inline std::vector<char> base64_decode( const std::string& s) {
+   return detail::decode<std::vector<char>, std::string>(s, false);
+}
+
+inline std::string base64url_encode(const char* s, size_t len) {
+   return base64_encode<std::string>((unsigned char const*)s, len, true);
+}
+
+inline std::string base64url_encode(const std::string& s) {
+   return base64_encode<std::string>((unsigned char const*)s.data(), s.size(), true);
+}
+
+inline std::vector<char> base64url_decode(const std::string& s) {
+   return detail::decode<std::vector<char>>(s, false);
+}
+} // namespace fc
