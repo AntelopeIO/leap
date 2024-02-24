@@ -16,9 +16,7 @@ struct block_ref
    bool           empty() const { return block_id.empty(); }
    block_num_type block_num() const; // Extract from block_id.
 
-   bool operator==(const block_ref& o) const {
-      return block_id == o.block_id && timestamp == o.timestamp;
-   }
+   auto operator<=>(const block_ref&) const = default;
 };
 
 struct qc_link

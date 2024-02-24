@@ -1,5 +1,6 @@
 #pragma once
 #include <span>
+#include <compare>
 #include <fc/fwd.hpp>
 #include <fc/string.hpp>
 #include <fc/platform_independence.hpp>
@@ -72,12 +73,10 @@ class sha256
     }
     friend sha256 operator << ( const sha256& h1, uint32_t i       );
     friend sha256 operator >> ( const sha256& h1, uint32_t i       );
-    friend bool   operator == ( const sha256& h1, const sha256& h2 );
-    friend bool   operator != ( const sha256& h1, const sha256& h2 );
     friend sha256 operator ^  ( const sha256& h1, const sha256& h2 );
-    friend bool   operator >= ( const sha256& h1, const sha256& h2 );
-    friend bool   operator >  ( const sha256& h1, const sha256& h2 ); 
-    friend bool   operator <  ( const sha256& h1, const sha256& h2 ); 
+
+    friend bool operator == ( const sha256& h1, const sha256& h2 );
+    friend std::strong_ordering operator <=> ( const sha256& h1, const sha256& h2 );
 
     uint32_t pop_count()const
     {

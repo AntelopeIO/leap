@@ -54,14 +54,11 @@ namespace eosio { namespace chain {
             set_time_point(t);
          }
 
+         // needed, otherwise deleted because of above version of operator=()
          block_timestamp& operator=(const block_timestamp&) = default;
 
-         bool   operator > ( const block_timestamp& t )const   { return slot >  t.slot; }
-         bool   operator >=( const block_timestamp& t )const   { return slot >= t.slot; }
-         bool   operator < ( const block_timestamp& t )const   { return slot <  t.slot; }
-         bool   operator <=( const block_timestamp& t )const   { return slot <= t.slot; }
-         bool   operator ==( const block_timestamp& t )const   { return slot == t.slot; }
-         bool   operator !=( const block_timestamp& t )const   { return slot != t.slot; }
+         auto operator<=>(const block_timestamp&) const = default;
+
          uint32_t slot;
 
       private:
