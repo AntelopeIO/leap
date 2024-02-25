@@ -161,15 +161,13 @@ BOOST_AUTO_TEST_CASE(challenge_non_base64) try {
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
 
-   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), std::exception, [](const std::exception& e) {
-      return std::string{e.what()}.find("Input is not valid base64-encoded data") != std::string::npos;
+   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception, [](const fc::exception& e) {
+      return e.to_detail_string().find("encountered non-base64 character") != std::string::npos;
    });
 } FC_LOG_AND_RETHROW();
 
-// The new base64 implementation's decode treats url-safe characters '_' and '-' the same
-// as '/' and '+' the same. As long as they don't mistmatch, decode always works.
-// Valid signature but replace url-safe base64 characters with the non-url safe characters
-BOOST_AUTO_TEST_CASE(challenge_interchanged_base64_chars) try {
+//valid signature but replace url-safe base64 characters with the non-url safe characters
+BOOST_AUTO_TEST_CASE(challenge_wrong_base64_chars) try {
    webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
    std::string b64 = fc::base64url_encode(d.data(), d.data_size());
 
@@ -185,33 +183,12 @@ BOOST_AUTO_TEST_CASE(challenge_interchanged_base64_chars) try {
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
 
-   BOOST_CHECK_NO_THROW(make_webauthn_sig(priv, auth_data, json).recover(d, true));
+   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception, [](const fc::exception& e) {
+      return e.to_detail_string().find("encountered non-base64 character") != std::string::npos;
+   });
 } FC_LOG_AND_RETHROW();
 
-// The new base64 implementation's decode treats url-safe characters '_' and '-' the same
-// as '/' and '+' the same. As long as they don't mistmatch, decode always works.
-// Valid signature but url-safe base64 characters are mismatched with the non-url safe
-// characters
-BOOST_AUTO_TEST_CASE(challenge_mismatched_url_safe_with_non_safe_chars) try {
-   webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
-   std::string b64 = fc::base64url_encode(d.data(), d.data_size());
-
-   BOOST_REQUIRE(b64[1] == '_');
-   BOOST_REQUIRE(b64[18] == '_');
-   BOOST_REQUIRE(b64[36] == '-');
-
-   b64[1] = b64[18] = '+';
-   b64[36] = '+';
-
-   std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + b64 + "\"}";
-
-   std::vector<uint8_t> auth_data(37);
-   memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
-
-   BOOST_CHECK_THROW(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception);
-} FC_LOG_AND_RETHROW();
-
-//valid signature but replace the last char with '.'
+//valid signature but replace the last character '=' with '.'
 BOOST_AUTO_TEST_CASE(challenge_base64_dot_padding) try {
    webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
    std::string b64 = fc::base64url_encode(d.data(), d.data_size());
@@ -224,12 +201,12 @@ BOOST_AUTO_TEST_CASE(challenge_base64_dot_padding) try {
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
 
-   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), std::exception, [](const std::exception& e) {
-      return std::string{e.what()}.find("Input is not valid base64-encoded data") != std::string::npos;
+   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception, [](const fc::exception& e) {
+      return e.to_detail_string().find("encountered non-base64 character") != std::string::npos;
    });
 } FC_LOG_AND_RETHROW();
 
-//valid signature without padding (base64url_encode does not have padding)
+//valid signature
 BOOST_AUTO_TEST_CASE(challenge_no_padding) try {
    webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
    std::string b64 = fc::base64url_encode(d.data(), d.data_size());
@@ -504,8 +481,8 @@ BOOST_AUTO_TEST_CASE(base64_wonky) try {
    std::vector<uint8_t> auth_data(37);
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
 
-   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), std::exception, [](const std::exception& e) {
-      return std::string{e.what()}.find("Input is not valid base64-encoded data") != std::string::npos;
+   BOOST_CHECK_EXCEPTION(make_webauthn_sig(priv, auth_data, json).recover(d, true), fc::exception, [](const fc::exception& e) {
+      return e.to_detail_string().find("encountered non-base64 character") != std::string::npos;
    });
 } FC_LOG_AND_RETHROW();
 
