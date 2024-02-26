@@ -188,13 +188,12 @@ BOOST_AUTO_TEST_CASE(challenge_wrong_base64_chars) try {
    });
 } FC_LOG_AND_RETHROW();
 
-//valid signature but replace the last character '=' with '.'
+//valid signature but append an invalid base64url character '.'
 BOOST_AUTO_TEST_CASE(challenge_base64_dot_padding) try {
    webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
    std::string b64 = fc::base64url_encode(d.data(), d.data_size());
-   char& end = b64.back();
 
-   end = '.';
+   b64.append(".");
 
    std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + b64 + "\"}";
 
@@ -206,10 +205,12 @@ BOOST_AUTO_TEST_CASE(challenge_base64_dot_padding) try {
    });
 } FC_LOG_AND_RETHROW();
 
-//valid signature
+//valid signature but append valid paddings == to verify they are ignored
 BOOST_AUTO_TEST_CASE(challenge_no_padding) try {
    webauthn::public_key wa_pub(pub.serialize(), webauthn::public_key::user_presence_t::USER_PRESENCE_NONE, "fctesting.invalid");
    std::string b64 = fc::base64url_encode(d.data(), d.data_size());
+
+   b64.append("==");
 
    std::string json = "{\"origin\":\"https://fctesting.invalid\",\"type\":\"webauthn.get\",\"challenge\":\"" + b64 + "\"}";
 
