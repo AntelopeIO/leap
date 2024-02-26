@@ -93,9 +93,13 @@ namespace eosio::chain {
 
       // thread safe
       bool is_quorum_met() const;
+      static bool is_quorum_met(state_t s) {
+         return s == state_t::weak_achieved || s == state_t::weak_final || s == state_t::strong;
+      }
 
       // thread safe
-      std::pair<vote_status, state_t> add_vote(bool strong,
+      std::pair<vote_status, state_t> add_vote(block_num_type block_num,
+                                               bool strong,
                                                std::span<const uint8_t> proposal_digest,
                                                size_t index,
                                                const bls_public_key& pubkey,

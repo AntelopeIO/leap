@@ -64,8 +64,9 @@ namespace eosio::chain {
       /**
        *  Add block state to fork database.
        *  Must link to existing block in fork database or the root.
+       *  @param mark_valid if true also mark next_block valid
        */
-      void add( const BSP& next_block, bool ignore_duplicate = false );
+      void add( const BSP& next_block, bool mark_valid, bool ignore_duplicate );
 
       void remove( const block_id_type& id );
 
@@ -110,9 +111,9 @@ namespace eosio::chain {
       void mark_valid( const BSP& h );
 
       /**
-       * Update block_state_core for best qc strong
+       * Update finality_core for best qc
        */
-      void update_best_qc_strong( const block_id_type& id );
+      void update_best_qc( const block_id_type& id, const qc_claim_t& most_recent_ancestor_with_qc );
 
    private:
       unique_ptr<fork_database_impl<BSP>> my;

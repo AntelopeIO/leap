@@ -2780,8 +2780,7 @@ struct controller_impl {
             const auto& bsp = std::get<std::decay_t<decltype(forkdb.chain_head)>>(cb.bsp);
 
             if( s == controller::block_status::incomplete ) {
-               forkdb.add( bsp );
-               forkdb.mark_valid( bsp );
+               forkdb.add( bsp, true, false );
                emit( accepted_block_header, std::tie(bsp->block, bsp->id()) );
                EOS_ASSERT( bsp == forkdb.head(), fork_database_exception, "committed block did not become the new head in fork database");
             } else if (s != controller::block_status::irreversible) {
@@ -3112,15 +3111,21 @@ struct controller_impl {
    // called from net threads and controller's thread pool
    vote_status process_vote_message( const vote_message& vote ) {
       auto aggregate_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
-         auto bsp = forkdb.get_block(vote.proposal_id);
-         if (bsp) {
-            auto [vote_state, state, block_num] = bsp->aggregate_vote(vote);
-            if (vote_state == vote_status::success && state == pending_quorum_certificate::state_t::strong) { // if block_num then strong vote
-               forkdb.update_best_qc_strong(bsp->id());
-            }
-            return {vote_state, block_num};
-         }
-         return {vote_status::unknown_block, {}};
+          auto bsp = forkdb.get_block(vote.proposal_id);
+          if (bsp) {
+             auto [status, state] = bsp->aggregate_vote(vote);
+             std::optional<uint32_t> new_lib{};
+             if (status == vote_status::success && pending_quorum_certificate::is_quorum_met(state)) {
+                if (state == pending_quorum_certificate::state_t::strong) {
+                   new_lib = bsp->core.final_on_strong_qc_block_num;
+                   forkdb.update_best_qc(bsp->id(), {.block_num = bsp->block_num(), .is_strong_qc = true});
+                } else {
+                   forkdb.update_best_qc(bsp->id(), {.block_num = bsp->block_num(), .is_strong_qc = false});
+                }
+             }
+             return {status, new_lib};
+          }
+          return {vote_status::unknown_block, {}};
       };
       // TODO: https://github.com/AntelopeIO/leap/issues/2057
       // TODO: Do not aggregate votes on block_state if in legacy block fork_db
@@ -3428,7 +3433,7 @@ struct controller_impl {
          
          auto do_push = [&](auto& forkdb) {
             if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.chain_head)>>)
-               forkdb.add( bsp );
+               forkdb.add( bsp, false, false );
 
             if (is_trusted_producer(b->producer)) {
                trusted_producer_light_validation = true;
@@ -3478,7 +3483,7 @@ struct controller_impl {
                   *forkdb.chain_head, b, protocol_features.get_protocol_feature_set(), validator, skip_validate_signee);
 
                if (s != controller::block_status::irreversible) {
-                  forkdb.add(bsp, true);
+                  forkdb.add(bsp, false, true);
                }
 
                emit(accepted_block_header, std::tie(bsp->block, bsp->id()));

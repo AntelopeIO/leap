@@ -15,6 +15,8 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
+   , most_recent_ancestor_with_qc(core.latest_qc_claim())
+   , updated_core(core.next_metadata(most_recent_ancestor_with_qc))
 {
    // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures pre-validated here
    if( !skip_validate_signee ) {
@@ -32,7 +34,9 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
-   , pub_keys_recovered(true) // probably not needed
+   , most_recent_ancestor_with_qc(core.latest_qc_claim())
+   , updated_core(core.next_metadata(most_recent_ancestor_with_qc))
+   , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
 {
    block->transactions = std::move(trx_receipts);
@@ -49,6 +53,8 @@ block_state::block_state(const block_state_legacy& bsp) {
    block_header_state::block_id = bsp.id();
    header = bsp.header;
    core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
+   most_recent_ancestor_with_qc = core.latest_qc_claim();
+   updated_core = core.next_metadata(most_recent_ancestor_with_qc);
    activated_protocol_features = bsp.activated_protocol_features;
 
    auto if_ext_id = instant_finality_extension::extension_id();
@@ -83,7 +89,7 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 }
 
 // Called from net threads
-std::tuple<vote_status, pending_quorum_certificate::state_t, std::optional<uint32_t>>
+std::tuple<vote_status, pending_quorum_certificate::state_t>
 block_state::aggregate_vote(const vote_message& vote) {
    const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
@@ -93,19 +99,16 @@ block_state::aggregate_vote(const vote_message& vote) {
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
       auto digest = vote.strong ? strong_digest.to_uint8_span() : std::span<const uint8_t>(weak_digest);
-      auto [status, state] = pending_qc.add_vote(vote.strong,
+      return pending_qc.add_vote(block_num(),
+                                 vote.strong,
                                  digest,
                                  index,
                                  vote.finalizer_key,
                                  vote.sig,
                                  finalizers[index].weight);
-      std::optional<uint32_t> new_lib{};
-      if (status == vote_status::success && state == pending_quorum_certificate::state_t::strong)
-         new_lib = core.final_on_strong_qc_block_num;
-      return {status, state, new_lib};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      return {vote_status::unknown_public_key, pending_quorum_certificate::state_t::unrestricted, {}};
+      return {vote_status::unknown_public_key, pending_quorum_certificate::state_t::unrestricted};
    }
 }
 

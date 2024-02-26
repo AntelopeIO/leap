@@ -95,7 +95,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 
    uint16_t if_ext_id = instant_finality_extension::extension_id();
    emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
-   result.header_exts.emplace(if_ext_id, std::move(new_if_ext));
+   result.header_exts.emplace(if_ext_id, std::move(new_if_ext)); // TODO: does not appear to be used
 
    // add protocol_feature_activation extension
    // -----------------------------------------

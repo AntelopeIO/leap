@@ -1,7 +1,6 @@
 #include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <boost/multi_index_container.hpp>
-#include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
@@ -24,23 +23,34 @@ namespace eosio::chain {
    // call while holding fork database lock
    struct block_state_accessor {
       static bool is_valid(const block_state& bs) {
-         return bs.validated;
+         return bs.is_valid();
       }
       static void set_valid(block_state& bs, bool v) {
          bs.validated = v;
       }
       static uint32_t last_final_block_num(const block_state& bs) {
-         return bs.current_core.last_final_block_num;
+         return bs.updated_core.last_final_block_num;
       }
       static uint32_t final_on_strong_qc_block_num(const block_state& bs) {
-         return bs.current_core.final_on_strong_qc_block_num.value_or(bs.current_core.last_final_block_num);
+         return bs.updated_core.final_on_strong_qc_block_num;
       }
-      static uint32_t last_qc_block_num(const block_state& bs) {
-         return bs.current_core.last_qc_block_num;
+      static uint32_t lastest_qc_claim_block_num(const block_state& bs) {
+         return bs.updated_core.latest_qc_claim_block_num;
       }
-      static void update_best_qc_strong(block_state& bs, uint32_t block_num) {
-         if (bs.current_core.last_qc_block_num < block_num)
-            bs.current_core = bs.current_core.next(qc_claim_t{.last_qc_block_num = block_num, .is_last_qc_strong = true});
+      static bool qc_claim_update_needed(block_state& bs, const qc_claim_t& most_recent_ancestor_with_qc) {
+         return bs.most_recent_ancestor_with_qc < most_recent_ancestor_with_qc;
+      }
+      static bool qc_claim_update_needed(block_state& bs, const block_state& prev) {
+         return bs.most_recent_ancestor_with_qc < prev.most_recent_ancestor_with_qc;
+      }
+      static void update_best_qc(block_state& bs, const qc_claim_t& most_recent_ancestor_with_qc) {
+         assert(bs.most_recent_ancestor_with_qc < most_recent_ancestor_with_qc);
+         bs.updated_core = bs.core.next_metadata(most_recent_ancestor_with_qc);
+         bs.most_recent_ancestor_with_qc = most_recent_ancestor_with_qc;
+      }
+      static void update_best_qc(block_state& bs, const block_state& prev) {
+         assert(bs.most_recent_ancestor_with_qc < prev.most_recent_ancestor_with_qc);
+         update_best_qc(bs, prev.most_recent_ancestor_with_qc);
       }
 
       // thread safe
@@ -50,39 +60,37 @@ namespace eosio::chain {
    };
 
    struct block_state_legacy_accessor {
-      static bool is_valid(const block_state_legacy& bs) {
-         return bs.validated;
-      }
-      static void set_valid(block_state_legacy& bs, bool v) {
-         bs.validated = v;
-      }
-      static uint32_t last_final_block_num(const block_state_legacy& bs) {
-         return bs.irreversible_blocknum();
-      }
-      static uint32_t final_on_strong_qc_block_num(const block_state_legacy& bs) {
-         return bs.irreversible_blocknum();
-      }
-      static uint32_t last_qc_block_num(const block_state_legacy& bs) {
-         return bs.irreversible_blocknum();
-      }
-      static void update_best_qc_strong(block_state_legacy&, uint32_t) {} // no-op
+      static bool is_valid(const block_state_legacy& bs) { return bs.is_valid(); }
+      static void set_valid(block_state_legacy& bs, bool v) { bs.validated = v; }
+      static uint32_t last_final_block_num(const block_state_legacy& bs) { return bs.irreversible_blocknum(); }
+      static uint32_t final_on_strong_qc_block_num(const block_state_legacy& bs) { return bs.irreversible_blocknum(); }
+      static uint32_t lastest_qc_claim_block_num(const block_state_legacy& bs) { return bs.irreversible_blocknum(); }
+      static bool qc_claim_update_needed(block_state_legacy&, const qc_claim_t&) { return false; }
+      static bool qc_claim_update_needed(block_state_legacy&, const block_state_legacy&) { return false; }
+      static void update_best_qc(block_state_legacy&, const qc_claim_t&) { }
+      static void update_best_qc(block_state_legacy&, const block_state_legacy&) { }
 
       // thread safe
-      static uint32_t block_height(const block_state_legacy& bs) {
-         return bs.block_num();
-      }
+      static uint32_t block_height(const block_state_legacy& bs) { return bs.block_num(); }
    };
 
    struct by_block_id;
    struct by_best_branch;
    struct by_prev;
 
+   template<class BS, class BSP>
+   void log_bs(const char* desc, fork_database_impl<BSP>& fork_db, const BS& lhs) {
+      using BSA = BS::fork_db_block_state_accessor;
+      dlog( "fork_db ${f}, ${d} ${bn}, last_final_block_num ${lfbn}, final_on_strong_qc_block_num ${fsbn}, lastest_qc_claim_block_num ${lbn}, block_height ${bh}, id ${id}",
+             ("f", (uint64_t)(&fork_db))("d", desc)("bn", lhs.block_num())("lfbn", BSA::last_final_block_num(lhs))("fsbn", BSA::final_on_strong_qc_block_num(lhs))("lbn", BSA::lastest_qc_claim_block_num(lhs))("bh", BSA::block_height(lhs))("id", lhs.id()) );
+   }
+
    // match comparison of by_best_branch
    template<class BS>
    bool first_preferred( const BS& lhs, const BS& rhs ) {
       using BSA = BS::fork_db_block_state_accessor;
-      return std::make_tuple(BSA::last_final_block_num(lhs), BSA::final_on_strong_qc_block_num(lhs), BSA::last_qc_block_num(lhs), BSA::block_height(lhs)) >
-             std::make_tuple(BSA::last_final_block_num(rhs), BSA::final_on_strong_qc_block_num(rhs), BSA::last_qc_block_num(rhs), BSA::block_height(rhs));
+      return std::make_tuple(BSA::last_final_block_num(lhs), BSA::lastest_qc_claim_block_num(lhs), BSA::block_height(lhs)) >
+             std::make_tuple(BSA::last_final_block_num(rhs), BSA::lastest_qc_claim_block_num(rhs), BSA::block_height(rhs));
    }
 
    template<class BSP>  // either [block_state_legacy_ptr, block_state_ptr], same with block_header_state_ptr
@@ -105,15 +113,13 @@ namespace eosio::chain {
             ordered_unique<tag<by_best_branch>,
                composite_key<BS,
                   global_fun<const BS&,             bool,     &BSAccessor::is_valid>,
-                  // see first_preferred comment
                   global_fun<const BS&,             uint32_t, &BSAccessor::last_final_block_num>,
-                  global_fun<const BS&,             uint32_t, &BSAccessor::final_on_strong_qc_block_num>,
-                  global_fun<const BS&,             uint32_t, &BSAccessor::last_qc_block_num>,
+                  global_fun<const BS&,             uint32_t, &BSAccessor::lastest_qc_claim_block_num>,
                   global_fun<const BS&,             uint32_t, &BSAccessor::block_height>,
                   const_mem_fun<BS,     const block_id_type&, &BS::id>
                >,
                composite_key_compare<std::greater<bool>,
-                                     std::greater<uint32_t>, std::greater<uint32_t>, std::greater<uint32_t>, std::greater<uint32_t>,
+                                     std::greater<uint32_t>, std::greater<uint32_t>, std::greater<uint32_t>,
                                      sha256_less
                >
             >
@@ -130,7 +136,7 @@ namespace eosio::chain {
 
       void             open_impl( const std::filesystem::path& fork_db_file, validator_t& validator );
       void             close_impl( const std::filesystem::path& fork_db_file );
-      void             add_impl( const BSP& n, bool ignore_duplicate, bool validate, validator_t& validator );
+      void             add_impl( const BSP& n, bool mark_valid, bool ignore_duplicate, bool validate, validator_t& validator );
 
       BHSP             get_block_header_impl( const block_id_type& id ) const;
       BSP              get_block_impl( const block_id_type& id ) const;
@@ -143,7 +149,7 @@ namespace eosio::chain {
       full_branch_type fetch_full_branch_impl(const block_id_type& h) const;
       BSP              search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const;
       void             mark_valid_impl( const BSP& h );
-      void             update_best_qc_strong_impl( const block_id_type& id );
+      void             update_best_qc_impl( const block_id_type& id, const qc_claim_t& most_recent_ancestor_with_qc );
       branch_type_pair fetch_branch_from_impl( const block_id_type& first, const block_id_type& second ) const;
 
    };
@@ -200,7 +206,7 @@ namespace eosio::chain {
                fc::raw::unpack( ds, s );
                // do not populate transaction_metadatas, they will be created as needed in apply_block with appropriate key recovery
                s.header_exts = s.block->validate_and_extract_header_extensions();
-               add_impl( std::make_shared<BS>( std::move( s ) ), false, true, validator );
+               add_impl( std::make_shared<BS>( std::move( s ) ), false, false, true, validator );
             }
             block_id_type head_id;
             fc::raw::unpack( ds, head_id );
@@ -393,12 +399,12 @@ namespace eosio::chain {
    }
 
    template <class BSP>
-   void fork_database_impl<BSP>::add_impl(const BSP& n, bool ignore_duplicate, bool validate, validator_t& validator) {
+   void fork_database_impl<BSP>::add_impl(const BSP& n, bool mark_valid, bool ignore_duplicate, bool validate, validator_t& validator) {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
-      auto itr = index.find( n->previous() );
-      EOS_ASSERT( itr != index.end() || root->id() == n->previous(), unlinkable_block_exception,
+      auto prev_bh = get_block_header_impl( n->previous() );
+      EOS_ASSERT( prev_bh, unlinkable_block_exception,
                   "unlinkable block", ("id", n->id())("previous", n->previous()) );
 
       if (validate) {
@@ -406,8 +412,7 @@ namespace eosio::chain {
             const auto& exts = n->header_exts;
 
             if (auto i = exts.lower_bound(protocol_feature_activation::extension_id()); i != exts.end() ) {
-               const auto& prev_protocol_features = itr != index.end() ? (*itr)->get_activated_protocol_features()->protocol_features
-                                                                       : root->get_activated_protocol_features()->protocol_features;
+               const auto& prev_protocol_features = prev_bh->get_activated_protocol_features()->protocol_features;
                const auto& pfa = i->second;
                const auto& new_protocol_features = std::get<protocol_feature_activation>(pfa).protocol_features;
                validator(n->timestamp(), prev_protocol_features, new_protocol_features);
@@ -417,10 +422,24 @@ namespace eosio::chain {
                                 "serialized fork database is incompatible with configured protocol features")
       }
 
+      if (mark_valid)
+         BSAccessor::set_valid(*n, true);
+
       auto inserted = index.insert(n);
       if( !inserted.second ) {
          if( ignore_duplicate ) return;
          EOS_THROW( fork_database_exception, "duplicate block added", ("id", n->id()) );
+      }
+
+      // ancestor might have been updated since block_state was created
+      if (auto prev = index.find(n->previous()); prev != index.end()) {
+         if (BSAccessor::qc_claim_update_needed(*n, **prev)) {
+            auto& by_id_idx = index.template get<by_block_id>();
+            auto itr = by_id_idx.find(n->id());
+            by_id_idx.modify( itr, [&]( auto& i ) {
+               BSAccessor::update_best_qc(*i, **prev);
+            } );
+         }
       }
 
       auto candidate = index.template get<by_best_branch>().begin();
@@ -430,9 +449,9 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   void fork_database_t<BSP>::add( const BSP& n, bool ignore_duplicate ) {
+   void fork_database_t<BSP>::add( const BSP& n, bool mark_valid, bool ignore_duplicate ) {
       std::lock_guard g( my->mtx );
-      my->add_impl( n, ignore_duplicate, false,
+      my->add_impl( n, mark_valid, ignore_duplicate, false,
                     []( block_timestamp_type timestamp,
                         const flat_set<digest_type>& cur_features,
                         const vector<digest_type>& new_features )
@@ -673,22 +692,45 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   void fork_database_t<BSP>::update_best_qc_strong( const block_id_type& id ) {
+   void fork_database_t<BSP>::update_best_qc( const block_id_type& id, const qc_claim_t& most_recent_ancestor_with_qc ) {
       std::lock_guard g( my->mtx );
-      my->update_best_qc_strong_impl( id );
+      my->update_best_qc_impl( id, most_recent_ancestor_with_qc );
    }
 
    template<class BSP>
-   void fork_database_impl<BSP>::update_best_qc_strong_impl( const block_id_type& id ) {
+   void fork_database_impl<BSP>::update_best_qc_impl( const block_id_type& id, const qc_claim_t& most_recent_ancestor_with_qc ) {
       auto& by_id_idx = index.template get<by_block_id>();
 
       auto itr = by_id_idx.find( id );
       EOS_ASSERT( itr != by_id_idx.end(), fork_database_exception,
                   "block state not in fork database; cannot update", ("id", id) );
 
-      by_id_idx.modify( itr, []( auto& i ) {
-         BSAccessor::update_best_qc_strong(*i, i->block_num());
-      } );
+      if (BSAccessor::qc_claim_update_needed(**itr, most_recent_ancestor_with_qc)) {
+         by_id_idx.modify( itr, [&]( auto& i ) {
+            BSAccessor::update_best_qc(*i, most_recent_ancestor_with_qc);
+         } );
+      }
+
+      // process descendants
+      vector<block_id_type> descendants;
+      descendants.reserve(index.size());
+      descendants.push_back(id);
+      auto& previdx = index.template get<by_prev>();
+      for( uint32_t i = 0; i < descendants.size(); ++i ) {
+         auto previtr = previdx.lower_bound( descendants[i] );
+         while( previtr != previdx.end() && (*previtr)->previous() == descendants[i] ) {
+            if (BSAccessor::qc_claim_update_needed(**previtr, most_recent_ancestor_with_qc)) {
+               previdx.modify( previtr, [&](auto& i) {
+                  BSAccessor::update_best_qc(*i, most_recent_ancestor_with_qc);
+               });
+            } else {
+               break;
+            }
+
+            descendants.emplace_back( (*previtr)->id() );
+            ++previtr;
+         }
+      }
 
       auto candidate = index.template get<by_best_branch>().begin();
       if( first_preferred( **candidate, *head ) ) {

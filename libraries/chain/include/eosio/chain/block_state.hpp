@@ -32,16 +32,16 @@ struct block_state : public block_header_state {     // block_header_state provi
 
    // ------ updated for votes, used for fork_db ordering ------------------------------
 private:
-   bool                       validated = false;     // We have executed the block's trxs and verified that action merkle root (block id) matches.
-   block_header_state_core    current_core;          // only modify/access while holding forkdb lock
+   bool                       validated = false;            // We have executed the block's trxs and verified that action merkle root (block id) matches.
+   qc_claim_t                 most_recent_ancestor_with_qc; // only modify/access while holding forkdb lock
+   core_metadata              updated_core;                 // only modify/access while holding forkdb lock
 
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
 
    // ------ private methods -----------------------------------------------------------
-   bool is_valid() const { return validated; }
-   void set_valid(bool b) { validated = b; }
+   bool                                is_valid() const { return validated; }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);
@@ -65,7 +65,8 @@ public:
       
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
 
-   std::tuple<vote_status, pending_quorum_certificate::state_t, std::optional<uint32_t>> aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
+   // vote_status, pending_qc state
+   std::tuple<vote_status, pending_quorum_certificate::state_t> aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
    void verify_qc(const valid_quorum_certificate& qc) const; // verify given qc is valid with respect block_state
 
    using bhs_t  = block_header_state;
@@ -73,6 +74,8 @@ public:
    using fork_db_block_state_accessor = block_state_accessor;
 
    block_state() = default;
+   block_state(const block_state&) = delete;
+   block_state(block_state&&) = default;
 
    block_state(const block_header_state& prev, signed_block_ptr b, const protocol_feature_set& pfs,
                const validator_t& validator, bool skip_validate_signee);
@@ -92,4 +95,4 @@ using block_state_ptr = std::shared_ptr<block_state>;
 } // namespace eosio::chain
 
 // not exporting pending_qc or valid_qc
-FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated)(current_core) )
+FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated)(most_recent_ancestor_with_qc)(updated_core) )
