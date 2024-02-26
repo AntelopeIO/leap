@@ -24,7 +24,7 @@ finalizer::vote_decision finalizer::decide_vote(const finality_core& core, const
       // than the height of the proposal I'm locked on.
       // This allows restoration of liveness if a replica is locked on a stale proposal
       // -------------------------------------------------------------------------------
-      liveness_check = core.last_qc_block_timestamp() > fsi.lock.timestamp;
+      liveness_check = core.latest_qc_block_timestamp() > fsi.lock.timestamp;
 
       if (!liveness_check) {
          // Safety check : check if this proposal extends the proposal we're locked on
@@ -47,7 +47,7 @@ finalizer::vote_decision finalizer::decide_vote(const finality_core& core, const
    vote_decision decision = vote_decision::no_vote;
 
    if (liveness_check || safety_check) {
-      auto [p_start, p_end] = std::make_pair(core.last_qc_block_timestamp(), proposal_timestamp);
+      auto [p_start, p_end] = std::make_pair(core.latest_qc_block_timestamp(), proposal_timestamp);
 
       bool time_range_disjoint  = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
       bool voting_strong        = time_range_disjoint;
@@ -64,8 +64,6 @@ finalizer::vote_decision finalizer::decide_vote(const finality_core& core, const
          fsi.lock = proposal_ref(final_on_strong_qc_block_ref.block_id, final_on_strong_qc_block_ref.timestamp);
 
       decision = voting_strong ? vote_decision::strong_vote : vote_decision::weak_vote;
-   } else {
-      dlog("last_qc_block_num=${lqc}", ("lqc",core.last_qc_block_num()));
    }
    if (decision != vote_decision::no_vote)
       dlog("Voting ${s}", ("s", decision == vote_decision::strong_vote ? "strong" : "weak"));

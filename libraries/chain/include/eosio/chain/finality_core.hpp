@@ -17,6 +17,7 @@ struct block_ref
    block_num_type block_num() const; // Extract from block_id.
 
    auto operator<=>(const block_ref&) const = default;
+   bool operator==(const block_ref& o) const = default;
 };
 
 struct qc_link
@@ -95,8 +96,12 @@ struct finality_core
     */
    qc_claim_t latest_qc_claim() const;
 
-   block_num_type last_qc_block_num() const { return links.back().target_block_num; }
-   block_time_type last_qc_block_timestamp() const { return get_block_reference(last_qc_block_num()).timestamp; }
+   /**
+    *  @pre  all finality_core invariants
+    *  @post same
+    *  @returns timestamp of latest qc_claim made by the core
+    */
+   block_time_type latest_qc_block_timestamp() const;
 
    /**
     *  @pre  all finality_core invariants

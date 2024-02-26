@@ -81,6 +81,15 @@ qc_claim_t finality_core::latest_qc_claim() const
 /**
  *  @pre  all finality_core invariants
  *  @post same
+ *  @returns timestamp of latest qc_claim made by the core
+ */
+block_time_type finality_core::latest_qc_block_timestamp() const {
+   return get_block_reference(links.back().target_block_num).timestamp;
+}
+
+/**
+ *  @pre  all finality_core invariants
+ *  @post same
  *  @returns boolean indicating whether `id` is an ancestor of this block
  */
 bool finality_core::extends(const block_id_type& id) const {
