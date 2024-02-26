@@ -164,7 +164,7 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   fork_database_t<BSP>::~fork_database_t<BSP>() {
+   fork_database_t<BSP>::~fork_database_t() {
       // close is performed in fork_database::~fork_database()
    }
 
