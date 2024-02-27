@@ -108,7 +108,7 @@ block_state::aggregate_vote(const vote_message& vote) {
                                  finalizers[index].weight);
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      return {vote_status::unknown_public_key, pending_quorum_certificate::state_t::unrestricted};
+      return {vote_status::unknown_public_key, pending_qc.state()};
    }
 }
 
