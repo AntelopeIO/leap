@@ -2780,7 +2780,9 @@ struct controller_impl {
             const auto& bsp = std::get<std::decay_t<decltype(forkdb.chain_head)>>(cb.bsp);
 
             if( s == controller::block_status::incomplete ) {
-               forkdb.add( bsp, true, false );
+               const bool mark_valid = true;
+               const bool ignore_duplicate = false;
+               forkdb.add( bsp, mark_valid, ignore_duplicate );
                emit( accepted_block_header, std::tie(bsp->block, bsp->id()) );
             } else if (s != controller::block_status::irreversible) {
                forkdb.mark_valid( bsp );
@@ -3431,8 +3433,11 @@ struct controller_impl {
          }
          
          auto do_push = [&](auto& forkdb) {
-            if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.chain_head)>>)
-               forkdb.add( bsp, false, false );
+            if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.chain_head)>>) {
+               const bool mark_valid = false;
+               const bool ignore_duplicate = false;
+               forkdb.add( bsp, mark_valid, ignore_duplicate );
+            }
 
             if (is_trusted_producer(b->producer)) {
                trusted_producer_light_validation = true;
@@ -3482,7 +3487,9 @@ struct controller_impl {
                   *forkdb.chain_head, b, protocol_features.get_protocol_feature_set(), validator, skip_validate_signee);
 
                if (s != controller::block_status::irreversible) {
-                  forkdb.add(bsp, false, true);
+                  const bool mark_valid = false;
+                  const bool ignore_duplicate = true;
+                  forkdb.add(bsp, mark_valid, ignore_duplicate);
                }
 
                emit(accepted_block_header, std::tie(bsp->block, bsp->id()));
