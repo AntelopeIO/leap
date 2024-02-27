@@ -292,9 +292,9 @@ class cluster_generator:
             if is_bios:
                 node.keys.append(KeyStrings('EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV',
                                             '5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3',
-                                            'PUB_BLS_qXP11UuMRiJLRFGF52711peFyBrRRVF7cPJY5wZZj2f/MpEY4eQvlQwXDpSPsqMSFXIChZTR/IXE9hySF8x7jQ2Na5eq0Vi4hcK19pcv2prYYF4PMbf02yjSmK2h3NMZYkjDEA==',
-                                            'PVT_BLS_I3cpJdW51PHYnKrY3naidDQMqJZekJCm2Pdp6QkoBR26ADvq',
-                                            'SIG_BLS_GBIXLkWRXnxhuaRwQYDup64aAghAiQu8AgBygj5Qojwi9G0nz1W/es5U29gPjRcET4JRrJpysqgWPgmDpTSESyZzQJARxriHylz/dmCbwG0/7fwPmMntc/VvVEUlTUQB78VswKEU1NOaYImixkLJZqE4f2xn9shHjilzv2neW39kXpEV5COxUAk/HVeRzYYMxr8SA8SaiJ0w3x2hQTWfxTAbH/Nv3SjNkFcO+nQrAckfRZrKlSPO9egBVgKKnOcPdXFpyA=='))
+                                            'PUB_BLS_qVbh4IjYZpRGo8U_0spBUM-u-r_G0fMo4MzLZRsKWmm5uyeQTp74YFaMN9IDWPoVVT5rj_Tw1gvps6K9_OZ6sabkJJzug3uGfjA6qiaLbLh5Fnafwv-nVgzzzBlU2kwRrcHc8Q',
+                                            'PVT_BLS_edLoUiiP2FfMem4la3Ek8zxIDjDjOFylRw9ymdeOVCC0CuXN',
+                                             'SIG_BLS_L5MXQpJTX_v7cXDy4ML4fWVw_69MKuG5qTq7dD_Zb3Yuw1RbMXBOYXDoAbFF37gFmHudY3kkqXtETLs9nMTjTaTwgdDZWpFy1_csEIZT-xIOQttc76bpZhI67902g2sIDf6JSf9JtbhdTUc_HNbL7H2ZR2bqGS3YPbV5z7x24AR2vwTcJogMqLyy6H5nKQAEwIvXcL15gbs2EkH_ch-IZDdn4F0zUYifpOo-ovXY_CX_yL2rKIx_2a9IHg0pPrMOdfHs9A'))
                 node.producers.append('eosio')
             else:
                 node.keys.append(KeyStrings(account.ownerPublicKey, account.ownerPrivateKey, account.blsFinalizerPublicKey, account.blsFinalizerPrivateKey, account.blsFinalizerPOP))

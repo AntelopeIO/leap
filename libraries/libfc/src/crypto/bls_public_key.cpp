@@ -5,25 +5,25 @@
 
 namespace fc::crypto::blslib {
 
-   static bls12_381::g1 pub_parse_base64(const std::string& base64str)
+   static bls12_381::g1 pub_parse_base64url(const std::string& base64urlstr)
    {  
       auto res = std::mismatch(config::bls_public_key_prefix.begin(), config::bls_public_key_prefix.end(),
-                               base64str.begin());
-      FC_ASSERT(res.first == config::bls_public_key_prefix.end(), "BLS Public Key has invalid format : ${str}", ("str", base64str));
+                               base64urlstr.begin());
+      FC_ASSERT(res.first == config::bls_public_key_prefix.end(), "BLS Public Key has invalid format : ${str}", ("str", base64urlstr));
 
-      auto data_str = base64str.substr(config::bls_public_key_prefix.size());
+      auto data_str = base64urlstr.substr(config::bls_public_key_prefix.size());
 
-      std::array<uint8_t, 96> bytes = fc::crypto::blslib::deserialize_base64<std::array<uint8_t, 96>>(data_str);
+      std::array<uint8_t, 96> bytes = fc::crypto::blslib::deserialize_base64url<std::array<uint8_t, 96>>(data_str);
       
-      constexpr bool check = true; // check if base64str is invalid
+      constexpr bool check = true; // check if base64urlstr is invalid
       constexpr bool raw = false;  // non-montgomery
       std::optional<bls12_381::g1> g1 = bls12_381::g1::fromAffineBytesLE(bytes, check, raw);
       FC_ASSERT(g1);
       return *g1;
    }
 
-   bls_public_key::bls_public_key(const std::string& base64str)
-   :_pkey(pub_parse_base64(base64str))
+   bls_public_key::bls_public_key(const std::string& base64urlstr)
+   :_pkey(pub_parse_base64url(base64urlstr))
    {}
 
    std::string bls_public_key::to_string(const yield_function_t& yield)const {
@@ -31,7 +31,7 @@ namespace fc::crypto::blslib {
       constexpr bool raw = false; // non-montgomery
       std::array<uint8_t, 96> bytes = _pkey.toAffineBytesLE(raw);
 
-      std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint8_t, 96>>(bytes);
+      std::string data_str = fc::crypto::blslib::serialize_base64url<std::array<uint8_t, 96>>(bytes);
 
       return config::bls_public_key_prefix + data_str;
 
