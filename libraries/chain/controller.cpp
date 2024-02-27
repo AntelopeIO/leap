@@ -2782,7 +2782,6 @@ struct controller_impl {
             if( s == controller::block_status::incomplete ) {
                forkdb.add( bsp, true, false );
                emit( accepted_block_header, std::tie(bsp->block, bsp->id()) );
-               EOS_ASSERT( bsp == forkdb.head(), fork_database_exception, "committed block did not become the new head in fork database");
             } else if (s != controller::block_status::irreversible) {
                forkdb.mark_valid( bsp );
             }
@@ -3510,6 +3509,21 @@ struct controller_impl {
          fork_db.apply<void>(do_push);
 
       } FC_LOG_AND_RETHROW( )
+   }
+
+   void maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup) {
+      auto maybe_switch = [&](auto& forkdb) {
+         if (read_mode != db_read_mode::IRREVERSIBLE) {
+            auto fork_head = forkdb.head();
+            if (forkdb.chain_head->id() != fork_head->id()) {
+               controller::block_report br;
+               maybe_switch_forks(br, fork_head, fork_head->is_valid() ? controller::block_status::validated : controller::block_status::complete,
+                                  cb, trx_lookup);
+            }
+         }
+      };
+
+      fork_db.apply<void>(maybe_switch);
    }
 
    template<class BSP>
@@ -4276,6 +4290,12 @@ void controller::commit_block() {
    validate_db_available_size();
    my->commit_block(block_status::incomplete);
 }
+
+void controller::maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup) {
+   validate_db_available_size();
+   my->maybe_switch_forks(cb, trx_lookup);
+}
+
 
 deque<transaction_metadata_ptr> controller::abort_block() {
    return my->abort_block();

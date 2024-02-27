@@ -1779,6 +1779,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    if (!chain_plug->accept_transactions())
       return start_block_result::waiting_for_block;
 
+   chain.maybe_switch_forks([this](const transaction_metadata_ptr& trx) { _unapplied_transactions.add_forked(trx); },
+                            [this](const transaction_id_type& id) { return _unapplied_transactions.get_trx(id); });
+
+
    uint32_t head_block_num = chain.head_block_num();
 
    if (chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() <= head_block_num) {
