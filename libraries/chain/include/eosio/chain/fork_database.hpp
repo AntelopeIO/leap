@@ -115,7 +115,7 @@ namespace eosio::chain {
       /**
        * Update finality_core for best qc
        */
-      void update_best_qc( const block_id_type& id, const qc_claim_t& most_recent_ancestor_with_qc );
+      void update_best_qc( const block_id_type& id, const qc_claim_t& best_qc_claim );
 
    private:
       unique_ptr<fork_database_impl<BSP>> my;

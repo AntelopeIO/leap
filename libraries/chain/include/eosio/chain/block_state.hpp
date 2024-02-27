@@ -32,9 +32,9 @@ struct block_state : public block_header_state {     // block_header_state provi
 
    // ------ updated for votes, used for fork_db ordering ------------------------------
 private:
-   bool                       validated = false;            // We have executed the block's trxs and verified that action merkle root (block id) matches.
-   qc_claim_t                 most_recent_ancestor_with_qc; // only modify/access while holding forkdb lock
-   core_metadata              updated_core;                 // only modify/access while holding forkdb lock
+   bool                       validated = false;     // We have executed the block's trxs and verified that action merkle root (block id) matches.
+   qc_claim_t                 best_qc_claim;         // only modify/access while holding forkdb lock
+   core_metadata              updated_core;          // only modify/access while holding forkdb lock, updated block_header_state::core by best_qc_claim
 
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
@@ -93,4 +93,4 @@ using block_state_ptr = std::shared_ptr<block_state>;
 } // namespace eosio::chain
 
 // not exporting pending_qc or valid_qc
-FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated)(most_recent_ancestor_with_qc)(updated_core) )
+FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated)(best_qc_claim)(updated_core) )
