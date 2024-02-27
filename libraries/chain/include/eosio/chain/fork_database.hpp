@@ -7,7 +7,7 @@ namespace eosio::chain {
    template<class bsp>
    struct fork_database_impl;
 
-   using block_branch_t = deque<signed_block_ptr>;
+   using block_branch_t = std::vector<signed_block_ptr>;
 
    /**
     * @class fork_database_t

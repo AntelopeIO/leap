@@ -518,6 +518,7 @@ namespace eosio::chain {
    block_branch_t
    fork_database_impl<BSP>::fetch_block_branch_impl(const block_id_type& h, uint32_t trim_after_block_num) const {
       block_branch_t result;
+      result.reserve(index.size());
       for (auto i = index.find(h); i != index.end(); i = index.find((*i)->previous())) {
          if ((*i)->block_num() <= trim_after_block_num)
             result.push_back((*i)->block);
