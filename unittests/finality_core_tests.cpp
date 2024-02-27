@@ -90,11 +90,11 @@ BOOST_AUTO_TEST_CASE(strong_qc_claim_test) { try {
    {
       test_core core;
 
-      // strong QC claim on block 4 will addvance LIB to 2
+      // strong QC claim on block 4 will advance LIB to 2
       core.next(4, qc_claim_t{.block_num = 4, .is_strong_qc = true });
       core.verify_post_conditions(2, 3);
 
-      // strong QC claim on block 5 will addvance LIB to 2
+      // strong QC claim on block 5 will advance LIB to 2
       core.next(5, qc_claim_t{.block_num = 5, .is_strong_qc = true });
       core.verify_post_conditions(3, 4);
    }
@@ -109,11 +109,11 @@ BOOST_AUTO_TEST_CASE(same_strong_qc_claim_test_1) { try {
    // final_on_strong_qc_block_num == 2
    // latest qc_claim == {"block_num":3,"is_strong_qc":true}
 
-   // same QC claim on block 3 will not addvance last_final_block_num
+   // same QC claim on block 3 will not advance last_final_block_num
    core.next(4, qc_claim_t{.block_num = 3, .is_strong_qc = true });
    core.verify_post_conditions(1, 2);
 
-   // same QC claim on block 3 will not addvance last_final_block_num
+   // same QC claim on block 3 will not advance last_final_block_num
    core.next(5, qc_claim_t{.block_num = 3, .is_strong_qc = true });
    core.verify_post_conditions(1, 2);
 
@@ -141,11 +141,11 @@ BOOST_AUTO_TEST_CASE(same_strong_qc_claim_test_2) { try {
    // final_on_strong_qc_block_num == 2
    // latest qc_claim == {"block_num":3,"is_strong_qc":true}
 
-   // same QC claim on block 3 will not addvance last_final_block_num
+   // same QC claim on block 3 will not advance last_final_block_num
    core.next(4, qc_claim_t{.block_num = 3, .is_strong_qc = true });
    core.verify_post_conditions(1, 2);
 
-   // same QC claim on block 3 will not addvance last_final_block_num
+   // same QC claim on block 3 will not advance last_final_block_num
    core.next(5, qc_claim_t{.block_num = 3, .is_strong_qc = true });
    core.verify_post_conditions(1, 2);
 
@@ -168,11 +168,11 @@ BOOST_AUTO_TEST_CASE(same_strong_qc_claim_test_3) { try {
    // final_on_strong_qc_block_num == 2
    // latest qc_claim == {"block_num":3,"is_strong_qc":true}
 
-   // same QC claim on block 3 will not addvance last_final_block_num
+   // same QC claim on block 3 will not advance last_final_block_num
    core.next(4, qc_claim_t{.block_num = 3, .is_strong_qc = true });
    core.verify_post_conditions(1, 2);
 
-   // same QC claim on block 3 will not addvance last_final_block_num
+   // same QC claim on block 3 will not advance last_final_block_num
    core.next(5, qc_claim_t{.block_num = 3, .is_strong_qc = true });
    core.verify_post_conditions(1, 2);
 
