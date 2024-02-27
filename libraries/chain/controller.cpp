@@ -1004,7 +1004,7 @@ struct controller_impl {
       return prev->block_num();
    }
 
-   void fork_db_reset_root_to_head() {
+   void fork_db_reset_root_to_chain_head() {
       return fork_db.apply<void>([&](auto& forkdb) {
          forkdb.reset_root(*forkdb.chain_head);
       });
@@ -1300,7 +1300,7 @@ struct controller_impl {
    void replay(std::function<bool()> check_shutdown) {
       auto blog_head = blog.head();
       if( !fork_db_has_root() ) {
-         fork_db_reset_root_to_head();
+         fork_db_reset_root_to_chain_head();
          if (!blog_head)
             return;
       }
