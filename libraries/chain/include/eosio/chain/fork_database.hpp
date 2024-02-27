@@ -8,6 +8,8 @@ namespace eosio::chain {
    struct fork_database_impl;
 
    using block_branch_t = std::vector<signed_block_ptr>;
+   enum class mark_valid_t { no, yes };
+   enum class ignore_duplicate_t { no, yes };
 
    /**
     * @class fork_database_t
@@ -66,7 +68,7 @@ namespace eosio::chain {
        *  Must link to existing block in fork database or the root.
        *  @param mark_valid if true also mark next_block valid
        */
-      void add( const BSP& next_block, bool mark_valid, bool ignore_duplicate );
+      void add( const BSP& next_block, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate );
 
       void remove( const block_id_type& id );
 

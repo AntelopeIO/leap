@@ -136,7 +136,7 @@ namespace eosio::chain {
 
       void             open_impl( const std::filesystem::path& fork_db_file, validator_t& validator );
       void             close_impl( const std::filesystem::path& fork_db_file );
-      void             add_impl( const BSP& n, bool mark_valid, bool ignore_duplicate, bool validate, validator_t& validator );
+      void             add_impl( const BSP& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator );
 
       BHSP             get_block_header_impl( const block_id_type& id ) const;
       BSP              get_block_impl( const block_id_type& id ) const;
@@ -206,7 +206,7 @@ namespace eosio::chain {
                fc::raw::unpack( ds, s );
                // do not populate transaction_metadatas, they will be created as needed in apply_block with appropriate key recovery
                s.header_exts = s.block->validate_and_extract_header_extensions();
-               add_impl( std::make_shared<BS>( std::move( s ) ), false, false, true, validator );
+               add_impl( std::make_shared<BS>( std::move( s ) ), mark_valid_t::no, ignore_duplicate_t::no, true, validator );
             }
             block_id_type head_id;
             fc::raw::unpack( ds, head_id );
@@ -399,7 +399,7 @@ namespace eosio::chain {
    }
 
    template <class BSP>
-   void fork_database_impl<BSP>::add_impl(const BSP& n, bool mark_valid, bool ignore_duplicate, bool validate, validator_t& validator) {
+   void fork_database_impl<BSP>::add_impl(const BSP& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator) {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
@@ -419,12 +419,12 @@ namespace eosio::chain {
          EOS_RETHROW_EXCEPTIONS( fork_database_exception, "serialized fork database is incompatible with configured protocol features" )
       }
 
-      if (mark_valid)
+      if (mark_valid == mark_valid_t::yes)
          BSAccessor::set_valid(*n, true);
 
       auto inserted = index.insert(n);
       if( !inserted.second ) {
-         if( ignore_duplicate ) return;
+         if( ignore_duplicate == ignore_duplicate_t::yes ) return;
          EOS_THROW( fork_database_exception, "duplicate block added", ("id", n->id()) );
       }
 
@@ -446,7 +446,7 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   void fork_database_t<BSP>::add( const BSP& n, bool mark_valid, bool ignore_duplicate ) {
+   void fork_database_t<BSP>::add( const BSP& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate ) {
       std::lock_guard g( my->mtx );
       my->add_impl( n, mark_valid, ignore_duplicate, false,
                     []( block_timestamp_type timestamp,
