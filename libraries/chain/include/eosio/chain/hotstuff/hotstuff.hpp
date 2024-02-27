@@ -94,7 +94,7 @@ namespace eosio::chain {
       // thread safe
       bool is_quorum_met() const;
       static bool is_quorum_met(state_t s) {
-         return s == state_t::weak_achieved || s == state_t::weak_final || s == state_t::strong;
+         return s == state_t::strong || s == state_t::weak_achieved || s == state_t::weak_final;
       }
 
       // thread safe
