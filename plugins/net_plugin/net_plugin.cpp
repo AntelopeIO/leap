@@ -4001,6 +4001,10 @@ namespace eosio {
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
 
+      fc_dlog(logger, "bcast vote: block #${bn}:${id}.., ${t}, key ${k}..",
+                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
+                ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8,16)));
+
       dispatcher->strand.post( [this, exclude_peer, msg{std::move(send_buffer)}]() mutable {
          dispatcher->bcast_vote_msg( exclude_peer, std::move(msg) );
       });

@@ -56,9 +56,6 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
       safety_check   = false;
    }
 
-   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote = {can_vote}",
-        ("l",liveness_check)("s",safety_check)("m",monotony_check)("can_vote",(liveness_check || safety_check)));
-
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
    // -----------------------------------------------------------------------------------
@@ -90,8 +87,9 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
            ("lqc",!!proposal->last_qc_block_num())("f",fork_db.root()->block_num()));
       dlog("last_qc_block_num=${lqc}", ("lqc", proposal->last_qc_block_num()));
    }
-   if (decision != vote_decision::no_vote)
-      dlog("Voting ${s}", ("s", decision == vote_decision::strong_vote ? "strong" : "weak"));
+
+   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote=${can_vote}, voting=${v}",
+        ("l",liveness_check)("s",safety_check)("m",monotony_check)("can_vote",(liveness_check || safety_check))("v", decision));
    return decision;
 }
 

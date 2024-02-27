@@ -23,7 +23,6 @@ inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) {
 vote_status pending_quorum_certificate::votes_t::add_vote(std::span<const uint8_t> proposal_digest, size_t index,
                                                           const bls_public_key& pubkey, const bls_signature& new_sig) {
    if (_bitset[index]) {
-      dlog("duplicated vote");
       return vote_status::duplicate; // shouldn't be already present
    }
    if (!fc::crypto::blslib::verify(pubkey, proposal_digest, new_sig)) {
@@ -64,7 +63,6 @@ vote_status pending_quorum_certificate::add_strong_vote(std::span<const uint8_t>
                                                         const bls_public_key& pubkey, const bls_signature& sig,
                                                         uint64_t weight) {
    if (auto s = _strong_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success) {
-      dlog("add_strong_vote returned failure");
       return s;
    }
    _strong_sum += weight;
@@ -134,9 +132,8 @@ pending_quorum_certificate::add_vote(block_num_type block_num, bool strong, std:
    std::lock_guard g(*_mtx);
    vote_status s = strong ? add_strong_vote(proposal_digest, index, pubkey, sig, weight)
                           : add_weak_vote(proposal_digest, index, pubkey, sig, weight);
-   dlog("block_num: ${bn}, status: ${s}, state: ${state}, quorum_met: ${q}",
-        ("bn", block_num)("s", s ==vote_status::success ? "success":"failure")("state", _state==state_t::strong ? "strong":"weak")
-        ("q", is_quorum_met_no_lock() ? "yes":"no"));
+   dlog("block_num: ${bn}, vote strong: ${sv}, status: ${s}, state: ${state}, quorum_met: ${q}",
+        ("bn", block_num)("sv", strong)("s", s)("state", _state)("q", is_quorum_met_no_lock()));
    return {s, _state};
 }
 
