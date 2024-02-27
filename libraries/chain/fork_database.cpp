@@ -411,9 +411,10 @@ namespace eosio::chain {
          try {
             const auto& exts = n->header_exts;
 
-            if( exts.count(protocol_feature_activation::extension_id()) > 0 ) {
-               const auto& new_protocol_features = std::get<protocol_feature_activation>(exts.lower_bound(protocol_feature_activation::extension_id())->second).protocol_features;
-               validator( n->header.timestamp, prev_bh->activated_protocol_features->protocol_features, new_protocol_features );
+            if (exts.count(protocol_feature_activation::extension_id()) > 0) {
+               const auto& pfa = exts.lower_bound(protocol_feature_activation::extension_id())->second;
+               const auto& new_protocol_features = std::get<protocol_feature_activation>(pfa).protocol_features;
+               validator(n->timestamp(), prev_bh->get_activated_protocol_features()->protocol_features, new_protocol_features);
             }
          }
          EOS_RETHROW_EXCEPTIONS( fork_database_exception, "serialized fork database is incompatible with configured protocol features" )
