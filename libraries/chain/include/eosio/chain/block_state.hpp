@@ -63,8 +63,9 @@ public:
    uint32_t               last_qc_block_num() const { return core.latest_qc_claim().block_num; }
    uint32_t               final_on_strong_qc_block_num() const { return core.final_on_strong_qc_block_num; }
       
-   // vote_status, pending_qc state
-   std::tuple<vote_status, pending_quorum_certificate::state_t> aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
+   // vote_status, pending_qc pre state, pending_qc post state
+   std::tuple<vote_status, pending_quorum_certificate::state_t, pending_quorum_certificate::state_t>
+   aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
    void verify_qc(const valid_quorum_certificate& qc) const; // verify given qc is valid with respect block_state
 
    using bhs_t  = block_header_state;

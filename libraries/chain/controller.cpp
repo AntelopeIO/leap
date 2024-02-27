@@ -3112,10 +3112,10 @@ struct controller_impl {
       auto aggregate_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
           auto bsp = forkdb.get_block(vote.proposal_id);
           if (bsp) {
-             auto [status, state] = bsp->aggregate_vote(vote);
+             auto [status, pre_state, post_state] = bsp->aggregate_vote(vote);
              std::optional<uint32_t> new_lib{};
-             if (status == vote_status::success && pending_quorum_certificate::is_quorum_met(state)) {
-                if (state == pending_quorum_certificate::state_t::strong) {
+             if (status == vote_status::success && pre_state != post_state && pending_quorum_certificate::is_quorum_met(post_state)) {
+                if (post_state == pending_quorum_certificate::state_t::strong) {
                    new_lib = bsp->core.final_on_strong_qc_block_num;
                    forkdb.update_best_qc(bsp->id(), {.block_num = bsp->block_num(), .is_strong_qc = true});
                 } else {

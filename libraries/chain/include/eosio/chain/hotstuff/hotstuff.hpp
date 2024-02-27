@@ -97,14 +97,14 @@ namespace eosio::chain {
          return s == state_t::strong || s == state_t::weak_achieved || s == state_t::weak_final;
       }
 
-      // thread safe
-      std::pair<vote_status, state_t> add_vote(block_num_type block_num,
-                                               bool strong,
-                                               std::span<const uint8_t> proposal_digest,
-                                               size_t index,
-                                               const bls_public_key& pubkey,
-                                               const bls_signature& sig,
-                                               uint64_t weight);
+      // thread safe, status, pre    , post
+      std::tuple<vote_status, state_t, state_t> add_vote(block_num_type block_num,
+                                                         bool strong,
+                                                         std::span<const uint8_t> proposal_digest,
+                                                         size_t index,
+                                                         const bls_public_key& pubkey,
+                                                         const bls_signature& sig,
+                                                         uint64_t weight);
 
       state_t state() const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;

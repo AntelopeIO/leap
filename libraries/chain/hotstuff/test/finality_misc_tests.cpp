@@ -51,11 +51,11 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       pubkey.push_back(k.get_public_key());
 
    auto weak_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index, uint64_t weight) {
-      return qc.add_vote(0, false, digest, index, pubkey[index], sk[index].sign(digest), weight).first;
+      return std::get<0>(qc.add_vote(0, false, digest, index, pubkey[index], sk[index].sign(digest), weight));
    };
 
    auto strong_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index, uint64_t weight) {
-      return qc.add_vote(0, true, digest, index, pubkey[index], sk[index].sign(digest), weight).first;
+      return std::get<0>(qc.add_vote(0, true, digest, index, pubkey[index], sk[index].sign(digest), weight));
    };
 
    constexpr uint64_t weight = 1;
