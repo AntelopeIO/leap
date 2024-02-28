@@ -16,8 +16,8 @@ inline block_id_type make_block_id(block_num_type block_num) {
    return id;
 }
 
+// Used to access privates of block_state
 struct block_state_accessor {
-
    static auto make_genesis_block_state() {
       block_state_ptr root = std::make_shared<block_state>();
       block_id_type genesis_id = make_block_id(10);
@@ -56,11 +56,10 @@ using namespace eosio::chain;
 BOOST_AUTO_TEST_SUITE(fork_database_tests)
 
 BOOST_AUTO_TEST_CASE(update_best_qc) try {
-
-   fc::temp_directory temp_dir;
-   const auto& temp = temp_dir.path();
-   fork_database fdb(temp);
    fork_database_if_t forkdb;
+
+   // Setup fork database with blocks based on a root of block 10
+   // Add a number of forks in the fork database
    auto root = block_state_accessor::make_genesis_block_state();
    auto   bsp11a = block_state_accessor::make_unique_block_state(11, root);
    auto     bsp12a = block_state_accessor::make_unique_block_state(12, bsp11a);
@@ -77,6 +76,7 @@ BOOST_AUTO_TEST_CASE(update_best_qc) try {
    auto     bsp12c = block_state_accessor::make_unique_block_state(12, bsp11c);
    auto       bsp13c = block_state_accessor::make_unique_block_state(13, bsp12c);
 
+   // keep track of all those added for easy verification
    std::vector<block_state_ptr> all { bsp11a, bsp12a, bsp13a, bsp11b, bsp12b, bsp12bb, bsp12bbb, bsp13b, bsp13bb, bsp13bbb, bsp14b, bsp11c, bsp12c, bsp13c };
 
    forkdb.reset_root(*root);
@@ -100,16 +100,16 @@ BOOST_AUTO_TEST_CASE(update_best_qc) try {
       BOOST_TEST(forkdb.get_block(i->id()) == i);
    }
 
-   // test remove
+   // test remove, should remove descendants
    forkdb.remove(bsp12b->id());
    BOOST_TEST(!forkdb.get_block(bsp12b->id()));
    BOOST_TEST(!forkdb.get_block(bsp13b->id()));
    BOOST_TEST(!forkdb.get_block(bsp14b->id()));
-   forkdb.add(bsp12b, mark_valid_t::no, ignore_duplicate_t::no);
-   forkdb.add(bsp13b, mark_valid_t::no, ignore_duplicate_t::no);
-   forkdb.add(bsp14b, mark_valid_t::no, ignore_duplicate_t::no);
+   forkdb.add(bsp12b, mark_valid_t::no, ignore_duplicate_t::no); // will throw if already exists
+   forkdb.add(bsp13b, mark_valid_t::no, ignore_duplicate_t::no); // will throw if already exists
+   forkdb.add(bsp14b, mark_valid_t::no, ignore_duplicate_t::no); // will throw if already exists
 
-   // test update_best_qc
+   // test update_best_qc, should update descendants
    BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp11b).block_num == 10);
    BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp12b).block_num == 10);
    forkdb.update_best_qc(bsp11b->id(), {.block_num = 11, .is_strong_qc = false});
