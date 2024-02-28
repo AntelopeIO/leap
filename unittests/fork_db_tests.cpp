@@ -8,7 +8,9 @@
 namespace eosio::chain {
 
 inline block_id_type make_block_id(block_num_type block_num) {
-   block_id_type id = fc::sha256::hash(std::to_string(block_num) + std::to_string(fc::time_point::now().time_since_epoch().count()));
+   static uint32_t nonce = 0;
+   ++nonce;
+   block_id_type id = fc::sha256::hash(std::to_string(block_num) + "-" + std::to_string(nonce));
    id._hash[0] &= 0xffffffff00000000;
    id._hash[0] += fc::endian_reverse_u32(block_num); // store the block num in the ID, 160 bits is plenty for the hash
    return id;
