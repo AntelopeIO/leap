@@ -5,7 +5,6 @@
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/snapshot.hpp>
-#include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>

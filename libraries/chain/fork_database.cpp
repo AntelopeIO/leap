@@ -159,6 +159,8 @@ namespace eosio::chain {
       :my( new fork_database_impl<BSP>(magic_number) )
    {}
 
+   template<class BSP>
+   fork_database_t<BSP>::~fork_database_t() = default;
 
    template<class BSP>
    void fork_database_t<BSP>::open( const std::filesystem::path& fork_db_file, validator_t& validator ) {
@@ -722,11 +724,8 @@ namespace eosio::chain {
                previdx.modify( previtr, [&](auto& i) {
                   BSAccessor::update_best_qc(*i, best_qc_claim);
                });
-            } else {
-               break;
+               descendants.emplace_back( (*previtr)->id() );
             }
-
-            descendants.emplace_back( (*previtr)->id() );
             ++previtr;
          }
       }
