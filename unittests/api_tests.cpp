@@ -3862,10 +3862,10 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
 BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    validating_tester t;
 
-   uint32_t lib = 0;
+   uint32_t curr_lib = 0;
    t.control->irreversible_block().connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
-      lib = block->block_num();
+      curr_lib = block->block_num();
    });
 
    t.produce_block();
@@ -3904,7 +3904,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // and another on top of a instant-finality block
    block = t.produce_block();
-   auto lib_after_transition = lib;
+   auto lib_at_transition = curr_lib;
    BOOST_TEST(block->confirmed == 0);
    fb = t.control->fetch_block_by_id(block->calculate_id());
    BOOST_REQUIRE(!!fb);
@@ -3912,18 +3912,23 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    ext = fb->extract_header_extension(instant_finality_extension::extension_id());
    BOOST_REQUIRE(ext);
 
-   // lib must advance after 3 blocks
-   t.produce_blocks(3);
-   BOOST_CHECK_GT(lib, lib_after_transition);
+   // Local votes are signed asychronously. They can be delayed.
+   // Leave room for the delay.
+   for (auto i = 0; i < 50; ++i) {
+      t.produce_block();
+      if (curr_lib > lib_at_transition)
+         break;
+   }
+   BOOST_CHECK_GT(curr_lib, lib_at_transition);
 } FC_LOG_AND_RETHROW() }
 
 void test_finality_transition(const vector<account_name>& accounts, const base_tester::finalizer_policy_input& input, bool lib_advancing_expected) {
    validating_tester t;
 
-   uint32_t lib = 0;
+   uint32_t curr_lib = 0;
    t.control->irreversible_block().connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
-      lib = block->block_num();
+      curr_lib = block->block_num();
    });
 
    t.produce_block();
@@ -3951,13 +3956,20 @@ void test_finality_transition(const vector<account_name>& accounts, const base_t
    ext = fb->extract_header_extension(instant_finality_extension::extension_id());
    BOOST_REQUIRE(ext);
 
-   auto lib_after_transition = lib;
+   auto lib_at_transition = curr_lib;
 
-   t.produce_blocks(4);
    if( lib_advancing_expected ) {
-      BOOST_CHECK_GT(lib, lib_after_transition);
+      // Local votes are signed asychronously. They can be delayed.
+      // Leave room for the delay.
+      for (auto i = 0; i < 50; ++i) {
+         t.produce_block();
+         if (curr_lib > lib_at_transition)
+            break;
+      }
+      BOOST_CHECK_GT(curr_lib, lib_at_transition);
    } else {
-      BOOST_CHECK_EQUAL(lib, lib_after_transition);
+      t.produce_blocks(4);
+      BOOST_CHECK_EQUAL(curr_lib, lib_at_transition);
    }
 }
 
