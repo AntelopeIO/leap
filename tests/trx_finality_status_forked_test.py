@@ -163,11 +163,10 @@ try:
         Print("Wait for LIB to move, which indicates prodD may have forked out the branch")
         assert prodD.waitForLibToAdvance(60), \
             "ERROR: Network did not reach consensus after bridge node was restarted."
-        if prodD.getTransactionStatus(transId)['state'] == forkedOutState:
+        retStatus = prodD.getTransactionStatus(transId)
+        state = getState(retStatus)
+        if state == forkedOutState:
             break
-
-    retStatus = prodD.getTransactionStatus(transId)
-    state = getState(retStatus)
 
     assert state == forkedOutState, \
         f"ERROR: getTransactionStatus didn't return \"{forkedOutState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
