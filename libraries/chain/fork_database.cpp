@@ -110,6 +110,7 @@ namespace eosio::chain {
       block_branch_t   fetch_block_branch_impl( const block_id_type& h, uint32_t trim_after_block_num ) const;
       full_branch_type fetch_full_branch_impl(const block_id_type& h) const;
       BSP              search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const;
+      BSP              search_on_head_branch_impl( uint32_t block_num ) const;
       void             mark_valid_impl( const BSP& h );
       branch_type_pair fetch_branch_from_impl( const block_id_type& first, const block_id_type& second ) const;
 
@@ -508,6 +509,22 @@ namespace eosio::chain {
    template<class BSP>
    BSP fork_database_impl<BSP>::search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const {
       for( auto i = index.find(h); i != index.end(); i = index.find( (*i)->previous() ) ) {
+         if ((*i)->block_num() == block_num)
+            return *i;
+      }
+
+      return {};
+   }
+
+   template<class BSP>
+   BSP fork_database_t<BSP>::search_on_head_branch( uint32_t block_num ) const {
+      std::lock_guard g(my->mtx);
+      return my->search_on_head_branch_impl(block_num);
+   }
+
+   template<class BSP>
+   BSP fork_database_impl<BSP>::search_on_head_branch_impl( uint32_t block_num ) const {
+      for (auto i = index.find(head->id()); i != index.end(); i = index.find((*i)->previous())) {
          if ((*i)->block_num() == block_num)
             return *i;
       }

@@ -106,6 +106,11 @@ namespace eosio::chain {
       BSP  search_on_branch( const block_id_type& h, uint32_t block_num ) const;
 
       /**
+       * search_on_branch( head()->id(), block_num)
+       */
+      BSP  search_on_head_branch( uint32_t block_num ) const;
+
+      /**
        *  Given two head blocks, return two branches of the fork graph that
        *  end with a common ancestor (same prior block)
        */

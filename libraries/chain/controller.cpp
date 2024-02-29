@@ -1019,7 +1019,7 @@ struct controller_impl {
 
    signed_block_ptr fork_db_fetch_block_by_num(uint32_t block_num) const {
       return fork_db.apply<signed_block_ptr>([&](const auto& forkdb) {
-         auto bsp = forkdb.search_on_branch(forkdb.head()->id(), block_num);
+         auto bsp = forkdb.search_on_head_branch(block_num);
          if (bsp) return bsp->block;
          return signed_block_ptr{};
       });
@@ -1027,7 +1027,7 @@ struct controller_impl {
 
    std::optional<block_id_type> fork_db_fetch_block_id_by_num(uint32_t block_num) const {
       return fork_db.apply<std::optional<block_id_type>>([&](const auto& forkdb) -> std::optional<block_id_type> {
-         auto bsp = forkdb.search_on_branch(forkdb.head()->id(), block_num);
+         auto bsp = forkdb.search_on_head_branch(block_num);
          if (bsp) return bsp->id();
          return {};
       });
@@ -1039,7 +1039,7 @@ struct controller_impl {
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
             [&](const fork_database_if_t&forkdb) -> block_state_ptr {
-               auto bsp = forkdb.search_on_branch(forkdb.head()->id(), block_num);
+               auto bsp = forkdb.search_on_head_branch(block_num);
                return bsp;
             }
          }
@@ -2807,7 +2807,7 @@ struct controller_impl {
                assert(bsp->header_exts.count(if_ext_id) > 0); // in all instant_finality block headers
                const auto& if_ext = std::get<instant_finality_extension>(bsp->header_exts.lower_bound(if_ext_id)->second);
                if (if_ext.qc_claim.is_strong_qc) {
-                  auto claimed = forkdb.search_on_branch(forkdb.head()->id(), if_ext.qc_claim.block_num);
+                  auto claimed = forkdb.search_on_head_branch(if_ext.qc_claim.block_num);
                   if (claimed) {
                      set_if_irreversible_block_num(claimed->core.final_on_strong_qc_block_num);
                   }
