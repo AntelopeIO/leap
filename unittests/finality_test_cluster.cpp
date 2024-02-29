@@ -91,6 +91,7 @@ bool finality_test_cluster::produce_blocks_and_verify_lib_advancing() {
    for (auto i = 0; i < 3; ++i) {
       produce_and_push_block();
       process_node1_vote();
+      produce_and_push_block();
       if (!node0_lib_advancing() || !node1_lib_advancing() || !node2_lib_advancing()) {
          return false;
       }
