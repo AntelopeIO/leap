@@ -2800,6 +2800,17 @@ struct controller_impl {
                }});
 
          if( s == controller::block_status::incomplete ) {
+            fork_db.apply_if<void>([&](auto& forkdb) {
+               const auto& bsp = std::get<std::decay_t<decltype(forkdb.chain_head)>>(cb.bsp);
+
+               uint16_t if_ext_id = instant_finality_extension::extension_id();
+               assert(bsp->header_exts.count(if_ext_id) > 0); // in all instant_finality block headers
+               const auto& if_ext = std::get<instant_finality_extension>(bsp->header_exts.lower_bound(if_ext_id)->second);
+               if (if_ext.qc_claim.is_strong_qc) {
+                  set_if_irreversible_block_num(bsp->core.final_on_strong_qc_block_num);
+               }
+            });
+
             log_irreversible();
          }
 
