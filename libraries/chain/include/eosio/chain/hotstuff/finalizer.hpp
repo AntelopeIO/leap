@@ -48,7 +48,7 @@ namespace eosio::chain {
 
    // ----------------------------------------------------------------------------------------
    struct finalizer {
-      enum class vote_decision { strong_vote, weak_vote, no_vote };
+      enum class vote_decision { no_vote, strong_vote, weak_vote };
       struct vote_result {
          vote_decision decision       {vote_decision::no_vote};
          bool          safety_check   {false};

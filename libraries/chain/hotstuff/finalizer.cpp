@@ -44,8 +44,6 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
    // -----------------------------------------------------------------------------------
-   vote_decision decision = vote_decision::no_vote;
-
    if (can_vote) {
       auto [p_start, p_end] = std::make_pair(core.latest_qc_block_timestamp(), proposal_timestamp);
 
