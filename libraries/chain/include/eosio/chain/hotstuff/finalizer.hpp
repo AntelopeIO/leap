@@ -49,16 +49,20 @@ namespace eosio::chain {
    // ----------------------------------------------------------------------------------------
    struct finalizer {
       enum class vote_decision { strong_vote, weak_vote, no_vote };
+      struct vote_result {
+         vote_decision decision       {vote_decision::no_vote};
+         bool          safety_check   {false};
+         bool          liveness_check {false};
+         bool          monotony_check {false};
+      };
 
       bls_private_key               priv_key;
       finalizer_safety_information  fsi;
 
-   private:
-      vote_decision  decide_vote(const finality_core& core, const block_id_type &id,
-                                 const block_timestamp_type timestamp);
+      vote_result  decide_vote(const finality_core& core, const block_id_type &id,
+                               const block_timestamp_type timestamp);
 
-   public:
-      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_state_ptr& bsp,
+      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_header_state_ptr& bhsp,
                                              const digest_type& digest);
    };
 
@@ -77,7 +81,7 @@ namespace eosio::chain {
 
       template<class F>
       void maybe_vote(const finalizer_policy& fin_pol,
-                      const block_state_ptr& bsp,
+                      const block_header_state_ptr& bhsp,
                       const digest_type& digest,
                       F&& process_vote) {
          std::vector<vote_message> votes;
@@ -86,7 +90,7 @@ namespace eosio::chain {
          // first accumulate all the votes
          for (const auto& f : fin_pol.finalizers) {
             if (auto it = finalizers.find(f.public_key); it != finalizers.end()) {
-               std::optional<vote_message> vote_msg = it->second.maybe_vote(it->first, bsp, digest);
+               std::optional<vote_message> vote_msg = it->second.maybe_vote(it->first, bhsp, digest);
                if (vote_msg)
                   votes.push_back(std::move(*vote_msg));
             }
@@ -115,13 +119,21 @@ namespace eosio::chain {
 }
 
 namespace std {
-   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::proposal_ref& r) {
-      os << "proposal_ref(id(" << r.block_id.str() << "), tstamp(" << r.timestamp.slot << "))";
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer_safety_information& fsi) {
+      os << "fsi(" << fsi.last_vote_range_start.slot << ", " << fsi.last_vote << ", " << fsi.lock << ")";
       return os;
    }
 
-   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer_safety_information& fsi) {
-      os << "fsi(" << fsi.last_vote_range_start.slot << ", " << fsi.last_vote << ", " << fsi.lock << ")";
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer::vote_result& vr) {
+      os << "vote_result(\"";
+      using vote_decision = eosio::chain::finalizer::vote_decision;
+      switch(vr.decision) {
+      case vote_decision::strong_vote: os << "strong_vote"; break;
+      case vote_decision::weak_vote:   os << "weak_vote";   break;
+      case vote_decision::no_vote:     os << "no_vote";     break;
+      }
+      os << "\", monotony_check(" << vr.monotony_check << "), liveness_check(" << vr.liveness_check <<
+         "), safety_check(" << vr.safety_check<<  "))";
       return os;
    }
 }

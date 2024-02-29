@@ -78,6 +78,13 @@ namespace eosio { namespace chain {
 
 } } /// eosio::chain
 
+namespace std {
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::block_timestamp_type& t) {
+      os << "tstamp(" << t.slot << ")";
+      return os;
+   }
+}
+
 
 #include <fc/reflect/reflect.hpp>
 FC_REFLECT(eosio::chain::block_timestamp_type, (slot))

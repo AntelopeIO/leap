@@ -129,6 +129,11 @@ namespace std
        }
     };
 
+    inline std::ostream& operator<<(std::ostream& os, const fc::sha256& r) {
+       os << "sha256(" << r.str() << ")";
+       return os;
+    }
+
 }
 
 namespace boost

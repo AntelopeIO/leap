@@ -5,18 +5,17 @@
 namespace eosio::chain {
 
 // ----------------------------------------------------------------------------------------
-finalizer::vote_decision finalizer::decide_vote(const finality_core& core, const block_id_type &proposal_id,
-                                                const block_timestamp_type proposal_timestamp) {
-   bool safety_check   = false;
-   bool liveness_check = false;
+finalizer::vote_result finalizer::decide_vote(const finality_core& core, const block_id_type &proposal_id,
+                                               const block_timestamp_type proposal_timestamp) {
+   vote_result res;
 
-   bool monotony_check = fsi.last_vote.empty() || proposal_timestamp > fsi.last_vote.timestamp;
+   res.monotony_check = fsi.last_vote.empty() || proposal_timestamp > fsi.last_vote.timestamp;
    // fsi.last_vote.empty() means we have never voted on a proposal, so the protocol feature
    // just activated and we can proceed
 
-   if (!monotony_check) {
+   if (!res.monotony_check) {
       dlog("monotony check failed for proposal ${p}, cannot vote", ("p", proposal_id));
-      return vote_decision::no_vote;
+      return res;
    }
 
    if (!fsi.lock.empty()) {
@@ -24,29 +23,30 @@ finalizer::vote_decision finalizer::decide_vote(const finality_core& core, const
       // than the height of the proposal I'm locked on.
       // This allows restoration of liveness if a replica is locked on a stale proposal
       // -------------------------------------------------------------------------------
-      liveness_check = core.latest_qc_block_timestamp() > fsi.lock.timestamp;
+      res.liveness_check = core.latest_qc_block_timestamp() > fsi.lock.timestamp;
 
-      if (!liveness_check) {
+      if (!res.liveness_check) {
          // Safety check : check if this proposal extends the proposal we're locked on
-         safety_check = core.extends(fsi.lock.block_id);
+         res.safety_check = core.extends(fsi.lock.block_id);
       }
    } else {
       // Safety and Liveness both fail if `fsi.lock` is empty. It should not happen.
       // `fsi.lock` is initially set to `lib` when switching to IF or starting from a snapshot.
       // -------------------------------------------------------------------------------------
-      liveness_check = false;
-      safety_check   = false;
+      res.liveness_check = false;
+      res.safety_check   = false;
    }
 
-   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote = {can_vote}",
-        ("l",liveness_check)("s",safety_check)("m",monotony_check)("can_vote",(liveness_check || safety_check)));
+   bool can_vote = res.liveness_check || res.safety_check;
+   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote=${can_vote}",
+        ("l",res.liveness_check)("s",res.safety_check)("m",res.monotony_check)("can_vote",can_vote));
 
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
    // -----------------------------------------------------------------------------------
    vote_decision decision = vote_decision::no_vote;
 
-   if (liveness_check || safety_check) {
+   if (can_vote) {
       auto [p_start, p_end] = std::make_pair(core.latest_qc_block_timestamp(), proposal_timestamp);
 
       bool time_range_disjoint  = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
@@ -63,18 +63,18 @@ finalizer::vote_decision finalizer::decide_vote(const finality_core& core, const
       if (voting_strong && final_on_strong_qc_block_ref.timestamp > fsi.lock.timestamp)
          fsi.lock = proposal_ref(final_on_strong_qc_block_ref.block_id, final_on_strong_qc_block_ref.timestamp);
 
-      decision = voting_strong ? vote_decision::strong_vote : vote_decision::weak_vote;
+      res.decision = voting_strong ? vote_decision::strong_vote : vote_decision::weak_vote;
    }
-   if (decision != vote_decision::no_vote)
-      dlog("Voting ${s}", ("s", decision == vote_decision::strong_vote ? "strong" : "weak"));
-   return decision;
+   if (res.decision != vote_decision::no_vote)
+      dlog("Voting ${s}", ("s", res.decision == vote_decision::strong_vote ? "strong" : "weak"));
+   return res;
 }
 
 // ----------------------------------------------------------------------------------------
 std::optional<vote_message> finalizer::maybe_vote(const bls_public_key& pub_key,
-                                                  const block_state_ptr& p,
+                                                  const block_header_state_ptr& p,
                                                   const digest_type& digest) {
-   finalizer::vote_decision decision = decide_vote(p->core, p->id(), p->timestamp());
+   finalizer::vote_decision decision = decide_vote(p->core, p->id(), p->timestamp()).decision;
    if (decision == vote_decision::strong_vote || decision == vote_decision::weak_vote) {
       bls_signature sig;
       if (decision == vote_decision::weak_vote) {
