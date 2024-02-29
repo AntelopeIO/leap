@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE( decide_vote_liveness_and_safety_check ) try {
    BOOST_CHECK(res.vote.decision == vote_decision::no_vote);
    BOOST_CHECK_EQUAL(res.vote.monotony_check, false);
 
-   // les's vote for a couple more proposale, and finally when we'll reach timestamp 10 the
+   // let's vote for a couple more proposals, and finally when we'll reach timestamp 10 the
    // monotony check will pass (both liveness and safety check should still fail)
    // ------------------------------------------------------------------------------------
    res = sim.add({8, "n1"}, {}, res.new_bsp);
@@ -408,7 +408,7 @@ BOOST_AUTO_TEST_CASE( decide_vote_liveness_and_safety_check ) try {
    }
 
    // Now suppose we receive a qc in a block that was created in the "n0" branch, for example the qc from
-   // proposal 8. We can get it from sim.bsp_vec[9]->core.latest_qc_claim()
+   // proposal 8. We can get it from sim.bsp_vec[9]->core.latest_qc_claim().
    // liveness should be restored, because core.latest_qc_block_timestamp() > fsi.lock.timestamp
    // ---------------------------------------------------------------------------------------------------
    BOOST_CHECK_EQUAL(block_header::num_from_id(sim.my_finalizer.fsi.last_vote.block_id), 9u);
