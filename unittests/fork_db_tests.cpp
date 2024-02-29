@@ -24,7 +24,6 @@ struct block_state_accessor {
       root->block_id = genesis_id;
       root->header.timestamp = block_timestamp_type{10};
       root->core = finality_core::create_core_for_genesis_block(10);
-      root->best_qc_claim = {.block_num = 10, .is_strong_qc = false};
       return root;
    }
 
@@ -38,14 +37,8 @@ struct block_state_accessor {
          .block_id  = prev->id(),
          .timestamp = prev->timestamp()
       };
-      bsp->core = prev->core.next(parent_block, prev->best_qc_claim);
-      bsp->best_qc_claim = bsp->core.latest_qc_claim();
-      bsp->updated_core = bsp->core.next_metadata(bsp->best_qc_claim);
+      bsp->core = prev->core.next(parent_block, prev->core.latest_qc_claim());
       return bsp;
-   }
-
-   static auto get_best_qc_claim(const block_state_ptr& bs) {
-      return bs->best_qc_claim;
    }
 };
 
@@ -55,7 +48,7 @@ using namespace eosio::chain;
 
 BOOST_AUTO_TEST_SUITE(fork_database_tests)
 
-BOOST_AUTO_TEST_CASE(update_best_qc) try {
+BOOST_AUTO_TEST_CASE(add_remove_test) try {
    fork_database_if_t forkdb;
 
    // Setup fork database with blocks based on a root of block 10
@@ -108,25 +101,6 @@ BOOST_AUTO_TEST_CASE(update_best_qc) try {
    forkdb.add(bsp12b, mark_valid_t::no, ignore_duplicate_t::no); // will throw if already exists
    forkdb.add(bsp13b, mark_valid_t::no, ignore_duplicate_t::no); // will throw if already exists
    forkdb.add(bsp14b, mark_valid_t::no, ignore_duplicate_t::no); // will throw if already exists
-
-   // test update_best_qc, should update descendants
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp11b).block_num == 10);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp12b).block_num == 10);
-   forkdb.update_best_qc(bsp11b->id(), {.block_num = 11, .is_strong_qc = false});
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp12b).block_num == 11);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp12b).is_strong_qc == false);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp13b).block_num == 11);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp14b).block_num == 11);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp12bb).block_num == 11);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp13bb).block_num == 11);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp13bbb).block_num == 11);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp12bbb).block_num == 11);
-   forkdb.update_best_qc(bsp13bb->id(), {.block_num = 11, .is_strong_qc = true});
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp13bb).block_num == 11);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp13bb).is_strong_qc == true);
-   forkdb.update_best_qc(bsp11b->id(), {.block_num = 11, .is_strong_qc = true});
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp12b).is_strong_qc == true);
-   BOOST_TEST(block_state_accessor::get_best_qc_claim(bsp13bbb).is_strong_qc == true);
 
 } FC_LOG_AND_RETHROW();
 

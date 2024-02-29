@@ -3109,33 +3109,19 @@ struct controller_impl {
 
    // called from net threads and controller's thread pool
    vote_status process_vote_message( const vote_message& vote ) {
-      auto aggregate_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
+      auto aggregate_vote = [&vote](auto& forkdb) -> vote_status {
           auto bsp = forkdb.get_block(vote.proposal_id);
           if (bsp) {
-             auto [status, pre_state, post_state] = bsp->aggregate_vote(vote);
-             std::optional<uint32_t> new_lib{};
-             if (status == vote_status::success && pre_state != post_state && pending_quorum_certificate::is_quorum_met(post_state)) {
-                if (post_state == pending_quorum_certificate::state_t::strong) {
-                   new_lib = bsp->core.final_on_strong_qc_block_num;
-                   forkdb.update_best_qc(bsp->id(), {.block_num = bsp->block_num(), .is_strong_qc = true});
-                } else {
-                   forkdb.update_best_qc(bsp->id(), {.block_num = bsp->block_num(), .is_strong_qc = false});
-                }
-             }
-             return {status, new_lib};
+             return bsp->aggregate_vote(vote);
           }
-          return {vote_status::unknown_block, {}};
+          return vote_status::unknown_block;
       };
       // TODO: https://github.com/AntelopeIO/leap/issues/2057
       // TODO: Do not aggregate votes on block_state if in legacy block fork_db
-      auto aggregate_vote_legacy = [](auto&) -> std::pair<vote_status, std::optional<uint32_t>> {
-         return {vote_status::unknown_block, {}};
+      auto aggregate_vote_legacy = [](auto&) -> vote_status {
+         return vote_status::unknown_block;
       };
-      auto [status, new_lib] = fork_db.apply<std::pair<vote_status, std::optional<uint32_t>>>(aggregate_vote_legacy, aggregate_vote);
-      if (new_lib) {
-         set_if_irreversible_block_num(*new_lib);
-      }
-      return status;
+      return fork_db.apply<vote_status>(aggregate_vote_legacy, aggregate_vote);
    }
 
    void create_and_send_vote_msg(const block_state_ptr& bsp, const fork_database_if_t& fork_db) {

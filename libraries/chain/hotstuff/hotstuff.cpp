@@ -126,16 +126,15 @@ vote_status pending_quorum_certificate::add_weak_vote(std::span<const uint8_t> p
 }
 
 // thread safe, status, pre state                          , post state
-std::tuple<vote_status, pending_quorum_certificate::state_t, pending_quorum_certificate::state_t>
-pending_quorum_certificate::add_vote(block_num_type block_num, bool strong, std::span<const uint8_t> proposal_digest, size_t index,
-                                     const bls_public_key& pubkey, const bls_signature& sig, uint64_t weight) {
+vote_status pending_quorum_certificate::add_vote(block_num_type block_num, bool strong, std::span<const uint8_t> proposal_digest, size_t index,
+                                                 const bls_public_key& pubkey, const bls_signature& sig, uint64_t weight) {
    std::lock_guard g(*_mtx);
    auto pre_state = _state;
    vote_status s = strong ? add_strong_vote(proposal_digest, index, pubkey, sig, weight)
                           : add_weak_vote(proposal_digest, index, pubkey, sig, weight);
    dlog("block_num: ${bn}, vote strong: ${sv}, status: ${s}, pre-state: ${pre}, post-state: ${state}, quorum_met: ${q}",
         ("bn", block_num)("sv", strong)("s", s)("pre", pre_state)("state", _state)("q", is_quorum_met_no_lock()));
-   return {s, pre_state, _state};
+   return s;
 }
 
 // thread safe

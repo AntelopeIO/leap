@@ -113,11 +113,6 @@ namespace eosio::chain {
 
       void mark_valid( const BSP& h );
 
-      /**
-       * Update finality_core for best qc
-       */
-      void update_best_qc( const block_id_type& id, const qc_claim_t& best_qc_claim );
-
    private:
       unique_ptr<fork_database_impl<BSP>> my;
    };

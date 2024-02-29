@@ -15,8 +15,6 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
-   , best_qc_claim(core.latest_qc_claim())
-   , updated_core(core.next_metadata(best_qc_claim))
 {
    // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures pre-validated here
    if( !skip_validate_signee ) {
@@ -34,8 +32,6 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
-   , best_qc_claim(core.latest_qc_claim())
-   , updated_core(core.next_metadata(best_qc_claim))
    , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
 {
@@ -53,8 +49,6 @@ block_state::block_state(const block_state_legacy& bsp) {
    block_header_state::block_id = bsp.id();
    header = bsp.header;
    core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
-   best_qc_claim = core.latest_qc_claim();
-   updated_core = core.next_metadata(best_qc_claim);
    activated_protocol_features = bsp.activated_protocol_features;
 
    auto if_ext_id = instant_finality_extension::extension_id();
@@ -89,8 +83,7 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 }
 
 // Called from net threads
-std::tuple<vote_status, pending_quorum_certificate::state_t, pending_quorum_certificate::state_t>
-block_state::aggregate_vote(const vote_message& vote) {
+vote_status block_state::aggregate_vote(const vote_message& vote) {
    const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
                           finalizers.end(),
@@ -108,8 +101,7 @@ block_state::aggregate_vote(const vote_message& vote) {
                                  finalizers[index].weight);
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      auto state = pending_qc.state();
-      return {vote_status::unknown_public_key, state, state};
+      return vote_status::unknown_public_key;
    }
 }
 
