@@ -170,93 +170,6 @@ BOOST_AUTO_TEST_CASE( finalizer_safety_file_io ) try {
 
 } FC_LOG_AND_RETHROW()
 
-#if 0
-// real finalizer, using mock::forkdb and mock::bsp
-// using test_finalizer_t = finalizer_tpl<mock_utils::forkdb_t>;
-
-block_state_ptr make_bsp(const mock_utils::proposal_t& p, const block_state_ptr& head,
-                         std::optional<qc_claim_t> claim = {}) {
-   block_header_state bhs;
-   auto id = p.calculate_id();
-   // genesis block
-   block_header_state_core new_core;
-   if (p.block_num() > 0)
-      new_core = claim ? head->core.next(*claim) : head->core;
-   bhs = block_header_state{ .block_id = id,
-                             .header = block_header(),
-                             .activated_protocol_features = {},
-                             .core = new_core  };
-   block_state_ptr bsp = std::make_shared<block_state>(block_state{bhs, {}, {}, {}});
-   return bsp;
-}
-
-// ---------------------------------------------------------------------------------------
-template <class FORKDB, class PROPOSAL>
-struct simulator_t {
-   using finalizer_t = finalizer_tpl<FORKDB>;
-   using bs = typename FORKDB::bs;
-   using bsp = typename FORKDB::bsp;
-
-   bls_keys_t  keys;
-   FORKDB      forkdb;
-   finalizer_t finalizer;
-
-   simulator_t() :
-      keys("alice"_n),
-      finalizer(keys.privkey) {
-
-      auto genesis = make_bsp(mock_utils::proposal_t{0, "n0", block_timestamp_type{0}}, bsp());
-      forkdb.add(genesis);
-
-      proposal_ref genesis_ref(genesis);
-      finalizer.fsi = fsi_t{block_timestamp_type(0), genesis_ref, {}};
-   }
-
-   std::optional<bool> vote(const bsp& p) {
-      auto decision = finalizer.decide_vote(p, forkdb);
-      switch(decision) {
-      case finalizer_t::vote_decision::strong_vote: return true;
-      case finalizer_t::vote_decision::weak_vote:   return false;
-      default: break;
-      }
-      return {};
-   }
-
-   std::optional<bool> propose(const PROPOSAL& p) {
-      bsp h = make_bsp(p, forkdb.head());
-      forkdb.add(h);
-      auto v = vote(h);
-      return v;
-   }
-
-   std::pair<bsp, bhs_core::qc_claim> add(const PROPOSAL& p, std::optional<bhs_core::qc_claim> _claim = {}) {
-      bsp h = forkdb.head();
-      bhs_core::qc_claim old_claim = _claim ? *_claim : bhs_core::qc_claim{h->last_qc_block_num(), false};
-      bsp new_bsp = make_bsp(p, h, _claim);
-      forkdb.add(new_bsp);
-
-      auto v = vote(new_bsp);
-      if (v)
-         return {forkdb.head(), new_bsp->latest_qc_claim()};
-      return {forkdb.head(), old_claim};
-   }
-};
-
-// ---------------------------------------------------------------------------------------
-BOOST_AUTO_TEST_CASE( proposal_sim_1 ) try {
-   using namespace mock_utils;
-
-   simulator_t<forkdb_t, proposal_t> sim;
-
-   auto [head1, claim1] = sim.add(proposal_t{1, "n0", block_timestamp_type{1}}, bhs_core::qc_claim{0, false});
-   BOOST_CHECK_EQUAL(claim1.block_num, 1);
-
-   auto [head2, claim2] = sim.add(proposal_t{2, "n0", block_timestamp_type{2}}, claim1);
-   BOOST_CHECK_EQUAL(claim2.block_num, 2);
-
-} FC_LOG_AND_RETHROW()
-#endif
-
 using eosio::chain::finality_core;
 using eosio::chain::block_ref;
 using bs   = eosio::chain::block_state;
@@ -265,7 +178,6 @@ using bhs  = eosio::chain::block_header_state;
 using bhsp = eosio::chain::block_header_state_ptr;
 using vote_decision = finalizer::vote_decision;
 using vote_result   = finalizer::vote_result;
-
 
 // ---------------------------------------------------------------------------------------
 inline block_id_type calc_id(block_id_type id, uint32_t block_number) {
@@ -390,13 +302,6 @@ struct simulator_t {
    }
 };
 
-#if 0
-   auto proposals { create_proposal_refs(10) };
-   fsi_t fsi      { .last_vote_range_start = tstamp(0),
-                    .last_vote = proposals[6],
-                    .lock = proposals[2] };
-#endif
-
 // ---------------------------------------------------------------------------------------
 BOOST_AUTO_TEST_CASE( decide_vote_basic ) try {
    simulator_t sim;
@@ -446,7 +351,7 @@ BOOST_AUTO_TEST_CASE( decide_vote_monotony_check ) try {
 
 
 // ---------------------------------------------------------------------------------------
-BOOST_AUTO_TEST_CASE( decide_vote_liveness_check ) try {
+BOOST_AUTO_TEST_CASE( decide_vote_liveness_and_safety_check ) try {
    simulator_t sim;
    qc_claim_t new_claim { 0, true };
    for (uint32_t i=1; i<10; ++i) {
@@ -512,7 +417,6 @@ BOOST_AUTO_TEST_CASE( decide_vote_liveness_check ) try {
    new_claim = sim.bsp_vec[9]->core.latest_qc_claim();
    res = sim.add({20, "n1"}, new_claim, res.new_bsp);
 
-
    BOOST_CHECK(res.vote.decision == vote_decision::weak_vote); // because !time_range_disjoint and fsi.last_vote == 9
    BOOST_CHECK_EQUAL(block_header::num_from_id(sim.my_finalizer.fsi.last_vote.block_id), 20);
    BOOST_CHECK_EQUAL(res.vote.monotony_check, true);
@@ -539,6 +443,10 @@ BOOST_AUTO_TEST_CASE( decide_vote_liveness_check ) try {
    // ----------------------------------------------------------------------------------------------------
    BOOST_CHECK_EQUAL(sim.my_finalizer.fsi.lock.block_id, sim.bsp_vec[7]->id());
 
+   // this new strong vote will finally advance the final_on_strong_qc thanks to the chain
+   // weak 20 - strong 21 (meaning that if we get a strong QC on 22, 20 becomes final, so the core of
+   // 22 has a final_on_strong_qc = 20.
+   // -----------------------------------------------------------------------------------------------
    new_claim = res.new_claim();
    res = sim.add({22, "n1"}, new_claim, res.new_bsp);
    BOOST_CHECK(res.vote.decision == vote_decision::strong_vote);
@@ -548,19 +456,21 @@ BOOST_AUTO_TEST_CASE( decide_vote_liveness_check ) try {
    BOOST_CHECK_EQUAL(res.vote.safety_check, false); // because liveness_check is true, safety is not checked.
    final_on_strong_qc = res.new_bsp->core.final_on_strong_qc_block_num;
    BOOST_CHECK_EQUAL(final_on_strong_qc, 20);
+   BOOST_CHECK_EQUAL(res.new_bsp->core.last_final_block_num(), 4);
 
+   // OK, add one proposal + strong vote. This should finally move lib to 20
+   // ----------------------------------------------------------------------
+   new_claim = res.new_claim();
+   res = sim.add({23, "n1"}, new_claim, res.new_bsp);
+   BOOST_CHECK(res.vote.decision == vote_decision::strong_vote);
+   BOOST_CHECK_EQUAL(block_header::num_from_id(sim.my_finalizer.fsi.last_vote.block_id), 23);
+   BOOST_CHECK_EQUAL(res.vote.monotony_check, true);
+   BOOST_CHECK_EQUAL(res.vote.liveness_check, true);
+   BOOST_CHECK_EQUAL(res.vote.safety_check, false); // because liveness_check is true, safety is not checked.
+   final_on_strong_qc = res.new_bsp->core.final_on_strong_qc_block_num;
+   BOOST_CHECK_EQUAL(final_on_strong_qc, 21);
+   BOOST_CHECK_EQUAL(res.new_bsp->core.last_final_block_num(), 20);
 
-#if 0
-   std::cout << final_on_strong_qc << '\n';
-   auto& ref { res.new_bsp->core.get_block_reference(final_on_strong_qc) };
-   BOOST_CHECK_EQUAL(sim.my_finalizer.fsi.lock.timestamp,  ref.timestamp);
-   BOOST_CHECK_EQUAL(sim.my_finalizer.fsi.lock.block_id, ref.block_id);
-
-
-   //res = sim.add({10, "n1", 12}, {}, res.new_bsp);
-
-   std::cout << res.vote << '\n';
-#endif
 } FC_LOG_AND_RETHROW()
 
 
