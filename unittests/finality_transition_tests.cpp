@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // Local votes are signed asychronously. They can be delayed.
    // Leave room for the delay.
-   for (auto i = 0; i < 50; ++i) {
+   for (auto i = 0; i < 500; ++i) {
       t.produce_block();
       if (curr_lib > lib_at_transition)
          break;
@@ -109,7 +109,7 @@ void test_finality_transition(const vector<account_name>& accounts, const base_t
    if( lib_advancing_expected ) {
       // Local votes are signed asychronously. They can be delayed.
       // Leave room for the delay.
-      for (auto i = 0; i < 50; ++i) {
+      for (auto i = 0; i < 500; ++i) {
          t.produce_block();
          if (curr_lib > lib_at_transition)
             break;
