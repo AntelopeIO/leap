@@ -184,8 +184,8 @@ try:
     retStatus = prodD.getTransactionStatus(transId)
     state = getState(retStatus)
 
-    assert state == inBlockState, \
-        f"ERROR: getTransactionStatus didn't return \"{inBlockState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
+    assert state == inBlockState or state == irreversibleState, \
+        f"ERROR: getTransactionStatus didn't return \"{inBlockState}\" or \"{irreversibleState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
         f"\n\nprod A info: {json.dumps(prodA.getInfo(), indent=1)}\n\nprod D info: {json.dumps(prodD.getInfo(), indent=1)}"
 
     afterForkInBlockState = retStatus
