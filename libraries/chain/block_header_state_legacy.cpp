@@ -227,7 +227,7 @@ namespace eosio::chain {
    )&&
    {
       EOS_ASSERT( h.timestamp == timestamp, block_validate_exception, "timestamp mismatch" );
-      EOS_ASSERT( h.previous == previous, unlinkable_block_exception, "previous mismatch" );
+      EOS_ASSERT( h.previous == previous, unlinkable_block_exception, "previous mismatch ${p} != ${id}", ("p", h.previous)("id", previous) );
       EOS_ASSERT( h.confirmed == confirmed, block_validate_exception, "confirmed mismatch" );
       EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
       EOS_ASSERT( h.schedule_version == active_schedule_version, producer_schedule_exception, "schedule_version in signed block is corrupted" );

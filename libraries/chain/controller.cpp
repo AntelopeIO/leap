@@ -1010,6 +1010,12 @@ struct controller_impl {
       });
    }
 
+   bool fork_db_block_exists( const block_id_type& id ) const {
+      return fork_db.apply<bool>([&](const auto& forkdb) {
+         return forkdb.block_exists(id);
+      });
+   }
+
    signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
       return fork_db.apply<signed_block_ptr>([&](const auto& forkdb) {
          auto bsp = forkdb.get_block(id);
@@ -3375,7 +3381,7 @@ struct controller_impl {
 
             auto prev = forkdb.get_block_header( b->previous );
             EOS_ASSERT( prev, unlinkable_block_exception,
-                        "unlinkable block ${id}", ("id", id)("previous", b->previous) );
+                        "unlinkable block ${id} previous ${p}", ("id", id)("p", b->previous) );
 
             return control->create_block_state_i( id, b, *prev );
          } );
@@ -3409,6 +3415,8 @@ struct controller_impl {
                     const forked_callback_t& forked_branch_cb,
                     const trx_meta_cache_lookup& trx_lookup )
    {
+      assert(bsp && bsp->block);
+
       // Save the received QC as soon as possible, no matter whether the block itself is valid or not
       if constexpr (std::is_same_v<BSP, block_state_ptr>) {
          integrate_received_qc_to_block(bsp);
@@ -3421,7 +3429,6 @@ struct controller_impl {
          trusted_producer_light_validation = old_value;
       });
       try {
-         EOS_ASSERT( bsp, block_validate_exception, "null block" );
          const auto& b = bsp->block;
 
          if( conf.terminate_at_block > 0 && conf.terminate_at_block <= head_block_num()) {
@@ -4315,12 +4322,16 @@ std::optional<block_handle> controller::create_block_handle( const block_id_type
 }
 
 void controller::push_block( block_report& br,
-                             const block_handle& bt,
+                             const block_handle& b,
                              const forked_callback_t& forked_cb,
                              const trx_meta_cache_lookup& trx_lookup )
 {
    validate_db_available_size();
-   std::visit([&](const auto& bsp) { my->push_block( br, bsp, forked_cb, trx_lookup); }, bt.bsp);
+   std::visit([&](const auto& bsp) { my->push_block( br, bsp, forked_cb, trx_lookup); }, b.bsp);
+}
+
+void controller::accept_block(const block_handle& b) {
+   std::visit([&](const auto& bsp) { my->accept_block(bsp); }, b.bsp);
 }
 
 transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
@@ -4492,9 +4503,9 @@ signed_block_ptr controller::fetch_block_by_id( const block_id_type& id )const {
    return signed_block_ptr();
 }
 
-bool controller::block_exists(const block_id_type&id) const {
-   signed_block_ptr sb_ptr = my->fork_db_fetch_block_by_id(id);
-   if( sb_ptr ) return true;
+bool controller::block_exists(const block_id_type& id) const {
+   bool exists = my->fork_db_block_exists(id);
+   if( exists ) return true;
    std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
    if( sbh && sbh->calculate_id() == id ) return true;
    return false;
