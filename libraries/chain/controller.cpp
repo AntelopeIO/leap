@@ -3410,6 +3410,25 @@ struct controller_impl {
    }
 
    template <class BSP>
+   void accept_block(const BSP& bsp) {
+      assert(bsp && bsp->block);
+
+      // Save the received QC as soon as possible, no matter whether the block itself is valid or not
+      if constexpr (std::is_same_v<BSP, block_state_ptr>) {
+         integrate_received_qc_to_block(bsp);
+      }
+
+      auto do_accept_block = [&](auto& forkdb) {
+         if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.chain_head)>>)
+            forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::no );
+
+         emit( accepted_block_header, std::tie(bsp->block, bsp->id()) );
+      };
+
+      fork_db.apply<void>(do_accept_block);
+   }
+
+   template <class BSP>
    void push_block( controller::block_report& br,
                     const BSP& bsp,
                     const forked_callback_t& forked_branch_cb,

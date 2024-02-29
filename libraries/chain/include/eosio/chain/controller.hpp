@@ -198,14 +198,17 @@ namespace eosio::chain {
 
          /**
           * @param br returns statistics for block
-          * @param bt block to push, created by create_block_handle
+          * @param b block to push, created by create_block_handle
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          const block_handle& bt,
+                          const block_handle& b,
                           const forked_callback_t& cb,
                           const trx_meta_cache_lookup& trx_lookup );
+
+         /// Accept block into fork_database
+         void accept_block(const block_handle& b);
 
          boost::asio::io_context& get_thread_pool();
 

@@ -2025,7 +2025,8 @@ fc::variant read_only::get_block_info(const read_only::get_block_info_params& pa
 
 void read_write::push_block(read_write::push_block_params&& params, next_function<read_write::push_block_results> next) {
    try {
-      app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, std::optional<block_handle>{});
+      auto b = std::make_shared<signed_block>( std::move(params) );
+      app().get_method<incoming::methods::block_sync>()(b, b->calculate_id(), std::optional<block_handle>{});
    } catch ( boost::interprocess::bad_alloc& ) {
       handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
