@@ -35,7 +35,6 @@ set( fc_sources
      src/crypto/crc.cpp
      src/crypto/city.cpp
      src/crypto/base58.cpp
-     src/crypto/base64.cpp
      src/crypto/bigint.cpp
      src/crypto/hex.cpp
      src/crypto/sha1.cpp
