@@ -63,8 +63,9 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
 
       res.decision = voting_strong ? vote_decision::strong_vote : vote_decision::weak_vote;
    }
-   if (res.decision != vote_decision::no_vote)
-      dlog("Voting ${s}", ("s", res.decision == vote_decision::strong_vote ? "strong" : "weak"));
+
+   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote=${can_vote}, voting=${v}",
+        ("l",res.liveness_check)("s",res.safety_check)("m",res.monotony_check)("can_vote",can_vote)("v", res.decision));
    return res;
 }
 

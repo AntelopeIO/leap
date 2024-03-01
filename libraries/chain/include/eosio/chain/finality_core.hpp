@@ -37,9 +37,9 @@ struct qc_claim_t
 
 struct core_metadata
 {
-   block_num_type  last_final_block_num;
-   block_num_type  final_on_strong_qc_block_num;
-   block_num_type  latest_qc_claim_block_num;
+   block_num_type  last_final_block_num {0};
+   block_num_type  final_on_strong_qc_block_num {0};
+   block_num_type  latest_qc_claim_block_num {0};
 };
 
 struct finality_core
@@ -182,4 +182,5 @@ namespace std {
 FC_REFLECT( eosio::chain::block_ref, (block_id)(timestamp) )
 FC_REFLECT( eosio::chain::qc_link, (source_block_num)(target_block_num)(is_link_strong) )
 FC_REFLECT( eosio::chain::qc_claim_t, (block_num)(is_strong_qc) )
+FC_REFLECT( eosio::chain::core_metadata, (last_final_block_num)(final_on_strong_qc_block_num)(latest_qc_claim_block_num))
 FC_REFLECT( eosio::chain::finality_core, (links)(refs)(final_on_strong_qc_block_num))

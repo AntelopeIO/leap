@@ -93,14 +93,18 @@ namespace eosio::chain {
 
       // thread safe
       bool is_quorum_met() const;
+      static bool is_quorum_met(state_t s) {
+         return s == state_t::strong || s == state_t::weak_achieved || s == state_t::weak_final;
+      }
 
       // thread safe
-      std::pair<vote_status, bool> add_vote(bool strong,
-                                            std::span<const uint8_t> proposal_digest,
-                                            size_t index,
-                                            const bls_public_key& pubkey,
-                                            const bls_signature& sig,
-                                            uint64_t weight);
+      vote_status add_vote(block_num_type block_num,
+                           bool strong,
+                           std::span<const uint8_t> proposal_digest,
+                           size_t index,
+                           const bls_public_key& pubkey,
+                           const bls_signature& sig,
+                           uint64_t weight);
 
       state_t state() const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;
@@ -137,7 +141,9 @@ namespace eosio::chain {
 
 
 FC_REFLECT(eosio::chain::vote_message, (proposal_id)(strong)(finalizer_key)(sig));
+FC_REFLECT_ENUM(eosio::chain::vote_status, (success)(duplicate)(unknown_public_key)(invalid_signature)(unknown_block))
 FC_REFLECT(eosio::chain::valid_quorum_certificate, (_strong_votes)(_weak_votes)(_sig));
 FC_REFLECT(eosio::chain::pending_quorum_certificate, (_quorum)(_max_weak_sum_before_weak_final)(_state)(_strong_sum)(_weak_sum)(_weak_votes)(_strong_votes));
+FC_REFLECT_ENUM(eosio::chain::pending_quorum_certificate::state_t, (unrestricted)(restricted)(weak_achieved)(weak_final)(strong));
 FC_REFLECT(eosio::chain::pending_quorum_certificate::votes_t, (_bitset)(_sig));
 FC_REFLECT(eosio::chain::quorum_certificate, (block_num)(qc));

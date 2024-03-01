@@ -1,3 +1,4 @@
+#include "eosio/chain/fork_database.hpp"
 #include <eosio/chain/hotstuff/finalizer.hpp>
 
 #include <boost/test/unit_test.hpp>
@@ -215,7 +216,6 @@ bsp make_bsp(const proposal_t& p, const bsp& previous, finalizer_policy_ptr finp
    auto makeit = [](bhs &&h) {
       bs new_bs;
       dynamic_cast<bhs&>(new_bs) = std::move(h);
-      new_bs.validated = true;
       return std::make_shared<bs>(std::move(new_bs));
    };
 
@@ -268,7 +268,7 @@ struct simulator_t {
 
       auto genesis = make_bsp(proposal_t{0, "n0"}, bsp(), finpol);
       bsp_vec.push_back(genesis);
-      forkdb.reset(*genesis);
+      forkdb.reset_root(*genesis);
 
       block_ref genesis_ref(genesis->id(), genesis->timestamp());
       my_finalizer.fsi = fsi_t{block_timestamp_type(0), genesis_ref, genesis_ref};
@@ -293,7 +293,7 @@ struct simulator_t {
       qc_claim_t old_claim = _claim ? *_claim : h->core.latest_qc_claim();
       bsp new_bsp = make_bsp(p, h, finpol, old_claim);
       bsp_vec.push_back(new_bsp);
-      forkdb.add(new_bsp);
+      forkdb.add(new_bsp, mark_valid_t::yes, ignore_duplicate_t::no);
 
       auto v = vote(new_bsp);
       return { new_bsp, v };

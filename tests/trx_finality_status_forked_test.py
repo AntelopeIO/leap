@@ -163,11 +163,10 @@ try:
         Print("Wait for LIB to move, which indicates prodD may have forked out the branch")
         assert prodD.waitForLibToAdvance(60), \
             "ERROR: Network did not reach consensus after bridge node was restarted."
-        if prodD.getTransactionStatus(transId)['state'] == forkedOutState:
+        retStatus = prodD.getTransactionStatus(transId)
+        state = getState(retStatus)
+        if state == forkedOutState:
             break
-
-    retStatus = prodD.getTransactionStatus(transId)
-    state = getState(retStatus)
 
     assert state == forkedOutState, \
         f"ERROR: getTransactionStatus didn't return \"{forkedOutState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
@@ -184,8 +183,8 @@ try:
     retStatus = prodD.getTransactionStatus(transId)
     state = getState(retStatus)
 
-    assert state == inBlockState, \
-        f"ERROR: getTransactionStatus didn't return \"{inBlockState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
+    assert state == inBlockState or state == irreversibleState, \
+        f"ERROR: getTransactionStatus didn't return \"{inBlockState}\" or \"{irreversibleState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
         f"\n\nprod A info: {json.dumps(prodA.getInfo(), indent=1)}\n\nprod D info: {json.dumps(prodD.getInfo(), indent=1)}"
 
     afterForkInBlockState = retStatus

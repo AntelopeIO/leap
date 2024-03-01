@@ -32,7 +32,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
-   , pub_keys_recovered(true) // probably not needed
+   , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
 {
    block->transactions = std::move(trx_receipts);
@@ -83,7 +83,7 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 }
 
 // Called from net threads
-std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(const vote_message& vote) {
+vote_status block_state::aggregate_vote(const vote_message& vote) {
    const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
                           finalizers.end(),
@@ -92,20 +92,16 @@ std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(cons
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
       auto digest = vote.strong ? strong_digest.to_uint8_span() : std::span<const uint8_t>(weak_digest);
-      auto [status, strong] = pending_qc.add_vote(vote.strong,
+      return pending_qc.add_vote(block_num(),
+                                 vote.strong,
                                  digest,
                                  index,
                                  vote.finalizer_key,
                                  vote.sig,
                                  finalizers[index].weight);
-
-      std::optional<uint32_t> new_lib{};
-      if (status == vote_status::success && strong)
-         new_lib = core.final_on_strong_qc_block_num;
-      return {status, new_lib};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      return {vote_status::unknown_public_key, {}};
+      return vote_status::unknown_public_key;
    }
 }
 
