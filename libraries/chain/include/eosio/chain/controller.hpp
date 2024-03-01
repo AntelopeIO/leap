@@ -271,9 +271,7 @@ namespace eosio::chain {
          // post-instant-finality this always returns nullptr
          const producer_authority_schedule*         pending_producers_legacy()const;
 
-         // Called by qc_chain to indicate the current irreversible block num
-         // After hotstuff is activated, this should be called on startup by qc_chain
-         void set_if_irreversible_block_num(uint32_t block_num);
+         void set_if_irreversible_block_id(const block_id_type& id);
          uint32_t if_irreversible_block_num() const;
 
          uint32_t last_irreversible_block_num() const;
