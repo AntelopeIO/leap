@@ -2821,12 +2821,8 @@ struct controller_impl {
                   // claim has already been verified
                   auto claimed = forkdb.search_on_branch(bsp->id(), if_ext.qc_claim.block_num);
                   if (claimed) {
-                     // TODO update to use final_on_strong_qc_block_ref.block_id after #2272
-                     // Can be:  set_if_irreversible_block_id(claimed->core.final_on_strong_qc_block_ref.block_id);
-                     auto final_on_strong = forkdb.search_on_branch(claimed->id(), claimed->core.final_on_strong_qc_block_num);
-                     if (final_on_strong) {
-                        set_if_irreversible_block_id(final_on_strong->id());
-                     }
+                     auto& final_on_strong_qc_block_ref = claimed->core.get_block_reference(claimed->core.final_on_strong_qc_block_num);
+                     set_if_irreversible_block_id(final_on_strong_qc_block_ref.block_id);
                   }
                }
             });
@@ -3188,18 +3184,18 @@ struct controller_impl {
       const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& received_qc = qc_ext.qc.qc;
 
-      const auto bsp = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
-      if( !bsp ) {
+      const auto claimed = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
+      if( !claimed ) {
          return;
       }
 
       // Don't save the QC from block extension if the claimed block has a better valid_qc.
-      if (bsp->valid_qc && (bsp->valid_qc->is_strong() || received_qc.is_weak())) {
+      if (claimed->valid_qc && (claimed->valid_qc->is_strong() || received_qc.is_weak())) {
          return;
       }
 
       // Save the QC. This is safe as the function is called by push_block from application thread.
-      bsp->valid_qc = received_qc;
+      claimed->valid_qc = received_qc;
 
       // advance LIB if QC is strong
       if( received_qc.is_strong() ) {
@@ -3208,13 +3204,8 @@ struct controller_impl {
          // will not be valid or forked out. This is safe because the block is
          // just acting as a carrier of this info. It doesn't matter if the block
          // is actually valid as it simply is used as a network message for this data.
-
-         // TODO update to use final_on_strong_qc_block_ref.block_id after #2272
-         // Can be:  set_if_irreversible_block_id(claimed->core.final_on_strong_qc_block_ref.block_id);
-         auto final_on_strong = fetch_bsp_on_branch_by_num(bsp->id(), bsp->core.final_on_strong_qc_block_num);
-         if (final_on_strong) {
-            set_if_irreversible_block_id(final_on_strong->id());
-         }
+         auto& final_on_strong_qc_block_ref = claimed->core.get_block_reference(claimed->core.final_on_strong_qc_block_num);
+         set_if_irreversible_block_id(final_on_strong_qc_block_ref.block_id);
       }
    }
 
