@@ -13,7 +13,11 @@ struct block_ref
    block_id_type    block_id;
    block_time_type  timestamp;
 
+   bool           empty() const { return block_id.empty(); }
    block_num_type block_num() const; // Extract from block_id.
+
+   auto operator<=>(const block_ref&) const = default;
+   bool operator==(const block_ref& o) const = default;
 };
 
 struct qc_link
@@ -93,6 +97,20 @@ struct finality_core
    qc_claim_t latest_qc_claim() const;
 
    /**
+    *  @pre  all finality_core invariants
+    *  @post same
+    *  @returns timestamp of latest qc_claim made by the core
+    */
+   block_time_type latest_qc_block_timestamp() const;
+
+   /**
+    *  @pre  all finality_core invariants
+    *  @post same
+    *  @returns boolean indicating whether `id` is an ancestor of this block
+    */
+   bool extends(const block_id_type& id) const;
+
+   /**
     *  @pre last_final_block_num() <= block_num < current_block_num()
     *
     *  @post returned block_ref has block_num() == block_num
@@ -121,7 +139,10 @@ struct finality_core
     *  @pre current_block.block_num() == this->current_block_num()
     *  @pre If this->refs.empty() == false, then current_block is the block after the one referenced by this->refs.back()
     *  @pre this->latest_qc_claim().block_num <= most_recent_ancestor_with_qc.block_num <= this->current_block_num()
-    *  @pre this->latest_qc_claim() <= most_recent_ancestor_with_qc ( (this->latest_qc_claim().block_num == most_recent_ancestor_with_qc.block_num) && most_recent_ancestor_with_qc.is_strong_qc ). When block_num is the same, most_recent_ancestor_with_qc must be stronger than latest_qc_claim()
+    *  @pre this->latest_qc_claim() <= most_recent_ancestor_with_qc (i.e.
+    *        this->latest_qc_claim().block_num == most_recent_ancestor_with_qc.block_num &&
+    *        most_recent_ancestor_with_qc.is_strong_qc ).
+    *     When block_num is the same, most_recent_ancestor_with_qc must be stronger than latest_qc_claim()
     *
     *  @post returned core has current_block_num() == this->current_block_num() + 1
     *  @post returned core has latest_qc_claim() == most_recent_ancestor_with_qc
@@ -132,6 +153,31 @@ struct finality_core
 };
 
 } /// eosio::chain
+
+// -----------------------------------------------------------------------------
+namespace std {
+   // define std ostream output so we can use BOOST_CHECK_EQUAL in tests
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::block_ref& br) {
+      os << "block_ref(" << br.block_id << ", " << br.timestamp << ")";
+      return os;
+   }
+
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::qc_link& l) {
+      os << "qc_link(" << l.source_block_num << ", " << l.target_block_num << ", " << l.is_link_strong << ")";
+      return os;
+   }
+
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::qc_claim_t& c) {
+      os << "qc_claim_t(" << c.block_num << ", " << c.is_strong_qc << ")";
+      return os;
+   }
+
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::core_metadata& cm) {
+      os << "core_metadata(" << cm.last_final_block_num << ", " << cm.final_on_strong_qc_block_num <<
+         ", " << cm.latest_qc_claim_block_num << ")";
+      return os;
+   }
+}
 
 FC_REFLECT( eosio::chain::block_ref, (block_id)(timestamp) )
 FC_REFLECT( eosio::chain::qc_link, (source_block_num)(target_block_num)(is_link_strong) )
