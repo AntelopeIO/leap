@@ -65,7 +65,8 @@ namespace eosio::chain {
 
    template<class BSP>  // either [block_state_legacy_ptr, block_state_ptr], same with block_header_state_ptr
    struct fork_database_impl {
-      using bs_t               = BSP::element_type;
+      using bsp_t              = BSP;
+      using bs_t               = bsp_t::element_type;
       using bs_accessor_t      = bs_t::fork_db_block_state_accessor_t;
       using bhsp_t             = bs_t::bhsp_t;
       using bhs_t              = bhsp_t::element_type;
@@ -76,7 +77,7 @@ namespace eosio::chain {
       using branch_pair_t      = fork_db_t::branch_pair_t;
 
       using fork_multi_index_type = multi_index_container<
-         BSP,
+         bsp_t,
          indexed_by<
             hashed_unique<tag<by_block_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(bs_t, const block_id_type&, id), std::hash<block_id_type>>,
             ordered_non_unique<tag<by_prev>, const_mem_fun<bs_t, const block_id_type&, &bs_t::previous>>,
@@ -98,18 +99,18 @@ namespace eosio::chain {
 
       std::mutex             mtx;
       fork_multi_index_type  index;
-      BSP                    root; // Only uses the block_header_state portion of block_state
-      BSP                    head;
+      bsp_t                  root; // Only uses the block_header_state portion of block_state
+      bsp_t                  head;
       const uint32_t         magic_number;
 
       explicit fork_database_impl(uint32_t magic_number) : magic_number(magic_number) {}
 
       void             open_impl( const std::filesystem::path& fork_db_file, validator_t& validator );
       void             close_impl( const std::filesystem::path& fork_db_file );
-      void             add_impl( const BSP& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator );
+      void             add_impl( const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator );
 
       bhsp_t           get_block_header_impl( const block_id_type& id ) const;
-      BSP              get_block_impl( const block_id_type& id ) const;
+      bsp_t            get_block_impl( const block_id_type& id ) const;
       void             reset_root_impl( const bhs_t& root_bhs );
       void             rollback_head_to_root_impl();
       void             advance_root_impl( const block_id_type& id );
@@ -117,9 +118,9 @@ namespace eosio::chain {
       branch_t         fetch_branch_impl( const block_id_type& h, uint32_t trim_after_block_num ) const;
       block_branch_t   fetch_block_branch_impl( const block_id_type& h, uint32_t trim_after_block_num ) const;
       full_branch_t    fetch_full_branch_impl(const block_id_type& h) const;
-      BSP              search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const;
-      BSP              search_on_head_branch_impl( uint32_t block_num ) const;
-      void             mark_valid_impl( const BSP& h );
+      bsp_t            search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const;
+      bsp_t            search_on_head_branch_impl( uint32_t block_num ) const;
+      void             mark_valid_impl( const bsp_t& h );
       branch_pair_t    fetch_branch_from_impl( const block_id_type& first, const block_id_type& second ) const;
 
    };
@@ -371,7 +372,7 @@ namespace eosio::chain {
    }
 
    template <class BSP>
-   void fork_database_impl<BSP>::add_impl(const BSP& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator) {
+   void fork_database_impl<BSP>::add_impl(const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator) {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
@@ -408,7 +409,7 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   void fork_database_t<BSP>::add( const BSP& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate ) {
+   void fork_database_t<BSP>::add( const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate ) {
       std::lock_guard g( my->mtx );
       my->add_impl( n, mark_valid, ignore_duplicate, false,
                     []( block_timestamp_type timestamp,
@@ -489,16 +490,16 @@ namespace eosio::chain {
       return result;
    }
 
-   template <class bsp>
-   fork_database_t<bsp>::full_branch_t
-   fork_database_t<bsp>::fetch_full_branch(const block_id_type& h) const {
+   template <class BSP>
+   fork_database_t<BSP>::full_branch_t
+   fork_database_t<BSP>::fetch_full_branch(const block_id_type& h) const {
       std::lock_guard g(my->mtx);
       return my->fetch_full_branch_impl(h);
    }
 
-   template <class bsp>
-   fork_database_t<bsp>::full_branch_t
-   fork_database_impl<bsp>::fetch_full_branch_impl(const block_id_type& h) const {
+   template <class BSP>
+   fork_database_t<BSP>::full_branch_t
+   fork_database_impl<BSP>::fetch_full_branch_impl(const block_id_type& h) const {
       full_branch_t result;
       result.reserve(index.size());
       for (auto i = index.find(h); i != index.end(); i = index.find((*i)->previous())) {
