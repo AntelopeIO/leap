@@ -127,13 +127,8 @@ namespace fc {
            {
             return a.get_secret() == b.get_secret();
            }
-           inline friend bool operator!=( const private_key& a, const private_key& b )
-           {
-            return a.get_secret() != b.get_secret();
-           }
-           inline friend bool operator<( const private_key& a, const private_key& b )
-           {
-            return a.get_secret() < b.get_secret();
+           inline friend std::strong_ordering operator<=>( const private_key& a, const private_key& b ) {
+              return a.get_secret() <=> b.get_secret();
            }
 
            unsigned int fingerprint() const { return get_public_key().fingerprint(); }

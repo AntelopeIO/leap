@@ -146,7 +146,7 @@ namespace eosio::chain {
    {}
 
    template<class BSP>
-   fork_database_t<BSP>::~fork_database_t() = default;
+   fork_database_t<BSP>::~fork_database_t() = default; // close is performed in fork_database::~fork_database()
 
    template<class BSP>
    void fork_database_t<BSP>::open( const std::filesystem::path& fork_db_file, validator_t& validator ) {

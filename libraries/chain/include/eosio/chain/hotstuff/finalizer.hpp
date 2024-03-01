@@ -1,13 +1,8 @@
 #pragma once
-#include <eosio/chain/hotstuff/hotstuff.hpp>
-#include <eosio/chain/hotstuff/finalizer_policy.hpp>
-#include <eosio/chain/fork_database.hpp>
+#include "eosio/chain/block_state.hpp"
 #include <fc/crypto/bls_utils.hpp>
 #include <fc/io/cfile.hpp>
-#include <fc/reflect/reflect.hpp>
-#include <fc/crypto/sha256.hpp>
 #include <compare>
-#include <utility>
 
 // -------------------------------------------------------------------------------------------
 // this file defines the classes:
@@ -32,71 +27,48 @@
 
 namespace eosio::chain {
    // ----------------------------------------------------------------------------------------
+   using proposal_ref = block_ref;
+
+   // ----------------------------------------------------------------------------------------
+   struct finalizer_safety_information {
+      block_timestamp_type last_vote_range_start;
+      proposal_ref         last_vote;
+      proposal_ref         lock;
+
+      static constexpr uint64_t magic = 0x5AFE11115AFE1111ull;
+
+      static finalizer_safety_information unset_fsi() { return {}; }
+
+      auto operator==(const finalizer_safety_information& o) const {
+         return last_vote_range_start == o.last_vote_range_start &&
+            last_vote == o.last_vote &&
+            lock == o.lock;
+      }
+   };
+
+   // ----------------------------------------------------------------------------------------
    struct finalizer {
-      enum class vote_decision { strong_vote, weak_vote, no_vote };
-
-      struct proposal_ref {
-         block_id_type         id;
-         block_timestamp_type  timestamp;
-
-         proposal_ref() = default;
-
-         template<class BSP>
-         explicit proposal_ref(const BSP& p) :
-            id(p->id()),
-            timestamp(p->timestamp())
-         {}
-
-         proposal_ref(const block_id_type& id, block_timestamp_type t) :
-            id(id), timestamp(t)
-         {}
-
-         void reset() {
-            id = block_id_type();
-            timestamp = block_timestamp_type();
-         }
-
-         bool empty() const { return id.empty(); }
-
-         explicit operator bool() const { return !id.empty(); }
-
-         auto operator==(const proposal_ref& o) const {
-            return id == o.id && timestamp == o.timestamp;
-         }
+      enum class vote_decision { no_vote, strong_vote, weak_vote };
+      struct vote_result {
+         vote_decision decision       {vote_decision::no_vote};
+         bool          safety_check   {false};
+         bool          liveness_check {false};
+         bool          monotony_check {false};
       };
 
-      struct safety_information {
-         block_timestamp_type last_vote_range_start;
-         proposal_ref         last_vote;
-         proposal_ref         lock;
+      bls_private_key               priv_key;
+      finalizer_safety_information  fsi;
 
-         static constexpr uint64_t magic = 0x5AFE11115AFE1111ull;
+      vote_result  decide_vote(const finality_core& core, const block_id_type &id,
+                               const block_timestamp_type timestamp);
 
-         static safety_information unset_fsi() { return {block_timestamp_type(), {}, {}}; }
-
-         auto operator==(const safety_information& o) const {
-            return last_vote_range_start == o.last_vote_range_start &&
-               last_vote == o.last_vote &&
-               lock == o.lock;
-         }
-      };
-
-      bls_private_key           priv_key;
-      safety_information        fsi;
-
-   private:
-      using branch_t      = fork_database_if_t::branch_t;
-      using full_branch_t = fork_database_if_t::full_branch_t;
-      vote_decision  decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
-
-   public:
-      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_state_ptr& bsp,
-                                             const digest_type& digest, const fork_database_if_t& fork_db);
+      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_header_state_ptr& bhsp,
+                                             const digest_type& digest);
    };
 
    // ----------------------------------------------------------------------------------------
    struct my_finalizers_t {
-      using fsi_t   = finalizer::safety_information;
+      using fsi_t   = finalizer_safety_information;
       using fsi_map = std::map<bls_public_key, fsi_t>;
 
       const block_timestamp_type        t_startup;             // nodeos startup time, used for default safety_information
@@ -109,8 +81,7 @@ namespace eosio::chain {
 
       template<class F>
       void maybe_vote(const finalizer_policy& fin_pol,
-                      const block_state_ptr& bsp,
-                      const fork_database_if_t& fork_db,
+                      const block_header_state_ptr& bhsp,
                       const digest_type& digest,
                       F&& process_vote) {
          std::vector<vote_message> votes;
@@ -119,7 +90,7 @@ namespace eosio::chain {
          // first accumulate all the votes
          for (const auto& f : fin_pol.finalizers) {
             if (auto it = finalizers.find(f.public_key); it != finalizers.end()) {
-               std::optional<vote_message> vote_msg = it->second.maybe_vote(it->first, bsp, digest, fork_db);
+               std::optional<vote_message> vote_msg = it->second.maybe_vote(it->first, bhsp, digest);
                if (vote_msg)
                   votes.push_back(std::move(*vote_msg));
             }
@@ -148,17 +119,24 @@ namespace eosio::chain {
 }
 
 namespace std {
-   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer::proposal_ref& r) {
-      os << "proposal_ref(id(" << r.id.str() << "), tstamp(" << r.timestamp.slot << "))";
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer_safety_information& fsi) {
+      os << "fsi(" << fsi.last_vote_range_start.slot << ", " << fsi.last_vote << ", " << fsi.lock << ")";
       return os;
    }
 
-   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer::safety_information& fsi) {
-      os << "fsi(" << fsi.last_vote_range_start.slot << ", " << fsi.last_vote << ", " << fsi.lock << ")";
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::finalizer::vote_result& vr) {
+      os << "vote_result(\"";
+      using vote_decision = eosio::chain::finalizer::vote_decision;
+      switch(vr.decision) {
+      case vote_decision::strong_vote: os << "strong_vote"; break;
+      case vote_decision::weak_vote:   os << "weak_vote";   break;
+      case vote_decision::no_vote:     os << "no_vote";     break;
+      }
+      os << "\", monotony_check(" << vr.monotony_check << "), liveness_check(" << vr.liveness_check <<
+         "), safety_check(" << vr.safety_check<<  "))";
       return os;
    }
 }
 
-FC_REFLECT(eosio::chain::finalizer::proposal_ref, (id)(timestamp))
+FC_REFLECT(eosio::chain::finalizer_safety_information, (last_vote_range_start)(last_vote)(lock))
 FC_REFLECT_ENUM(eosio::chain::finalizer::vote_decision, (strong_vote)(weak_vote)(no_vote))
-FC_REFLECT(eosio::chain::finalizer::safety_information, (last_vote_range_start)(last_vote)(lock))

@@ -17,7 +17,10 @@ namespace eosio { namespace chain {
    template<uint16_t IntervalMs, uint64_t EpochMs>
    class block_timestamp {
       public:
-         explicit block_timestamp( uint32_t s=0 ) :slot(s){}
+
+         block_timestamp() : slot(0) {}
+
+         explicit block_timestamp( uint32_t s ) :slot(s){}
 
          block_timestamp(const fc::time_point& t) {
             set_time_point(t);
@@ -51,12 +54,11 @@ namespace eosio { namespace chain {
             set_time_point(t);
          }
 
-         bool   operator > ( const block_timestamp& t )const   { return slot >  t.slot; }
-         bool   operator >=( const block_timestamp& t )const   { return slot >= t.slot; }
-         bool   operator < ( const block_timestamp& t )const   { return slot <  t.slot; }
-         bool   operator <=( const block_timestamp& t )const   { return slot <= t.slot; }
-         bool   operator ==( const block_timestamp& t )const   { return slot == t.slot; }
-         bool   operator !=( const block_timestamp& t )const   { return slot != t.slot; }
+         // needed, otherwise deleted because of above version of operator=()
+         block_timestamp& operator=(const block_timestamp&) = default;
+
+         auto operator<=>(const block_timestamp&) const = default;
+
          uint32_t slot;
 
       private:
@@ -75,6 +77,13 @@ namespace eosio { namespace chain {
    typedef block_timestamp<config::block_interval_ms,config::block_timestamp_epoch> block_timestamp_type; 
 
 } } /// eosio::chain
+
+namespace std {
+   inline std::ostream& operator<<(std::ostream& os, const eosio::chain::block_timestamp_type& t) {
+      os << "tstamp(" << t.slot << ")";
+      return os;
+   }
+}
 
 
 #include <fc/reflect/reflect.hpp>
