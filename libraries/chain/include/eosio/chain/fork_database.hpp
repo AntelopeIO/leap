@@ -4,7 +4,7 @@
 
 namespace eosio::chain {
 
-   template<class bsp>
+   template<class BSP>
    struct fork_database_impl;
 
    using block_branch_t = std::vector<signed_block_ptr>;
@@ -12,14 +12,8 @@ namespace eosio::chain {
    enum class ignore_duplicate_t { no, yes };
 
    // Used for logging of comparison values used for best fork determination
-   template<typename BS>
-   struct fork_comparison {
-      explicit fork_comparison(const BS& bs);
-      const bool valid;
-      const uint32_t last_final_block_num{};
-      const uint32_t lastest_qc_claim_block_num{};
-      const uint32_t block_height{};
-   };
+   std::string log_fork_comparison(const block_state& bs);
+   std::string log_fork_comparison(const block_state_legacy& bs);
 
    /**
     * @class fork_database_t
@@ -252,5 +246,3 @@ namespace eosio::chain {
       static constexpr uint32_t max_supported_version = 1;
    };
 } /// eosio::chain
-
-FC_REFLECT_TEMPLATE((typename BS), eosio::chain::fork_comparison<BS>, (valid)(last_final_block_num)(lastest_qc_claim_block_num)(block_height))

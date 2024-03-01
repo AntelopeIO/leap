@@ -23,44 +23,43 @@ namespace eosio::chain {
    struct block_state_accessor {
       static bool is_valid(const block_state& bs) { return bs.is_valid(); }
       static void set_valid(block_state& bs, bool v) { bs.validated = v; }
-      static uint32_t last_final_block_num(const block_state& bs) { return bs.core.last_final_block_num(); }
-      static uint32_t lastest_qc_claim_block_num(const block_state& bs) { return bs.core.latest_qc_claim().block_num; }
-      static uint32_t block_height(const block_state& bs) { return bs.timestamp().slot; }
    };
 
    struct block_state_legacy_accessor {
       static bool is_valid(const block_state_legacy& bs) { return bs.is_valid(); }
       static void set_valid(block_state_legacy& bs, bool v) { bs.validated = v; }
-      static uint32_t last_final_block_num(const block_state_legacy& bs) { return bs.irreversible_blocknum(); }
-      static uint32_t lastest_qc_claim_block_num(const block_state_legacy& bs) { return bs.irreversible_blocknum(); }
-      static uint32_t block_height(const block_state_legacy& bs) { return bs.block_num(); }
    };
 
-   template <typename BS>
-   fork_comparison<BS>::fork_comparison(const BS& bs)
-      : valid(BS::fork_db_block_state_accessor_t::is_valid(bs))
-      , last_final_block_num(BS::fork_db_block_state_accessor_t::last_final_block_num(bs))
-      , lastest_qc_claim_block_num(BS::fork_db_block_state_accessor_t::lastest_qc_claim_block_num(bs))
-      , block_height(BS::fork_db_block_state_accessor_t::block_height(bs))
-   {}
+   std::string log_fork_comparison(const block_state& bs) {
+      std::string r;
+      r += "[ valid: " + std::to_string(block_state_accessor::is_valid(bs)) + ", ";
+      r += "last_final_block_num: " + std::to_string(bs.last_final_block_num()) + ", ";
+      r += "last_qc_block_num: " + std::to_string(bs.last_qc_block_num()) + ", ";
+      r += "timestamp: " + bs.timestamp().to_time_point().to_iso_string() + " ]";
+      return r;
+   }
+
+   std::string log_fork_comparison(const block_state_legacy& bs) {
+      std::string r;
+      r += "[ valid: " + std::to_string(block_state_legacy_accessor::is_valid(bs)) + ", ";
+      r += "irreversible_blocknum: " + std::to_string(bs.irreversible_blocknum()) + ", ";
+      r += "block_num: " + std::to_string(bs.block_num()) + ", ";
+      r += "timestamp: " + bs.timestamp().to_time_point().to_iso_string() + " ]";
+      return r;
+   }
 
    struct by_block_id;
    struct by_best_branch;
    struct by_prev;
 
-   template<class BS, class BSP>
-   void log_bs(const char* desc, fork_database_impl<BSP>& fork_db, const BS& lhs) {
-      using BSA = BS::fork_db_block_state_accessor_t;
-      dlog( "fork_db ${f}, ${d} ${bn}, last_final_block_num ${lfbn}, final_on_strong_qc_block_num ${fsbn}, lastest_qc_claim_block_num ${lbn}, block_height ${bh}, id ${id}",
-             ("f", (uint64_t)(&fork_db))("d", desc)("bn", lhs.block_num())("lfbn", BSA::last_final_block_num(lhs))("fsbn", BSA::final_on_strong_qc_block_num(lhs))("lbn", BSA::lastest_qc_claim_block_num(lhs))("bh", BSA::block_height(lhs))("id", lhs.id()) );
-   }
-
    // match comparison of by_best_branch
-   template<class BS>
-   bool first_preferred( const BS& lhs, const BS& rhs ) {
-      using BSA = BS::fork_db_block_state_accessor_t;
-      return std::make_tuple(BSA::last_final_block_num(lhs), BSA::lastest_qc_claim_block_num(lhs), BSA::block_height(lhs)) >
-             std::make_tuple(BSA::last_final_block_num(rhs), BSA::lastest_qc_claim_block_num(rhs), BSA::block_height(rhs));
+   bool first_preferred( const block_state& lhs, const block_state& rhs ) {
+      return std::make_tuple(lhs.last_final_block_num(), lhs.last_qc_block_num(), lhs.timestamp()) >
+             std::make_tuple(rhs.last_final_block_num(), rhs.last_qc_block_num(), rhs.timestamp());
+   }
+   bool first_preferred( const block_state_legacy& lhs, const block_state_legacy& rhs ) {
+      return std::make_tuple(lhs.irreversible_blocknum(), lhs.block_num()) >
+             std::make_tuple(rhs.irreversible_blocknum(), rhs.block_num());
    }
 
    template<class BSP>  // either [block_state_legacy_ptr, block_state_ptr], same with block_header_state_ptr
@@ -76,24 +75,40 @@ namespace eosio::chain {
       using full_branch_t      = fork_db_t::full_branch_t;
       using branch_pair_t      = fork_db_t::branch_pair_t;
 
+      using by_best_branch_legacy_t =
+            ordered_unique<tag<by_best_branch>,
+               composite_key<block_state_legacy,
+                  global_fun<const block_state_legacy&,  bool,                 &block_state_legacy_accessor::is_valid>,
+                  const_mem_fun<block_state_legacy,      uint32_t,             &block_state_legacy::irreversible_blocknum>,
+                  const_mem_fun<block_state_legacy,      uint32_t,             &block_state_legacy::block_num>,
+                  const_mem_fun<block_state_legacy,      const block_id_type&, &block_state_legacy::id>
+               >,
+               composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>, sha256_less
+               >>;
+
+      using by_best_branch_if_t =
+            ordered_unique<tag<by_best_branch>,
+               composite_key<block_state,
+                  global_fun<const block_state&, bool,                  &block_state_accessor::is_valid>,
+                  const_mem_fun<block_state,     uint32_t,              &block_state::last_final_block_num>,
+                  const_mem_fun<block_state,     uint32_t,              &block_state::last_qc_block_num>,
+                  const_mem_fun<block_state,     block_timestamp_type,  &block_state::timestamp>,
+                  const_mem_fun<block_state,     const block_id_type&,  &block_state::id>
+               >,
+               composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>,
+                                     std::greater<block_timestamp_type>, sha256_less>
+               >;
+
+      using by_best_branch_t = std::conditional_t<std::is_same_v<bs_t, block_state>,
+                                                 by_best_branch_if_t,
+                                                 by_best_branch_legacy_t>;
+
       using fork_multi_index_type = multi_index_container<
          bsp_t,
          indexed_by<
             hashed_unique<tag<by_block_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(bs_t, const block_id_type&, id), std::hash<block_id_type>>,
             ordered_non_unique<tag<by_prev>, const_mem_fun<bs_t, const block_id_type&, &bs_t::previous>>,
-            ordered_unique<tag<by_best_branch>,
-               composite_key<bs_t,
-                  global_fun<const bs_t&,             bool,     &bs_accessor_t::is_valid>,
-                  global_fun<const bs_t&,             uint32_t, &bs_accessor_t::last_final_block_num>,
-                  global_fun<const bs_t&,             uint32_t, &bs_accessor_t::lastest_qc_claim_block_num>,
-                  global_fun<const bs_t&,             uint32_t, &bs_accessor_t::block_height>,
-                  const_mem_fun<bs_t,     const block_id_type&, &bs_t::id>
-               >,
-               composite_key_compare<std::greater<bool>,
-                                     std::greater<uint32_t>, std::greater<uint32_t>, std::greater<uint32_t>,
-                                     sha256_less
-               >
-            >
+            by_best_branch_t
          >
       >;
 
@@ -534,12 +549,7 @@ namespace eosio::chain {
 
    template<class BSP>
    BSP fork_database_impl<BSP>::search_on_head_branch_impl( uint32_t block_num ) const {
-      for (auto i = index.find(head->id()); i != index.end(); i = index.find((*i)->previous())) {
-         if ((*i)->block_num() == block_num)
-            return *i;
-      }
-
-      return {};
+      return search_on_branch_impl(head->id(), block_num);
    }
 
    /**
@@ -643,13 +653,13 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   void fork_database_t<BSP>::mark_valid( const BSP& h ) {
+   void fork_database_t<BSP>::mark_valid( const bsp_t& h ) {
       std::lock_guard g( my->mtx );
       my->mark_valid_impl( h );
    }
 
    template<class BSP>
-   void fork_database_impl<BSP>::mark_valid_impl( const BSP& h ) {
+   void fork_database_impl<BSP>::mark_valid_impl( const bsp_t& h ) {
       if( bs_accessor_t::is_valid(*h) ) return;
 
       auto& by_id_idx = index.template get<by_block_id>();
@@ -772,9 +782,6 @@ namespace eosio::chain {
    }
 
    // do class instantiations
-   template struct fork_comparison<block_state_legacy>;
-   template struct fork_comparison<block_state>;
-
    template class fork_database_t<block_state_legacy_ptr>;
    template class fork_database_t<block_state_ptr>;
    

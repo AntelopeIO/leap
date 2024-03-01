@@ -1023,7 +1023,7 @@ struct controller_impl {
       });
    }
 
-   signed_block_ptr fork_db_fetch_block_by_num(uint32_t block_num) const {
+   signed_block_ptr fetch_block_on_head_branch_by_num(uint32_t block_num) const {
       return fork_db.apply<signed_block_ptr>([&](const auto& forkdb) {
          auto bsp = forkdb.search_on_head_branch(block_num);
          if (bsp) return bsp->block;
@@ -1031,7 +1031,7 @@ struct controller_impl {
       });
    }
 
-   std::optional<block_id_type> fork_db_fetch_block_id_by_num(uint32_t block_num) const {
+   std::optional<block_id_type> fetch_block_id_on_head_branch_by_num(uint32_t block_num) const {
       return fork_db.apply<std::optional<block_id_type>>([&](const auto& forkdb) -> std::optional<block_id_type> {
          auto bsp = forkdb.search_on_head_branch(block_num);
          if (bsp) return bsp->id();
@@ -1040,7 +1040,7 @@ struct controller_impl {
    }
 
    // search on the branch of head
-   block_state_ptr fork_db_fetch_bsp_by_num(uint32_t block_num) const {
+   block_state_ptr fetch_bsp_on_head_branch_by_num(uint32_t block_num) const {
       return fork_db.apply<block_state_ptr>(
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
@@ -1053,7 +1053,7 @@ struct controller_impl {
    }
 
    // search on the branch of given id
-   block_state_ptr fork_db_fetch_bsp_by_num(const block_id_type& id, uint32_t block_num) const {
+   block_state_ptr fetch_bsp_on_branch_by_num(const block_id_type& id, uint32_t block_num) const {
       return fork_db.apply<block_state_ptr>(
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
@@ -2813,7 +2813,8 @@ struct controller_impl {
                assert(bsp->header_exts.count(if_ext_id) > 0); // in all instant_finality block headers
                const auto& if_ext = std::get<instant_finality_extension>(bsp->header_exts.lower_bound(if_ext_id)->second);
                if (if_ext.qc_claim.is_strong_qc) {
-                  auto claimed = forkdb.search_on_head_branch(if_ext.qc_claim.block_num);
+                  // claim has already been verified
+                  auto claimed = forkdb.search_on_branch(bsp->id(), if_ext.qc_claim.block_num);
                   if (claimed) {
                      set_if_irreversible_block_num(claimed->core.final_on_strong_qc_block_num);
                   }
@@ -3177,7 +3178,7 @@ struct controller_impl {
       const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& received_qc = qc_ext.qc.qc;
 
-      const auto bsp = fork_db_fetch_bsp_by_num( bsp_in->previous(), qc_ext.qc.block_num );
+      const auto bsp = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
       if( !bsp ) {
          return;
       }
@@ -3307,7 +3308,7 @@ struct controller_impl {
                   ("s1", qc_proof.qc.is_strong())("s2", new_qc_claim.is_strong_qc)("b", block_num) );
 
       // find the claimed block's block state on branch of id
-      auto bsp = fork_db_fetch_bsp_by_num( prev.id(), new_qc_claim.block_num );
+      auto bsp = fetch_bsp_on_branch_by_num( prev.id(), new_qc_claim.block_num );
       EOS_ASSERT( bsp,
                   invalid_qc_claim,
                   "Block state was not found in forkdb for block_num ${q}. Block number: ${b}",
@@ -3570,7 +3571,7 @@ struct controller_impl {
          } else if( new_head->id() != head->id() ) {
             ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
                  ("current_head_id", head->id())("current_head_num", head_block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
-                 ("c", fork_comparison{*head})("n", fork_comparison{*new_head}));
+                 ("c", log_fork_comparison(*head))("n", log_fork_comparison(*new_head)));
 
             // not possible to log transaction specific infor when switching forks
             if (auto dm_logger = get_deep_mind_logger(false)) {
@@ -4540,7 +4541,7 @@ std::optional<signed_block_header> controller::fetch_block_header_by_id( const b
 }
 
 signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  { try {
-   auto b = my->fork_db_fetch_block_by_num( block_num );
+   auto b = my->fetch_block_on_head_branch_by_num( block_num );
    if (b)
       return b;
 
@@ -4548,7 +4549,7 @@ signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  {
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_number( uint32_t block_num )const  { try {
-   auto b = my->fork_db_fetch_block_by_num(block_num);
+   auto b = my->fetch_block_on_head_branch_by_num(block_num);
    if (b)
       return *b;
 
@@ -4562,7 +4563,7 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
 
    if( !find_in_blog ) {
-      std::optional<block_id_type> id = my->fork_db_fetch_block_id_by_num(block_num);
+      std::optional<block_id_type> id = my->fetch_block_id_on_head_branch_by_num(block_num);
       if (id) return *id;
    }
 
