@@ -2808,7 +2808,7 @@ struct controller_impl {
                const auto& if_ext = std::get<instant_finality_extension>(bsp->header_exts.lower_bound(if_ext_id)->second);
                if (if_ext.qc_claim.is_strong_qc) {
                   // claim has already been verified
-                  auto claimed = forkdb.search_branch(bsp->id(), if_ext.qc_claim.block_num);
+                  auto claimed = forkdb.search_on_branch(bsp->id(), if_ext.qc_claim.block_num);
                   if (claimed) {
                      set_if_irreversible_block_num(claimed->core.final_on_strong_qc_block_num);
                   }

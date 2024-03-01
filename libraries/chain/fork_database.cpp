@@ -657,13 +657,13 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   void fork_database_t<BSP>::mark_valid( const BSP& h ) {
+   void fork_database_t<BSP>::mark_valid( const bsp_t& h ) {
       std::lock_guard g( my->mtx );
       my->mark_valid_impl( h );
    }
 
    template<class BSP>
-   void fork_database_impl<BSP>::mark_valid_impl( const BSP& h ) {
+   void fork_database_impl<BSP>::mark_valid_impl( const bsp_t& h ) {
       if( bs_accessor_t::is_valid(*h) ) return;
 
       auto& by_id_idx = index.template get<by_block_id>();
