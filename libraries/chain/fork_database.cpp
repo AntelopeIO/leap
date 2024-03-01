@@ -36,6 +36,14 @@ namespace eosio::chain {
       static uint32_t block_height(const block_state_legacy& bs) { return bs.block_num(); }
    };
 
+   template <typename BS>
+   fork_comparison<BS>::fork_comparison(const BS& bs)
+      : valid(BS::fork_db_block_state_accessor_t::is_valid(bs))
+      , last_final_block_num(BS::fork_db_block_state_accessor_t::last_final_block_num(bs))
+      , lastest_qc_claim_block_num(BS::fork_db_block_state_accessor_t::lastest_qc_claim_block_num(bs))
+      , block_height(BS::fork_db_block_state_accessor_t::block_height(bs))
+   {}
+
    struct by_block_id;
    struct by_best_branch;
    struct by_prev;

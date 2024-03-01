@@ -11,6 +11,16 @@ namespace eosio::chain {
    enum class mark_valid_t { no, yes };
    enum class ignore_duplicate_t { no, yes };
 
+   // Used for logging of comparison values used for best fork determination
+   template<typename BS>
+   struct fork_comparison {
+      explicit fork_comparison(const BS& bs);
+      const bool valid;
+      const uint32_t last_final_block_num{};
+      const uint32_t lastest_qc_claim_block_num{};
+      const uint32_t block_height{};
+   };
+
    /**
     * @class fork_database_t
     * @brief manages light-weight state for all potential unconfirmed forks
@@ -241,3 +251,5 @@ namespace eosio::chain {
       static constexpr uint32_t max_supported_version = 1;
    };
 } /// eosio::chain
+
+FC_REFLECT_TEMPLATE((typename BS), eosio::chain::fork_comparison<BS>, (valid)(last_final_block_num)(lastest_qc_claim_block_num)(block_height))
