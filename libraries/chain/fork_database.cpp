@@ -75,24 +75,40 @@ namespace eosio::chain {
       using full_branch_t      = fork_db_t::full_branch_t;
       using branch_pair_t      = fork_db_t::branch_pair_t;
 
+      using by_best_branch_legacy_t =
+            ordered_unique<tag<by_best_branch>,
+               composite_key<block_state_legacy,
+                  global_fun<const block_state_legacy&,  bool,                 &block_state_legacy_accessor::is_valid>,
+                  const_mem_fun<block_state_legacy,      uint32_t,             &block_state_legacy::irreversible_blocknum>,
+                  const_mem_fun<block_state_legacy,      uint32_t,             &block_state_legacy::block_num>,
+                  const_mem_fun<block_state_legacy,      const block_id_type&, &block_state_legacy::id>
+               >,
+               composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>, sha256_less
+               >>;
+
+      using by_best_branch_if_t =
+            ordered_unique<tag<by_best_branch>,
+               composite_key<block_state,
+                  global_fun<const block_state&, bool,                  &block_state_accessor::is_valid>,
+                  const_mem_fun<block_state,     uint32_t,              &block_state::irreversible_blocknum>,
+                  const_mem_fun<block_state,     uint32_t,              &block_state::last_qc_block_num>,
+                  const_mem_fun<block_state,     block_timestamp_type,  &block_state::timestamp>,
+                  const_mem_fun<block_state,     const block_id_type&,  &block_state::id>
+               >,
+               composite_key_compare<std::greater<bool>, std::greater<uint32_t>, std::greater<uint32_t>,
+                                     std::greater<block_timestamp_type>, sha256_less>
+               >;
+
+      using by_best_branch_t = std::conditional_t<std::is_same_v<bs_t, block_state>,
+                                                 by_best_branch_if_t,
+                                                 by_best_branch_legacy_t>;
+
       using fork_multi_index_type = multi_index_container<
          BSP,
          indexed_by<
             hashed_unique<tag<by_block_id>, BOOST_MULTI_INDEX_CONST_MEM_FUN(bs_t, const block_id_type&, id), std::hash<block_id_type>>,
             ordered_non_unique<tag<by_prev>, const_mem_fun<bs_t, const block_id_type&, &bs_t::previous>>,
-            ordered_unique<tag<by_best_branch>,
-               composite_key<bs_t,
-                  global_fun<const bs_t&,             bool,     &bs_accessor_t::is_valid>,
-                  global_fun<const bs_t&,             uint32_t, &bs_accessor_t::last_final_block_num>,
-                  global_fun<const bs_t&,             uint32_t, &bs_accessor_t::lastest_qc_claim_block_num>,
-                  global_fun<const bs_t&,             uint32_t, &bs_accessor_t::block_height>,
-                  const_mem_fun<bs_t,     const block_id_type&, &bs_t::id>
-               >,
-               composite_key_compare<std::greater<bool>,
-                                     std::greater<uint32_t>, std::greater<uint32_t>, std::greater<uint32_t>,
-                                     sha256_less
-               >
-            >
+            by_best_branch_t
          >
       >;
 
