@@ -3544,7 +3544,7 @@ struct controller_impl {
          } else if( new_head->id() != head->id() ) {
             ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
                  ("current_head_id", head->id())("current_head_num", head_block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
-                 ("c", fork_comparison{*head})("n", fork_comparison{*new_head}));
+                 ("c", log_fork_comparison(*head))("n", log_fork_comparison(*new_head)));
 
             // not possible to log transaction specific infor when switching forks
             if (auto dm_logger = get_deep_mind_logger(false)) {
