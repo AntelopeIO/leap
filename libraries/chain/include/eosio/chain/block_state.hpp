@@ -67,7 +67,7 @@ public:
 
    using bhs_t  = block_header_state;
    using bhsp_t = block_header_state_ptr;
-   using fork_db_block_state_accessor = block_state_accessor;
+   using fork_db_block_state_accessor_t = block_state_accessor;
 
    block_state() = default;
    block_state(const block_state&) = delete;
