@@ -3,6 +3,7 @@
 #include <boost/test/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
 #include <eosio/testing/bls_utils.hpp>
+#include <fc/io/cfile.hpp>
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -105,6 +106,47 @@ BOOST_AUTO_TEST_CASE( basic_finalizer_safety_file_io ) try {
 
       // make sure the safety info for our finalizer that we saved above is restored correctly
       BOOST_CHECK_EQUAL(fset.get_fsi(k.pubkey), fsi);
+   }
+
+} FC_LOG_AND_RETHROW()
+
+BOOST_AUTO_TEST_CASE( corrupt_finalizer_safety_file ) try {
+   fc::temp_directory tempdir;
+   auto safety_file_path = tempdir.path() / "finalizers" / "safety.dat";
+   auto proposals { create_proposal_refs(10) };
+
+   fsi_t fsi { .last_vote_range_start = tstamp(0),
+               .last_vote = proposals[6],
+               .lock = proposals[2] };
+
+   bls_keys_t k("alice"_n);
+   bls_pub_priv_key_map_t local_finalizers = { { k.pubkey_str, k.privkey_str } };
+
+   {
+      my_finalizers_t fset{.t_startup = block_timestamp_type{}, .persist_file_path = safety_file_path};
+      fset.set_keys(local_finalizers);
+
+      fset.set_fsi(k.pubkey, fsi);
+      fset.save_finalizer_safety_info();
+
+      // at this point we have saved the finalizer safety file
+      // corrupt it, so we can check that we throw an exception when reading it later.
+
+      fc::datastream<fc::cfile> f;
+      f.set_file_path(safety_file_path);
+      f.open(fc::cfile::truncate_rw_mode);
+      size_t junk_data = 0xf0f0f0f0f0f0f0f0ull;
+      fc::raw::pack(f, junk_data);
+   }
+
+   {
+      my_finalizers_t fset{.t_startup = block_timestamp_type{}, .persist_file_path = safety_file_path};
+      BOOST_REQUIRE_THROW(fset.set_keys(local_finalizers),     // that's when the finalizer safety file is read
+                          finalizer_safety_exception);
+
+      // make sure the safety info for our finalizer that we saved above is restored correctly
+      BOOST_CHECK_NE(fset.get_fsi(k.pubkey), fsi);
+      BOOST_CHECK_EQUAL(fset.get_fsi(k.pubkey), fsi_t());
    }
 
 } FC_LOG_AND_RETHROW()
