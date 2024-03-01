@@ -5,7 +5,7 @@
 namespace eosio::chain {
 
 // ----------------------------------------------------------------------------------------
-block_header_state_ptr get_block_by_num(const fork_database_if_t::full_branch_type& branch, std::optional<uint32_t> block_num) {
+block_header_state_ptr get_block_by_num(const fork_database_if_t::full_branch_t& branch, std::optional<uint32_t> block_num) {
    if (!block_num || branch.empty())
       return block_state_ptr{};
 
@@ -16,7 +16,7 @@ block_header_state_ptr get_block_by_num(const fork_database_if_t::full_branch_ty
 }
 
 // ----------------------------------------------------------------------------------------
-bool extends(const fork_database_if_t::full_branch_type& branch, const block_id_type& id)  {
+bool extends(const fork_database_if_t::full_branch_t& branch, const block_id_type& id)  {
    return !branch.empty() &&
       std::any_of(++branch.cbegin(), branch.cend(), [&](const auto& h) { return h->id() == id; });
 }
@@ -34,7 +34,7 @@ finalizer::vote_decision finalizer::decide_vote(const block_state_ptr& proposal,
       return vote_decision::no_vote;
    }
 
-   std::optional<full_branch_type> p_branch; // a branch that includes the root.
+   std::optional<full_branch_t> p_branch; // a branch that includes the root.
 
    if (!fsi.lock.empty()) {
       // Liveness check : check if the height of this proposal's justification is higher

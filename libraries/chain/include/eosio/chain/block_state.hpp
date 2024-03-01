@@ -33,8 +33,6 @@ struct block_state : public block_header_state {     // block_header_state provi
    // ------ updated for votes, used for fork_db ordering ------------------------------
 private:
    bool                       validated = false;     // We have executed the block's trxs and verified that action merkle root (block id) matches.
-   qc_claim_t                 best_qc_claim;         // only modify/access while holding forkdb lock
-   core_metadata              updated_core;          // only modify/access while holding forkdb lock, updated block_header_state::core by best_qc_claim
 
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
@@ -63,14 +61,13 @@ public:
    uint32_t               last_qc_block_num() const { return core.latest_qc_claim().block_num; }
    uint32_t               final_on_strong_qc_block_num() const { return core.final_on_strong_qc_block_num; }
       
-   // vote_status, pending_qc pre state, pending_qc post state
-   std::tuple<vote_status, pending_quorum_certificate::state_t, pending_quorum_certificate::state_t>
-   aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
+   // vote_status
+   vote_status aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
    void verify_qc(const valid_quorum_certificate& qc) const; // verify given qc is valid with respect block_state
 
    using bhs_t  = block_header_state;
    using bhsp_t = block_header_state_ptr;
-   using fork_db_block_state_accessor = block_state_accessor;
+   using fork_db_block_state_accessor_t = block_state_accessor;
 
    block_state() = default;
    block_state(const block_state&) = delete;
@@ -94,4 +91,4 @@ using block_state_ptr = std::shared_ptr<block_state>;
 } // namespace eosio::chain
 
 // not exporting pending_qc or valid_qc
-FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated)(best_qc_claim)(updated_core) )
+FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated) )

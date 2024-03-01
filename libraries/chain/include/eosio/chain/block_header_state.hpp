@@ -37,7 +37,7 @@ struct block_header_state {
    block_header                        header;
    protocol_feature_activation_set_ptr activated_protocol_features;
 
-   finality_core                       core;
+   finality_core                       core;                    // thread safe, not modified after creation
    incremental_merkle_tree             proposal_mtree;
    incremental_merkle_tree             finality_mtree;
 

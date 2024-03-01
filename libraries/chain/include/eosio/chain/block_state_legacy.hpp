@@ -47,7 +47,7 @@ namespace eosio::chain {
       const deque<transaction_metadata_ptr>& trxs_metas()            const { return _cached_trxs; }
 
       
-      using fork_db_block_state_accessor = block_state_legacy_accessor;
+      using fork_db_block_state_accessor_t = block_state_legacy_accessor;
    private: // internal use only, not thread safe
       friend struct block_state_legacy_accessor;
       friend struct fc::reflector<block_state_legacy>;

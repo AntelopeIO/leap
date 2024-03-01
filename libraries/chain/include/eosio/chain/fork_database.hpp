@@ -11,6 +11,16 @@ namespace eosio::chain {
    enum class mark_valid_t { no, yes };
    enum class ignore_duplicate_t { no, yes };
 
+   // Used for logging of comparison values used for best fork determination
+   template<typename BS>
+   struct fork_comparison {
+      explicit fork_comparison(const BS& bs);
+      const bool valid;
+      const uint32_t last_final_block_num{};
+      const uint32_t lastest_qc_claim_block_num{};
+      const uint32_t block_height{};
+   };
+
    /**
     * @class fork_database_t
     * @brief manages light-weight state for all potential unconfirmed forks
@@ -31,13 +41,13 @@ namespace eosio::chain {
       static constexpr uint32_t legacy_magic_number = 0x30510FDB;
       static constexpr uint32_t magic_number = 0x4242FDB;
 
-      using BS               = BSP::element_type;
-      using BHSP             = BS::bhsp_t;
-      using BHS              = BHSP::element_type;
       using bsp_t            = BSP;
-      using branch_type      = std::vector<BSP>;
-      using full_branch_type = std::vector<BHSP>;
-      using branch_type_pair = pair<branch_type, branch_type>;
+      using bs_t             = bsp_t::element_type;
+      using bhsp_t           = bs_t::bhsp_t;
+      using bhs_t            = bhsp_t::element_type;
+      using branch_t         = std::vector<bsp_t>;
+      using full_branch_t    = std::vector<bhsp_t>;
+      using branch_pair_t    = pair<branch_t, branch_t>;
 
       explicit fork_database_t(uint32_t magic_number = legacy_magic_number);
       ~fork_database_t();
@@ -45,15 +55,15 @@ namespace eosio::chain {
       void open( const std::filesystem::path& fork_db_file, validator_t& validator );
       void close( const std::filesystem::path& fork_db_file );
 
-      BHSP get_block_header( const block_id_type& id ) const;
-      BSP  get_block( const block_id_type& id ) const;
+      bhsp_t get_block_header( const block_id_type& id ) const;
+      bsp_t  get_block( const block_id_type& id ) const;
       bool block_exists( const block_id_type& id ) const;
 
       /**
        *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
        *  The head will also be reset to point to the root.
        */
-      void reset_root( const BHS& root_bhs );
+      void reset_root( const bhs_t& root_bhs );
 
       /**
        *  Removes validated flag from all blocks in fork database and resets head to point to the root.
@@ -70,17 +80,17 @@ namespace eosio::chain {
        *  Must link to existing block in fork database or the root.
        *  @param mark_valid if true also mark next_block valid
        */
-      void add( const BSP& next_block, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate );
+      void add( const bsp_t& next_block, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate );
 
       void remove( const block_id_type& id );
 
       bool has_root() const;
-      BSP  root() const; // undefined if !has_root()
-      BSP  head() const;
-      BSP  pending_head() const;
+      bsp_t  root() const; // undefined if !has_root()
+      bsp_t  head() const;
+      bsp_t  pending_head() const;
 
       // only accessed by main thread, no mutex protection
-      BSP  chain_head;
+      bsp_t  chain_head;
 
       /**
        *  Returns the sequence of block states resulting from trimming the branch from the
@@ -90,7 +100,7 @@ namespace eosio::chain {
        *  The order of the sequence is in descending block number order.
        *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
        */
-      branch_type fetch_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
+      branch_t fetch_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
       block_branch_t fetch_block_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
 
       /**
@@ -98,26 +108,26 @@ namespace eosio::chain {
        *  The order of the sequence is in descending block number order.
        *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
        */
-      full_branch_type fetch_full_branch( const block_id_type& h ) const;
+      full_branch_t fetch_full_branch( const block_id_type& h ) const;
 
       /**
        *  Returns the block state with a block number of `block_num` that is on the branch that
        *  contains a block with an id of`h`, or the empty shared pointer if no such block can be found.
        */
-      BSP  search_on_branch( const block_id_type& h, uint32_t block_num ) const;
+      bsp_t search_on_branch( const block_id_type& h, uint32_t block_num ) const;
+
+      /**
+       * search_on_branch( head()->id(), block_num)
+       */
+      bsp_t search_on_head_branch( uint32_t block_num ) const;
 
       /**
        *  Given two head blocks, return two branches of the fork graph that
        *  end with a common ancestor (same prior block)
        */
-      branch_type_pair fetch_branch_from(const block_id_type& first, const block_id_type& second) const;
+      branch_pair_t fetch_branch_from(const block_id_type& first, const block_id_type& second) const;
 
-      void mark_valid( const BSP& h );
-
-      /**
-       * Update finality_core for best qc
-       */
-      void update_best_qc( const block_id_type& id, const qc_claim_t& best_qc_claim );
+      void mark_valid( const bsp_t& h );
 
    private:
       unique_ptr<fork_database_impl<BSP>> my;
@@ -242,3 +252,5 @@ namespace eosio::chain {
       static constexpr uint32_t max_supported_version = 1;
    };
 } /// eosio::chain
+
+FC_REFLECT_TEMPLATE((typename BS), eosio::chain::fork_comparison<BS>, (valid)(last_final_block_num)(lastest_qc_claim_block_num)(block_height))

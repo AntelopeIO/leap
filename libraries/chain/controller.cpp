@@ -1025,7 +1025,7 @@ struct controller_impl {
 
    signed_block_ptr fork_db_fetch_block_by_num(uint32_t block_num) const {
       return fork_db.apply<signed_block_ptr>([&](const auto& forkdb) {
-         auto bsp = forkdb.search_on_branch(forkdb.head()->id(), block_num);
+         auto bsp = forkdb.search_on_head_branch(block_num);
          if (bsp) return bsp->block;
          return signed_block_ptr{};
       });
@@ -1033,7 +1033,7 @@ struct controller_impl {
 
    std::optional<block_id_type> fork_db_fetch_block_id_by_num(uint32_t block_num) const {
       return fork_db.apply<std::optional<block_id_type>>([&](const auto& forkdb) -> std::optional<block_id_type> {
-         auto bsp = forkdb.search_on_branch(forkdb.head()->id(), block_num);
+         auto bsp = forkdb.search_on_head_branch(block_num);
          if (bsp) return bsp->id();
          return {};
       });
@@ -1045,7 +1045,7 @@ struct controller_impl {
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
             [&](const fork_database_if_t&forkdb) -> block_state_ptr {
-               auto bsp = forkdb.search_on_branch(forkdb.head()->id(), block_num);
+               auto bsp = forkdb.search_on_head_branch(block_num);
                return bsp;
             }
          }
@@ -2806,6 +2806,20 @@ struct controller_impl {
                }});
 
          if( s == controller::block_status::incomplete ) {
+            fork_db.apply_if<void>([&](auto& forkdb) {
+               const auto& bsp = std::get<std::decay_t<decltype(forkdb.chain_head)>>(cb.bsp);
+
+               uint16_t if_ext_id = instant_finality_extension::extension_id();
+               assert(bsp->header_exts.count(if_ext_id) > 0); // in all instant_finality block headers
+               const auto& if_ext = std::get<instant_finality_extension>(bsp->header_exts.lower_bound(if_ext_id)->second);
+               if (if_ext.qc_claim.is_strong_qc) {
+                  auto claimed = forkdb.search_on_head_branch(if_ext.qc_claim.block_num);
+                  if (claimed) {
+                     set_if_irreversible_block_num(claimed->core.final_on_strong_qc_block_num);
+                  }
+               }
+            });
+
             log_irreversible();
          }
 
@@ -3115,33 +3129,19 @@ struct controller_impl {
 
    // called from net threads and controller's thread pool
    vote_status process_vote_message( const vote_message& vote ) {
-      auto aggregate_vote = [&vote](auto& forkdb) -> std::pair<vote_status, std::optional<uint32_t>> {
+      auto aggregate_vote = [&vote](auto& forkdb) -> vote_status {
           auto bsp = forkdb.get_block(vote.proposal_id);
           if (bsp) {
-             auto [status, pre_state, post_state] = bsp->aggregate_vote(vote);
-             std::optional<uint32_t> new_lib{};
-             if (status == vote_status::success && pre_state != post_state && pending_quorum_certificate::is_quorum_met(post_state)) {
-                if (post_state == pending_quorum_certificate::state_t::strong) {
-                   new_lib = bsp->core.final_on_strong_qc_block_num;
-                   forkdb.update_best_qc(bsp->id(), {.block_num = bsp->block_num(), .is_strong_qc = true});
-                } else {
-                   forkdb.update_best_qc(bsp->id(), {.block_num = bsp->block_num(), .is_strong_qc = false});
-                }
-             }
-             return {status, new_lib};
+             return bsp->aggregate_vote(vote);
           }
-          return {vote_status::unknown_block, {}};
+          return vote_status::unknown_block;
       };
       // TODO: https://github.com/AntelopeIO/leap/issues/2057
       // TODO: Do not aggregate votes on block_state if in legacy block fork_db
-      auto aggregate_vote_legacy = [](auto&) -> std::pair<vote_status, std::optional<uint32_t>> {
-         return {vote_status::unknown_block, {}};
+      auto aggregate_vote_legacy = [](auto&) -> vote_status {
+         return vote_status::unknown_block;
       };
-      auto [status, new_lib] = fork_db.apply<std::pair<vote_status, std::optional<uint32_t>>>(aggregate_vote_legacy, aggregate_vote);
-      if (new_lib) {
-         set_if_irreversible_block_num(*new_lib);
-      }
-      return status;
+      return fork_db.apply<vote_status>(aggregate_vote_legacy, aggregate_vote);
    }
 
    void create_and_send_vote_msg(const block_state_ptr& bsp, const fork_database_if_t& fork_db) {
@@ -3568,8 +3568,9 @@ struct controller_impl {
                throw;
             }
          } else if( new_head->id() != head->id() ) {
-            ilog("switching forks from ${current_head_id} (block number ${current_head_num}) to ${new_head_id} (block number ${new_head_num})",
-                 ("current_head_id", head->id())("current_head_num", head_block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num()) );
+            ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
+                 ("current_head_id", head->id())("current_head_num", head_block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
+                 ("c", fork_comparison{*head})("n", fork_comparison{*new_head}));
 
             // not possible to log transaction specific infor when switching forks
             if (auto dm_logger = get_deep_mind_logger(false)) {
