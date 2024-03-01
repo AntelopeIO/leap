@@ -1779,6 +1779,11 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    if (!chain_plug->accept_transactions())
       return start_block_result::waiting_for_block;
 
+   abort_block();
+
+   chain.maybe_switch_forks([this](const transaction_metadata_ptr& trx) { _unapplied_transactions.add_forked(trx); },
+                            [this](const transaction_id_type& id) { return _unapplied_transactions.get_trx(id); });
+
    uint32_t head_block_num = chain.head_block_num();
 
    if (chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() <= head_block_num) {
@@ -1902,8 +1907,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          // can not confirm irreversible blocks
          blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (head_block_num - block_state->dpos_irreversible_blocknum)));
       }
-
-      abort_block();
 
       auto features_to_activate = chain.get_preactivated_protocol_features();
       if (in_producing_mode() && _protocol_features_to_activate.size() > 0) {

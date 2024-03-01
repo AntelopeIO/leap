@@ -85,8 +85,8 @@ namespace eosio::chain {
       safety_information        fsi;
 
    private:
-      using branch_type      = fork_database_if_t::branch_type;
-      using full_branch_type = fork_database_if_t::full_branch_type;
+      using branch_t      = fork_database_if_t::branch_t;
+      using full_branch_t = fork_database_if_t::full_branch_t;
       vote_decision  decide_vote(const block_state_ptr& proposal, const fork_database_if_t& fork_db);
 
    public:
@@ -160,4 +160,5 @@ namespace std {
 }
 
 FC_REFLECT(eosio::chain::finalizer::proposal_ref, (id)(timestamp))
+FC_REFLECT_ENUM(eosio::chain::finalizer::vote_decision, (strong_vote)(weak_vote)(no_vote))
 FC_REFLECT(eosio::chain::finalizer::safety_information, (last_vote_range_start)(last_vote)(lock))

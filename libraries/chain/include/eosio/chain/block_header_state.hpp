@@ -37,7 +37,7 @@ struct block_header_state {
    block_header                        header;
    protocol_feature_activation_set_ptr activated_protocol_features;
 
-   finality_core                       core;
+   finality_core                       core;                    // thread safe, not modified after creation
    incremental_merkle_tree             proposal_mtree;
    incremental_merkle_tree             finality_mtree;
 
@@ -63,8 +63,10 @@ struct block_header_state {
    uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
    block_timestamp_type  last_qc_block_timestamp() const {
       auto last_qc_block_num  = core.latest_qc_claim().block_num;
-      return core.get_block_reference(last_qc_block_num).timestamp; }
+      return core.get_block_reference(last_qc_block_num).timestamp;
+   }
    const producer_authority_schedule& active_schedule_auth()  const { return active_proposer_policy->proposer_schedule; }
+   const protocol_feature_activation_set_ptr& get_activated_protocol_features() const { return activated_protocol_features; }
 
    block_header_state next(block_header_state_input& data) const;
    block_header_state next(const signed_block_header& h, validator_t& validator) const;
@@ -74,7 +76,6 @@ struct block_header_state {
       return qc.block_num > core.latest_qc_claim().block_num;
    }
 
-   flat_set<digest_type> get_activated_protocol_features() const { return activated_protocol_features->protocol_features; }
    const vector<digest_type>& get_new_protocol_feature_activations() const;
    const producer_authority& get_scheduled_producer(block_timestamp_type t) const;
 };

@@ -3,7 +3,6 @@
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/controller.hpp>
-#include <eosio/chain/fork_database.hpp>
 
 #include <memory>
 

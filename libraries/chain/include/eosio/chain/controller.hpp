@@ -5,7 +5,6 @@
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/snapshot.hpp>
-#include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
@@ -189,6 +188,7 @@ namespace eosio::chain {
          void assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
+         void maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup);
 
          // thread-safe
          std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b );

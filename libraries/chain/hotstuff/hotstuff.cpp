@@ -23,7 +23,6 @@ inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) {
 vote_status pending_quorum_certificate::votes_t::add_vote(std::span<const uint8_t> proposal_digest, size_t index,
                                                           const bls_public_key& pubkey, const bls_signature& new_sig) {
    if (_bitset[index]) {
-      dlog("duplicated vote");
       return vote_status::duplicate; // shouldn't be already present
    }
    if (!fc::crypto::blslib::verify(pubkey, proposal_digest, new_sig)) {
@@ -64,7 +63,6 @@ vote_status pending_quorum_certificate::add_strong_vote(std::span<const uint8_t>
                                                         const bls_public_key& pubkey, const bls_signature& sig,
                                                         uint64_t weight) {
    if (auto s = _strong_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success) {
-      dlog("add_strong_vote returned failure");
       return s;
    }
    _strong_sum += weight;
@@ -127,15 +125,16 @@ vote_status pending_quorum_certificate::add_weak_vote(std::span<const uint8_t> p
    return vote_status::success;
 }
 
-// thread safe, <valid, strong>
-std::pair<vote_status, bool> pending_quorum_certificate::add_vote(bool strong, std::span<const uint8_t> proposal_digest, size_t index,
-                                                                  const bls_public_key& pubkey, const bls_signature& sig,
-                                                                  uint64_t weight) {
+// thread safe, status, pre state                          , post state
+vote_status pending_quorum_certificate::add_vote(block_num_type block_num, bool strong, std::span<const uint8_t> proposal_digest, size_t index,
+                                                 const bls_public_key& pubkey, const bls_signature& sig, uint64_t weight) {
    std::lock_guard g(*_mtx);
+   auto pre_state = _state;
    vote_status s = strong ? add_strong_vote(proposal_digest, index, pubkey, sig, weight)
                           : add_weak_vote(proposal_digest, index, pubkey, sig, weight);
-   dlog("status: ${s}, _state: ${state}, quorum_met: ${q}", ("s", s ==vote_status::success ? "success":"failure") ("state", _state==state_t::strong ? "strong":"weak")("q", is_quorum_met_no_lock()?"yes":"no"));
-   return {s, _state == state_t::strong};
+   dlog("block_num: ${bn}, vote strong: ${sv}, status: ${s}, pre-state: ${pre}, post-state: ${state}, quorum_met: ${q}",
+        ("bn", block_num)("sv", strong)("s", s)("pre", pre_state)("state", _state)("q", is_quorum_met_no_lock()));
+   return s;
 }
 
 // thread safe
@@ -158,7 +157,7 @@ valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate
 }
 
 bool pending_quorum_certificate::is_quorum_met_no_lock() const {
-   return _state == state_t::weak_achieved || _state == state_t::weak_final || _state == state_t::strong;
+   return is_quorum_met(_state);
 }
 
 valid_quorum_certificate::valid_quorum_certificate(

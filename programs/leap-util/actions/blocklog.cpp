@@ -266,7 +266,7 @@ int blocklog_actions::read_log() {
       opt->first_block = block_logger.first_block_num();
    }
 
-   std::vector<signed_block_ptr> fork_db_branch;
+   block_branch_t fork_db_branch;
 
    if(std::filesystem::exists(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name / config::forkdb_filename)) {
       ilog("opening fork_db");

@@ -1,14 +1,19 @@
 #pragma once
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/block_state.hpp>
-#include <boost/signals2/signal.hpp>
 
 namespace eosio::chain {
 
-   using boost::signals2::signal;
-
-   template<class bsp>
+   template<class BSP>
    struct fork_database_impl;
+
+   using block_branch_t = std::vector<signed_block_ptr>;
+   enum class mark_valid_t { no, yes };
+   enum class ignore_duplicate_t { no, yes };
+
+   // Used for logging of comparison values used for best fork determination
+   std::string log_fork_comparison(const block_state& bs);
+   std::string log_fork_comparison(const block_state_legacy& bs);
 
    /**
     * @class fork_database_t
@@ -24,33 +29,34 @@ namespace eosio::chain {
     * fork_database should be used instead of fork_database_t directly as it manages
     * the different supported types.
     */
-   template<class bsp>  // either block_state_legacy_ptr or block_state_ptr
+   template<class BSP>  // either block_state_legacy_ptr or block_state_ptr
    class fork_database_t {
    public:
       static constexpr uint32_t legacy_magic_number = 0x30510FDB;
       static constexpr uint32_t magic_number = 0x4242FDB;
 
-      using bs               = bsp::element_type;
-      using bhsp             = bs::bhsp_t;
-      using bhs              = bhsp::element_type;
-      using bsp_t            = bsp;
-      using branch_type      = std::vector<bsp>;
-      using full_branch_type = std::vector<bhsp>;
-      using branch_type_pair = pair<branch_type, branch_type>;
+      using bsp_t            = BSP;
+      using bs_t             = bsp_t::element_type;
+      using bhsp_t           = bs_t::bhsp_t;
+      using bhs_t            = bhsp_t::element_type;
+      using branch_t         = std::vector<bsp_t>;
+      using full_branch_t    = std::vector<bhsp_t>;
+      using branch_pair_t    = pair<branch_t, branch_t>;
 
       explicit fork_database_t(uint32_t magic_number = legacy_magic_number);
+      ~fork_database_t();
 
       void open( const std::filesystem::path& fork_db_file, validator_t& validator );
       void close( const std::filesystem::path& fork_db_file );
 
-      bhsp get_block_header( const block_id_type& id ) const;
-      bsp  get_block( const block_id_type& id ) const;
+      bhsp_t get_block_header( const block_id_type& id ) const;
+      bsp_t  get_block( const block_id_type& id ) const;
 
       /**
        *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
        *  The head will also be reset to point to the root.
        */
-      void reset( const bhs& root_bhs );
+      void reset_root( const bhs_t& root_bhs );
 
       /**
        *  Removes validated flag from all blocks in fork database and resets head to point to the root.
@@ -65,17 +71,19 @@ namespace eosio::chain {
       /**
        *  Add block state to fork database.
        *  Must link to existing block in fork database or the root.
+       *  @param mark_valid if true also mark next_block valid
        */
-      void add( const bsp& next_block, bool ignore_duplicate = false );
+      void add( const bsp_t& next_block, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate );
 
       void remove( const block_id_type& id );
 
-      bsp  root() const;
-      bsp  head() const;
-      bsp  pending_head() const;
+      bool has_root() const;
+      bsp_t  root() const; // undefined if !has_root()
+      bsp_t  head() const;
+      bsp_t  pending_head() const;
 
       // only accessed by main thread, no mutex protection
-      bsp  chain_head;
+      bsp_t  chain_head;
 
       /**
        *  Returns the sequence of block states resulting from trimming the branch from the
@@ -85,31 +93,37 @@ namespace eosio::chain {
        *  The order of the sequence is in descending block number order.
        *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
        */
-      branch_type fetch_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
+      branch_t fetch_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
+      block_branch_t fetch_block_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
 
       /**
        *  eturns full branch of block_header_state pointers including the root.
        *  The order of the sequence is in descending block number order.
        *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
        */
-      full_branch_type fetch_full_branch( const block_id_type& h ) const;
+      full_branch_t fetch_full_branch( const block_id_type& h ) const;
 
       /**
        *  Returns the block state with a block number of `block_num` that is on the branch that
        *  contains a block with an id of`h`, or the empty shared pointer if no such block can be found.
        */
-      bsp  search_on_branch( const block_id_type& h, uint32_t block_num ) const;
+      bsp_t search_on_branch( const block_id_type& h, uint32_t block_num ) const;
+
+      /**
+       * search_on_branch( head()->id(), block_num)
+       */
+      bsp_t search_on_head_branch( uint32_t block_num ) const;
 
       /**
        *  Given two head blocks, return two branches of the fork graph that
        *  end with a common ancestor (same prior block)
        */
-      branch_type_pair fetch_branch_from(const block_id_type& first, const block_id_type& second) const;
+      branch_pair_t fetch_branch_from(const block_id_type& first, const block_id_type& second) const;
 
-      void mark_valid( const bsp& h );
+      void mark_valid( const bsp_t& h );
 
    private:
-      unique_ptr<fork_database_impl<bsp>> my;
+      unique_ptr<fork_database_impl<BSP>> my;
    };
 
    using fork_database_legacy_t = fork_database_t<block_state_legacy_ptr>;
@@ -141,7 +155,7 @@ namespace eosio::chain {
       bool fork_db_legacy_present() const { return !!fork_db_legacy; }
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
-      std::vector<signed_block_ptr> fetch_branch_from_head();
+      block_branch_t fetch_branch_from_head() const;
 
       template <class R, class F>
       R apply(const F& f) {
