@@ -112,8 +112,8 @@ namespace fc
       FC_ASSERT( _key_value != nullptr );
    }
 
-   variant_object::variant_object( variant_object&& obj)
-   : _key_value( fc::move(obj._key_value) )
+   variant_object::variant_object( variant_object&& obj) noexcept:
+      _key_value( fc::move(obj._key_value) )
    {
       obj._key_value = std::make_shared<std::vector<entry>>();
       FC_ASSERT( _key_value != nullptr );
@@ -130,8 +130,7 @@ namespace fc
       FC_ASSERT( _key_value != nullptr );
    }
 
-   variant_object& variant_object::operator=( variant_object&& obj )
-   {
+   variant_object& variant_object::operator=( variant_object&& obj ) noexcept {
       if (this != &obj)
       {
          fc_swap(_key_value, obj._key_value );
@@ -301,7 +300,7 @@ namespace fc
    {
    }
 
-   mutable_variant_object::mutable_variant_object( mutable_variant_object&& obj )
+   mutable_variant_object::mutable_variant_object( mutable_variant_object&& obj ) noexcept
       : _key_value(fc::move(obj._key_value))
    {
    }
@@ -322,7 +321,7 @@ namespace fc
       return *this;
    }
 
-   mutable_variant_object& mutable_variant_object::operator=( mutable_variant_object&& obj )
+   mutable_variant_object& mutable_variant_object::operator=( mutable_variant_object&& obj ) noexcept
    {
       if (this != &obj)
       {

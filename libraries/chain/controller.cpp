@@ -824,7 +824,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
-   my_finalizers_t                   my_finalizers;
+   my_finalizers_t                 my_finalizers;
    std::atomic<bool>               writing_snapshot = false;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
@@ -1775,17 +1775,17 @@ struct controller_impl {
          using value_t = typename decltype(utils)::index_t::value_type;
 
          // skip the table_id_object as its inlined with contract tables section
-         if (std::is_same<value_t, table_id_object>::value) {
+         if (std::is_same_v<value_t, table_id_object>) {
             return;
          }
 
          // skip the database_header as it is only relevant to in-memory database
-         if (std::is_same<value_t, database_header_object>::value) {
+         if (std::is_same_v<value_t, database_header_object>) {
             return;
          }
 
          // special case for in-place upgrade of global_property_object
-         if (std::is_same<value_t, global_property_object>::value) {
+         if (std::is_same_v<value_t, global_property_object>) {
             using v2 = legacy::snapshot_global_property_object_v2;
             using v3 = legacy::snapshot_global_property_object_v3;
             using v4 = legacy::snapshot_global_property_object_v4;
