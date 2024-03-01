@@ -548,12 +548,7 @@ namespace eosio::chain {
 
    template<class BSP>
    BSP fork_database_impl<BSP>::search_on_head_branch_impl( uint32_t block_num ) const {
-      for (auto i = index.find(head->id()); i != index.end(); i = index.find((*i)->previous())) {
-         if ((*i)->block_num() == block_num)
-            return *i;
-      }
-
-      return {};
+      return search_on_branch_impl(head->id(), block_num);
    }
 
    /**

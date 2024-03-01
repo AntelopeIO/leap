@@ -102,6 +102,21 @@ BOOST_AUTO_TEST_CASE(add_remove_test) try {
    forkdb.add(bsp13b, mark_valid_t::no, ignore_duplicate_t::no); // will throw if already exists
    forkdb.add(bsp14b, mark_valid_t::no, ignore_duplicate_t::no); // will throw if already exists
 
+   // test search
+   BOOST_TEST(forkdb.search_on_branch( bsp13bb->id(), 11) == bsp11b);
+   BOOST_TEST(forkdb.search_on_branch( bsp13bb->id(), 9) == block_state_ptr{});
+
+   // test fetch branch
+   auto branch = forkdb.fetch_branch( bsp13b->id(), 12);
+   BOOST_REQUIRE(branch.size() == 2);
+   BOOST_TEST(branch[0] == bsp12b);
+   BOOST_TEST(branch[1] == bsp11b);
+   branch = forkdb.fetch_branch( bsp13bbb->id(), 13);
+   BOOST_REQUIRE(branch.size() == 3);
+   BOOST_TEST(branch[0] == bsp13bbb);
+   BOOST_TEST(branch[1] == bsp12bb);
+   BOOST_TEST(branch[2] == bsp11b);
+
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_SUITE_END()
