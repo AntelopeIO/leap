@@ -1229,6 +1229,12 @@ struct controller_impl {
                                     : forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib );
          try {
             auto should_process = [&](auto& bsp) {
+               // Only make irreversible blocks that have been validated. Blocks in the fork database may not be on our current best head
+               // and therefore have not been validated.
+               // An alternative more complex implementation would be to do a fork switch here and validate all blocks so they can be then made
+               // irreversible. Instead this moves irreversible as much as possible and allows the next maybe_switch_forks call to apply these
+               // non-validated blocks. After the maybe_switch_forks call (before next produced block or on next received block), irreversible
+               // can then move forward on the then validated blocks.
                return read_mode == db_read_mode::IRREVERSIBLE || bsp->is_valid();
             };
 
