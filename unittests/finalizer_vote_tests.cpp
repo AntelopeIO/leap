@@ -78,14 +78,14 @@ bsp make_bsp(const proposal_t& p, const bsp& previous, finalizer_policy_ptr finp
       // special case of genesis block
       block_ref ref{calc_id(fc::sha256::hash("genesis"), 0), block_timestamp_type{0}};
       bhs new_bhs { ref.block_id, block_header{ref.timestamp}, {},
-                    finality_core::create_core_for_genesis_block(0), {}, {}, std::move(finpol) };
+                    finality_core::create_core_for_genesis_block(0), std::move(finpol) };
       return makeit(std::move(new_bhs));
    }
 
    assert(claim);
    block_ref ref{previous->id(), previous->timestamp()};
    bhs new_bhs { p.calculate_id(), block_header{p.block_timestamp, {}, {}, previous->id()}, {}, previous->core.next(ref, *claim),
-                 {}, {}, std::move(finpol) };
+                 std::move(finpol) };
    return makeit(std::move(new_bhs));
 }
 

@@ -38,8 +38,6 @@ struct block_header_state {
    protocol_feature_activation_set_ptr activated_protocol_features;
 
    finality_core                       core;                    // thread safe, not modified after creation
-   incremental_merkle_tree             proposal_mtree;
-   incremental_merkle_tree             finality_mtree;
 
    finalizer_policy_ptr                active_finalizer_policy; // finalizer set + threshold + generation, supports `digest()`
    proposer_policy_ptr                 active_proposer_policy;  // producer authority schedule, supports `digest()`
@@ -84,6 +82,6 @@ using block_header_state_ptr = std::shared_ptr<block_header_state>;
 
 }
 
-FC_REFLECT( eosio::chain::block_header_state,
-            (block_id)(header)(activated_protocol_features)(core)(proposal_mtree)(finality_mtree)
-            (active_finalizer_policy)(active_proposer_policy)(proposer_policies)(finalizer_policies)(header_exts))
+FC_REFLECT( eosio::chain::block_header_state, (block_id)(header)
+            (activated_protocol_features)(core)(active_finalizer_policy)
+            (active_proposer_policy)(proposer_policies)(finalizer_policies)(header_exts))
