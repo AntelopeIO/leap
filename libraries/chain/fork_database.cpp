@@ -713,7 +713,7 @@ namespace eosio::chain {
    fork_database::fork_database(const std::filesystem::path& data_dir)
       : data_dir(data_dir)
         // currently needed because chain_head is accessed before fork database open
-      , fork_db_legacy{std::make_unique<fork_database_legacy_t>(fork_database_legacy_t::legacy_magic_number)}
+      , fork_db_l{std::make_unique<fork_database_legacy_t>(fork_database_legacy_t::legacy_magic_number)}
    {
    }
 
@@ -750,14 +750,14 @@ namespace eosio::chain {
 
             if (totem == fork_database_legacy_t::legacy_magic_number) {
                // fork_db_legacy created in constructor
-               apply_legacy<void>([&](auto& forkdb) {
+               apply_l<void>([&](auto& forkdb) {
                   forkdb.open(fork_db_file, validator);
                });
             } else {
                // file is instant-finality data, so switch to fork_database_if_t
-               fork_db_savanna = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
+               fork_db_s = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
                legacy = false;
-               apply_savanna<void>([&](auto& forkdb) {
+               apply_s<void>([&](auto& forkdb) {
                   forkdb.open(fork_db_file, validator);
                });
             }
@@ -772,9 +772,9 @@ namespace eosio::chain {
       assert(std::holds_alternative<block_state_legacy_ptr>(bh.internal()));
       block_state_legacy_ptr head = std::get<block_state_legacy_ptr>(bh.internal()); // will throw if called after transistion
       auto new_head = std::make_shared<block_state>(*head);
-      fork_db_savanna = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
+      fork_db_s = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
       legacy = false;
-      apply_savanna<void>([&](auto& forkdb) {
+      apply_s<void>([&](auto& forkdb) {
          forkdb.reset_root(*new_head);
       });
       return block_handle{new_head};

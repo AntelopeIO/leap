@@ -125,8 +125,9 @@ struct qc_data_t {
                                          // and specify `weak`.
 };
 
+// apply savanna block_state
 template <class R, class F>
-R apply_savanna(const block_handle& bh, F&& f) {
+R apply_s(const block_handle& bh, F&& f) {
    if constexpr (std::is_same_v<void, R>)
       std::visit<void>(overloaded{[&](const block_state_legacy_ptr&) {},
                                   [&](const block_state_ptr& head)   { std::forward<F>(f)(head); }}, bh.internal());
@@ -135,8 +136,9 @@ R apply_savanna(const block_handle& bh, F&& f) {
                                       [&](const block_state_ptr& head)   -> R { return std::forward<F>(f)(head); }}, bh.internal());
 }
 
+// apply legancy block_state_legacy
 template <class R, class F>
-R apply_legacy(const block_handle& bh, F&& f) {
+R apply_l(const block_handle& bh, F&& f) {
    if constexpr (std::is_same_v<void, R>)
       std::visit<void>(overloaded{[&](const block_state_legacy_ptr& head) { std::forward<F>(f)(head); },
                                   [&](const block_state_ptr&)             {}}, bh.internal());
@@ -486,8 +488,9 @@ struct building_block {
 
    bool is_legacy() const { return std::holds_alternative<building_block_legacy>(v); }
 
+   // apply legacy, building_block_legacy
    template <class R, class F>
-   R apply_legacy(F&& f) {
+   R apply_l(F&& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit(overloaded{[&](building_block_legacy& bb) { std::forward<F>(f)(bb); },
                                [&](building_block_if& bb)   {}}, v);
@@ -676,7 +679,7 @@ struct building_block {
                   // we are simulating a block received from the network. Use the embedded qc from the block
                   qc_data = std::move(validating_qc_data);
                } else {
-                  fork_db.apply_savanna<void>([&](const auto& forkdb) {
+                  fork_db.apply_s<void>([&](const auto& forkdb) {
                      auto branch = forkdb.fetch_branch(parent_id());
                      std::optional<quorum_certificate> qc;
                      for( auto it = branch.begin(); it != branch.end(); ++it ) {
@@ -1303,7 +1306,7 @@ struct controller_impl {
          chain_head = block_handle{head};
       };
 
-      fork_db.apply_legacy<void>(init_blockchain); // assuming here that genesis_state is always dpos
+      fork_db.apply_l<void>(init_blockchain); // assuming here that genesis_state is always dpos
       
       db.set_revision( chain_head.block_num() );
       initialize_database(genesis);
@@ -1609,7 +1612,7 @@ struct controller_impl {
                                                 .last_vote = {},
                                                 .lock      = proposal_ref(lib->id(), lib->timestamp()) });
             };
-            fork_db.apply_savanna<void>(set_finalizer_defaults);
+            fork_db.apply_s<void>(set_finalizer_defaults);
          } else {
             // we are past the IF transition.
             auto set_finalizer_defaults = [&](auto& forkdb) -> void {
@@ -1619,7 +1622,7 @@ struct controller_impl {
                                                 .last_vote = {},
                                                 .lock      = proposal_ref(lib->id(), lib->timestamp()) });
             };
-            fork_db.apply_savanna<void>(set_finalizer_defaults);
+            fork_db.apply_s<void>(set_finalizer_defaults);
          }
       }
    }
@@ -1791,7 +1794,7 @@ struct controller_impl {
          chain_head = block_handle{head};
          static_cast<block_header_state_legacy&>(*head) = head_header_state;
       };
-      fork_db.apply_legacy<void>(read_block_state_section);
+      fork_db.apply_l<void>(read_block_state_section);
 
       controller_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
@@ -2657,7 +2660,7 @@ struct controller_impl {
          const auto& gpo = db.get<global_property_object>();
 
          // instant finality uses alternative method for chaning producer schedule
-         bb.apply_legacy<void>([&](building_block::building_block_legacy& bb_legacy) {
+         bb.apply_l<void>([&](building_block::building_block_legacy& bb_legacy) {
             pending_block_header_state_legacy& pbhs = bb_legacy.pending_block_header_state;
 
             if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
@@ -2761,7 +2764,7 @@ struct controller_impl {
                });
             }
          };
-         fork_db.apply_savanna<void>(process_new_proposer_policy);
+         fork_db.apply_s<void>(process_new_proposer_policy);
 
          auto assembled_block =
             bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), fork_db, std::move(new_proposer_policy),
@@ -2816,7 +2819,7 @@ struct controller_impl {
          }, chain_head.internal());
 
          if( s == controller::block_status::incomplete ) {
-            fork_db.apply_savanna<void>([&](auto& forkdb) {
+            fork_db.apply_s<void>([&](auto& forkdb) {
                const auto& bsp = std::get<std::decay_t<decltype(forkdb.head())>>(cb.bsp);
 
                uint16_t if_ext_id = instant_finality_extension::extension_id();
@@ -2836,7 +2839,7 @@ struct controller_impl {
          }
 
          if ( s == controller::block_status::incomplete || s == controller::block_status::complete || s == controller::block_status::validated ) {
-            apply_savanna<void>(chain_head, [&](const auto& head) { create_and_send_vote_msg(head); });
+            apply_s<void>(chain_head, [&](const auto& head) { create_and_send_vote_msg(head); });
          }
 
          // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
@@ -2878,7 +2881,7 @@ struct controller_impl {
             }
             return false;
          };
-         if (apply_legacy<bool>(chain_head, transition)) {
+         if (apply_l<bool>(chain_head, transition)) {
             chain_head = fork_db.switch_from_legacy(chain_head);
          }
 
@@ -3727,7 +3730,7 @@ struct controller_impl {
    void update_producers_authority() {
       // this is not called when hotstuff is activated
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.apply_legacy<void>([this](building_block::building_block_legacy& legacy_header) {
+      bb.apply_l<void>([this](building_block::building_block_legacy& legacy_header) {
          pending_block_header_state_legacy& pbhs = legacy_header.pending_block_header_state;
          const auto& producers = pbhs.active_schedule.producers;
 
@@ -4473,7 +4476,7 @@ const block_header& controller::head_block_header()const {
 
 block_state_legacy_ptr controller::head_block_state_legacy()const {
    // returns null after instant finality activated
-   return apply_legacy<block_state_legacy_ptr>(my->chain_head, [](const auto& head) {
+   return apply_l<block_state_legacy_ptr>(my->chain_head, [](const auto& head) {
       return head;
    });
 }

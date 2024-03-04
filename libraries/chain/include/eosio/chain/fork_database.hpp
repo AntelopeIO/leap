@@ -138,8 +138,8 @@ namespace eosio::chain {
    class fork_database {
       const std::filesystem::path data_dir;
       std::atomic<bool> legacy = true;
-      std::unique_ptr<fork_database_legacy_t> fork_db_legacy;
-      std::unique_ptr<fork_database_if_t>     fork_db_savanna;
+      std::unique_ptr<fork_database_legacy_t> fork_db_l; // legacy
+      std::unique_ptr<fork_database_if_t>     fork_db_s; // savanna
    public:
       explicit fork_database(const std::filesystem::path& data_dir);
       ~fork_database(); // close on destruction
@@ -151,8 +151,8 @@ namespace eosio::chain {
       // expected to be called from main thread, accesses chain_head
       block_handle switch_from_legacy(const block_handle& bh);
 
-      bool fork_db_if_present() const { return !!fork_db_savanna; }
-      bool fork_db_legacy_present() const { return !!fork_db_legacy; }
+      bool fork_db_if_present() const { return !!fork_db_s; }
+      bool fork_db_legacy_present() const { return !!fork_db_l; }
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
@@ -161,15 +161,15 @@ namespace eosio::chain {
       R apply(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
-               f(*fork_db_legacy);
+               f(*fork_db_l);
             } else {
-               f(*fork_db_savanna);
+               f(*fork_db_s);
             }
          } else {
             if (legacy) {
-               return f(*fork_db_legacy);
+               return f(*fork_db_l);
             } else {
-               return f(*fork_db_savanna);
+               return f(*fork_db_s);
             }
          }
       }
@@ -178,29 +178,29 @@ namespace eosio::chain {
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
-               f(*fork_db_legacy);
+               f(*fork_db_l);
             } else {
-               f(*fork_db_savanna);
+               f(*fork_db_s);
             }
          } else {
             if (legacy) {
-               return f(*fork_db_legacy);
+               return f(*fork_db_l);
             } else {
-               return f(*fork_db_savanna);
+               return f(*fork_db_s);
             }
          }
       }
 
-      /// Apply for when only need lambda executed when in instant-finality mode
+      /// Apply for when only need lambda executed when in savanna (instant-finality) mode
       template <class R, class F>
-      R apply_savanna(const F& f) {
+      R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
             if (!legacy) {
-               f(*fork_db_savanna);
+               f(*fork_db_s);
             }
          } else {
             if (!legacy) {
-               return f(*fork_db_savanna);
+               return f(*fork_db_s);
             }
             return {};
          }
@@ -208,14 +208,14 @@ namespace eosio::chain {
 
       /// Apply for when only need lambda executed when in legacy mode
       template <class R, class F>
-      R apply_legacy(const F& f) {
+      R apply_l(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
-               f(*fork_db_legacy);
+               f(*fork_db_l);
             }
          } else {
             if (legacy) {
-               return f(*fork_db_legacy);
+               return f(*fork_db_l);
             }
             return {};
          }
@@ -227,15 +227,15 @@ namespace eosio::chain {
       R apply(const LegacyF& legacy_f, const SavannaF& savanna_f) {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
-               legacy_f(*fork_db_legacy);
+               legacy_f(*fork_db_l);
             } else {
-               savanna_f(*fork_db_savanna);
+               savanna_f(*fork_db_s);
             }
          } else {
             if (legacy) {
-               return legacy_f(*fork_db_legacy);
+               return legacy_f(*fork_db_l);
             } else {
-               return savanna_f(*fork_db_savanna);
+               return savanna_f(*fork_db_s);
             }
          }
       }
