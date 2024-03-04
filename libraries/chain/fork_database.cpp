@@ -48,6 +48,10 @@ namespace eosio::chain {
       return r;
    }
 
+   std::string log_fork_comparison(const block_handle& bh) {
+      return std::visit([](const auto& bsp) { return log_fork_comparison(*bsp); }, bh.internal());
+   }
+
    struct by_block_id;
    struct by_best_branch;
    struct by_prev;
@@ -709,7 +713,7 @@ namespace eosio::chain {
    fork_database::fork_database(const std::filesystem::path& data_dir)
       : data_dir(data_dir)
         // currently needed because chain_head is accessed before fork database open
-      , fork_db_legacy{std::make_unique<fork_database_legacy_t>(fork_database_legacy_t::legacy_magic_number)}
+      , fork_db_l{std::make_unique<fork_database_legacy_t>(fork_database_legacy_t::legacy_magic_number)}
    {
    }
 
@@ -746,14 +750,14 @@ namespace eosio::chain {
 
             if (totem == fork_database_legacy_t::legacy_magic_number) {
                // fork_db_legacy created in constructor
-               apply_legacy<void>([&](auto& forkdb) {
+               apply_l<void>([&](auto& forkdb) {
                   forkdb.open(fork_db_file, validator);
                });
             } else {
                // file is instant-finality data, so switch to fork_database_if_t
-               fork_db_if = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
+               fork_db_s = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
                legacy = false;
-               apply_if<void>([&](auto& forkdb) {
+               apply_s<void>([&](auto& forkdb) {
                   forkdb.open(fork_db_file, validator);
                });
             }
@@ -761,18 +765,19 @@ namespace eosio::chain {
       }
    }
 
-   void fork_database::switch_from_legacy() {
+   block_handle fork_database::switch_from_legacy(const block_handle& bh) {
       // no need to close fork_db because we don't want to write anything out, file is removed on open
       // threads may be accessing (or locked on mutex about to access legacy forkdb) so don't delete it until program exit
       assert(legacy);
-      block_state_legacy_ptr head = fork_db_legacy->chain_head; // will throw if called after transistion
+      assert(std::holds_alternative<block_state_legacy_ptr>(bh.internal()));
+      block_state_legacy_ptr head = std::get<block_state_legacy_ptr>(bh.internal()); // will throw if called after transistion
       auto new_head = std::make_shared<block_state>(*head);
-      fork_db_if = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
+      fork_db_s = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
       legacy = false;
-      apply_if<void>([&](auto& forkdb) {
-         forkdb.chain_head = new_head;
+      apply_s<void>([&](auto& forkdb) {
          forkdb.reset_root(*new_head);
       });
+      return block_handle{new_head};
    }
 
    block_branch_t fork_database::fetch_branch_from_head() const {

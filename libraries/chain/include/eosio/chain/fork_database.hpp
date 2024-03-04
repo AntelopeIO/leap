@@ -1,6 +1,7 @@
 #pragma once
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_handle.hpp>
 
 namespace eosio::chain {
 
@@ -14,6 +15,7 @@ namespace eosio::chain {
    // Used for logging of comparison values used for best fork determination
    std::string log_fork_comparison(const block_state& bs);
    std::string log_fork_comparison(const block_state_legacy& bs);
+   std::string log_fork_comparison(const block_handle& bh);
 
    /**
     * @class fork_database_t
@@ -83,9 +85,6 @@ namespace eosio::chain {
       bsp_t  head() const;
       bsp_t  pending_head() const;
 
-      // only accessed by main thread, no mutex protection
-      bsp_t  chain_head;
-
       /**
        *  Returns the sequence of block states resulting from trimming the branch from the
        *  root block (exclusive) to the block with an id of `h` (inclusive) by removing any
@@ -139,8 +138,8 @@ namespace eosio::chain {
    class fork_database {
       const std::filesystem::path data_dir;
       std::atomic<bool> legacy = true;
-      std::unique_ptr<fork_database_legacy_t> fork_db_legacy;
-      std::unique_ptr<fork_database_if_t>     fork_db_if;
+      std::unique_ptr<fork_database_legacy_t> fork_db_l; // legacy
+      std::unique_ptr<fork_database_if_t>     fork_db_s; // savanna
    public:
       explicit fork_database(const std::filesystem::path& data_dir);
       ~fork_database(); // close on destruction
@@ -150,10 +149,10 @@ namespace eosio::chain {
       void close();
 
       // expected to be called from main thread, accesses chain_head
-      void switch_from_legacy();
+      block_handle switch_from_legacy(const block_handle& bh);
 
-      bool fork_db_if_present() const { return !!fork_db_if; }
-      bool fork_db_legacy_present() const { return !!fork_db_legacy; }
+      bool fork_db_if_present() const { return !!fork_db_s; }
+      bool fork_db_legacy_present() const { return !!fork_db_l; }
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
@@ -162,15 +161,15 @@ namespace eosio::chain {
       R apply(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
-               f(*fork_db_legacy);
+               f(*fork_db_l);
             } else {
-               f(*fork_db_if);
+               f(*fork_db_s);
             }
          } else {
             if (legacy) {
-               return f(*fork_db_legacy);
+               return f(*fork_db_l);
             } else {
-               return f(*fork_db_if);
+               return f(*fork_db_s);
             }
          }
       }
@@ -179,29 +178,29 @@ namespace eosio::chain {
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
-               f(*fork_db_legacy);
+               f(*fork_db_l);
             } else {
-               f(*fork_db_if);
+               f(*fork_db_s);
             }
          } else {
             if (legacy) {
-               return f(*fork_db_legacy);
+               return f(*fork_db_l);
             } else {
-               return f(*fork_db_if);
+               return f(*fork_db_s);
             }
          }
       }
 
-      /// Apply for when only need lambda executed when in instant-finality mode
+      /// Apply for when only need lambda executed when in savanna (instant-finality) mode
       template <class R, class F>
-      R apply_if(const F& f) {
+      R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
             if (!legacy) {
-               f(*fork_db_if);
+               f(*fork_db_s);
             }
          } else {
             if (!legacy) {
-               return f(*fork_db_if);
+               return f(*fork_db_s);
             }
             return {};
          }
@@ -209,34 +208,34 @@ namespace eosio::chain {
 
       /// Apply for when only need lambda executed when in legacy mode
       template <class R, class F>
-      R apply_legacy(const F& f) {
+      R apply_l(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
-               f(*fork_db_legacy);
+               f(*fork_db_l);
             }
          } else {
             if (legacy) {
-               return f(*fork_db_legacy);
+               return f(*fork_db_l);
             }
             return {};
          }
       }
 
       /// @param legacy_f the lambda to execute if in legacy mode
-      /// @param if_f the lambda to execute if in instant-finality mode
-      template <class R, class LegacyF, class IfF>
-      R apply(const LegacyF& legacy_f, const IfF& if_f) {
+      /// @param savanna_f the lambda to execute if in savanna instant-finality mode
+      template <class R, class LegacyF, class SavannaF>
+      R apply(const LegacyF& legacy_f, const SavannaF& savanna_f) {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
-               legacy_f(*fork_db_legacy);
+               legacy_f(*fork_db_l);
             } else {
-               if_f(*fork_db_if);
+               savanna_f(*fork_db_s);
             }
          } else {
             if (legacy) {
-               return legacy_f(*fork_db_legacy);
+               return legacy_f(*fork_db_l);
             } else {
-               return if_f(*fork_db_if);
+               return savanna_f(*fork_db_s);
             }
          }
       }
