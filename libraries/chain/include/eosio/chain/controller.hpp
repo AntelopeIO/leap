@@ -1,6 +1,7 @@
 #pragma once
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_handle.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
@@ -57,17 +58,6 @@ namespace eosio::chain {
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
    using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
-
-   // Created via create_block_handle(const block_id_type& id, const signed_block_ptr& b)
-   // Valid to request id and signed_block_ptr it was created from.
-   // Avoid using internal block_state/block_state_legacy as those types are internal to controller.
-   struct block_handle {
-      std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
-
-      uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
-      block_id_type id() const { return std::visit([](const auto& bsp) { return bsp->id(); }, bsp); }
-      signed_block_ptr block() const { return std::visit([](const auto& bsp) { return bsp->block; }, bsp); }
-   };
 
    enum class db_read_mode {
       HEAD,
