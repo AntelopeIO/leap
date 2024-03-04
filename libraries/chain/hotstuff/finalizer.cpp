@@ -5,7 +5,7 @@
 namespace eosio::chain {
 
 // ----------------------------------------------------------------------------------------
-finalizer::vote_result finalizer::decide_vote(const finality_core& core, const block_id_type &proposal_id,
+finalizer::vote_result finalizer::decide_vote(const finality_core& core, const block_id_type& proposal_id,
                                                const block_timestamp_type proposal_timestamp) {
    vote_result res;
 
@@ -14,7 +14,7 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
    // just activated and we can proceed
 
    if (!res.monotony_check) {
-      dlog("monotony check failed for proposal ${p}, cannot vote", ("p", proposal_id));
+      dlog("monotony check failed for proposal ${bn} ${p}, cannot vote", ("bn", block_header::num_from_id(proposal_id))("p", proposal_id));
       return res;
    }
 
@@ -38,8 +38,6 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
    }
 
    bool can_vote = res.liveness_check || res.safety_check;
-   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote=${can_vote}",
-        ("l",res.liveness_check)("s",res.safety_check)("m",res.monotony_check)("can_vote",can_vote));
 
    // Figure out if we can vote and wether our vote will be strong or weak
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
@@ -64,8 +62,9 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
       res.decision = voting_strong ? vote_decision::strong_vote : vote_decision::weak_vote;
    }
 
-   dlog("liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote=${can_vote}, voting=${v}",
-        ("l",res.liveness_check)("s",res.safety_check)("m",res.monotony_check)("can_vote",can_vote)("v", res.decision));
+   dlog("block=${bn}, liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote=${can_vote}, voting=${v}",
+        ("bn", block_header::num_from_id(proposal_id))("l",res.liveness_check)("s",res.safety_check)("m",res.monotony_check)
+        ("can_vote",can_vote)("v", res.decision));
    return res;
 }
 

@@ -3178,43 +3178,6 @@ struct controller_impl {
           });
    }
 
-   // expected to be called from application thread as it modifies bsp->valid_qc and if_irreversible_block_id
-   void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
-      // extract QC from block extension
-      const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
-      auto qc_ext_id = quorum_certificate_extension::extension_id();
-
-      if( block_exts.count(qc_ext_id) == 0 ) {
-         return;
-      }
-      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
-      const auto& received_qc = qc_ext.qc.qc;
-
-      const auto claimed = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
-      if( !claimed ) {
-         return;
-      }
-
-      // Don't save the QC from block extension if the claimed block has a better valid_qc.
-      if (claimed->valid_qc && (claimed->valid_qc->is_strong() || received_qc.is_weak())) {
-         return;
-      }
-
-      // Save the QC. This is safe as the function is called by push_block from application thread.
-      claimed->valid_qc = received_qc;
-
-      // advance LIB if QC is strong
-      if( received_qc.is_strong() ) {
-         // We evaluate a block extension qc and advance lib if strong.
-         // This is done before evaluating the block. It is possible the block
-         // will not be valid or forked out. This is safe because the block is
-         // just acting as a carrier of this info. It doesn't matter if the block
-         // is actually valid as it simply is used as a network message for this data.
-         auto& final_on_strong_qc_block_ref = claimed->core.get_block_reference(claimed->core.final_on_strong_qc_block_num);
-         set_if_irreversible_block_id(final_on_strong_qc_block_ref.block_id);
-      }
-   }
-
    // Verify QC claim made by instant_finality_extension in header extension
    // and quorum_certificate_extension in block extension are valid.
    // Called from net-threads. It is thread safe as signed_block is never modified
@@ -3423,6 +3386,59 @@ struct controller_impl {
       return fork_db.apply<std::optional<block_handle>>(f);
    }
 
+   // expected to be called from application thread as it modifies bsp->valid_qc and if_irreversible_block_id
+   void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
+      // extract QC from block extension
+      const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
+      auto qc_ext_id = quorum_certificate_extension::extension_id();
+
+      if( block_exts.count(qc_ext_id) == 0 ) {
+         return;
+      }
+      const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
+      const auto& received_qc = qc_ext.qc.qc;
+
+      const auto claimed = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
+      if( !claimed ) {
+         return;
+      }
+
+      // Don't save the QC from block extension if the claimed block has a better valid_qc.
+      if (claimed->valid_qc && (claimed->valid_qc->is_strong() || received_qc.is_weak())) {
+         return;
+      }
+
+      // Save the QC. This is safe as the function is called by push_block & accept_block from application thread.
+      claimed->valid_qc = received_qc;
+
+      // advance LIB if QC is strong
+      if( received_qc.is_strong() ) {
+         // We evaluate a block extension qc and advance lib if strong.
+         // This is done before evaluating the block. It is possible the block
+         // will not be valid or forked out. This is safe because the block is
+         // just acting as a carrier of this info. It doesn't matter if the block
+         // is actually valid as it simply is used as a network message for this data.
+         const auto& final_on_strong_qc_block_ref = claimed->core.get_block_reference(claimed->core.final_on_strong_qc_block_num);
+         set_if_irreversible_block_id(final_on_strong_qc_block_ref.block_id);
+      }
+   }
+
+   void consider_voting(const block_state_ptr& bsp) {
+      // 1. Get the `core.final_on_strong_qc_block_num` for the block you are considering to vote on and use that to find the actual block ID
+      //    of the ancestor block that has that block number.
+      // 2. If that block ID is not an ancestor of the current head block, then do not vote for that block.
+      // 3. Otherwise, consider voting for that block according to the decide_vote rules.
+
+      if (bsp->core.final_on_strong_qc_block_num > 0) {
+         const auto& final_on_strong_qc_block_ref = bsp->core.get_block_reference(bsp->core.final_on_strong_qc_block_num);
+         auto final = fetch_bsp_on_head_branch_by_num(final_on_strong_qc_block_ref.block_num());
+         if (final) {
+            assert(final->is_valid()); // if found on head branch then it must be validated
+            create_and_send_vote_msg(bsp);
+         }
+      }
+   }
+
    template <class BSP>
    void accept_block(const BSP& bsp) {
       assert(bsp && bsp->block);
@@ -3430,6 +3446,7 @@ struct controller_impl {
       // Save the received QC as soon as possible, no matter whether the block itself is valid or not
       if constexpr (std::is_same_v<BSP, block_state_ptr>) {
          integrate_received_qc_to_block(bsp);
+         consider_voting(bsp);
       }
 
       auto do_accept_block = [&](auto& forkdb) {
@@ -3453,6 +3470,7 @@ struct controller_impl {
       // Save the received QC as soon as possible, no matter whether the block itself is valid or not
       if constexpr (std::is_same_v<BSP, block_state_ptr>) {
          integrate_received_qc_to_block(bsp);
+         consider_voting(bsp);
       }
 
       controller::block_status s = controller::block_status::complete;
