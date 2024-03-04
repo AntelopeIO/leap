@@ -52,7 +52,12 @@ namespace eosio::chain {
       block_id_type                    previous;
 
       checksum256_type                 transaction_mroot; /// mroot of cycles_summary
-      checksum256_type                 action_mroot; /// mroot of all delivered action receipts
+
+      // In Legacy, action_mroot is the mroot of all delivered action receipts.
+      // In Savanna, action_mroot is the digest of the root of the Finality Tree
+      // associated with the block, i.e. the digest of the root of
+      // validation_tree(core.final_on_strong_qc_block_num).
+      checksum256_type                 action_mroot;
 
       /**
        * LEGACY SUPPORT - After enabling the wtmsig-blocks extension this field is deprecated and must be empty

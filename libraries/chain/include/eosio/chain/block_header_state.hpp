@@ -55,10 +55,11 @@ struct block_header_state {
    // [if todo] https://github.com/AntelopeIO/leap/issues/2080
    const block_id_type&  id() const { return block_id; }
    digest_type           compute_finalizer_digest() const { return block_id; };
-   block_timestamp_type  timestamp() const { return header.timestamp; }
-   account_name          producer() const  { return header.producer; }
-   const block_id_type&  previous() const  { return header.previous; }
-   uint32_t              block_num() const { return block_header::num_from_id(previous()) + 1; }
+   digest_type           finality_mroot() const { return header.action_mroot; }
+   block_timestamp_type  timestamp()      const { return header.timestamp; }
+   account_name          producer()       const { return header.producer; }
+   const block_id_type&  previous()       const { return header.previous; }
+   uint32_t              block_num()      const { return block_header::num_from_id(previous()) + 1; }
    block_timestamp_type  last_qc_block_timestamp() const {
       auto last_qc_block_num  = core.latest_qc_claim().block_num;
       return core.get_block_reference(last_qc_block_num).timestamp;
