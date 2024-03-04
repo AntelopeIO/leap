@@ -1218,15 +1218,15 @@ struct controller_impl {
                      ("lib_num", lib_num)("bn", fork_db_root_block_num()) );
       }
 
-      uint32_t if_lib = block_header::num_from_id(if_irreversible_block_id);
-      const uint32_t new_lib = if_lib > 0 ? if_lib : fork_db_head_irreversible_blocknum();
+      uint32_t if_lib_num = block_header::num_from_id(if_irreversible_block_id);
+      const uint32_t new_lib_num = if_lib_num > 0 ? if_lib_num : fork_db_head_irreversible_blocknum();
 
-      if( new_lib <= lib_num )
+      if( new_lib_num <= lib_num )
          return;
 
       auto mark_branch_irreversible = [&, this](auto& forkdb) {
-         auto branch = (if_lib > 0) ? forkdb.fetch_branch( if_irreversible_block_id, new_lib)
-                                    : forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib );
+         auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( if_irreversible_block_id, new_lib_num)
+                                    : forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib_num );
          try {
             auto should_process = [&](auto& bsp) {
                // Only make irreversible blocks that have been validated. Blocks in the fork database may not be on our current best head
@@ -3932,9 +3932,11 @@ struct controller_impl {
    }
 
    void set_if_irreversible_block_id(const block_id_type& id) {
-      if( block_header::num_from_id(id) > block_header::num_from_id(if_irreversible_block_id) ) {
+      const block_num_type id_num = block_header::num_from_id(id);
+      const block_num_type current_num = block_header::num_from_id(if_irreversible_block_id);
+      if( id_num > current_num ) {
+         dlog("set irreversible block ${bn}: ${id}, old ${obn}: ${oid}", ("bn", id_num)("id", id)("obn", current_num)("oid", if_irreversible_block_id));
          if_irreversible_block_id = id;
-         dlog("irreversible block ${bn} : ${id}", ("bn", block_header::num_from_id(id))("id", id));
       }
    }
 
