@@ -3905,7 +3905,7 @@ namespace eosio {
             if( reason == unlinkable || reason == no_reason ) {
                dispatcher->add_unlinkable_block( std::move(block), blk_id );
             }
-            // reason==no_reason means accept_block() return false because we are producing, don't call rejected_block which sends handshake
+            // reason==no_reason means accept_block() return false which is a fatal error, don't call rejected_block which sends handshake
             if( reason != no_reason ) {
                sync_master->rejected_block( c, blk_num, sync_manager::closing_mode::handshake );
             }

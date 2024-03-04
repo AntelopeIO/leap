@@ -123,7 +123,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 block_header_state block_header_state::next(const signed_block_header& h, validator_t& validator) const {
    auto producer = detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, h.timestamp).producer_name;
    
-   EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch" );
+   EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch ${p} != ${id}", ("p", h.previous)("id", block_id) );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
    EOS_ASSERT( h.confirmed == 0, block_validate_exception, "invalid confirmed ${c}", ("c", h.confirmed) );
    EOS_ASSERT( !h.new_producers, producer_schedule_exception, "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures" );

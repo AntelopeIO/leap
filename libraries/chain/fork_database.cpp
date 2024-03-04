@@ -126,6 +126,7 @@ namespace eosio::chain {
 
       bhsp_t           get_block_header_impl( const block_id_type& id ) const;
       bsp_t            get_block_impl( const block_id_type& id ) const;
+      bool             block_exists_impl( const block_id_type& id ) const;
       void             reset_root_impl( const bhs_t& root_bhs );
       void             rollback_head_to_root_impl();
       void             advance_root_impl( const block_id_type& id );
@@ -393,7 +394,7 @@ namespace eosio::chain {
 
       auto prev_bh = get_block_header_impl( n->previous() );
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
-                  "unlinkable block", ("id", n->id())("previous", n->previous()) );
+                  "forkdb unlinkable block ${id} previous ${p}", ("id", n->id())("p", n->previous()) );
 
       if (validate) {
          try {
@@ -690,6 +691,17 @@ namespace eosio::chain {
       if( itr != index.end() )
          return *itr;
       return {};
+   }
+
+   template<class BSP>
+   bool fork_database_t<BSP>::block_exists(const block_id_type& id) const {
+      std::lock_guard g( my->mtx );
+      return my->block_exists_impl(id);
+   }
+
+   template<class BSP>
+   bool fork_database_impl<BSP>::block_exists_impl(const block_id_type& id) const {
+      return index.find( id ) != index.end();
    }
 
    // ------------------ fork_database -------------------------

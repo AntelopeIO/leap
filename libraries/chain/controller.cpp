@@ -816,7 +816,7 @@ struct controller_impl {
    block_log                       blog;
    std::optional<pending_state>    pending;
    fork_database                   fork_db;
-   std::atomic<uint32_t>           if_irreversible_block_num{0};
+   block_id_type                   if_irreversible_block_id;
    resource_limits_manager         resource_limits;
    subjective_billing              subjective_bill;
    authorization_manager           authorization;
@@ -1007,6 +1007,12 @@ struct controller_impl {
    void fork_db_reset_root_to_chain_head() {
       return fork_db.apply<void>([&](auto& forkdb) {
          forkdb.reset_root(*forkdb.chain_head);
+      });
+   }
+
+   bool fork_db_block_exists( const block_id_type& id ) const {
+      return fork_db.apply<bool>([&](const auto& forkdb) {
+         return forkdb.block_exists(id);
       });
    }
 
@@ -1212,23 +1218,34 @@ struct controller_impl {
                      ("lib_num", lib_num)("bn", fork_db_root_block_num()) );
       }
 
-      const uint32_t if_lib = if_irreversible_block_num;
-      const uint32_t new_lib = if_lib > 0 ? if_lib : fork_db_head_irreversible_blocknum();
+      uint32_t if_lib_num = block_header::num_from_id(if_irreversible_block_id);
+      const uint32_t new_lib_num = if_lib_num > 0 ? if_lib_num : fork_db_head_irreversible_blocknum();
 
-      if( new_lib <= lib_num )
+      if( new_lib_num <= lib_num )
          return;
 
       auto mark_branch_irreversible = [&, this](auto& forkdb) {
-         auto branch = forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib );
+         auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( if_irreversible_block_id, new_lib_num)
+                                    : forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib_num );
          try {
+            auto should_process = [&](auto& bsp) {
+               // Only make irreversible blocks that have been validated. Blocks in the fork database may not be on our current best head
+               // and therefore have not been validated.
+               // An alternative more complex implementation would be to do a fork switch here and validate all blocks so they can be then made
+               // irreversible. Instead this moves irreversible as much as possible and allows the next maybe_switch_forks call to apply these
+               // non-validated blocks. After the maybe_switch_forks call (before next produced block or on next received block), irreversible
+               // can then move forward on the then validated blocks.
+               return read_mode == db_read_mode::IRREVERSIBLE || bsp->is_valid();
+            };
+
             std::vector<std::future<std::vector<char>>> v;
             v.reserve( branch.size() );
-            for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr ) {
+            for( auto bitr = branch.rbegin(); bitr != branch.rend() && should_process(*bitr); ++bitr ) {
                v.emplace_back( post_async_task( thread_pool.get_executor(), [b=(*bitr)->block]() { return fc::raw::pack(*b); } ) );
             }
             auto it = v.begin();
 
-            for( auto bitr = branch.rbegin(); bitr != branch.rend(); ++bitr ) {
+            for( auto bitr = branch.rbegin(); bitr != branch.rend() && should_process(*bitr); ++bitr ) {
                if( read_mode == db_read_mode::IRREVERSIBLE ) {
                   controller::block_report br;
                   apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
@@ -2810,7 +2827,8 @@ struct controller_impl {
                   // claim has already been verified
                   auto claimed = forkdb.search_on_branch(bsp->id(), if_ext.qc_claim.block_num);
                   if (claimed) {
-                     set_if_irreversible_block_num(claimed->core.final_on_strong_qc_block_num);
+                     auto& final_on_strong_qc_block_ref = claimed->core.get_block_reference(claimed->core.final_on_strong_qc_block_num);
+                     set_if_irreversible_block_id(final_on_strong_qc_block_ref.block_id);
                   }
                }
             });
@@ -2827,7 +2845,7 @@ struct controller_impl {
                const auto& if_extension = std::get<instant_finality_extension>(*ext);
                if (if_extension.new_finalizer_policy) {
                   ilog("Transition to instant finality happening after block ${b}", ("b", forkdb.chain_head->block_num()));
-                  if_irreversible_block_num = forkdb.chain_head->block_num();
+                  set_if_irreversible_block_id(forkdb.chain_head->id());
 
                   // cancel any proposed schedule changes, prepare for new ones under instant_finality
                   const auto& gpo = db.get<global_property_object>();
@@ -3160,7 +3178,7 @@ struct controller_impl {
           });
    }
 
-   // expected to be called from application thread as it modifies bsp->valid_qc,
+   // expected to be called from application thread as it modifies bsp->valid_qc and if_irreversible_block_id
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
       const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
@@ -3172,18 +3190,18 @@ struct controller_impl {
       const auto& qc_ext = std::get<quorum_certificate_extension>(block_exts.lower_bound(qc_ext_id)->second);
       const auto& received_qc = qc_ext.qc.qc;
 
-      const auto bsp = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
-      if( !bsp ) {
+      const auto claimed = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
+      if( !claimed ) {
          return;
       }
 
       // Don't save the QC from block extension if the claimed block has a better valid_qc.
-      if (bsp->valid_qc && (bsp->valid_qc->is_strong() || received_qc.is_weak())) {
+      if (claimed->valid_qc && (claimed->valid_qc->is_strong() || received_qc.is_weak())) {
          return;
       }
 
       // Save the QC. This is safe as the function is called by push_block from application thread.
-      bsp->valid_qc = received_qc;
+      claimed->valid_qc = received_qc;
 
       // advance LIB if QC is strong
       if( received_qc.is_strong() ) {
@@ -3192,7 +3210,8 @@ struct controller_impl {
          // will not be valid or forked out. This is safe because the block is
          // just acting as a carrier of this info. It doesn't matter if the block
          // is actually valid as it simply is used as a network message for this data.
-         set_if_irreversible_block_num(bsp->core.final_on_strong_qc_block_num);
+         auto& final_on_strong_qc_block_ref = claimed->core.get_block_reference(claimed->core.final_on_strong_qc_block_num);
+         set_if_irreversible_block_id(final_on_strong_qc_block_ref.block_id);
       }
    }
 
@@ -3376,7 +3395,7 @@ struct controller_impl {
 
             auto prev = forkdb.get_block_header( b->previous );
             EOS_ASSERT( prev, unlinkable_block_exception,
-                        "unlinkable block ${id}", ("id", id)("previous", b->previous) );
+                        "unlinkable block ${id} previous ${p}", ("id", id)("p", b->previous) );
 
             return control->create_block_state_i( id, b, *prev );
          } );
@@ -3405,11 +3424,32 @@ struct controller_impl {
    }
 
    template <class BSP>
+   void accept_block(const BSP& bsp) {
+      assert(bsp && bsp->block);
+
+      // Save the received QC as soon as possible, no matter whether the block itself is valid or not
+      if constexpr (std::is_same_v<BSP, block_state_ptr>) {
+         integrate_received_qc_to_block(bsp);
+      }
+
+      auto do_accept_block = [&](auto& forkdb) {
+         if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.chain_head)>>)
+            forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::no );
+
+         emit( accepted_block_header, std::tie(bsp->block, bsp->id()) );
+      };
+
+      fork_db.apply<void>(do_accept_block);
+   }
+
+   template <class BSP>
    void push_block( controller::block_report& br,
                     const BSP& bsp,
                     const forked_callback_t& forked_branch_cb,
                     const trx_meta_cache_lookup& trx_lookup )
    {
+      assert(bsp && bsp->block);
+
       // Save the received QC as soon as possible, no matter whether the block itself is valid or not
       if constexpr (std::is_same_v<BSP, block_state_ptr>) {
          integrate_received_qc_to_block(bsp);
@@ -3422,7 +3462,6 @@ struct controller_impl {
          trusted_producer_light_validation = old_value;
       });
       try {
-         EOS_ASSERT( bsp, block_validate_exception, "null block" );
          const auto& b = bsp->block;
 
          if( conf.terminate_at_block > 0 && conf.terminate_at_block <= head_block_num()) {
@@ -3892,15 +3931,13 @@ struct controller_impl {
       return is_trx_transient ? nullptr : deep_mind_logger;
    }
 
-   void set_if_irreversible_block_num(uint32_t block_num) {
-      if( block_num > if_irreversible_block_num ) {
-         if_irreversible_block_num = block_num;
-         dlog("irreversible block ${bn}", ("bn", block_num));
+   void set_if_irreversible_block_id(const block_id_type& id) {
+      const block_num_type id_num = block_header::num_from_id(id);
+      const block_num_type current_num = block_header::num_from_id(if_irreversible_block_id);
+      if( id_num > current_num ) {
+         dlog("set irreversible block ${bn}: ${id}, old ${obn}: ${oid}", ("bn", id_num)("id", id)("obn", current_num)("oid", if_irreversible_block_id));
+         if_irreversible_block_id = id;
       }
-   }
-
-   uint32_t get_if_irreversible_block_num() const {
-      return if_irreversible_block_num;
    }
 
    uint32_t earliest_available_block_num() const {
@@ -4317,12 +4354,16 @@ std::optional<block_handle> controller::create_block_handle( const block_id_type
 }
 
 void controller::push_block( block_report& br,
-                             const block_handle& bt,
+                             const block_handle& b,
                              const forked_callback_t& forked_cb,
                              const trx_meta_cache_lookup& trx_lookup )
 {
    validate_db_available_size();
-   std::visit([&](const auto& bsp) { my->push_block( br, bsp, forked_cb, trx_lookup); }, bt.bsp);
+   std::visit([&](const auto& bsp) { my->push_block( br, bsp, forked_cb, trx_lookup); }, b.bsp);
+}
+
+void controller::accept_block(const block_handle& b) {
+   std::visit([&](const auto& bsp) { my->accept_block(bsp); }, b.bsp);
 }
 
 transaction_trace_ptr controller::push_transaction( const transaction_metadata_ptr& trx,
@@ -4456,14 +4497,12 @@ std::optional<block_id_type> controller::pending_producer_block_id()const {
    return my->pending_producer_block_id();
 }
 
-void controller::set_if_irreversible_block_num(uint32_t block_num) {
-   // needs to be set by qc_chain at startup and as irreversible changes
-   assert(block_num > 0);
-   my->set_if_irreversible_block_num(block_num);
+void controller::set_if_irreversible_block_id(const block_id_type& id) {
+   my->set_if_irreversible_block_id(id);
 }
 
 uint32_t controller::if_irreversible_block_num() const {
-   return my->get_if_irreversible_block_num();
+   return block_header::num_from_id(my->if_irreversible_block_id);
 }
 
 uint32_t controller::last_irreversible_block_num() const {
@@ -4494,9 +4533,9 @@ signed_block_ptr controller::fetch_block_by_id( const block_id_type& id )const {
    return signed_block_ptr();
 }
 
-bool controller::block_exists(const block_id_type&id) const {
-   signed_block_ptr sb_ptr = my->fork_db_fetch_block_by_id(id);
-   if( sb_ptr ) return true;
+bool controller::block_exists(const block_id_type& id) const {
+   bool exists = my->fork_db_block_exists(id);
+   if( exists ) return true;
    std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
    if( sbh && sbh->calculate_id() == id ) return true;
    return false;

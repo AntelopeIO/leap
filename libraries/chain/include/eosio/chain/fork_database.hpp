@@ -51,6 +51,7 @@ namespace eosio::chain {
 
       bhsp_t get_block_header( const block_id_type& id ) const;
       bsp_t  get_block( const block_id_type& id ) const;
+      bool block_exists( const block_id_type& id ) const;
 
       /**
        *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.

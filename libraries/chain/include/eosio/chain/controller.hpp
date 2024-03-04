@@ -198,14 +198,17 @@ namespace eosio::chain {
 
          /**
           * @param br returns statistics for block
-          * @param bt block to push, created by create_block_handle
+          * @param b block to push, created by create_block_handle
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          const block_handle& bt,
+                          const block_handle& b,
                           const forked_callback_t& cb,
                           const trx_meta_cache_lookup& trx_lookup );
+
+         /// Accept block into fork_database
+         void accept_block(const block_handle& b);
 
          boost::asio::io_context& get_thread_pool();
 
@@ -268,9 +271,7 @@ namespace eosio::chain {
          // post-instant-finality this always returns nullptr
          const producer_authority_schedule*         pending_producers_legacy()const;
 
-         // Called by qc_chain to indicate the current irreversible block num
-         // After hotstuff is activated, this should be called on startup by qc_chain
-         void set_if_irreversible_block_num(uint32_t block_num);
+         void set_if_irreversible_block_id(const block_id_type& id);
          uint32_t if_irreversible_block_num() const;
 
          uint32_t last_irreversible_block_num() const;
