@@ -669,10 +669,13 @@ public:
 
    bool on_incoming_block(const signed_block_ptr& block, const block_id_type& id, const std::optional<block_handle>& obt) {
       auto now = fc::time_point::now();
-      auto& chain = chain_plug->chain();
+      _time_tracker.add_idle_time(now);
+
+      assert(block);
       auto blk_num = block->block_num();
 
-      _time_tracker.add_idle_time(now);
+      if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
+         fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
       // start a new speculative block, speculative start_block may have been interrupted
       auto ensure = fc::make_scoped_exit([this]() {
@@ -684,6 +687,7 @@ public:
          }
       });
 
+      auto& chain = chain_plug->chain();
       // de-dupe here... no point in aborting block if we already know the block; avoid exception in create_block_handle_future
       if (chain.block_exists(id)) {
          return true; // return true because the block is accepted
@@ -703,9 +707,6 @@ public:
          chain.accept_block(bh);
          return true; // return true because block was accepted
       }
-
-      if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
-         fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
       // abort the pending block
       abort_block();
