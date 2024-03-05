@@ -232,6 +232,7 @@ struct assembled_block {
       deque<transaction_metadata_ptr>   trx_metas;                 // Comes from building_block::pending_trx_metas
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
+      std::optional<valid_t>            valid;
       std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
 
       block_header_state& get_bhs() { return bhs; }
@@ -354,13 +355,57 @@ struct assembled_block {
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
-                                                                               std::move(ab.trx_receipts), ab.qc, signer,
+                                                                               std::move(ab.trx_receipts), ab.valid, ab.qc, signer,
                                                                                valid_block_signing_authority);
                                       return completed_block{std::move(bsp)};
                                    }},
                         v);
    }
 };
+
+static valid_t build_valid_structure(const block_state_ptr parent_bsp, const block_header_state& bhs) {
+   valid_t valid;
+
+   if (parent_bsp) {
+      // Copy parent's validation tree
+      // copy parent's ancestor_validation_tree_roots starting from last_final_block_num
+      // (removing any roots from the front end of the vector
+      // to block whose block number is last_final_block_num - 1)
+      assert(bhs.core.last_final_block_num() >= parent_bsp->core.last_final_block_num());
+      valid = valid_t {
+         .finality_tree = parent_bsp->valid->finality_tree,
+         .validation_tree_roots = {
+            parent_bsp->valid->validation_tree_roots.cbegin() + (bhs.core.last_final_block_num() - parent_bsp->core.last_final_block_num()),
+         parent_bsp->valid->validation_tree_roots.cend()}
+      };
+
+      // append the root of the parent's Validation Tree.
+      assert(parent_bsp->valid);
+      valid.validation_tree_roots.emplace_back(parent_bsp->valid->finality_tree.get_root());
+      wlog("appended root of the parent's Validation Tree ${d} to block: ${bn}", ("d", parent_bsp->valid->finality_tree.get_root())("bn", bhs.block_num()));
+      assert(valid.validation_tree_roots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1)); // for from last_final_block_num to parent
+   } else {
+      // block after genesis block
+      valid = valid_t {
+         .finality_tree = {}, // copy from genesis
+         .validation_tree_roots = {digest_type{}, digest_type{}} // add IF genesis validation tree (which is empty)
+      };
+   }
+
+   // construct finality leaf node.
+   finality_leaf_node_t leaf_node{
+      .block_num = bhs.block_num(),
+      .finality_digest = bhs.compute_finalizer_digest(),
+      .finality_mroot  = bhs.finality_mroot()
+   };
+   auto leaf_node_digest = fc::sha256::hash(leaf_node);
+
+   // append finality leaf node digest to validation_tree
+   valid.finality_tree.append(leaf_node_digest);
+   wlog("appended leaf node  ${d} to block: ${bn}", ("d", leaf_node_digest)("bn", bhs.block_num()));
+
+   return valid;
+}
 
 struct building_block {
    // --------------------------------------------------------------------------------
@@ -672,13 +717,13 @@ struct building_block {
                              }},
                   trx_mroot_or_receipt_digests());
 
-               // find most recent ancestor block that has a QC by traversing fork db
-               // branch from parent
                std::optional<qc_data_t> qc_data;
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
                   qc_data = std::move(validating_qc_data);
                } else {
+                  // find most recent ancestor block that has a QC by traversing fork db
+                  // branch from parent
                   fork_db.apply_s<void>([&](const auto& forkdb) {
                      auto branch = forkdb.fetch_branch(parent_id());
                      std::optional<quorum_certificate> qc;
@@ -722,9 +767,25 @@ struct building_block {
                   qc_data->qc_claim
                };
 
-               assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
-                                                      std::move(bb.pending_trx_metas), std::move(bb.pending_trx_receipts),
-                                                      qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}};
+               auto bhs = bb.parent.next(bhs_input);
+
+               std::optional<valid_t> valid;
+               if (!validating) {
+                  block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
+                     return forkdb.get_block(parent_id());
+                  });
+
+                  valid = build_valid_structure(parent_bsp, bhs);
+               }
+
+               assembled_block::assembled_block_if ab{
+                  bb.active_producer_authority,
+                  bhs,
+                  std::move(bb.pending_trx_metas),
+                  std::move(bb.pending_trx_receipts),
+                  valid,
+                  qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}
+               };
 
                return assembled_block{.v = std::move(ab)};
             }},

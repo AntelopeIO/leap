@@ -104,9 +104,13 @@ public:
    block_state(const block_header_state& prev, signed_block_ptr b, const protocol_feature_set& pfs,
                const validator_t& validator, bool skip_validate_signee);
 
-   block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-               deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
-               const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
+   block_state(const block_header_state&                bhs,
+               deque<transaction_metadata_ptr>&&        trx_metas,
+               deque<transaction_receipt>&&             trx_receipts,
+               const std::optional<valid_t>&            valid,
+               const std::optional<quorum_certificate>& qc,
+               const signer_callback_type&              signer,
+               const block_signing_authority&           valid_block_signing_authority);
 
    explicit block_state(const block_state_legacy& bsp);
 

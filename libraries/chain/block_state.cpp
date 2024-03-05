@@ -37,14 +37,19 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    }
 }
 
-block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-                         deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
-                         const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority)
+block_state::block_state(const block_header_state&                bhs,
+                         deque<transaction_metadata_ptr>&&        trx_metas,
+                         deque<transaction_receipt>&&             trx_receipts,
+                         const std::optional<valid_t>&            valid,
+                         const std::optional<quorum_certificate>& qc,
+                         const signer_callback_type&              signer,
+                         const block_signing_authority& valid_block_signing_authority)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
+   , valid(valid)
    , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
 {
