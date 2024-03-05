@@ -1744,6 +1744,7 @@ struct controller_impl {
       auto read_block_state_section = [&](auto& forkdb) { /// load and upgrade the block header state
          block_header_state_legacy head_header_state;
          using v2 = legacy::snapshot_block_header_state_v2;
+         using v3 = legacy::snapshot_block_header_state_v3;
 
          if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
             snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
@@ -1751,10 +1752,14 @@ struct controller_impl {
                section.read_row(legacy_header_state, db);
                head_header_state = block_header_state_legacy(std::move(legacy_header_state));
             });
-         } else {
+         } else if (std::clamp(header.version, v3::minimum_version, v3::maximum_version) == header.version ) {
             snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
-               section.read_row(head_header_state, db);
+               legacy::snapshot_block_header_state_v3 legacy_header_state;
+               section.read_row(legacy_header_state, db);
+               head_header_state = block_header_state_legacy(std::move(legacy_header_state));
             });
+         } else {
+            EOS_THROW(snapshot_exception, "Unsupported block_header_state version");
          }
 
          snapshot_head_block = head_header_state.block_num;

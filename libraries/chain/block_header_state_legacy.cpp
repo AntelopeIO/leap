@@ -439,23 +439,41 @@ namespace eosio::chain {
       return detail::get_new_protocol_feature_activations(header_exts);
    }
 
-   block_header_state_legacy::block_header_state_legacy( legacy::snapshot_block_header_state_v2&& snapshot )
+   block_header_state_legacy::block_header_state_legacy( legacy::snapshot_block_header_state_v2&& bhs_v2 )
    {
-      block_num                             = snapshot.block_num;
-      dpos_proposed_irreversible_blocknum   = snapshot.dpos_proposed_irreversible_blocknum;
-      dpos_irreversible_blocknum            = snapshot.dpos_irreversible_blocknum;
-      active_schedule                       = producer_authority_schedule( snapshot.active_schedule );
-      blockroot_merkle                      = std::move(snapshot.blockroot_merkle);
-      producer_to_last_produced             = std::move(snapshot.producer_to_last_produced);
-      producer_to_last_implied_irb          = std::move(snapshot.producer_to_last_implied_irb);
-      valid_block_signing_authority         = block_signing_authority_v0{ 1, {{std::move(snapshot.block_signing_key), 1}} };
-      confirm_count                         = std::move(snapshot.confirm_count);
-      id                                    = snapshot.id;
-      header                                = std::move(snapshot.header);
-      pending_schedule.schedule_lib_num     = snapshot.pending_schedule.schedule_lib_num;
-      pending_schedule.schedule_hash        = snapshot.pending_schedule.schedule_hash;
-      pending_schedule.schedule             = producer_authority_schedule( snapshot.pending_schedule.schedule );
-      activated_protocol_features           = std::move(snapshot.activated_protocol_features);
+      block_num                             = bhs_v2.block_num;
+      dpos_proposed_irreversible_blocknum   = bhs_v2.dpos_proposed_irreversible_blocknum;
+      dpos_irreversible_blocknum            = bhs_v2.dpos_irreversible_blocknum;
+      active_schedule                       = producer_authority_schedule( bhs_v2.active_schedule );
+      blockroot_merkle                      = std::move(bhs_v2.blockroot_merkle);
+      producer_to_last_produced             = std::move(bhs_v2.producer_to_last_produced);
+      producer_to_last_implied_irb          = std::move(bhs_v2.producer_to_last_implied_irb);
+      valid_block_signing_authority         = block_signing_authority_v0{ 1, {{std::move(bhs_v2.block_signing_key), 1}} };
+      confirm_count                         = std::move(bhs_v2.confirm_count);
+      id                                    = bhs_v2.id;
+      header                                = std::move(bhs_v2.header);
+      pending_schedule.schedule_lib_num     = bhs_v2.pending_schedule.schedule_lib_num;
+      pending_schedule.schedule_hash        = bhs_v2.pending_schedule.schedule_hash;
+      pending_schedule.schedule             = producer_authority_schedule( bhs_v2.pending_schedule.schedule );
+      activated_protocol_features           = std::move(bhs_v2.activated_protocol_features);
+   }
+
+   block_header_state_legacy::block_header_state_legacy( legacy::snapshot_block_header_state_v3&& bhs_v3 )
+   {
+      block_num                             = bhs_v3.block_num;
+      dpos_proposed_irreversible_blocknum   = bhs_v3.dpos_proposed_irreversible_blocknum;
+      dpos_irreversible_blocknum            = bhs_v3.dpos_irreversible_blocknum;
+      active_schedule                       = std::move(bhs_v3.active_schedule);
+      blockroot_merkle                      = std::move(bhs_v3.blockroot_merkle);
+      producer_to_last_produced             = std::move(bhs_v3.producer_to_last_produced);
+      producer_to_last_implied_irb          = std::move(bhs_v3.producer_to_last_implied_irb);
+      valid_block_signing_authority         = std::move(bhs_v3.valid_block_signing_authority);
+      confirm_count                         = std::move(bhs_v3.confirm_count);
+      id                                    = bhs_v3.id;
+      header                                = std::move(bhs_v3.header);
+      pending_schedule                      = std::move(bhs_v3.pending_schedule);
+      activated_protocol_features           = std::move(bhs_v3.activated_protocol_features);
+      additional_signatures                 = std::move(bhs_v3.additional_signatures);
    }
 
 
