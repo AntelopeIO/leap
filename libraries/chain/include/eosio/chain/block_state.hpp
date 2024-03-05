@@ -40,7 +40,6 @@ struct valid_t {
    std::vector<digest_type> validation_tree_roots;
 
    block_num_type last_final_block_num{0};
-   block_num_type block_num{0};
 
    // retrieve the digest of the finality tree associated with the block
    // [core.last_final_block_num, block_num]
@@ -124,5 +123,5 @@ using block_state_ptr = std::shared_ptr<block_state>;
 
 // not exporting pending_qc or valid_qc
 FC_REFLECT( eosio::chain::finality_leaf_node_t, (block_num)(finality_digest)(finality_mroot) )
-FC_REFLECT( eosio::chain::valid_t, (finality_tree)(validation_tree_roots)(last_final_block_num)(block_num) )
+FC_REFLECT( eosio::chain::valid_t, (finality_tree)(validation_tree_roots)(last_final_block_num) )
 FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated) )

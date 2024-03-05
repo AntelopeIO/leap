@@ -405,7 +405,6 @@ static valid_t build_valid_structure(const block_state_ptr parent_bsp, const blo
    wlog("appended leaf node  ${d} to block: ${bn}", ("d", leaf_node_digest)("bn", bhs.block_num()));
 
    valid.last_final_block_num = bhs.core.last_final_block_num();
-   valid.block_num = bhs.block_num();
 
    return valid;
 }
