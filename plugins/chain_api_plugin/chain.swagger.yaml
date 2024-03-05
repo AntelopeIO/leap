@@ -186,6 +186,30 @@ paths:
               schema:
                 description: Returns Nothing
 
+  /get_block_header_state:
+    post:
+      description: Retrieves the pre-Savanna block header state; for blocks post-Savanna activation, a fake pre-Savanna block header state is returned with only block_num, id, and header.timestamp filled.
+      operationId: get_block_header_state
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - block_num_or_id
+              properties:
+                block_num_or_id:
+                  type: string
+                  description: Provide a block_number or a block_id
+
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "https://docs.eosnetwork.com/openapi/v2.0/BlockHeaderState.yaml"
+
   /get_abi:
     post:
       description: Retrieves the ABI for a contract based on its account name

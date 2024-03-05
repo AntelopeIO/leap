@@ -198,4 +198,49 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
 
 } FC_LOG_AND_RETHROW()
 
+//verify behavior of the accessor used for get_block_header_state rpc call
+BOOST_FIXTURE_TEST_CASE(legacy_get_block_header_state_rpc, validating_tester) try {
+   create_accounts({"alice"_n, "bob"_n, "carol"_n, "dan"_n});
+   set_producers({"alice"_n, "bob"_n, "carol"_n, "dan"_n});
+   produce_blocks(32);
+   {
+      signed_block_ptr sb = produce_block();
+      BOOST_REQUIRE(!!control->fetch_bhs_for_legacy_rpc_by_num(sb->block_num()-2));
+      BOOST_REQUIRE(!control->fetch_bhs_for_legacy_rpc_by_num(sb->block_num()-30));
+      BOOST_REQUIRE(!!control->fetch_bhs_for_legacy_rpc_by_num(sb->block_num()));
+      BOOST_REQUIRE_EQUAL(control->fetch_bhs_for_legacy_rpc_by_num(sb->block_num())->id, sb->calculate_id());
+      BOOST_REQUIRE_GT(control->fetch_bhs_for_legacy_rpc_by_num(sb->block_num())->header.schedule_version, 0u);
+
+      BOOST_REQUIRE(!!control->fetch_bhs_for_legacy_rpc_by_id(sb->calculate_id()));
+      BOOST_REQUIRE_EQUAL(control->fetch_bhs_for_legacy_rpc_by_id(sb->calculate_id())->block_num, sb->block_num());
+   }
+
+   base_tester::finalizer_policy_input policy_input = {
+      .finalizers       = {{.name = "alice"_n, .weight = 1},
+                           {.name = "bob"_n,   .weight = 1},
+                           {.name = "carol"_n, .weight = 1},
+                           {.name = "dan"_n,   .weight = 1}},
+      .threshold        = 4,
+      .local_finalizers = {"alice"_n, "bob"_n, "carol"_n, "dan"_n}
+   };
+
+   set_finalizers(policy_input);
+   produce_blocks(10);
+   {
+      signed_block_ptr sb = produce_block();
+      BOOST_REQUIRE(!!control->fetch_bhs_for_legacy_rpc_by_num(sb->block_num()));
+      BOOST_REQUIRE_EQUAL(control->fetch_bhs_for_legacy_rpc_by_num(sb->block_num())->id, sb->calculate_id());
+      BOOST_REQUIRE_EQUAL(control->fetch_bhs_for_legacy_rpc_by_num(sb->block_num())->header.timestamp, sb->timestamp);
+
+      BOOST_REQUIRE(!!control->fetch_bhs_for_legacy_rpc_by_id(sb->calculate_id()));
+      BOOST_REQUIRE_EQUAL(control->fetch_bhs_for_legacy_rpc_by_id(sb->calculate_id())->block_num, sb->block_num());
+      BOOST_REQUIRE_EQUAL(control->fetch_bhs_for_legacy_rpc_by_id(sb->calculate_id())->header.timestamp, sb->timestamp);
+   }
+
+   //fetch_bhs_for_legacy_rpc_by_num will look in irreversible blocks once savanna activated
+   BOOST_REQUIRE(!!control->fetch_bhs_for_legacy_rpc_by_num(5));
+   BOOST_REQUIRE_EQUAL(control->fetch_bhs_for_legacy_rpc_by_num(5)->block_num, 5u);
+
+} FC_LOG_AND_RETHROW()
+
 BOOST_AUTO_TEST_SUITE_END()
