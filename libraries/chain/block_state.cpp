@@ -10,21 +10,29 @@ namespace eosio::chain {
 
 block_state::block_state(const block_header_state& prev, signed_block_ptr b, const protocol_feature_set& pfs,
                          const validator_t& validator, bool skip_validate_signee)
-   : block_header_state(prev.next(*b, pfs, validator))
+   : block_header_state(prev.next(*b, validator))
    , block(std::move(b))
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
-{}
+{
+   // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures pre-validated here
+   if( !skip_validate_signee ) {
+      auto sigs = detail::extract_additional_signatures(block);
+      const auto& valid_block_signing_authority = prev.get_scheduled_producer(timestamp()).authority;
+      verify_signee(sigs, valid_block_signing_authority);
+   }
+}
 
 block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-                         deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc)
+                         deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
+                         const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority)
    : block_header_state(bhs)
-   , block(std::make_shared<signed_block>(signed_block_header{bhs.header})) // [greg todo] do we need signatures?
+   , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
    , strong_digest(compute_finalizer_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
-   , pub_keys_recovered(true) // probably not needed
+   , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
 {
    block->transactions = std::move(trx_receipts);
@@ -32,13 +40,15 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    if( qc ) {
       emplace_extension(block->block_extensions, quorum_certificate_extension::extension_id(), fc::raw::pack( *qc ));
    }
+
+   sign(signer, valid_block_signing_authority);
 }
 
 // Used for transition from dpos to instant-finality
 block_state::block_state(const block_state_legacy& bsp) {
    block_header_state::block_id = bsp.id();
    header = bsp.header;
-   core.last_final_block_num = bsp.block_num(); // [if todo] instant transition is not acceptable
+   core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
    activated_protocol_features = bsp.activated_protocol_features;
 
    auto if_ext_id = instant_finality_extension::extension_id();
@@ -73,7 +83,7 @@ void block_state::set_trxs_metas( deque<transaction_metadata_ptr>&& trxs_metas, 
 }
 
 // Called from net threads
-std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(const vote_message& vote) {
+vote_status block_state::aggregate_vote(const vote_message& vote) {
    const auto& finalizers = active_finalizer_policy->finalizers;
    auto it = std::find_if(finalizers.begin(),
                           finalizers.end(),
@@ -82,20 +92,16 @@ std::pair<vote_status, std::optional<uint32_t>> block_state::aggregate_vote(cons
    if (it != finalizers.end()) {
       auto index = std::distance(finalizers.begin(), it);
       auto digest = vote.strong ? strong_digest.to_uint8_span() : std::span<const uint8_t>(weak_digest);
-      auto [status, strong] = pending_qc.add_vote(vote.strong,
+      return pending_qc.add_vote(block_num(),
+                                 vote.strong,
                                  digest,
                                  index,
                                  vote.finalizer_key,
                                  vote.sig,
                                  finalizers[index].weight);
-
-      std::optional<uint32_t> new_lib{};
-      if (status == vote_status::success && strong)
-         new_lib = core.final_on_strong_qc_block_num;
-      return {status, new_lib};
    } else {
       wlog( "finalizer_key (${k}) in vote is not in finalizer policy", ("k", vote.finalizer_key) );
-      return {vote_status::unknown_public_key, {}};
+      return vote_status::unknown_public_key;
    }
 }
 
@@ -191,6 +197,60 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
       *valid_qc : // tie broke by valid_qc
       valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
    return quorum_certificate{ block_num(), best_qc };
+}
+
+void inject_additional_signatures( signed_block& b, const std::vector<signature_type>& additional_signatures)
+{
+   if (!additional_signatures.empty()) {
+      // as an optimization we don't copy this out into the legitimate extension structure as it serializes
+      // the same way as the vector of signatures
+      static_assert(fc::reflector<additional_block_signatures_extension>::total_member_count == 1);
+      static_assert(std::is_same_v<decltype(additional_block_signatures_extension::signatures), std::vector<signature_type>>);
+
+      emplace_extension(b.block_extensions, additional_block_signatures_extension::extension_id(), fc::raw::pack( additional_signatures ));
+   }
+}
+
+void block_state::sign(const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority ) {
+   auto sigs = signer( block_id );
+
+   EOS_ASSERT(!sigs.empty(), no_block_signatures, "Signer returned no signatures");
+   block->producer_signature = sigs.back(); // last is producer signature, rest are additional signatures to inject in the block extension
+   sigs.pop_back();
+
+   verify_signee(sigs, valid_block_signing_authority);
+   inject_additional_signatures(*block, sigs);
+}
+
+void block_state::verify_signee(const std::vector<signature_type>& additional_signatures, const block_signing_authority& valid_block_signing_authority) const {
+   auto num_keys_in_authority = std::visit([](const auto &a){ return a.keys.size(); }, valid_block_signing_authority);
+   EOS_ASSERT(1 + additional_signatures.size() <= num_keys_in_authority, wrong_signing_key,
+              "number of block signatures (${num_block_signatures}) exceeds number of keys (${num_keys}) in block signing authority: ${authority}",
+              ("num_block_signatures", 1 + additional_signatures.size())
+              ("num_keys", num_keys_in_authority)
+              ("authority", valid_block_signing_authority)
+   );
+
+   std::set<public_key_type> keys;
+   keys.emplace(fc::crypto::public_key( block->producer_signature, block_id, true ));
+
+   for (const auto& s: additional_signatures) {
+      auto res = keys.emplace(s, block_id, true);
+      EOS_ASSERT(res.second, wrong_signing_key, "block signed by same key twice: ${key}", ("key", *res.first));
+   }
+
+   bool is_satisfied = false;
+   size_t relevant_sig_count = 0;
+
+   std::tie(is_satisfied, relevant_sig_count) = producer_authority::keys_satisfy_and_relevant(keys, valid_block_signing_authority);
+
+   EOS_ASSERT(relevant_sig_count == keys.size(), wrong_signing_key,
+              "block signed by unexpected key: ${signing_keys}, expected: ${authority}. ${c} != ${s}",
+              ("signing_keys", keys)("authority", valid_block_signing_authority)("c", relevant_sig_count)("s", keys.size()));
+
+   EOS_ASSERT(is_satisfied, wrong_signing_key,
+              "block signatures ${signing_keys} do not satisfy the block signing authority: ${authority}",
+              ("signing_keys", keys)("authority", valid_block_signing_authority));
 }
 
 } /// eosio::chain

@@ -1,11 +1,11 @@
 #pragma once
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_handle.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/snapshot.hpp>
-#include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
@@ -58,17 +58,6 @@ namespace eosio::chain {
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
    using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
-
-   // Created via create_block_handle(const block_id_type& id, const signed_block_ptr& b)
-   // Valid to request id and signed_block_ptr it was created from.
-   // Avoid using internal block_state/block_state_legacy as those types are internal to controller.
-   struct block_handle {
-      std::variant<block_state_legacy_ptr, block_state_ptr> bsp;
-
-      uint32_t block_num() const { return std::visit([](const auto& bsp) { return bsp->block_num(); }, bsp); }
-      block_id_type id() const { return std::visit([](const auto& bsp) { return bsp->id(); }, bsp); }
-      signed_block_ptr block() const { return std::visit([](const auto& bsp) { return bsp->block; }, bsp); }
-   };
 
    enum class db_read_mode {
       HEAD,
@@ -189,6 +178,7 @@ namespace eosio::chain {
          void assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
+         void maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup);
 
          // thread-safe
          std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b );
@@ -198,14 +188,17 @@ namespace eosio::chain {
 
          /**
           * @param br returns statistics for block
-          * @param bt block to push, created by create_block_handle
+          * @param b block to push, created by create_block_handle
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          const block_handle& bt,
+                          const block_handle& b,
                           const forked_callback_t& cb,
                           const trx_meta_cache_lookup& trx_lookup );
+
+         /// Accept block into fork_database
+         void accept_block(const block_handle& b);
 
          boost::asio::io_context& get_thread_pool();
 
@@ -268,9 +261,7 @@ namespace eosio::chain {
          // post-instant-finality this always returns nullptr
          const producer_authority_schedule*         pending_producers_legacy()const;
 
-         // Called by qc_chain to indicate the current irreversible block num
-         // After hotstuff is activated, this should be called on startup by qc_chain
-         void set_if_irreversible_block_num(uint32_t block_num);
+         void set_if_irreversible_block_id(const block_id_type& id);
          uint32_t if_irreversible_block_num() const;
 
          uint32_t last_irreversible_block_num() const;
@@ -289,6 +280,8 @@ namespace eosio::chain {
          std::optional<signed_block_header> fetch_block_header_by_id( const block_id_type& id )const;
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
+         // thread-safe
+         digest_type get_strong_digest_by_id( const block_id_type& id ) const; // used in unittests
 
          fc::sha256 calculate_integrity_hash();
          void write_snapshot( const snapshot_writer_ptr& snapshot );

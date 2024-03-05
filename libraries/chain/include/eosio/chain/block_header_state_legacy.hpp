@@ -203,7 +203,8 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
    uint32_t             calc_dpos_last_irreversible( account_name producer_of_next_block )const;
 
-   producer_authority     get_scheduled_producer( block_timestamp_type t )const;
+   const protocol_feature_activation_set_ptr& get_activated_protocol_features() const { return activated_protocol_features; }
+   const producer_authority& get_scheduled_producer( block_timestamp_type t )const;
    const block_id_type&   previous()const { return header.previous; }
    digest_type            sig_digest()const;
    void                   sign( const signer_callback_type& signer );

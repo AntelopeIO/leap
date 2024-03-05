@@ -667,36 +667,45 @@ public:
       _time_tracker.clear();
    }
 
-   bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const std::optional<block_handle>& obt) {
-      auto& chain = chain_plug->chain();
-      if (in_producing_mode()) {
-         fc_wlog(_log, "dropped incoming block #${num} id: ${id}", ("num", block->block_num())("id", block_id ? (*block_id).str() : "UNKNOWN"));
-         return false;
-      }
-
-      // start a new speculative block, speculative start_block may have been interrupted
-      auto ensure = fc::make_scoped_exit([this]() { schedule_production_loop(); });
-
+   bool on_incoming_block(const signed_block_ptr& block, const block_id_type& id, const std::optional<block_handle>& obt) {
       auto now = fc::time_point::now();
-      const auto& id      = block_id ? *block_id : block->calculate_id();
-      auto        blk_num = block->block_num();
+      _time_tracker.add_idle_time(now);
+
+      assert(block);
+      auto blk_num = block->block_num();
 
       if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
          fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
-      _time_tracker.add_idle_time(now);
+      // start a new speculative block, speculative start_block may have been interrupted
+      auto ensure = fc::make_scoped_exit([this]() {
+         // avoid schedule_production_loop if in_producing_mode(); speculative block was not interrupted and we don't want to abort block
+         if (!in_producing_mode()) {
+            schedule_production_loop();
+         } else {
+            _time_tracker.add_other_time();
+         }
+      });
+
+      auto& chain = chain_plug->chain();
+      // de-dupe here... no point in aborting block if we already know the block; avoid exception in create_block_handle_future
+      if (chain.block_exists(id)) {
+         return true; // return true because the block is accepted
+      }
 
       EOS_ASSERT(block->timestamp < (now + fc::seconds(7)), block_from_the_future, "received a block from the future, ignoring it: ${id}", ("id", id));
-
-      // de-dupe here... no point in aborting block if we already know the block
-      if (chain.block_exists(id)) {
-         return true; // return true because the block is valid
-      } 
 
       // start processing of block
       std::future<block_handle> btf;
       if (!obt) {
          btf = chain.create_block_handle_future(id, block);
+      }
+
+      if (in_producing_mode()) {
+         fc_ilog(_log, "producing, incoming block #${num} id: ${id}", ("num", blk_num)("id", id));
+         const block_handle& bh = obt ? *obt : btf.get();
+         chain.accept_block(bh);
+         return true; // return true because block was accepted
       }
 
       // abort the pending block
@@ -711,10 +720,10 @@ public:
 
       controller::block_report br;
       try {
-         const block_handle& bt = obt ? *obt : btf.get();
+         const block_handle& bh = obt ? *obt : btf.get();
          chain.push_block(
             br,
-            bt,
+            bh,
             [this](const transaction_metadata_ptr& trx) { _unapplied_transactions.add_forked(trx); },
             [this](const transaction_id_type& id) { return _unapplied_transactions.get_trx(id); });
       } catch (const guard_exception& e) {
@@ -1284,7 +1293,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
    _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
-      [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const std::optional<block_handle>& obt) {
+      [this](const signed_block_ptr& block, const block_id_type& block_id, const std::optional<block_handle>& obt) {
          return on_incoming_block(block, block_id, obt);
       });
 
@@ -1779,6 +1788,11 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    if (!chain_plug->accept_transactions())
       return start_block_result::waiting_for_block;
 
+   abort_block();
+
+   chain.maybe_switch_forks([this](const transaction_metadata_ptr& trx) { _unapplied_transactions.add_forked(trx); },
+                            [this](const transaction_id_type& id) { return _unapplied_transactions.get_trx(id); });
+
    uint32_t head_block_num = chain.head_block_num();
 
    if (chain.get_terminate_at_block() > 0 && chain.get_terminate_at_block() <= head_block_num) {
@@ -1902,8 +1916,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          // can not confirm irreversible blocks
          blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (head_block_num - block_state->dpos_irreversible_blocknum)));
       }
-
-      abort_block();
 
       auto features_to_activate = chain.get_preactivated_protocol_features();
       if (in_producing_mode() && _protocol_features_to_activate.size() > 0) {

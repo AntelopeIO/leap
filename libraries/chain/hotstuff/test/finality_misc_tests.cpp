@@ -37,12 +37,12 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
    std::vector<uint8_t> digest(d.data(), d.data() + d.data_size());
 
    std::vector<bls_private_key> sk {
-      bls_private_key("PVT_BLS_r4ZpChd87ooyzl6MIkw23k7PRX8xptp7TczLJHCIIW88h/hS"),
-      bls_private_key("PVT_BLS_/l7xzXANaB+GrlTsbZEuTiSOiWTtpBoog+TZnirxUUSaAfCo"),
-      bls_private_key("PVT_BLS_3FoY73Q/gED3ejyg8cvnGqHrMmx4cLKwh/e0sbcsCxpCeqn3"),
-      bls_private_key("PVT_BLS_warwI76e+pPX9wLFZKPFagngeFM8bm6J8D5w0iiHpxW7PiId"),
-      bls_private_key("PVT_BLS_iZFwiqdogOl9RNr1Hv1z+Rd6AwD9BIoxZcU1EPX+XFSFmm5p"),
-      bls_private_key("PVT_BLS_Hmye7lyiCrdF54/nF/HRU0sY/Hrse1ls/yqojIUOVQsxXUIK")
+      bls_private_key("PVT_BLS_0d8dsux83r42Qg8CHgAqIuSsn9AV-QdCzx3tPj0K8yOJA_qb"),
+      bls_private_key("PVT_BLS_Wfs3KzfTI2P5F85PnoHXLnmYgSbp-XpebIdS6BUCHXOKmKXK"),
+      bls_private_key("PVT_BLS_74crPc__6BlpoQGvWjkHmUdzcDKh8QaiN_GtU4SD0QAi4BHY"),
+      bls_private_key("PVT_BLS_foNjZTu0k6qM5ftIrqC5G_sim1Rg7wq3cRUaJGvNtm2rM89K"),
+      bls_private_key("PVT_BLS_FWK1sk_DJnoxNvUNhwvJAYJFcQAFtt_mCtdQCUPQ4jN1K7eT"),
+      bls_private_key("PVT_BLS_tNAkC5MnI-fjHWSX7la1CPC2GIYgzW5TBfuKFPagmwVVsOeW")
    };
 
    std::vector<bls_public_key> pubkey;
@@ -51,11 +51,11 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       pubkey.push_back(k.get_public_key());
 
    auto weak_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index, uint64_t weight) {
-      return qc.add_vote(false, digest, index, pubkey[index], sk[index].sign(digest), weight).first;
+      return qc.add_vote(0, false, digest, index, pubkey[index], sk[index].sign(digest), weight);
    };
 
    auto strong_vote = [&](pending_quorum_certificate& qc, const std::vector<uint8_t>& digest, size_t index, uint64_t weight) {
-      return qc.add_vote(true, digest, index, pubkey[index], sk[index].sign(digest), weight).first;
+      return qc.add_vote(0, true, digest, index, pubkey[index], sk[index].sign(digest), weight);
    };
 
    constexpr uint64_t weight = 1;

@@ -20,7 +20,7 @@ namespace eosio::chain::detail {
       return block_timestamp_type{t.slot + (config::producer_repetitions - index) + config::producer_repetitions};
    }
 
-   inline producer_authority get_scheduled_producer(const vector<producer_authority>& producers, block_timestamp_type t) {
+   inline const producer_authority& get_scheduled_producer(const vector<producer_authority>& producers, block_timestamp_type t) {
       auto index = t.slot % (producers.size() * config::producer_repetitions);
       index /= config::producer_repetitions;
       return producers[index];

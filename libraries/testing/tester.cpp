@@ -1174,7 +1174,7 @@ namespace eosio { namespace testing {
 
    }
 
-   transaction_trace_ptr base_tester::set_finalizers(const vector<account_name>& finalizer_names) {
+   std::pair<transaction_trace_ptr, std::vector<fc::crypto::blslib::bls_private_key>> base_tester::set_finalizers(const vector<account_name>& finalizer_names) {
       auto num_finalizers = finalizer_names.size();
       std::vector<finalizer_policy_input::finalizer_info> finalizers_info;
       finalizers_info.reserve(num_finalizers);
@@ -1191,9 +1191,10 @@ namespace eosio { namespace testing {
       return set_finalizers(policy_input);
    }
 
-   transaction_trace_ptr base_tester::set_finalizers(const finalizer_policy_input& input) {
+   std::pair<transaction_trace_ptr, std::vector<fc::crypto::blslib::bls_private_key>> base_tester::set_finalizers(const finalizer_policy_input& input) {
       chain::bls_pub_priv_key_map_t local_finalizer_keys;
       fc::variants finalizer_auths;
+      std::vector<fc::crypto::blslib::bls_private_key> priv_keys;
 
       for (const auto& f: input.finalizers) {
          auto [privkey, pubkey, pop] = get_bls_key( f.name );
@@ -1201,6 +1202,7 @@ namespace eosio { namespace testing {
          // if it is a local finalizer, set up public to private key mapping for voting
          if( auto it = std::ranges::find_if(input.local_finalizers, [&](const auto& name) { return name == f.name; }); it != input.local_finalizers.end()) {
             local_finalizer_keys[pubkey.to_string()] = privkey.to_string();
+            priv_keys.emplace_back(privkey);
          };
 
          finalizer_auths.emplace_back(
@@ -1217,8 +1219,9 @@ namespace eosio { namespace testing {
       fin_policy_variant("threshold", input.threshold);
       fin_policy_variant("finalizers", std::move(finalizer_auths));
 
-      return push_action( config::system_account_name, "setfinalizer"_n, config::system_account_name,
-                          fc::mutable_variant_object()("finalizer_policy", std::move(fin_policy_variant)));
+      return { push_action( config::system_account_name, "setfinalizer"_n, config::system_account_name,
+                          fc::mutable_variant_object()("finalizer_policy", std::move(fin_policy_variant))),
+               priv_keys };
    }
 
    const table_id_object* base_tester::find_table( name code, name scope, name table ) {

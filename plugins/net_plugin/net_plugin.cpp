@@ -3905,7 +3905,7 @@ namespace eosio {
             if( reason == unlinkable || reason == no_reason ) {
                dispatcher->add_unlinkable_block( std::move(block), blk_id );
             }
-            // reason==no_reason means accept_block() return false because we are producing, don't call rejected_block which sends handshake
+            // reason==no_reason means accept_block() return false which is a fatal error, don't call rejected_block which sends handshake
             if( reason != no_reason ) {
                sync_master->rejected_block( c, blk_num, sync_manager::closing_mode::handshake );
             }
@@ -4000,6 +4000,10 @@ namespace eosio {
    void net_plugin_impl::bcast_vote_message( const std::optional<uint32_t>& exclude_peer, const chain::vote_message& msg ) {
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
+
+      fc_dlog(logger, "bcast vote: block #${bn}:${id}.., ${t}, key ${k}..",
+                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
+                ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8,16)));
 
       dispatcher->strand.post( [this, exclude_peer, msg{std::move(send_buffer)}]() mutable {
          dispatcher->bcast_vote_msg( exclude_peer, std::move(msg) );
