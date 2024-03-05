@@ -7,10 +7,60 @@
 
 namespace eosio::chain {
 
-// moved this warning out of header so it only uses once
-#warning TDDO https://github.com/AntelopeIO/leap/issues/2080
-// digest_type           compute_finalizer_digest() const { return id; };
+// this is a versioning scheme that is separate from protocol features that only
+// gets updated if a protocol feature causes a breaking change to light block
+// header validation
+constexpr uint32_t light_header_protocol_version = 0;
 
+struct finality_digest_data_v0_t {
+   uint32_t    version {light_header_protocol_version};
+   uint32_t    active_finalizer_policy_generation {0};
+   digest_type finality_tree_digest;
+   digest_type intermediate_digest;
+};
+
+struct intermediate_digest_data_t {
+   digest_type active_finalizer_policy_digest;
+   digest_type base_digest;
+};
+
+struct base_digest_data_t {
+   block_header                             header;
+   finality_core                            core;
+   flat_map<uint32_t, finalizer_policy_ptr> finalizer_policies;
+   proposer_policy_ptr                      active_proposer_policy;
+   flat_map<block_timestamp_type, proposer_policy_ptr>  proposer_policies;
+   protocol_feature_activation_set_ptr      activated_protocol_features;
+};
+
+digest_type block_header_state::compute_finalizer_digest() const {
+   auto active_finalizer_policy_digest = fc::sha256::hash(*active_finalizer_policy);
+
+   base_digest_data_t base_digest_data {
+      .header                      = header,
+      .core                        = core,
+      .finalizer_policies          = finalizer_policies,
+      .active_proposer_policy      = active_proposer_policy,
+      .proposer_policies           = proposer_policies,
+      .activated_protocol_features = activated_protocol_features
+   };
+   auto base_digest = fc::sha256::hash(base_digest_data);
+
+   intermediate_digest_data_t intermediate_digest_data {
+      .active_finalizer_policy_digest = active_finalizer_policy_digest,
+      .base_digest                    = base_digest
+   };
+   auto intermediate_digest = fc::sha256::hash(intermediate_digest_data);
+
+   finality_digest_data_v0_t finality_digest_data {
+      .version                            = light_header_protocol_version,
+      .active_finalizer_policy_generation = active_finalizer_policy->generation,
+      .finality_tree_digest               = finality_mroot(),
+      .intermediate_digest                        = intermediate_digest
+   };
+
+   return fc::sha256::hash(finality_digest_data);
+}
 
 const producer_authority& block_header_state::get_scheduled_producer(block_timestamp_type t) const {
    return detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, t);
@@ -173,3 +223,7 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
 }
 
 } // namespace eosio::chain
+
+FC_REFLECT( eosio::chain::finality_digest_data_v0_t, (version)(active_finalizer_policy_generation)(finality_tree_digest)(intermediate_digest) )
+FC_REFLECT( eosio::chain::intermediate_digest_data_t, (active_finalizer_policy_digest)(base_digest) )
+FC_REFLECT( eosio::chain::base_digest_data_t, (header)(core)(finalizer_policies)(active_proposer_policy)(proposer_policies)(activated_protocol_features) )

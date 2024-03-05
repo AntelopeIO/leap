@@ -57,8 +57,7 @@ struct block_header_state {
 
 
    // ------ functions -----------------------------------------------------------------
-   const block_id_type&  id() const { return block_id; }
-   digest_type           compute_finalizer_digest() const { return block_id; };
+   const block_id_type&  id()             const { return block_id; }
    digest_type           finality_mroot() const { return header.action_mroot; }
    block_timestamp_type  timestamp()      const { return header.timestamp; }
    account_name          producer()       const { return header.producer; }
@@ -73,6 +72,8 @@ struct block_header_state {
 
    block_header_state next(block_header_state_input& data) const;
    block_header_state next(const signed_block_header& h, validator_t& validator) const;
+
+   digest_type           compute_finalizer_digest() const;
 
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
