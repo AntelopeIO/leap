@@ -722,6 +722,8 @@ struct building_block {
 
                std::optional<qc_data_t> qc_data;
                std::optional<finality_mroot_claim_t> finality_mroot_claim;
+               std::optional<finality_core> updated_core;
+
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
                   qc_data = std::move(validating_qc_data);
@@ -763,10 +765,10 @@ struct building_block {
                            .block_id  = parent_id(),
                            .timestamp = bb.parent.timestamp()
                         };
-                        auto updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
+                        updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
                         finality_mroot_claim = finality_mroot_claim_t{
-                           .block_num      = updated_core.final_on_strong_qc_block_num,
-                           .finality_mroot = parent_bsp->valid->get_finality_mroot(updated_core.final_on_strong_qc_block_num)
+                           .block_num      = updated_core->final_on_strong_qc_block_num,
+                           .finality_mroot = parent_bsp->valid->get_finality_mroot(updated_core->final_on_strong_qc_block_num)
                         };
                      }
                   });
@@ -786,7 +788,8 @@ struct building_block {
                   std::move(new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
                   qc_data->qc_claim,
-                  std::move(finality_mroot_claim)
+                  std::move(finality_mroot_claim),
+                  std::move(updated_core)
                };
 
                auto bhs = bb.parent.next(bhs_input);

@@ -137,11 +137,15 @@ block_header_state block_header_state::next(block_header_state_input& input) con
 
    // finality_core
    // -----------------------
-   block_ref parent_block {
-      .block_id  = input.parent_id,
-      .timestamp = input.parent_timestamp
-   };
-   result.core = core.next(parent_block, input.most_recent_ancestor_with_qc);
+   if (input.updated_core) {
+      result.core = *input.updated_core;
+   } else {
+      block_ref parent_block {
+         .block_id  = input.parent_id,
+         .timestamp = input.parent_timestamp
+      };
+      result.core = core.next(parent_block, input.most_recent_ancestor_with_qc);
+   }
 
    uint16_t if_ext_id = instant_finality_extension::extension_id();
    emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
@@ -216,7 +220,8 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
       if_ext.new_proposer_policy,
       if_ext.new_finalizer_policy,
       if_ext.qc_claim,
-      finality_mroot_claim
+      finality_mroot_claim,
+      {}
    };
 
    return next(bhs_input);
