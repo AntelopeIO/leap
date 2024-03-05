@@ -3213,7 +3213,7 @@ struct controller_impl {
                report_block_header_diff(*b, ab.header());
 
                // this implicitly asserts that all header fields (less the signature) are identical
-               EOS_ASSERT(producer_block_id == ab.id(), block_validate_exception, "Block ID does not match",
+               EOS_ASSERT(producer_block_id == ab.id(), block_validate_exception, "Block ID does not match, ${producer_block_id} != ${validator_block_id}",
                           ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
             }
 
