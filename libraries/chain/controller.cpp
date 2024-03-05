@@ -672,7 +672,8 @@ struct building_block {
                                   fork_database& fork_db,
                                   std::unique_ptr<proposer_policy> new_proposer_policy,
                                   bool validating,
-                                  std::optional<qc_data_t> validating_qc_data) {
+                                  std::optional<qc_data_t> validating_qc_data,
+                                  std::optional<finality_mroot_claim_t> validating_finality_mroot_claim) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -725,6 +726,7 @@ struct building_block {
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
                   qc_data = std::move(validating_qc_data);
+                  finality_mroot_claim = std::move(validating_finality_mroot_claim);
                } else {
                   // find most recent ancestor block that has a QC by traversing fork db
                   // branch from parent
@@ -2813,7 +2815,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {})
+   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {}, std::optional<finality_mroot_claim_t> validating_finality_mroot_claim = {})
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -2856,7 +2858,8 @@ struct controller_impl {
 
          auto assembled_block =
             bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), fork_db, std::move(new_proposer_policy),
-                              validating, std::move(validating_qc_data));
+                              validating, std::move(validating_qc_data),
+                              std::move(validating_finality_mroot_claim));
 
          // Update TaPoS table:
          create_block_summary(  assembled_block.id() );
@@ -3192,7 +3195,14 @@ struct controller_impl {
                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
             }
 
-            assemble_block(true, extract_qc_data(b));
+            std::optional<finality_mroot_claim_t> finality_mroot_claim;
+            if constexpr (std::is_same_v<BSP, block_state_ptr>) {
+               finality_mroot_claim = finality_mroot_claim_t{
+                  .block_num = bsp->core.final_on_strong_qc_block_num,
+                  .finality_mroot = bsp->header.action_mroot
+               };
+            }
+            assemble_block(true, extract_qc_data(b), std::move(finality_mroot_claim));
             auto& ab = std::get<assembled_block>(pending->_block_stage);
 
             if( producer_block_id != ab.id() ) {
