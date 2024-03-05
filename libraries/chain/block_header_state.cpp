@@ -33,7 +33,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .confirmed         = 0,
       .previous          = input.parent_id,
       .transaction_mroot = input.transaction_mroot,
-      .action_mroot      = input.action_mroot,
+      .action_mroot      = input.finality_mroot_claim ? input.finality_mroot_claim->finality_mroot : digest_type{},
       .schedule_version  = header.schedule_version
    };
 
@@ -155,9 +155,19 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
       .new_protocol_feature_activations = std::move(new_protocol_feature_activations)
    };
 
+   finality_mroot_claim_t finality_mroot_claim{
+     .block_num      = h.block_num(),
+     .finality_mroot = h.action_mroot
+   };
+
    block_header_state_input bhs_input{
-      bb_input,      h.transaction_mroot, h.action_mroot, if_ext.new_proposer_policy, if_ext.new_finalizer_policy,
-      if_ext.qc_claim };
+      bb_input,
+      h.transaction_mroot,
+      if_ext.new_proposer_policy,
+      if_ext.new_finalizer_policy,
+      if_ext.qc_claim,
+      finality_mroot_claim
+   };
 
    return next(bhs_input);
 }

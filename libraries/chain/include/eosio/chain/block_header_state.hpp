@@ -13,6 +13,11 @@ namespace eosio::chain {
 
 namespace detail { struct schedule_info; };
 
+struct finality_mroot_claim_t {
+   block_num_type block_num;
+   digest_type    finality_mroot;
+};
+
 struct building_block_input {
    block_id_type                     parent_id;
    block_timestamp_type              parent_timestamp;
@@ -24,11 +29,11 @@ struct building_block_input {
 // this struct can be extracted from a building block
 struct block_header_state_input : public building_block_input {
    digest_type                       transaction_mroot;    // Comes from std::get<checksum256_type>(building_block::trx_mroot_or_receipt_digests)
-   digest_type                       action_mroot;         // Compute root from  building_block::action_receipt_digests
    std::shared_ptr<proposer_policy>  new_proposer_policy;  // Comes from building_block::new_proposer_policy
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
    qc_claim_t                        most_recent_ancestor_with_qc; // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
+   std::optional<finality_mroot_claim_t> finality_mroot_claim;
 };
 
 struct block_header_state {
@@ -52,7 +57,6 @@ struct block_header_state {
 
 
    // ------ functions -----------------------------------------------------------------
-   // [if todo] https://github.com/AntelopeIO/leap/issues/2080
    const block_id_type&  id() const { return block_id; }
    digest_type           compute_finalizer_digest() const { return block_id; };
    digest_type           finality_mroot() const { return header.action_mroot; }

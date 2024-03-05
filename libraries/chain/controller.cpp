@@ -383,7 +383,7 @@ static valid_t build_valid_structure(const block_state_ptr parent_bsp, const blo
       assert(parent_bsp->valid);
       valid.validation_tree_roots.emplace_back(parent_bsp->valid->finality_tree.get_root());
       wlog("appended root of the parent's Validation Tree ${d} to block: ${bn}", ("d", parent_bsp->valid->finality_tree.get_root())("bn", bhs.block_num()));
-      assert(valid.validation_tree_roots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1)); // for from last_final_block_num to parent
+      assert(valid.validation_tree_roots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
    } else {
       // block after genesis block
       valid = valid_t {
@@ -403,6 +403,9 @@ static valid_t build_valid_structure(const block_state_ptr parent_bsp, const blo
    // append finality leaf node digest to validation_tree
    valid.finality_tree.append(leaf_node_digest);
    wlog("appended leaf node  ${d} to block: ${bn}", ("d", leaf_node_digest)("bn", bhs.block_num()));
+
+   valid.last_final_block_num = bhs.core.last_final_block_num();
+   valid.block_num = bhs.block_num();
 
    return valid;
 }
@@ -718,6 +721,7 @@ struct building_block {
                   trx_mroot_or_receipt_digests());
 
                std::optional<qc_data_t> qc_data;
+               std::optional<finality_mroot_claim_t> finality_mroot_claim;
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
                   qc_data = std::move(validating_qc_data);
@@ -749,6 +753,20 @@ struct building_block {
                         // Construct a default QC claim.
                         qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
                      }
+
+                     auto it = branch.begin();
+                     if (it != branch.end()) {
+                        assert((*it)->valid);
+                        block_ref parent_block_ref {
+                           .block_id  = parent_id(),
+                           .timestamp = bb.parent.timestamp()
+                        };
+                        auto updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
+                        finality_mroot_claim = finality_mroot_claim_t{
+                           .block_num      = updated_core.final_on_strong_qc_block_num,
+                           .finality_mroot = (*it)->valid->get_finality_mroot(updated_core.final_on_strong_qc_block_num)
+                        };
+                     }
                   });
 
                }
@@ -762,9 +780,12 @@ struct building_block {
                };
 
                block_header_state_input bhs_input{
-                  bb_input, transaction_mroot, action_mroot, std::move(new_proposer_policy),
+                  bb_input,
+                  transaction_mroot,
+                  std::move(new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_data->qc_claim
+                  qc_data->qc_claim,
+                  std::move(finality_mroot_claim)
                };
 
                auto bhs = bb.parent.next(bhs_input);
