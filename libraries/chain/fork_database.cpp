@@ -765,19 +765,17 @@ namespace eosio::chain {
       }
    }
 
-   block_handle fork_database::switch_from_legacy(const block_handle& bh) {
+   void fork_database::switch_from_legacy(const block_handle& bh) {
       // no need to close fork_db because we don't want to write anything out, file is removed on open
       // threads may be accessing (or locked on mutex about to access legacy forkdb) so don't delete it until program exit
       assert(legacy);
-      assert(std::holds_alternative<block_state_legacy_ptr>(bh.internal()));
-      block_state_legacy_ptr head = std::get<block_state_legacy_ptr>(bh.internal()); // will throw if called after transistion
-      auto new_head = std::make_shared<block_state>(*head);
+      assert(std::holds_alternative<block_state_ptr>(bh.internal()));
+      block_state_ptr new_head = std::get<block_state_ptr>(bh.internal());
       fork_db_s = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
       legacy = false;
       apply_s<void>([&](auto& forkdb) {
          forkdb.reset_root(*new_head);
       });
-      return block_handle{new_head};
    }
 
    block_branch_t fork_database::fetch_branch_from_head() const {

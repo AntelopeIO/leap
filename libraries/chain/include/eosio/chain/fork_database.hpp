@@ -148,8 +148,8 @@ namespace eosio::chain {
       void open( validator_t& validator );
       void close();
 
-      // expected to be called from main thread, accesses chain_head
-      block_handle switch_from_legacy(const block_handle& bh);
+      // expected to be called from main thread
+      void switch_from_legacy(const block_handle& bh);
 
       bool fork_db_if_present() const { return !!fork_db_s; }
       bool fork_db_legacy_present() const { return !!fork_db_l; }
