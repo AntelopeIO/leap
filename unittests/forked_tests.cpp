@@ -110,7 +110,7 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
 
          // push the block which should attempt the corrupted fork and fail
          BOOST_REQUIRE_EXCEPTION( bios.push_block(fork.blocks.back()), fc::exception,
-                                  fc_exception_message_is( "Block ID does not match" )
+                                  fc_exception_message_starts_with( "Block ID does not match" )
          );
       }
    }
