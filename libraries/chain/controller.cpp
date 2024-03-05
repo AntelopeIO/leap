@@ -826,13 +826,18 @@ struct controller_impl {
              // Read-write tasks are not being executed.
    };
 
-   // LLVM sets the new handler, we need to reset this to throw a bad_alloc exception so we can possibly exit cleanly
-   // and not just abort.
+#if LLVM_VERSION_MAJOR < 9
+   // LLVM versions prior to 9 do a set_new_handler() in a static global initializer. Reset LLVM's custom handler
+   // back to the default behavior of throwing bad_alloc so we can possibly exit cleanly and not just abort as LLVM's
+   // handler does.
+   // LLVM 9+ doesn't install this handler unless calling InitLLVM(), which we don't.
+   // See https://reviews.llvm.org/D64505
    struct reset_new_handler {
       reset_new_handler() { std::set_new_handler([](){ throw std::bad_alloc(); }); }
    };
 
    reset_new_handler               rnh; // placed here to allow for this to be set before constructing the other fields
+#endif
    controller&                     self;
    std::function<void()>           shutdown;
    chainbase::database             db;
