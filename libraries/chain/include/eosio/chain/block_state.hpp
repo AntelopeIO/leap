@@ -22,6 +22,30 @@ inline weak_digest_t create_weak_digest(const digest_type& digest) {
 struct block_state_legacy;
 struct block_state_accessor;
 
+struct finality_leaf_node_t {
+   block_num_type block_num{0};    // the block number
+   digest_type    finality_digest; // finality digest for the block
+   digest_type    finality_mroot;  // digest of the root of the Finality Tree associated with the block
+};
+
+struct valid_t {
+   // current block's Finality Merkle Tree, conceptually containning leaf nodes
+   // from IF genesis node to current block
+   incremental_merkle_tree finality_tree;
+
+   // the sequence of root digests of the Validation Trees associated
+   // to a unbroken sequence of blocks which consist of the ancestors
+   // of the IF Block starting with the one that has a block number equal
+   // to core.last_qc_block_num
+   std::vector<digest_type> validation_tree_roots;
+
+   block_num_type last_final_block_num{0};
+   block_num_type block_num{0};
+
+   // retrieve the digest of the finality tree associated with the block
+   // [core.last_final_block_num, block_num]
+   digest_type get_finality_mroot( block_num_type target_block_num );
+};
 struct block_state : public block_header_state {     // block_header_state provides parent link
    // ------ data members -------------------------------------------------------------
    signed_block_ptr           block;
@@ -29,6 +53,7 @@ struct block_state : public block_header_state {     // block_header_state provi
    weak_digest_t              weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
    pending_quorum_certificate pending_qc;            // where we accumulate votes we receive
    std::optional<valid_quorum_certificate> valid_qc; // best qc received from the network inside block extension
+   std::optional<valid_t>     valid;
 
    // ------ updated for votes, used for fork_db ordering ------------------------------
 private:
@@ -94,4 +119,6 @@ using block_state_ptr = std::shared_ptr<block_state>;
 } // namespace eosio::chain
 
 // not exporting pending_qc or valid_qc
+FC_REFLECT( eosio::chain::finality_leaf_node_t, (block_num)(finality_digest)(finality_mroot) )
+FC_REFLECT( eosio::chain::valid_t, (finality_tree)(validation_tree_roots)(last_final_block_num)(block_num) )
 FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated) )
