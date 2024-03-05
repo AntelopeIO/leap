@@ -31,13 +31,13 @@ struct finality_leaf_node_t {
 struct valid_t {
    // current block's Finality Merkle Tree, conceptually containning leaf nodes
    // from IF genesis node to current block
-   incremental_merkle_tree finality_tree;
+   incremental_merkle_tree finality_merkel_tree;
 
    // the sequence of root digests of the Validation Trees associated
    // to a unbroken sequence of blocks which consist of the ancestors
    // of the IF Block starting with the one that has a block number equal
    // to core.last_qc_block_num
-   std::vector<digest_type> validation_tree_roots;
+   std::vector<digest_type> finality_mroots;
 
    block_num_type last_final_block_num{0};
 
@@ -123,5 +123,5 @@ using block_state_ptr = std::shared_ptr<block_state>;
 
 // not exporting pending_qc or valid_qc
 FC_REFLECT( eosio::chain::finality_leaf_node_t, (block_num)(finality_digest)(finality_mroot) )
-FC_REFLECT( eosio::chain::valid_t, (finality_tree)(validation_tree_roots)(last_final_block_num) )
+FC_REFLECT( eosio::chain::valid_t, (finality_merkel_tree)(finality_mroots)(last_final_block_num) )
 FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated) )

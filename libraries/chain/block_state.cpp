@@ -9,11 +9,11 @@
 namespace eosio::chain {
 
 digest_type valid_t::get_finality_mroot(block_num_type target_block_num) {
-   assert(validation_tree_roots.size() > 0);
+   assert(finality_mroots.size() > 0);
    assert(last_final_block_num <= target_block_num &&
-          target_block_num < last_final_block_num + validation_tree_roots.size());
+          target_block_num < last_final_block_num + finality_mroots.size());
 
-   return validation_tree_roots[target_block_num - last_final_block_num];
+   return finality_mroots[target_block_num - last_final_block_num];
 }
 
 block_state::block_state(const block_header_state& prev, signed_block_ptr b, const protocol_feature_set& pfs,

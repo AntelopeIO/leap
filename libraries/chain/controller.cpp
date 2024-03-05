@@ -368,27 +368,27 @@ static valid_t build_valid_structure(const block_state_ptr parent_bsp, const blo
 
    if (parent_bsp) {
       // Copy parent's validation tree
-      // copy parent's ancestor_validation_tree_roots starting from last_final_block_num
+      // copy parent's ancestor_finality_mroots starting from last_final_block_num
       // (removing any roots from the front end of the vector
       // to block whose block number is last_final_block_num - 1)
       assert(bhs.core.last_final_block_num() >= parent_bsp->core.last_final_block_num());
       valid = valid_t {
-         .finality_tree = parent_bsp->valid->finality_tree,
-         .validation_tree_roots = {
-            parent_bsp->valid->validation_tree_roots.cbegin() + (bhs.core.last_final_block_num() - parent_bsp->core.last_final_block_num()),
-         parent_bsp->valid->validation_tree_roots.cend()}
+         .finality_merkel_tree = parent_bsp->valid->finality_merkel_tree,
+         .finality_mroots = {
+            parent_bsp->valid->finality_mroots.cbegin() + (bhs.core.last_final_block_num() - parent_bsp->core.last_final_block_num()),
+         parent_bsp->valid->finality_mroots.cend()}
       };
 
       // append the root of the parent's Validation Tree.
       assert(parent_bsp->valid);
-      valid.validation_tree_roots.emplace_back(parent_bsp->valid->finality_tree.get_root());
-      wlog("appended root of the parent's Validation Tree ${d} to block: ${bn}", ("d", parent_bsp->valid->finality_tree.get_root())("bn", bhs.block_num()));
-      assert(valid.validation_tree_roots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
+      valid.finality_mroots.emplace_back(parent_bsp->valid->finality_merkel_tree.get_root());
+      wlog("appended root of the parent's Validation Tree ${d} to block: ${bn}", ("d", parent_bsp->valid->finality_merkel_tree.get_root())("bn", bhs.block_num()));
+      assert(valid.finality_mroots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
    } else {
       // block after genesis block
       valid = valid_t {
-         .finality_tree = {}, // copy from genesis
-         .validation_tree_roots = {digest_type{}, digest_type{}} // add IF genesis validation tree (which is empty)
+         .finality_merkel_tree = {}, // copy from genesis
+         .finality_mroots = {digest_type{}, digest_type{}} // add IF genesis validation tree (which is empty)
       };
    }
 
@@ -401,7 +401,7 @@ static valid_t build_valid_structure(const block_state_ptr parent_bsp, const blo
    auto leaf_node_digest = fc::sha256::hash(leaf_node);
 
    // append finality leaf node digest to validation_tree
-   valid.finality_tree.append(leaf_node_digest);
+   valid.finality_merkel_tree.append(leaf_node_digest);
    wlog("appended leaf node  ${d} to block: ${bn}", ("d", leaf_node_digest)("bn", bhs.block_num()));
 
    valid.last_final_block_num = bhs.core.last_final_block_num();
