@@ -363,46 +363,48 @@ struct assembled_block {
    }
 };
 
+// A utility to build a valid structure from the parent block
 static valid_t build_valid_structure(const block_state_ptr parent_bsp, const block_header_state& bhs) {
    valid_t valid;
 
    if (parent_bsp) {
-      // Copy parent's validation tree
-      // copy parent's ancestor_finality_mroots starting from last_final_block_num
-      // (removing any roots from the front end of the vector
-      // to block whose block number is last_final_block_num - 1)
       assert(bhs.core.last_final_block_num() >= parent_bsp->core.last_final_block_num());
+      assert(parent_bsp->valid);
+      assert(parent_bsp->valid->finality_mroots.size() == (parent_bsp->block_num() - parent_bsp->core.last_final_block_num() + 1));
+
+      // Copy parent's finality_merkel_tree and finality_mroots.
+      // For finality_mroots, removing any roots from the front end
+      // to block whose block number is last_final_block_num - 1
+      auto start = bhs.core.last_final_block_num() - parent_bsp->core.last_final_block_num();
       valid = valid_t {
          .finality_merkel_tree = parent_bsp->valid->finality_merkel_tree,
-         .finality_mroots = {
-            parent_bsp->valid->finality_mroots.cbegin() + (bhs.core.last_final_block_num() - parent_bsp->core.last_final_block_num()),
-         parent_bsp->valid->finality_mroots.cend()}
+         .finality_mroots = { parent_bsp->valid->finality_mroots.cbegin() + start,
+         parent_bsp->valid->finality_mroots.cend() }
       };
 
       // append the root of the parent's Validation Tree.
-      assert(parent_bsp->valid);
       valid.finality_mroots.emplace_back(parent_bsp->valid->finality_merkel_tree.get_root());
-      wlog("appended root of the parent's Validation Tree ${d} to block: ${bn}", ("d", parent_bsp->valid->finality_merkel_tree.get_root())("bn", bhs.block_num()));
-      assert(valid.finality_mroots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
    } else {
-      // block after genesis block
+      // Parent bsp does not exist for the block after genesis block
       valid = valid_t {
          .finality_merkel_tree = {}, // copy from genesis
          .finality_mroots = {digest_type{}, digest_type{}} // add IF genesis validation tree (which is empty)
       };
    }
 
-   // construct finality leaf node.
-   finality_leaf_node_t leaf_node{
+   // post condition of finality_mroots
+   assert(valid.finality_mroots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
+
+   // construct block's finality leaf node.
+   valid_t::finality_leaf_node_t leaf_node{
       .block_num = bhs.block_num(),
       .finality_digest = bhs.compute_finalizer_digest(),
       .finality_mroot  = bhs.finality_mroot()
    };
    auto leaf_node_digest = fc::sha256::hash(leaf_node);
 
-   // append finality leaf node digest to validation_tree
+   // append new finality leaf node digest to finality_merkel_tree
    valid.finality_merkel_tree.append(leaf_node_digest);
-   wlog("appended leaf node  ${d} to block: ${bn}", ("d", leaf_node_digest)("bn", bhs.block_num()));
 
    valid.last_final_block_num = bhs.core.last_final_block_num();
 
@@ -762,11 +764,17 @@ struct building_block {
                      if (it != branch.end()) {
                         parent_bsp = *it;
                         assert(parent_bsp->valid);
+
+                        // calculate updated_core whose information is needed
+                        // to build finality_mroot_claim
                         block_ref parent_block_ref {
                            .block_id  = parent_id(),
                            .timestamp = bb.parent.timestamp()
                         };
                         updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
+
+                        // construct finality_mroot_claim using updated_core's
+                        // final_on_strong_qc_block_num
                         finality_mroot_claim = finality_mroot_claim_t{
                            .block_num      = updated_core->final_on_strong_qc_block_num,
                            .finality_mroot = parent_bsp->valid->get_finality_mroot(updated_core->final_on_strong_qc_block_num)
@@ -3218,7 +3226,7 @@ struct controller_impl {
                           ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
             }
 
-            // verify received finality digest in action_mroot is the same as computed
+            // verify received finality digest in action_mroot is the same as the computed
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
                assert(!bsp->valid);
 
@@ -3232,7 +3240,7 @@ struct controller_impl {
 
                EOS_ASSERT(bsp->finality_mroot() == computed_finality_mroot,
                      block_validate_exception,
-                     "finality_mroot does not match, received finality_mroot: ${r}, computed_finality_mroot: ${c}",
+                     "finality_mroot does not match, received finality_mroot: ${r} != computed_finality_mroot: ${c}",
                       ("r", bsp->finality_mroot())("c", computed_finality_mroot));
             }
 

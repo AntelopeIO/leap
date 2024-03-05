@@ -22,29 +22,41 @@ inline weak_digest_t create_weak_digest(const digest_type& digest) {
 struct block_state_legacy;
 struct block_state_accessor;
 
-struct finality_leaf_node_t {
-   block_num_type block_num{0};    // the block number
-   digest_type    finality_digest; // finality digest for the block
-   digest_type    finality_mroot;  // digest of the root of the Finality Tree associated with the block
-};
-
+/*
+ * Important concepts:
+ * 1. A Finality Merkle Tree is a Merkle tree over a sequence of Finality Leaf Nodes,
+ *    one for each block starting from the IF Genesis Block and ending at some
+ *    specified descendant block.
+ * 2. The Validation Tree associated with a target block is the Finality Merkle
+ *    Tree over Finality Leaf Nodes starting with the one for the IF Genesis Block
+ *    and ending with the one for the block that is the parent of the the target Block.
+ * 3. The Finality Tree ssociated with a target block is the Validation Tree of the
+ *    block referenced by the target block's final_on_strong_qc_block_num.
+ *    That is, validation_tree(core.final_on_strong_qc_block_num))
+ * */
 struct valid_t {
-   // current block's Finality Merkle Tree, conceptually containning leaf nodes
-   // from IF genesis node to current block
+   struct finality_leaf_node_t {
+      block_num_type block_num{0};    // the block number
+      digest_type    finality_digest; // finality digest for the block
+      digest_type    finality_mroot;  // digest of the root of the Finality Tree associated with the block
+   };
+
+   // The Finality Merkle Tree, containing leaf nodes from IF genesis block to current block
    incremental_merkle_tree finality_merkel_tree;
 
-   // the sequence of root digests of the Validation Trees associated
+   // The sequence of root digests of the finality trees associated
    // to a unbroken sequence of blocks which consist of the ancestors
-   // of the IF Block starting with the one that has a block number equal
-   // to core.last_qc_block_num
+   // of the block starting with the one that has a block number equal
+   // to core.last_final_block_num, and the current block
    std::vector<digest_type> finality_mroots;
 
    block_num_type last_final_block_num{0};
 
-   // retrieve the digest of the finality tree associated with the block
+   // Returns the root digest of the finality tree associated with the target_block_num
    // [core.last_final_block_num, block_num]
    digest_type get_finality_mroot( block_num_type target_block_num );
 };
+
 struct block_state : public block_header_state {     // block_header_state provides parent link
    // ------ data members -------------------------------------------------------------
    signed_block_ptr           block;
@@ -122,6 +134,6 @@ using block_state_ptr = std::shared_ptr<block_state>;
 } // namespace eosio::chain
 
 // not exporting pending_qc or valid_qc
-FC_REFLECT( eosio::chain::finality_leaf_node_t, (block_num)(finality_digest)(finality_mroot) )
+FC_REFLECT( eosio::chain::valid_t::finality_leaf_node_t, (block_num)(finality_digest)(finality_mroot) )
 FC_REFLECT( eosio::chain::valid_t, (finality_merkel_tree)(finality_mroots)(last_final_block_num) )
 FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated) )
