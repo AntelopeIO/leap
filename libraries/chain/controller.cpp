@@ -3215,6 +3215,24 @@ struct controller_impl {
                           ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
             }
 
+            // verify received finality digest in action_mroot is the same as computed
+            if constexpr (std::is_same_v<BSP, block_state_ptr>) {
+               assert(!bsp->valid);
+
+               block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
+                  auto pre_bhsp = forkdb.get_block_header(bsp->previous());
+                   return forkdb.get_block(bsp->previous());
+               });
+
+               bsp->valid = build_valid_structure(parent_bsp, *bsp);
+               auto computed_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
+
+               EOS_ASSERT(bsp->finality_mroot() == computed_finality_mroot,
+                     block_validate_exception,
+                     "finality_mroot does not match, received finality_mroot: ${r}, computed_finality_mroot: ${c}",
+                      ("r", bsp->finality_mroot())("c", computed_finality_mroot));
+            }
+
             if( !use_bsp_cached ) {
                bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
             }
