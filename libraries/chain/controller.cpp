@@ -755,9 +755,10 @@ struct building_block {
                         qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
                      }
 
-                     auto it = branch.begin();
+                     const auto it = branch.begin();
                      if (it != branch.end()) {
-                        assert((*it)->valid);
+                        const auto& parent_bsp = *it;
+                        assert(parent_bsp->valid);
                         block_ref parent_block_ref {
                            .block_id  = parent_id(),
                            .timestamp = bb.parent.timestamp()
@@ -765,11 +766,10 @@ struct building_block {
                         auto updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
                         finality_mroot_claim = finality_mroot_claim_t{
                            .block_num      = updated_core.final_on_strong_qc_block_num,
-                           .finality_mroot = (*it)->valid->get_finality_mroot(updated_core.final_on_strong_qc_block_num)
+                           .finality_mroot = parent_bsp->valid->get_finality_mroot(updated_core.final_on_strong_qc_block_num)
                         };
                      }
                   });
-
                }
 
                building_block_input bb_input {
