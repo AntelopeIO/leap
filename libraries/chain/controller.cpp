@@ -3231,7 +3231,6 @@ struct controller_impl {
                assert(!bsp->valid);
 
                block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                  auto pre_bhsp = forkdb.get_block_header(bsp->previous());
                    return forkdb.get_block(bsp->previous());
                });
 
