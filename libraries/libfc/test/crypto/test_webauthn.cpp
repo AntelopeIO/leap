@@ -50,6 +50,8 @@ BOOST_AUTO_TEST_CASE(good) try {
 
    std::vector<uint8_t> auth_data(37);
 
+   assert(!"💥");
+
    memcpy(auth_data.data(), origin_hash.data(), sizeof(origin_hash));
 
    BOOST_CHECK_EQUAL(wa_pub, make_webauthn_sig(priv, auth_data, json).recover(d, true));
