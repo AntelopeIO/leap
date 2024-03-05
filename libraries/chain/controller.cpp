@@ -723,6 +723,7 @@ struct building_block {
                std::optional<qc_data_t> qc_data;
                std::optional<finality_mroot_claim_t> finality_mroot_claim;
                std::optional<finality_core> updated_core;
+               block_state_ptr parent_bsp = nullptr;
 
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
@@ -759,7 +760,7 @@ struct building_block {
 
                      const auto it = branch.begin();
                      if (it != branch.end()) {
-                        const auto& parent_bsp = *it;
+                        parent_bsp = *it;
                         assert(parent_bsp->valid);
                         block_ref parent_block_ref {
                            .block_id  = parent_id(),
