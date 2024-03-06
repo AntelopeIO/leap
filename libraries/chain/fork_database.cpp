@@ -130,7 +130,7 @@ namespace eosio::chain {
       void             close_impl( const std::filesystem::path& fork_db_file );
       void             add_impl( const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator );
 
-      bsp_t            get_block_impl( const block_id_type& id, bool check_root = false ) const;
+      bsp_t            get_block_impl( const block_id_type& id, check_root_t check_root = check_root_t::no ) const;
       bool             block_exists_impl( const block_id_type& id ) const;
       void             reset_root_impl( const bsp_t& root_bs );
       void             rollback_head_to_root_impl();
@@ -377,7 +377,7 @@ namespace eosio::chain {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
-      auto prev_bh = get_block_impl( n->previous(), true );
+      auto prev_bh = get_block_impl( n->previous(), check_root_t::yes );
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
                   "forkdb unlinkable block ${id} previous ${p}", ("id", n->id())("p", n->previous()) );
 
@@ -665,14 +665,16 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   BSP fork_database_t<BSP>::get_block(const block_id_type& id, bool check_root /* = false */) const {
+   BSP fork_database_t<BSP>::get_block(const block_id_type& id,
+                                       check_root_t check_root /* = check_root_t::no */) const {
       std::lock_guard g( my->mtx );
       return my->get_block_impl(id, check_root);
    }
 
    template<class BSP>
-   BSP fork_database_impl<BSP>::get_block_impl(const block_id_type& id, bool check_root /* = false */) const {
-      if( check_root && root->id() == id ) {
+   BSP fork_database_impl<BSP>::get_block_impl(const block_id_type& id,
+                                               check_root_t check_root /* = check_root_t::no */) const {
+      if( check_root == check_root_t::yes && root->id() == id ) {
          return root;
       }
       auto itr = index.find( id );

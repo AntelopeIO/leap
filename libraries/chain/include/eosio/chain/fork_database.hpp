@@ -11,6 +11,7 @@ namespace eosio::chain {
    using block_branch_t = std::vector<signed_block_ptr>;
    enum class mark_valid_t { no, yes };
    enum class ignore_duplicate_t { no, yes };
+   enum class check_root_t { no, yes };
 
    // Used for logging of comparison values used for best fork determination
    std::string log_fork_comparison(const block_state& bs);
@@ -51,7 +52,7 @@ namespace eosio::chain {
       void open( const std::filesystem::path& fork_db_file, validator_t& validator );
       void close( const std::filesystem::path& fork_db_file );
 
-      bsp_t get_block( const block_id_type& id, bool check_root = false ) const;
+      bsp_t get_block( const block_id_type& id, check_root_t check_root = check_root_t::no ) const;
       bool block_exists( const block_id_type& id ) const;
 
       /**

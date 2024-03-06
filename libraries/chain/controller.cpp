@@ -3351,7 +3351,7 @@ struct controller_impl {
             auto existing = forkdb.get_block( id );
             EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
-            auto prev = forkdb.get_block( b->previous, true );
+            auto prev = forkdb.get_block( b->previous, check_root_t::yes );
             EOS_ASSERT( prev, unlinkable_block_exception,
                         "unlinkable block ${id} previous ${p}", ("id", id)("p", b->previous) );
 
@@ -3372,7 +3372,7 @@ struct controller_impl {
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
          // previous not found could mean that previous block not applied yet
-         auto prev = forkdb.get_block( b->previous, true );
+         auto prev = forkdb.get_block( b->previous, check_root_t::yes );
          if( !prev ) return {};
 
          return create_block_state_i( id, b, *prev );
