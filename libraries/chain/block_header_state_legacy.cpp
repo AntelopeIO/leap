@@ -1,5 +1,6 @@
 #include <eosio/chain/block_header_state_legacy.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
+#include <eosio/chain/snapshot_specific.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <limits>
 
@@ -438,7 +439,7 @@ namespace eosio::chain {
       return detail::get_new_protocol_feature_activations(header_exts);
    }
 
-   block_header_state_legacy::block_header_state_legacy( legacy::snapshot_block_header_state_v2&& bhs_v2 )
+   block_header_state_legacy::block_header_state_legacy( snapshot_detail::snapshot_block_header_state_legacy_v2&& bhs_v2 )
    {
       block_num                             = bhs_v2.block_num;
       dpos_proposed_irreversible_blocknum   = bhs_v2.dpos_proposed_irreversible_blocknum;
@@ -457,7 +458,7 @@ namespace eosio::chain {
       activated_protocol_features           = std::move(bhs_v2.activated_protocol_features);
    }
 
-   block_header_state_legacy::block_header_state_legacy( legacy::snapshot_block_header_state_v3&& bhs_v3 )
+   block_header_state_legacy::block_header_state_legacy( snapshot_detail::snapshot_block_header_state_legacy_v3&& bhs_v3 )
    {
       block_num                             = bhs_v3.block_num;
       dpos_proposed_irreversible_blocknum   = bhs_v3.dpos_proposed_irreversible_blocknum;

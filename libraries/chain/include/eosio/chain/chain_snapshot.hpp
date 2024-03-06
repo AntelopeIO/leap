@@ -2,7 +2,7 @@
 
 #include <eosio/chain/exceptions.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 struct chain_snapshot_header {
    /**
@@ -42,6 +42,6 @@ struct chain_snapshot_header {
    }
 };
 
-} }
+}
 
 FC_REFLECT(eosio::chain::chain_snapshot_header,(version))

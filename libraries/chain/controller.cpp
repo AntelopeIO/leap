@@ -23,6 +23,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
+#include <eosio/chain/snapshot_specific.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
@@ -1778,18 +1779,18 @@ struct controller_impl {
 #warning todo: add snapshot support for new (IF) block_state section
       auto read_block_state_section = [&](auto& forkdb) { /// load and upgrade the block header state
          block_header_state_legacy head_header_state;
-         using v2 = legacy::snapshot_block_header_state_v2;
-         using v3 = legacy::snapshot_block_header_state_v3;
+         using v2 = snapshot_detail::snapshot_block_header_state_legacy_v2;
+         using v3 = snapshot_detail::snapshot_block_header_state_legacy_v3;
 
          if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
             snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
-               legacy::snapshot_block_header_state_v2 legacy_header_state;
+               v2 legacy_header_state;
                section.read_row(legacy_header_state, db);
                head_header_state = block_header_state_legacy(std::move(legacy_header_state));
             });
          } else if (std::clamp(header.version, v3::minimum_version, v3::maximum_version) == header.version ) {
             snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
-               legacy::snapshot_block_header_state_v3 legacy_header_state;
+               v3 legacy_header_state;
                section.read_row(legacy_header_state, db);
                head_header_state = block_header_state_legacy(std::move(legacy_header_state));
             });
