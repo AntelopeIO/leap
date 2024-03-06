@@ -3473,14 +3473,13 @@ struct controller_impl {
    void consider_voting(const block_state_ptr& bsp) {
       // 1. Get the `core.final_on_strong_qc_block_num` for the block you are considering to vote on and use that to find the actual block ID
       //    of the ancestor block that has that block number.
-      // 2. If that block ID is not an ancestor of the current head block, then do not vote for that block.
+      // 2. If that block ID is for a non validated block, then do not vote for that block.
       // 3. Otherwise, consider voting for that block according to the decide_vote rules.
 
       if (bsp->core.final_on_strong_qc_block_num > 0) {
          const auto& final_on_strong_qc_block_ref = bsp->core.get_block_reference(bsp->core.final_on_strong_qc_block_num);
-         auto final = fetch_bsp_on_head_branch_by_num(final_on_strong_qc_block_ref.block_num());
-         if (final) {
-            assert(final->is_valid()); // if found on head branch then it must be validated
+         auto final = fetch_bsp_on_branch_by_num(final_on_strong_qc_block_ref.block_id, bsp->core.final_on_strong_qc_block_num);
+         if (final && final->is_valid()) {
             create_and_send_vote_msg(bsp);
          }
       }
