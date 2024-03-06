@@ -85,6 +85,11 @@ else()
   set(UNSHARE "")
 endif()
 
+option(LEAP_ENABLE_RELEASE_BUILD_TEST "Enables a test that verifies nodeos was compiled with compiler options typical for a release build" On)
+if(LEAP_ENABLE_RELEASE_BUILD_TEST)
+  add_test(NAME release-build-test COMMAND tests/release-build.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+endif()
+
 #To run plugin_test with all log from blockchain displayed, put --verbose after --, i.e. plugin_test -- --verbose
 add_test(NAME plugin_test COMMAND plugin_test --report_level=detailed --color_output)
 
@@ -232,7 +237,6 @@ set_property(TEST trx_finality_status_forked_if_test PROPERTY LABELS nonparallel
 
 add_test(NAME db_modes_test COMMAND tests/db_modes_test.sh -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(db_modes_test PROPERTIES COST 6000)
-add_test(NAME release-build-test COMMAND tests/release-build.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME version-label-test COMMAND tests/version-label.sh "v${VERSION_FULL}" WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME full-version-label-test COMMAND tests/full-version-label.sh "v${VERSION_FULL}" ${CMAKE_SOURCE_DIR} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME nested_container_multi_index_test COMMAND tests/nested_container_multi_index_test.py -n 2 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
