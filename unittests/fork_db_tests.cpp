@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(add_remove_test) try {
    // keep track of all those added for easy verification
    std::vector<block_state_ptr> all { bsp11a, bsp12a, bsp13a, bsp11b, bsp12b, bsp12bb, bsp12bbb, bsp13b, bsp13bb, bsp13bbb, bsp14b, bsp11c, bsp12c, bsp13c };
 
-   forkdb.reset_root(*root);
+   forkdb.reset_root(root);
    forkdb.add(bsp11a, mark_valid_t::no, ignore_duplicate_t::no);
    forkdb.add(bsp11b, mark_valid_t::no, ignore_duplicate_t::no);
    forkdb.add(bsp11c, mark_valid_t::no, ignore_duplicate_t::no);

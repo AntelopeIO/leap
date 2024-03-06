@@ -123,7 +123,7 @@ struct simulator_t {
 
       auto genesis = make_bsp(proposal_t{0, "n0"}, bsp(), finpol);
       bsp_vec.push_back(genesis);
-      forkdb.reset_root(*genesis);
+      forkdb.reset_root(genesis);
 
       block_ref genesis_ref(genesis->id(), genesis->timestamp());
       my_finalizer.fsi = fsi_t{block_timestamp_type(0), genesis_ref, genesis_ref};

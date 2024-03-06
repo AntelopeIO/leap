@@ -919,13 +919,18 @@ struct controller_impl {
              // Read-write tasks are not being executed.
    };
 
-   // LLVM sets the new handler, we need to reset this to throw a bad_alloc exception so we can possibly exit cleanly
-   // and not just abort.
+#if LLVM_VERSION_MAJOR < 9
+   // LLVM versions prior to 9 do a set_new_handler() in a static global initializer. Reset LLVM's custom handler
+   // back to the default behavior of throwing bad_alloc so we can possibly exit cleanly and not just abort as LLVM's
+   // handler does.
+   // LLVM 9+ doesn't install this handler unless calling InitLLVM(), which we don't.
+   // See https://reviews.llvm.org/D64505
    struct reset_new_handler {
       reset_new_handler() { std::set_new_handler([](){ throw std::bad_alloc(); }); }
    };
 
    reset_new_handler               rnh; // placed here to allow for this to be set before constructing the other fields
+#endif
    controller&                     self;
    std::function<void()>           shutdown;
    chainbase::database             db;
@@ -1107,7 +1112,7 @@ struct controller_impl {
       fork_db.apply<void>([&](auto& forkdb) {
          std::visit([&](const auto& bsp) {
             if constexpr (std::is_same_v<std::decay_t<decltype(bsp)>, std::decay_t<decltype(forkdb.head())>>)
-               forkdb.reset_root(*bsp);
+               forkdb.reset_root(bsp);
          }, chain_head.internal());
       });
    }
@@ -3423,43 +3428,23 @@ struct controller_impl {
    }
 
    // thread safe, expected to be called from thread other than the main thread
-   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
-      // Verify claim made by instant_finality_extension in block header extension and
-      // quorum_certificate_extension in block extension are valid.
-      // This is the only place the evaluation is done.
-      verify_qc_claim(id, b, prev);
+   template<class BS>
+   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const BS& prev ) {
+      constexpr bool savanna_mode = std::is_same_v<typename std::decay_t<BS>, block_state>;
+      if constexpr (savanna_mode) {
+         // Verify claim made by instant_finality_extension in block header extension and
+         // quorum_certificate_extension in block extension are valid.
+         // This is the only place the evaluation is done.
+         verify_qc_claim(id, b, prev);
+      }
 
-      auto trx_mroot = calculate_trx_merkle( b->transactions, true );
+      auto trx_mroot = calculate_trx_merkle( b->transactions, savanna_mode );
       EOS_ASSERT( b->transaction_mroot == trx_mroot,
                   block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
       const bool skip_validate_signee = false;
-      auto bsp = std::make_shared<block_state>(
-            prev,
-            b,
-            protocol_features.get_protocol_feature_set(),
-            [this]( block_timestamp_type timestamp,
-                    const flat_set<digest_type>& cur_features,
-                    const vector<digest_type>& new_features )
-            { check_protocol_features( timestamp, cur_features, new_features ); },
-            skip_validate_signee
-      );
-
-      EOS_ASSERT( id == bsp->id(), block_validate_exception,
-                  "provided id ${id} does not match calculated block id ${bid}", ("id", id)("bid", bsp->id()) );
-
-      return block_handle{bsp};
-   }
-
-   // thread safe, expected to be called from thread other than the main thread
-   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
-      auto trx_mroot = calculate_trx_merkle( b->transactions, false );
-      EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
-                  "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
-
-      const bool skip_validate_signee = false;
-      auto bsp = std::make_shared<block_state_legacy>(
+      auto bsp = std::make_shared<BS>(
             prev,
             b,
             protocol_features.get_protocol_feature_set(),
@@ -3484,7 +3469,7 @@ struct controller_impl {
             auto existing = forkdb.get_block( id );
             EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
-            auto prev = forkdb.get_block_header( b->previous );
+            auto prev = forkdb.get_block( b->previous, check_root_t::yes );
             EOS_ASSERT( prev, unlinkable_block_exception,
                         "unlinkable block ${id} previous ${p}", ("id", id)("p", b->previous) );
 
@@ -3505,7 +3490,7 @@ struct controller_impl {
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
          // previous not found could mean that previous block not applied yet
-         auto prev = forkdb.get_block_header( b->previous );
+         auto prev = forkdb.get_block( b->previous, check_root_t::yes );
          if( !prev ) return {};
 
          return create_block_state_i( id, b, *prev );
