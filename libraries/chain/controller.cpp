@@ -365,32 +365,25 @@ struct assembled_block {
 
 // A utility to build a valid structure from the parent block
 static valid_t build_valid_structure(const block_state_ptr parent_bsp, const block_header_state& bhs) {
+   assert(parent_bsp);
+   assert(bhs.core.last_final_block_num() >= parent_bsp->core.last_final_block_num());
+   assert(parent_bsp->valid);
+   assert(parent_bsp->valid->finality_mroots.size() == (parent_bsp->block_num() - parent_bsp->core.last_final_block_num() + 1));
+
    valid_t valid;
 
-   if (parent_bsp) {
-      assert(bhs.core.last_final_block_num() >= parent_bsp->core.last_final_block_num());
-      assert(parent_bsp->valid);
-      assert(parent_bsp->valid->finality_mroots.size() == (parent_bsp->block_num() - parent_bsp->core.last_final_block_num() + 1));
+   // Copy parent's finality_merkel_tree and finality_mroots.
+   // For finality_mroots, removing any roots from the front end
+   // to block whose block number is last_final_block_num - 1
+   auto start = bhs.core.last_final_block_num() - parent_bsp->core.last_final_block_num();
+   valid = valid_t {
+      .finality_merkel_tree = parent_bsp->valid->finality_merkel_tree,
+      .finality_mroots = { parent_bsp->valid->finality_mroots.cbegin() + start,
+      parent_bsp->valid->finality_mroots.cend() }
+   };
 
-      // Copy parent's finality_merkel_tree and finality_mroots.
-      // For finality_mroots, removing any roots from the front end
-      // to block whose block number is last_final_block_num - 1
-      auto start = bhs.core.last_final_block_num() - parent_bsp->core.last_final_block_num();
-      valid = valid_t {
-         .finality_merkel_tree = parent_bsp->valid->finality_merkel_tree,
-         .finality_mroots = { parent_bsp->valid->finality_mroots.cbegin() + start,
-         parent_bsp->valid->finality_mroots.cend() }
-      };
-
-      // append the root of the parent's Validation Tree.
-      valid.finality_mroots.emplace_back(parent_bsp->valid->finality_merkel_tree.get_root());
-   } else {
-      // Parent bsp does not exist for the block after genesis block
-      valid = valid_t {
-         .finality_merkel_tree = {}, // copy from genesis
-         .finality_mroots = {digest_type{}, digest_type{}} // add IF genesis validation tree (which is empty)
-      };
-   }
+   // append the root of the parent's Validation Tree.
+   valid.finality_mroots.emplace_back(parent_bsp->valid->finality_merkel_tree.get_root());
 
    // post condition of finality_mroots
    assert(valid.finality_mroots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
@@ -803,9 +796,11 @@ struct building_block {
 
                std::optional<valid_t> valid;
                if (!validating) {
-                  block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                     return forkdb.get_block(parent_id());
-                  });
+                  if (!parent_bsp) {
+                     parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
+                        return forkdb.get_block(parent_id(), check_root_t::yes);
+                     });
+                  }
 
                   valid = build_valid_structure(parent_bsp, bhs);
                }
@@ -3234,7 +3229,7 @@ struct controller_impl {
                assert(!bsp->valid);
 
                block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                   return forkdb.get_block(bsp->previous());
+                   return forkdb.get_block(bsp->previous(), check_root_t::yes);
                });
 
                bsp->valid = build_valid_structure(parent_bsp, *bsp);
