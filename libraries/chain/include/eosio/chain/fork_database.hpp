@@ -58,7 +58,7 @@ namespace eosio::chain {
        *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
        *  The head will also be reset to point to the root.
        */
-      void reset_root( const bhs_t& root_bhs );
+      void reset_root( const bsp_t& root_bhs );
 
       /**
        *  Removes validated flag from all blocks in fork database and resets head to point to the root.

@@ -1019,7 +1019,7 @@ struct controller_impl {
       fork_db.apply<void>([&](auto& forkdb) {
          std::visit([&](const auto& bsp) {
             if constexpr (std::is_same_v<std::decay_t<decltype(bsp)>, std::decay_t<decltype(forkdb.head())>>)
-               forkdb.reset_root(*bsp);
+               forkdb.reset_root(bsp);
          }, chain_head.internal());
       });
    }
