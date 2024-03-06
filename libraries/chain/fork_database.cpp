@@ -18,6 +18,8 @@ namespace eosio::chain {
    /**
     * History:
     * Version 1: initial version of the new refactored fork database portable format
+    * Version 2: Savanna version, store either `block_state`, `block_state_legacy` or both versions,
+    *            root is full `block_state`, not just the header.
     */
 
    struct block_state_accessor {
@@ -118,7 +120,7 @@ namespace eosio::chain {
 
       std::mutex             mtx;
       fork_multi_index_type  index;
-      bsp_t                  root; // Only uses the block_header_state portion of block_state
+      bsp_t                  root;
       bsp_t                  head;
       const uint32_t         magic_number;
 
@@ -128,10 +130,9 @@ namespace eosio::chain {
       void             close_impl( const std::filesystem::path& fork_db_file );
       void             add_impl( const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator );
 
-      bhsp_t           get_block_header_impl( const block_id_type& id ) const;
-      bsp_t            get_block_impl( const block_id_type& id ) const;
+      bsp_t            get_block_impl( const block_id_type& id, check_root_t check_root = check_root_t::no ) const;
       bool             block_exists_impl( const block_id_type& id ) const;
-      void             reset_root_impl( const bhs_t& root_bhs );
+      void             reset_root_impl( const bsp_t& root_bs );
       void             rollback_head_to_root_impl();
       void             advance_root_impl( const block_id_type& id );
       void             remove_impl( const block_id_type& id );
@@ -189,8 +190,8 @@ namespace eosio::chain {
                        ("max", fork_database::max_supported_version)
             );
 
-            bhs_t state;
-            fc::raw::unpack( ds, state );
+            bsp_t state = std::make_shared<bs_t>();
+            fc::raw::unpack( ds, *state );
             reset_root_impl( state );
 
             unsigned_int size; fc::raw::unpack( ds, size );
@@ -248,7 +249,7 @@ namespace eosio::chain {
       std::ofstream out( fork_db_file.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
       fc::raw::pack( out, magic_number );
       fc::raw::pack( out, fork_database::max_supported_version ); // write out current version which is always max_supported_version
-      fc::raw::pack( out, *static_cast<bhs_t*>(&*root) );
+      fc::raw::pack( out, *root );
       uint32_t num_blocks_in_fork_db = index.size();
       fc::raw::pack( out, unsigned_int{num_blocks_in_fork_db} );
 
@@ -298,16 +299,15 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   void fork_database_t<BSP>::reset_root( const bhs_t& root_bhs ) {
+   void fork_database_t<BSP>::reset_root( const bsp_t& root_bsp ) {
       std::lock_guard g( my->mtx );
-      my->reset_root_impl(root_bhs);
+      my->reset_root_impl(root_bsp);
    }
 
    template<class BSP>
-   void fork_database_impl<BSP>::reset_root_impl( const bhs_t& root_bhs ) {
+   void fork_database_impl<BSP>::reset_root_impl( const bsp_t& root_bsp ) {
       index.clear();
-      root = std::make_shared<bs_t>();
-      static_cast<bhs_t&>(*root) = root_bhs;
+      root = root_bsp;
       bs_accessor_t::set_valid(*root, true);
       head = root;
    }
@@ -372,31 +372,12 @@ namespace eosio::chain {
       root = new_root;
    }
 
-   template<class BSP>
-   fork_database_t<BSP>::bhsp_t fork_database_t<BSP>::get_block_header( const block_id_type& id ) const {
-      std::lock_guard g( my->mtx );
-      return my->get_block_header_impl( id );
-   }
-
-   template<class BSP>
-   fork_database_impl<BSP>::bhsp_t fork_database_impl<BSP>::get_block_header_impl( const block_id_type& id ) const {
-      if( root->id() == id ) {
-         return root;
-      }
-
-      auto itr = index.find( id );
-      if( itr != index.end() )
-         return *itr;
-
-      return bhsp_t();
-   }
-
    template <class BSP>
    void fork_database_impl<BSP>::add_impl(const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator) {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
-      auto prev_bh = get_block_header_impl( n->previous() );
+      auto prev_bh = get_block_impl( n->previous(), check_root_t::yes );
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
                   "forkdb unlinkable block ${id} previous ${p}", ("id", n->id())("p", n->previous()) );
 
@@ -684,13 +665,18 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   BSP fork_database_t<BSP>::get_block(const block_id_type& id) const {
+   BSP fork_database_t<BSP>::get_block(const block_id_type& id,
+                                       check_root_t check_root /* = check_root_t::no */) const {
       std::lock_guard g( my->mtx );
-      return my->get_block_impl(id);
+      return my->get_block_impl(id, check_root);
    }
 
    template<class BSP>
-   BSP fork_database_impl<BSP>::get_block_impl(const block_id_type& id) const {
+   BSP fork_database_impl<BSP>::get_block_impl(const block_id_type& id,
+                                               check_root_t check_root /* = check_root_t::no */) const {
+      if( check_root == check_root_t::yes && root->id() == id ) {
+         return root;
+      }
       auto itr = index.find( id );
       if( itr != index.end() )
          return *itr;
@@ -775,7 +761,7 @@ namespace eosio::chain {
       fork_db_s = std::make_unique<fork_database_if_t>(fork_database_if_t::magic_number);
       legacy = false;
       apply_s<void>([&](auto& forkdb) {
-         forkdb.reset_root(*new_head);
+         forkdb.reset_root(new_head);
       });
       return block_handle{new_head};
    }
