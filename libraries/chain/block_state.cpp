@@ -64,6 +64,19 @@ block_state::block_state(const block_state_legacy& bsp) {
    core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
    activated_protocol_features = bsp.activated_protocol_features;
 
+   // construct valid structure
+   valid = valid_t {
+      .finality_merkel_tree = incremental_merkle_tree{},
+      .finality_mroots      = { digest_type{} }, // for genesis block itself
+      .last_final_block_num = bsp.block_num()
+   };
+   valid_t::finality_leaf_node_t node {
+      .block_num       = bsp.block_num(),
+      .finality_digest = digest_type{},
+      .finality_mroot  = digest_type{}
+   };
+   valid->finality_merkel_tree.append(fc::sha256::hash(node));
+
    auto if_ext_id = instant_finality_extension::extension_id();
    std::optional<block_header_extension> ext = bsp.block->extract_header_extension(if_ext_id);
    assert(ext); // required by current transition mechanism
