@@ -128,8 +128,7 @@ namespace eosio::chain {
       void             close_impl( const std::filesystem::path& fork_db_file );
       void             add_impl( const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator );
 
-      bhsp_t           get_block_header_impl( const block_id_type& id ) const;
-      bsp_t            get_block_impl( const block_id_type& id ) const;
+      bsp_t            get_block_impl( const block_id_type& id, bool check_root = false ) const;
       bool             block_exists_impl( const block_id_type& id ) const;
       void             reset_root_impl( const bhs_t& root_bhs );
       void             rollback_head_to_root_impl();
@@ -372,31 +371,12 @@ namespace eosio::chain {
       root = new_root;
    }
 
-   template<class BSP>
-   fork_database_t<BSP>::bhsp_t fork_database_t<BSP>::get_block_header( const block_id_type& id ) const {
-      std::lock_guard g( my->mtx );
-      return my->get_block_header_impl( id );
-   }
-
-   template<class BSP>
-   fork_database_impl<BSP>::bhsp_t fork_database_impl<BSP>::get_block_header_impl( const block_id_type& id ) const {
-      if( root->id() == id ) {
-         return root;
-      }
-
-      auto itr = index.find( id );
-      if( itr != index.end() )
-         return *itr;
-
-      return bhsp_t();
-   }
-
    template <class BSP>
    void fork_database_impl<BSP>::add_impl(const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator) {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
-      auto prev_bh = get_block_header_impl( n->previous() );
+      auto prev_bh = get_block_impl( n->previous(), true );
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
                   "forkdb unlinkable block ${id} previous ${p}", ("id", n->id())("p", n->previous()) );
 
@@ -684,13 +664,16 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   BSP fork_database_t<BSP>::get_block(const block_id_type& id) const {
+   BSP fork_database_t<BSP>::get_block(const block_id_type& id, bool check_root /* = false */) const {
       std::lock_guard g( my->mtx );
-      return my->get_block_impl(id);
+      return my->get_block_impl(id, check_root);
    }
 
    template<class BSP>
-   BSP fork_database_impl<BSP>::get_block_impl(const block_id_type& id) const {
+   BSP fork_database_impl<BSP>::get_block_impl(const block_id_type& id, bool check_root /* = false */) const {
+      if( check_root && root->id() == id ) {
+         return root;
+      }
       auto itr = index.find( id );
       if( itr != index.end() )
          return *itr;

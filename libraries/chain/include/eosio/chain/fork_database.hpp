@@ -51,8 +51,7 @@ namespace eosio::chain {
       void open( const std::filesystem::path& fork_db_file, validator_t& validator );
       void close( const std::filesystem::path& fork_db_file );
 
-      bhsp_t get_block_header( const block_id_type& id ) const;
-      bsp_t  get_block( const block_id_type& id ) const;
+      bsp_t get_block( const block_id_type& id, bool check_root = false ) const;
       bool block_exists( const block_id_type& id ) const;
 
       /**
