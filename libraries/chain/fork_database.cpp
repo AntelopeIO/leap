@@ -712,7 +712,7 @@ namespace eosio::chain {
 
    fork_database::fork_database(const std::filesystem::path& data_dir)
       : data_dir(data_dir)
-        // currently needed because chain_head is accessed before fork database open
+        // genesis starts with legacy
       , fork_db_l{std::make_unique<fork_database_legacy_t>(fork_database_legacy_t::legacy_magic_number)}
    {
    }

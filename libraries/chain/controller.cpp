@@ -1124,11 +1124,6 @@ struct controller_impl {
     my_finalizers{ .t_startup = fc::time_point::now(), .persist_file_path = cfg.finalizers_dir / "safety.dat" },
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
-      fork_db.open([this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
-                          const vector<digest_type>& new_features) {
-         check_protocol_features(timestamp, cur_features, new_features);
-      });
-
       thread_pool.start( cfg.thread_pool_size, [this]( const fc::exception& e ) {
          elog( "Exception in chain thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          if( shutdown ) shutdown();
@@ -1168,6 +1163,13 @@ struct controller_impl {
    SET_APP_HANDLER( eosio, eosio, unlinkauth );
 
    SET_APP_HANDLER( eosio, eosio, canceldelay );
+   }
+
+   void open_fork_db() {
+      fork_db.open([this](block_timestamp_type timestamp, const flat_set<digest_type>& cur_features,
+                          const vector<digest_type>& new_features) {
+         check_protocol_features(timestamp, cur_features, new_features);
+      });
    }
 
    /**
@@ -1223,7 +1225,8 @@ struct controller_impl {
       auto root_id = fork_db_root_block_id();
 
       if( valid_log_head ) {
-         EOS_ASSERT( root_id == log_head_id, fork_database_exception, "fork database root does not match block log head" );
+         EOS_ASSERT( root_id == log_head_id, fork_database_exception,
+                     "fork database root ${rid} does not match block log head ${hid}", ("rid", root_id)("hid", log_head_id) );
       } else {
          EOS_ASSERT( fork_db_root_block_num() == lib_num, fork_database_exception,
                      "The first block ${lib_num} when starting with an empty block log should be the block after fork database root ${bn}.",
@@ -1321,64 +1324,120 @@ struct controller_impl {
       initialize_database(genesis);
    }
 
-   void replay(const std::function<bool()>& check_shutdown) {
+   enum class startup_t { genesis, snapshot, existing_state };
+
+   std::exception_ptr replay_block_log(const std::function<bool()>& check_shutdown) {
       auto blog_head = blog.head();
-      if( !fork_db_has_root() ) {
-         fork_db_reset_root_to_chain_head();
-         if (!blog_head)
-            return;
+      if (!blog_head) {
+         ilog( "no block log found" );
+         return {};
       }
 
-      replaying = true;
       auto start_block_num = chain_head.block_num() + 1;
       auto start = fc::time_point::now();
 
       std::exception_ptr except_ptr;
+      if( start_block_num <= blog_head->block_num() ) {
+         ilog( "existing block log, attempting to replay from ${s} to ${n} blocks", ("s", start_block_num)("n", blog_head->block_num()) );
+         try {
+            while( auto next = blog.read_block_by_num( chain_head.block_num() + 1 ) ) {
+               apply<void>(chain_head, [&](const auto& head) {
+                  replay_push_block<std::decay_t<decltype(head)>>( next, controller::block_status::irreversible );
+               });
+               if( check_shutdown() ) break;
+               if( next->block_num() % 500 == 0 ) {
+                  ilog( "${n} of ${head}", ("n", next->block_num())("head", blog_head->block_num()) );
+               }
+            }
+         } catch(  const database_guard_exception& e ) {
+            except_ptr = std::current_exception();
+         }
+         auto end = fc::time_point::now();
+         ilog( "${n} irreversible blocks replayed", ("n", 1 + chain_head.block_num() - start_block_num) );
+         ilog( "replayed ${n} blocks in ${duration} seconds, ${mspb} ms/block",
+               ("n", chain_head.block_num() + 1 - start_block_num)("duration", (end-start).count()/1000000)
+               ("mspb", ((end-start).count()/1000.0)/(chain_head.block_num()-start_block_num)) );
 
-      auto replay_blog = [&](auto& forkdb) {
+         // if the irreverible log is played without undo sessions enabled, we need to sync the
+         // revision ordinal to the appropriate expected value here.
+         if( skip_db_sessions( controller::block_status::irreversible ) )
+            db.set_revision( chain_head.block_num() );
+      } else {
+         ilog( "no irreversible blocks need to be replayed" );
+      }
+
+      return except_ptr;
+   }
+
+   void replay(const std::function<bool()>& check_shutdown, startup_t startup) {
+      replaying = true;
+
+      auto blog_head = blog.head();
+      auto start_block_num = chain_head.block_num() + 1;
+      std::exception_ptr except_ptr;
+
+      if (blog_head) {
+         except_ptr = replay_block_log(check_shutdown);
+      } else {
+         ilog( "no block log found" );
+      }
+
+      try {
+         if (startup != startup_t::existing_state)
+           open_fork_db();
+      } catch (const fc::exception& e) {
+         elog( "Update to open fork database, continueing without reversible blocks: ${e}", ("e", e));
+      }
+
+      if (startup == startup_t::genesis) {
+         if (!fork_db.fork_db_if_present()) {
+            // switch to savanna if needed
+            apply_s<void>(chain_head, [&](const auto& head) {
+               fork_db.switch_from_legacy(chain_head);
+            });
+         }
+         auto do_startup = [&](auto& forkdb) {
+            if( forkdb.head() ) {
+               if( read_mode == db_read_mode::IRREVERSIBLE && forkdb.head()->id() != forkdb.root()->id() ) {
+                  forkdb.rollback_head_to_root();
+               }
+               wlog( "No existing chain state. Initializing fresh blockchain state." );
+            } else {
+               wlog( "No existing chain state or fork database. Initializing fresh blockchain state and resetting fork database.");
+            }
+
+            if( !forkdb.head() ) {
+               fork_db_reset_root_to_chain_head();
+            }
+         };
+         fork_db.apply<void>(do_startup);
+      }
+
+      if( !fork_db_has_root() ) {
+         fork_db_reset_root_to_chain_head();
+      }
+
+      auto replay_fork_db = [&](auto& forkdb) {
          using BSP = std::decay_t<decltype(forkdb.head())>;
-         if( blog_head && start_block_num <= blog_head->block_num() ) {
-            ilog( "existing block log, attempting to replay from ${s} to ${n} blocks",
-                  ("s", start_block_num)("n", blog_head->block_num()) );
-            try {
-               while( auto next = blog.read_block_by_num( chain_head.block_num() + 1 ) ) {
-                  replay_push_block<BSP>( next, controller::block_status::irreversible );
-                  if( check_shutdown() ) break;
-                  if( next->block_num() % 500 == 0 ) {
-                     ilog( "${n} of ${head}", ("n", next->block_num())("head", blog_head->block_num()) );
-                  }
-               }
-            } catch(  const database_guard_exception& e ) {
-               except_ptr = std::current_exception();
-            }
-            ilog( "${n} irreversible blocks replayed", ("n", 1 + chain_head.block_num() - start_block_num) );
 
-            auto pending_head = forkdb.pending_head();
-            if( pending_head ) {
-               ilog( "fork database head ${h}, root ${r}", ("h", pending_head->block_num())( "r", forkdb.root()->block_num() ) );
-               if( pending_head->block_num() < chain_head.block_num() || chain_head.block_num() < forkdb.root()->block_num() ) {
-                  ilog( "resetting fork database with new last irreversible block as the new root: ${id}", ("id", chain_head.id()) );
-                  fork_db_reset_root_to_chain_head();
-               } else if( chain_head.block_num() != forkdb.root()->block_num() ) {
-                  auto new_root = forkdb.search_on_branch( pending_head->id(), chain_head.block_num() );
-                  EOS_ASSERT( new_root, fork_database_exception,
-                              "unexpected error: could not find new LIB in fork database" );
-                  ilog( "advancing fork database root to new last irreversible block within existing fork database: ${id}",
-                        ("id", new_root->id()) );
-                  forkdb.mark_valid( new_root );
-                  forkdb.advance_root( new_root->id() );
-               }
+         auto pending_head = forkdb.pending_head();
+         if( pending_head && blog_head && start_block_num <= blog_head->block_num() ) {
+            ilog( "fork database head ${h}, root ${r}", ("h", pending_head->block_num())( "r", forkdb.root()->block_num() ) );
+            if( pending_head->block_num() < chain_head.block_num() || chain_head.block_num() < forkdb.root()->block_num() ) {
+               ilog( "resetting fork database with new last irreversible block as the new root: ${id}", ("id", chain_head.id()) );
+               fork_db_reset_root_to_chain_head();
+            } else if( chain_head.block_num() != forkdb.root()->block_num() ) {
+               auto new_root = forkdb.search_on_branch( pending_head->id(), chain_head.block_num() );
+               EOS_ASSERT( new_root, fork_database_exception,
+                           "unexpected error: could not find new LIB in fork database" );
+               ilog( "advancing fork database root to new last irreversible block within existing fork database: ${id}",
+                     ("id", new_root->id()) );
+               forkdb.mark_valid( new_root );
+               forkdb.advance_root( new_root->id() );
             }
-
-            // if the irreverible log is played without undo sessions enabled, we need to sync the
-            // revision ordinal to the appropriate expected value here.
-            if( skip_db_sessions( controller::block_status::irreversible ) )
-               db.set_revision( chain_head.block_num() );
-         } else {
-            ilog( "no irreversible blocks need to be replayed" );
          }
 
-         if (snapshot_head_block != 0 && !blog_head) {
+         if (snapshot_head_block != 0 && !blog.head()) {
             // loading from snapshot without a block log so fork_db can't be considered valid
             fork_db_reset_root_to_chain_head();
          } else if( !except_ptr && !check_shutdown() && forkdb.head() ) {
@@ -1398,14 +1457,10 @@ struct controller_impl {
             fork_db_reset_root_to_chain_head();
          }
 
-         auto end = fc::time_point::now();
-         ilog( "replayed ${n} blocks in ${duration} seconds, ${mspb} ms/block",
-               ("n", chain_head.block_num() + 1 - start_block_num)("duration", (end-start).count()/1000000)
-               ("mspb", ((end-start).count()/1000.0)/(chain_head.block_num()-start_block_num)) );
-         replaying = false;
       };
+      fork_db.apply<void>(replay_fork_db);
 
-      fork_db.apply<void>(replay_blog);
+      replaying = false;
 
       if( except_ptr ) {
          std::rethrow_exception( except_ptr );
@@ -1432,7 +1487,7 @@ struct controller_impl {
          }
          ilog( "Snapshot loaded, lib: ${lib}", ("lib", chain_head.block_num()) );
 
-         init(std::move(check_shutdown));
+         init(std::move(check_shutdown), startup_t::snapshot);
          auto snapshot_load_time = (fc::time_point::now() - snapshot_load_start_time).to_seconds();
          ilog( "Finished initialization from snapshot (snapshot load time was ${t}s)", ("t", snapshot_load_time) );
       } catch (boost::interprocess::bad_alloc& e) {
@@ -1453,34 +1508,21 @@ struct controller_impl {
 
       initialize_blockchain_state(genesis); // sets chain_head to genesis state
 
-      auto do_startup = [&](auto& forkdb) {
-         if( forkdb.head() ) {
-            if( read_mode == db_read_mode::IRREVERSIBLE && forkdb.head()->id() != forkdb.root()->id() ) {
-               forkdb.rollback_head_to_root();
-            }
-            wlog( "No existing chain state. Initializing fresh blockchain state." );
-         } else {
-            wlog( "No existing chain state or fork database. Initializing fresh blockchain state and resetting fork database.");
-         }
-
-         if( !forkdb.head() ) {
-            fork_db_reset_root_to_chain_head();
-         }
-      };
-      fork_db.apply<void>(do_startup);
-
       if( blog.head() ) {
          EOS_ASSERT( blog.first_block_num() == 1, block_log_exception, "block log does not start with genesis block" );
       } else {
          blog.reset( genesis, chain_head.block() );
       }
 
-      init(std::move(check_shutdown));
+      init(std::move(check_shutdown), startup_t::genesis);
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
       EOS_ASSERT( db.revision() >= 1, database_exception,
                   "This version of controller::startup does not work with a fresh state database." );
+
+      open_fork_db();
+
       EOS_ASSERT( fork_db_has_head(), fork_database_exception,
                   "No existing fork database despite existing chain state. Replay required." );
 
@@ -1511,7 +1553,7 @@ struct controller_impl {
 
       fork_db.apply<void>(do_startup);
 
-      init(std::move(check_shutdown));
+      init(std::move(check_shutdown), startup_t::existing_state);
    }
 
 
@@ -1528,7 +1570,7 @@ struct controller_impl {
       return header_itr;
    }
 
-   void init(std::function<bool()> check_shutdown) {
+   void init(std::function<bool()> check_shutdown, startup_t startup) {
       auto header_itr = validate_db_version( db );
 
       {
@@ -1571,7 +1613,7 @@ struct controller_impl {
          ilog( "chain database started with hash: ${hash}", ("hash", calculate_integrity_hash()) );
       okay_to_print_integrity_hash_on_stop = true;
 
-      replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
+      replay( check_shutdown, startup ); // replay any irreversible and reversible blocks ahead of current head
 
       if( check_shutdown() ) return;
 
@@ -2884,7 +2926,8 @@ struct controller_impl {
                                                       .lock      = proposal_ref(lib_block->id(),   lib_block->timestamp()) });
                   }
 
-                  log_irreversible();
+                  if ( (s != controller::block_status::irreversible && read_mode != db_read_mode::IRREVERSIBLE) && s != controller::block_status::ephemeral)
+                     log_irreversible();
                   return true;
                }
             }
