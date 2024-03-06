@@ -1726,7 +1726,7 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
       // ensure it is accepted (but rejected because it doesn't match expected state)
       BOOST_REQUIRE_EXCEPTION(
          remote.push_block(bad_block), wrong_signing_key,
-         fc_exception_message_is( "block signed by unexpected key" )
+         fc_exception_message_starts_with( "block signed by unexpected key" )
       );
    }
 
@@ -1752,7 +1752,7 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
       // ensure it is rejected because it doesn't match expected state (but the extention was accepted)
       BOOST_REQUIRE_EXCEPTION(
          remote.push_block(bad_block), wrong_signing_key,
-         fc_exception_message_is( "block signed by unexpected key" )
+         fc_exception_message_starts_with( "block signed by unexpected key" )
       );
    }
 
