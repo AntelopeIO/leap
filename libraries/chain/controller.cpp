@@ -1050,7 +1050,7 @@ struct controller_impl {
 
    std::optional<block_id_type> fetch_block_id_on_head_branch_by_num(uint32_t block_num) const {
       return fork_db.apply<std::optional<block_id_type>>([&](const auto& forkdb) -> std::optional<block_id_type> {
-         auto bsp = forkdb.search_on_head_branch(block_num);
+         auto bsp = forkdb.search_on_head_branch(block_num, include_root_t::yes);
          if (bsp) return bsp->id();
          return {};
       });
@@ -1062,7 +1062,7 @@ struct controller_impl {
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
             [&](const fork_database_if_t&forkdb) -> block_state_ptr {
-               auto bsp = forkdb.search_on_head_branch(block_num);
+               auto bsp = forkdb.search_on_head_branch(block_num, include_root_t::yes);
                return bsp;
             }
          }
@@ -1075,7 +1075,7 @@ struct controller_impl {
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
             [&](const fork_database_if_t&forkdb) -> block_state_ptr {
-               auto bsp = forkdb.search_on_branch(id, block_num);
+               auto bsp = forkdb.search_on_branch(id, block_num, include_root_t::yes);
                return bsp;
             }
          }
@@ -1246,7 +1246,7 @@ struct controller_impl {
 
       auto mark_branch_irreversible = [&, this](auto& forkdb) {
          auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( if_irreversible_block_id, new_lib_num)
-                                    : forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib_num );
+                                        : forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib_num );
          try {
             auto should_process = [&](auto& bsp) {
                // Only make irreversible blocks that have been validated. Blocks in the fork database may not be on our current best head
@@ -3403,7 +3403,7 @@ struct controller_impl {
             auto existing = forkdb.get_block( id );
             EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
-            auto prev = forkdb.get_block( b->previous, check_root_t::yes );
+            auto prev = forkdb.get_block( b->previous, include_root_t::yes );
             EOS_ASSERT( prev, unlinkable_block_exception,
                         "unlinkable block ${id} previous ${p}", ("id", id)("p", b->previous) );
 
@@ -3424,7 +3424,7 @@ struct controller_impl {
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
 
          // previous not found could mean that previous block not applied yet
-         auto prev = forkdb.get_block( b->previous, check_root_t::yes );
+         auto prev = forkdb.get_block( b->previous, include_root_t::yes );
          if( !prev ) return {};
 
          return create_block_state_i( id, b, *prev );

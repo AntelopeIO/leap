@@ -11,7 +11,7 @@ namespace eosio::chain {
    using block_branch_t = std::vector<signed_block_ptr>;
    enum class mark_valid_t { no, yes };
    enum class ignore_duplicate_t { no, yes };
-   enum class check_root_t { no, yes };
+   enum class include_root_t { no, yes };
 
    // Used for logging of comparison values used for best fork determination
    std::string log_fork_comparison(const block_state& bs);
@@ -52,7 +52,7 @@ namespace eosio::chain {
       void open( const std::filesystem::path& fork_db_file, validator_t& validator );
       void close( const std::filesystem::path& fork_db_file );
 
-      bsp_t get_block( const block_id_type& id, check_root_t check_root = check_root_t::no ) const;
+      bsp_t get_block( const block_id_type& id, include_root_t include_root = include_root_t::no ) const;
       bool block_exists( const block_id_type& id ) const;
 
       /**
@@ -107,12 +107,12 @@ namespace eosio::chain {
        *  Returns the block state with a block number of `block_num` that is on the branch that
        *  contains a block with an id of`h`, or the empty shared pointer if no such block can be found.
        */
-      bsp_t search_on_branch( const block_id_type& h, uint32_t block_num ) const;
+      bsp_t search_on_branch( const block_id_type& h, uint32_t block_num, include_root_t include_root = include_root_t::no ) const;
 
       /**
        * search_on_branch( head()->id(), block_num)
        */
-      bsp_t search_on_head_branch( uint32_t block_num ) const;
+      bsp_t search_on_head_branch( uint32_t block_num, include_root_t include_root = include_root_t::no ) const;
 
       /**
        *  Given two head blocks, return two branches of the fork graph that

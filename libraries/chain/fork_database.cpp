@@ -130,7 +130,7 @@ namespace eosio::chain {
       void             close_impl( const std::filesystem::path& fork_db_file );
       void             add_impl( const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator );
 
-      bsp_t            get_block_impl( const block_id_type& id, check_root_t check_root = check_root_t::no ) const;
+      bsp_t            get_block_impl( const block_id_type& id, include_root_t include_root = include_root_t::no ) const;
       bool             block_exists_impl( const block_id_type& id ) const;
       void             reset_root_impl( const bsp_t& root_bs );
       void             rollback_head_to_root_impl();
@@ -139,8 +139,8 @@ namespace eosio::chain {
       branch_t         fetch_branch_impl( const block_id_type& h, uint32_t trim_after_block_num ) const;
       block_branch_t   fetch_block_branch_impl( const block_id_type& h, uint32_t trim_after_block_num ) const;
       full_branch_t    fetch_full_branch_impl(const block_id_type& h) const;
-      bsp_t            search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const;
-      bsp_t            search_on_head_branch_impl( uint32_t block_num ) const;
+      bsp_t            search_on_branch_impl( const block_id_type& h, uint32_t block_num, include_root_t include_root ) const;
+      bsp_t            search_on_head_branch_impl( uint32_t block_num, include_root_t include_root ) const;
       void             mark_valid_impl( const bsp_t& h );
       branch_pair_t    fetch_branch_from_impl( const block_id_type& first, const block_id_type& second ) const;
 
@@ -377,7 +377,7 @@ namespace eosio::chain {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
-      auto prev_bh = get_block_impl( n->previous(), check_root_t::yes );
+      auto prev_bh = get_block_impl( n->previous(), include_root_t::yes );
       EOS_ASSERT( prev_bh, unlinkable_block_exception,
                   "forkdb unlinkable block ${id} previous ${p}", ("id", n->id())("p", n->previous()) );
 
@@ -511,13 +511,17 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   BSP fork_database_t<BSP>::search_on_branch( const block_id_type& h, uint32_t block_num ) const {
+   BSP fork_database_t<BSP>::search_on_branch( const block_id_type& h, uint32_t block_num, include_root_t include_root /* = include_root_t::no */ ) const {
       std::lock_guard g( my->mtx );
-      return my->search_on_branch_impl( h, block_num );
+      return my->search_on_branch_impl( h, block_num, include_root );
    }
 
    template<class BSP>
-   BSP fork_database_impl<BSP>::search_on_branch_impl( const block_id_type& h, uint32_t block_num ) const {
+   BSP fork_database_impl<BSP>::search_on_branch_impl( const block_id_type& h, uint32_t block_num, include_root_t include_root ) const {
+      if( include_root == include_root_t::yes && root->id() == h ) {
+         return root;
+      }
+
       for( auto i = index.find(h); i != index.end(); i = index.find( (*i)->previous() ) ) {
          if ((*i)->block_num() == block_num)
             return *i;
@@ -527,14 +531,14 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   BSP fork_database_t<BSP>::search_on_head_branch( uint32_t block_num ) const {
+   BSP fork_database_t<BSP>::search_on_head_branch( uint32_t block_num, include_root_t include_root /* = include_root_t::no */ ) const {
       std::lock_guard g(my->mtx);
-      return my->search_on_head_branch_impl(block_num);
+      return my->search_on_head_branch_impl(block_num, include_root);
    }
 
    template<class BSP>
-   BSP fork_database_impl<BSP>::search_on_head_branch_impl( uint32_t block_num ) const {
-      return search_on_branch_impl(head->id(), block_num);
+   BSP fork_database_impl<BSP>::search_on_head_branch_impl( uint32_t block_num, include_root_t include_root ) const {
+      return search_on_branch_impl(head->id(), block_num, include_root);
    }
 
    /**
@@ -666,15 +670,15 @@ namespace eosio::chain {
 
    template<class BSP>
    BSP fork_database_t<BSP>::get_block(const block_id_type& id,
-                                       check_root_t check_root /* = check_root_t::no */) const {
+                                       include_root_t include_root /* = include_root_t::no */) const {
       std::lock_guard g( my->mtx );
-      return my->get_block_impl(id, check_root);
+      return my->get_block_impl(id, include_root);
    }
 
    template<class BSP>
    BSP fork_database_impl<BSP>::get_block_impl(const block_id_type& id,
-                                               check_root_t check_root /* = check_root_t::no */) const {
-      if( check_root == check_root_t::yes && root->id() == id ) {
+                                               include_root_t include_root /* = include_root_t::no */) const {
+      if( include_root == include_root_t::yes && root->id() == id ) {
          return root;
       }
       auto itr = index.find( id );
