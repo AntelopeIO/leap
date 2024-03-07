@@ -58,6 +58,9 @@ try:
     if not cluster.waitOnClusterBlockNumSync(3):
         errorExit("Cluster never stabilized")
 
+    # make sure enough blocks produced to verify truncate works on restart
+    cluster.getNode(0).waitForBlock(terminate+5)
+
     Print("Kill cluster node instance.")
     if cluster.killSomeEosInstances(1, killSignal) is False:
         errorExit("Failed to kill Eos instances")
