@@ -136,4 +136,4 @@ using block_state_ptr = std::shared_ptr<block_state>;
 // not exporting pending_qc or valid_qc
 FC_REFLECT( eosio::chain::valid_t::finality_leaf_node_t, (block_num)(finality_digest)(finality_mroot) )
 FC_REFLECT( eosio::chain::valid_t, (finality_merkel_tree)(finality_mroots)(last_final_block_num) )
-FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(validated) )
+FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(valid)(validated) )
