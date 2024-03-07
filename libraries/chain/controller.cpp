@@ -3226,19 +3226,20 @@ struct controller_impl {
 
             // verify received finality digest in action_mroot is the same as the computed
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-               assert(!bsp->valid);
+               if (!bsp->valid) { // no need to re-validate if it is already valid
+                  block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
+                      return forkdb.get_block(bsp->previous(), check_root_t::yes);
+                  });
 
-               block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                   return forkdb.get_block(bsp->previous(), check_root_t::yes);
-               });
+                  bsp->valid = build_valid_structure(parent_bsp, *bsp);
 
-               bsp->valid = build_valid_structure(parent_bsp, *bsp);
-               auto computed_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
+                  auto computed_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
 
-               EOS_ASSERT(bsp->finality_mroot() == computed_finality_mroot,
-                     block_validate_exception,
-                     "finality_mroot does not match, received finality_mroot: ${r} != computed_finality_mroot: ${c}",
-                      ("r", bsp->finality_mroot())("c", computed_finality_mroot));
+                  EOS_ASSERT(bsp->finality_mroot() == computed_finality_mroot,
+                        block_validate_exception,
+                        "finality_mroot does not match, received finality_mroot: ${r} != computed_finality_mroot: ${c}",
+                         ("r", bsp->finality_mroot())("c", computed_finality_mroot));
+               }
             }
 
             if( !use_bsp_cached ) {
