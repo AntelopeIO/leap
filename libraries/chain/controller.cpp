@@ -1061,9 +1061,8 @@ struct controller_impl {
       return fork_db.apply<block_state_ptr>(
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
-            [&](const fork_database_if_t&forkdb) -> block_state_ptr {
-               auto bsp = forkdb.search_on_head_branch(block_num, include_root_t::yes);
-               return bsp;
+            [&](const fork_database_if_t& forkdb) -> block_state_ptr {
+               return forkdb.search_on_head_branch(block_num, include_root_t::yes);
             }
          }
       );
@@ -1074,9 +1073,19 @@ struct controller_impl {
       return fork_db.apply<block_state_ptr>(
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
-            [&](const fork_database_if_t&forkdb) -> block_state_ptr {
-               auto bsp = forkdb.search_on_branch(id, block_num, include_root_t::yes);
-               return bsp;
+            [&](const fork_database_if_t& forkdb) -> block_state_ptr {
+               return forkdb.search_on_branch(id, block_num, include_root_t::yes);
+            }
+         }
+      );
+   }
+
+   block_state_ptr fetch_bsp(const block_id_type& id) const {
+      return fork_db.apply<block_state_ptr>(
+         overloaded{
+            [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
+            [&](const fork_database_if_t& forkdb) -> block_state_ptr {
+               return forkdb.get_block(id, include_root_t::yes);
             }
          }
       );
@@ -3478,7 +3487,7 @@ struct controller_impl {
 
       if (bsp->core.final_on_strong_qc_block_num > 0) {
          const auto& final_on_strong_qc_block_ref = bsp->core.get_block_reference(bsp->core.final_on_strong_qc_block_num);
-         auto final = fetch_bsp_on_branch_by_num(final_on_strong_qc_block_ref.block_id, bsp->core.final_on_strong_qc_block_num);
+         auto final = fetch_bsp(final_on_strong_qc_block_ref.block_id);
          if (final && final->is_valid()) {
             create_and_send_vote_msg(bsp);
          }
