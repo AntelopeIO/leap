@@ -807,7 +807,7 @@ struct building_block {
                if (!validating) {
                   if (!parent_bsp) {
                      parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                        return forkdb.get_block(parent_id(), check_root_t::yes);
+                        return forkdb.get_block(parent_id(), include_root_t::yes);
                      });
                   }
 
@@ -3285,7 +3285,7 @@ struct controller_impl {
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
                if (!bsp->valid) { // no need to re-validate if it is already valid
                   block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                      return forkdb.get_block(bsp->previous(), check_root_t::yes);
+                      return forkdb.get_block(bsp->previous(), include_root_t::yes);
                   });
 
                   bsp->valid = build_valid_structure(parent_bsp, *bsp, action_mroot);
