@@ -423,8 +423,8 @@ namespace eosio::chain {
       std::tie(is_satisfied, relevant_sig_count) = producer_authority::keys_satisfy_and_relevant(keys, valid_block_signing_authority);
 
       EOS_ASSERT(relevant_sig_count == keys.size(), wrong_signing_key,
-                 "block signed by unexpected key",
-                 ("signing_keys", keys)("authority", valid_block_signing_authority));
+                 "block signed by unexpected key: ${signing_keys}, expected: ${authority}. ${c} != ${s}",
+                 ("signing_keys", keys)("authority", valid_block_signing_authority)("c", relevant_sig_count)("s", keys.size()));
 
       EOS_ASSERT(is_satisfied, wrong_signing_key,
                  "block signatures do not satisfy the block signing authority",
