@@ -3284,10 +3284,7 @@ struct controller_impl {
             // verify received finality digest in action_mroot is the same as the computed
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
                if (!bsp->valid) { // no need to re-validate if it is already valid
-                  block_state_ptr parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                      return forkdb.get_block(bsp->previous(), include_root_t::yes);
-                  });
-
+                  block_state_ptr parent_bsp = std::get<block_state_ptr>(chain_head.internal());
                   bsp->valid = build_valid_structure(parent_bsp, *bsp, action_mroot);
 
                   auto computed_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
