@@ -70,12 +70,12 @@ block_state::block_state(const block_state_legacy& bsp) {
       .finality_mroots      = { digest_type{} }, // for genesis block itself
       .last_final_block_num = bsp.block_num()
    };
-   valid_t::finality_leaf_node_t node {
+   valid_t::finality_leaf_node_t leaf_node {
       .block_num       = bsp.block_num(),
       .finality_digest = digest_type{},
-      .finality_mroot  = digest_type{}
+      .action_mroot    = digest_type{}
    };
-   valid->finality_merkel_tree.append(fc::sha256::hash(node));
+   valid->finality_merkel_tree.append(fc::sha256::hash(leaf_node));
 
    auto if_ext_id = instant_finality_extension::extension_id();
    std::optional<block_header_extension> ext = bsp.block->extract_header_extension(if_ext_id);
