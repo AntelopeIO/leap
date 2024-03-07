@@ -28,11 +28,16 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
       if (!res.liveness_check) {
          // Safety check : check if this proposal extends the proposal we're locked on
          res.safety_check = core.extends(fsi.lock.block_id);
+         if (!res.safety_check) {
+            ilog("safety check failed, block ${bn} : ${id} did not extend ${core}",
+                 ("bn", fsi.lock.block_num())("id", fsi.lock.block_id)("core", core.current_block_num()));
+         }
       }
    } else {
       // Safety and Liveness both fail if `fsi.lock` is empty. It should not happen.
       // `fsi.lock` is initially set to `lib` when switching to IF or starting from a snapshot.
       // -------------------------------------------------------------------------------------
+      wlog("fsi.lock is empty");
       res.liveness_check = false;
       res.safety_check   = false;
    }
