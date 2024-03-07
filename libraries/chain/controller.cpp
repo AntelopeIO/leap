@@ -364,7 +364,7 @@ struct assembled_block {
 };
 
 // A utility to build a valid structure from the parent block
-static valid_t build_valid_structure(const block_state_ptr parent_bsp, const block_header_state& bhs) {
+static valid_t build_valid_structure(const block_state_ptr parent_bsp, const block_header_state& bhs, digest_type action_mroot) {
    assert(parent_bsp);
    assert(bhs.core.last_final_block_num() >= parent_bsp->core.last_final_block_num());
    assert(parent_bsp->valid);
@@ -379,7 +379,7 @@ static valid_t build_valid_structure(const block_state_ptr parent_bsp, const blo
    valid = valid_t {
       .finality_merkel_tree = parent_bsp->valid->finality_merkel_tree,
       .finality_mroots = { parent_bsp->valid->finality_mroots.cbegin() + start,
-      parent_bsp->valid->finality_mroots.cend() }
+                           parent_bsp->valid->finality_mroots.cend() }
    };
 
    // append the root of the parent's Validation Tree.
@@ -392,7 +392,7 @@ static valid_t build_valid_structure(const block_state_ptr parent_bsp, const blo
    valid_t::finality_leaf_node_t leaf_node{
       .block_num       = bhs.block_num(),
       .finality_digest = bhs.compute_finalizer_digest(),
-      .action_mroot    = bhs.finality_mroot()
+      .action_mroot    = action_mroot
    };
    auto leaf_node_digest = fc::sha256::hash(leaf_node);
 
@@ -701,15 +701,16 @@ struct building_block {
                };
             },
             [&](building_block_if& bb) -> assembled_block {
-               // compute the transaction_mroot
-               auto transaction_mroot = std::visit(
-                  overloaded{[&](digests_t& trx_receipts) { // calculate the merkle root in a thread
+               // compute the action_mroot and transaction_mroot
+               auto [transaction_mroot, action_mroot] = std::visit(
+                  overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
                                    post_async_task(ioc, [&]() { return calculate_merkle(std::move(trx_receipts)); });
-                                return trx_merkle_fut.get();
+                                   auto action_merkle_fut = post_async_task(ioc, [&]() { return calculate_merkle(std::move(action_receipts)); });
+                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return trx_checksum;
+                                return std::make_pair(trx_checksum, calculate_merkle(std::move(action_receipts)));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -802,7 +803,7 @@ struct building_block {
                      });
                   }
 
-                  valid = build_valid_structure(parent_bsp, bhs);
+                  valid = build_valid_structure(parent_bsp, bhs, action_mroot);
                }
 
                assembled_block::assembled_block_if ab{
@@ -3204,6 +3205,10 @@ struct controller_impl {
                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
             }
 
+            // save action_mroot for use in build_valid_structure
+            const auto& action_receipts = std::get<building_block>(pending->_block_stage).action_receipt_digests();
+            auto action_mroot = calculate_merkle(std::move(action_receipts));
+
             std::optional<finality_mroot_claim_t> finality_mroot_claim;
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
                finality_mroot_claim = finality_mroot_claim_t{
@@ -3231,7 +3236,7 @@ struct controller_impl {
                       return forkdb.get_block(bsp->previous(), check_root_t::yes);
                   });
 
-                  bsp->valid = build_valid_structure(parent_bsp, *bsp);
+                  bsp->valid = build_valid_structure(parent_bsp, *bsp, action_mroot);
 
                   auto computed_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
 

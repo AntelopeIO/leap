@@ -73,7 +73,7 @@ block_state::block_state(const block_state_legacy& bsp) {
    valid_t::finality_leaf_node_t leaf_node {
       .block_num       = bsp.block_num(),
       .finality_digest = digest_type{},
-      .action_mroot    = digest_type{}
+      .action_mroot    = bsp.header.action_mroot // legacy block header still stores actual action_mroot
    };
    valid->finality_merkel_tree.append(fc::sha256::hash(leaf_node));
 
