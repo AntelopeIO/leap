@@ -26,6 +26,7 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
       res.liveness_check = core.latest_qc_block_timestamp() > fsi.lock.timestamp;
 
       if (!res.liveness_check) {
+         ilog("liveness check failed for ${bn}: ${c} <= ${l}", ("bn", core.current_block_num())("c", core.latest_qc_block_timestamp())("l", fsi.lock.timestamp));
          // Safety check : check if this proposal extends the proposal we're locked on
          res.safety_check = core.extends(fsi.lock.block_id);
          if (!res.safety_check) {
