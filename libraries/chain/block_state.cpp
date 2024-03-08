@@ -38,6 +38,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    block->transactions = std::move(trx_receipts);
 
    if( qc ) {
+      ilog("integrate qc ${qcbn} strong=${s} into block ${bn}", ("qcbn", qc->block_num)("s", qc->qc.is_strong())("bn", block_num()));
       emplace_extension(block->block_extensions, quorum_certificate_extension::extension_id(), fc::raw::pack( *qc ));
    }
 
