@@ -73,6 +73,7 @@ struct block_header_state {
 
    // block descending from this need the provided qc in the block extension
    bool is_needed(const quorum_certificate& qc) const {
+      ilog("qc is_needed: ${qc} > ${lc} = ${r}", ("qc", qc.block_num)("lc", core.latest_qc_claim().block_num)("r", qc.block_num > core.latest_qc_claim().block_num));
       return qc.block_num > core.latest_qc_claim().block_num;
    }
 

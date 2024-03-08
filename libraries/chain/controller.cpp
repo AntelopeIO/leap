@@ -697,6 +697,7 @@ struct building_block {
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
                            auto qc_claim = qc_claim_t { qc->block_num, qc->qc.is_strong() };
+                           ilog("integrate qc is_needed qc: ${qc}, strong=${s}", ("qc", qc->block_num)("s", qc->qc.is_strong()));
                            if( bb.parent.is_needed(*qc) ) {
                               ilog("integrate qc and qc claim ${qc} into block ${bn}", ("qc", qc_claim)("bn", block_header::num_from_id(parent_id())+1));
                               qc_data = qc_data_t{ *qc, qc_claim };
