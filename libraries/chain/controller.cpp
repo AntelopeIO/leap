@@ -749,8 +749,7 @@ struct building_block {
                   std::move(new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
                   qc_data->qc_claim,
-                  std::move(finality_mroot_claim),
-                  std::move(updated_core)
+                  std::move(finality_mroot_claim)
                };
 
                auto bhs = bb.parent.next(bhs_input);
