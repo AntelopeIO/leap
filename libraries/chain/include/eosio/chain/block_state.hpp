@@ -47,7 +47,7 @@ struct valid_t {
    incremental_merkle_tree finality_merkel_tree;
 
    // build next valid structure from with next header state and action_mroot
-   valid_t next(const block_header_state& bhs, const digest_type& action_mroot);
+   valid_t next(const block_header_state& bhs, const digest_type& action_mroot) const;
 
    // The sequence of root digests of the finality trees associated
    // to a unbroken sequence of blocks which consist of the ancestors
@@ -59,7 +59,7 @@ struct valid_t {
 
    // Returns the root digest of the finality tree associated with the target_block_num
    // [core.last_final_block_num, block_num]
-   digest_type get_finality_mroot( block_num_type target_block_num );
+   digest_type get_finality_mroot( block_num_type target_block_num ) const;
 };
 
 struct block_state : public block_header_state {     // block_header_state provides parent link

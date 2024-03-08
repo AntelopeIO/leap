@@ -8,7 +8,7 @@
 
 namespace eosio::chain {
 
-valid_t valid_t::next(const block_header_state& bhs, const digest_type& action_mroot) {
+valid_t valid_t::next(const block_header_state& bhs, const digest_type& action_mroot) const {
    assert(bhs.core.last_final_block_num() >= last_final_block_num);
 
    // Copy parent's finality_merkel_tree and finality_mroots.
@@ -45,7 +45,7 @@ valid_t valid_t::next(const block_header_state& bhs, const digest_type& action_m
    return valid;
 }
 
-digest_type valid_t::get_finality_mroot(block_num_type target_block_num) {
+digest_type valid_t::get_finality_mroot(block_num_type target_block_num) const {
    assert(finality_mroots.size() > 0);
    assert(last_final_block_num <= target_block_num &&
           target_block_num < last_final_block_num + finality_mroots.size());

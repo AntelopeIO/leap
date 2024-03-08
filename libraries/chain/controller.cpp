@@ -683,7 +683,6 @@ struct building_block {
                std::optional<qc_data_t> qc_data;
                std::optional<finality_mroot_claim_t> finality_mroot_claim;
                std::optional<finality_core> updated_core;
-               block_state_ptr parent_bsp = nullptr;
 
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
@@ -718,26 +717,21 @@ struct building_block {
                         qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
                      }
 
-                     const auto it = branch.begin();
-                     if (it != branch.end()) {
-                        parent_bsp = *it;
-                        assert(parent_bsp->valid);
+                     // calculate updated_core whose information is needed
+                     // to build finality_mroot_claim
+                     block_ref parent_block_ref {
+                        .block_id  = bb.parent.id(),
+                        .timestamp = bb.parent.timestamp()
+                     };
+                     updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
 
-                        // calculate updated_core whose information is needed
-                        // to build finality_mroot_claim
-                        block_ref parent_block_ref {
-                           .block_id  = bb.parent.id(),
-                           .timestamp = bb.parent.timestamp()
-                        };
-                        updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
-
-                        // construct finality_mroot_claim using updated_core's
-                        // final_on_strong_qc_block_num
-                        finality_mroot_claim = finality_mroot_claim_t{
-                           .block_num      = updated_core->final_on_strong_qc_block_num,
-                           .finality_mroot = parent_bsp->valid->get_finality_mroot(updated_core->final_on_strong_qc_block_num)
-                        };
-                     }
+                     assert(bb.parent.valid);
+                     // construct finality_mroot_claim using updated_core's
+                     // final_on_strong_qc_block_num
+                     finality_mroot_claim = finality_mroot_claim_t{
+                        .block_num      = updated_core->final_on_strong_qc_block_num,
+                        .finality_mroot = bb.parent.valid->get_finality_mroot(updated_core->final_on_strong_qc_block_num)
+                     };
                   });
                }
 
@@ -763,14 +757,8 @@ struct building_block {
 
                std::optional<valid_t> valid;
                if (!validating) {
-                  if (!parent_bsp) {
-                     parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                        return forkdb.get_block(bb.parent.id(), include_root_t::yes);
-                     });
-                  }
-
-                  assert(parent_bsp->valid);
-                  valid = parent_bsp->valid->next(bhs, action_mroot);
+                  assert(bb.parent.valid);
+                  valid = bb.parent.valid->next(bhs, action_mroot);
                }
 
                assembled_block::assembled_block_if ab{
