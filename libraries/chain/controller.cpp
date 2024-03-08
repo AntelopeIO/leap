@@ -240,7 +240,8 @@ struct assembled_block {
       deque<transaction_metadata_ptr>   trx_metas;                 // Comes from building_block::pending_trx_metas
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
-      std::optional<valid_t>            valid;
+      digest_type                       action_mroot;              // Comes from assemble_block
+      std::optional<valid_t>            valid;                     // Comes from assemble_block
       std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
 
       block_header_state& get_bhs() { return bhs; }
@@ -305,6 +306,13 @@ struct assembled_block {
       return std::visit(
          overloaded{[](const assembled_block_legacy& ab) -> const block_header& { return *ab.unsigned_block; },
                     [](const assembled_block_if& ab)     -> const block_header& { return ab.bhs.header; }},
+         v);
+   }
+
+   digest_type action_mroot() const {
+      return std::visit(
+         overloaded{[](const assembled_block_legacy& ab) -> digest_type { assert(false); return digest_type{}; },
+                    [](const assembled_block_if& ab)     -> digest_type { return ab.action_mroot; }},
          v);
    }
 
@@ -714,7 +722,7 @@ struct building_block {
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
                                    post_async_task(ioc, [&]() { return calculate_merkle(std::move(trx_receipts)); });
-                                   auto action_merkle_fut = post_async_task(ioc, [&]() { return calculate_merkle(std::move(action_receipts)); });
+                                auto action_merkle_fut = post_async_task(ioc, [&]() { return calculate_merkle(std::move(action_receipts)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
@@ -819,6 +827,7 @@ struct building_block {
                   bhs,
                   std::move(bb.pending_trx_metas),
                   std::move(bb.pending_trx_receipts),
+                  action_mroot, // cached for validation in apply_block
                   valid,
                   qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}
                };
@@ -3257,10 +3266,6 @@ struct controller_impl {
                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
             }
 
-            // save action_mroot for use in build_valid_structure
-            const auto& action_receipts = std::get<building_block>(pending->_block_stage).action_receipt_digests();
-            auto action_mroot = calculate_merkle(std::move(action_receipts));
-
             std::optional<finality_mroot_claim_t> finality_mroot_claim;
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
                finality_mroot_claim = finality_mroot_claim_t{
@@ -3285,7 +3290,7 @@ struct controller_impl {
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
                if (!bsp->valid) { // no need to re-validate if it is already valid
                   block_state_ptr parent_bsp = std::get<block_state_ptr>(chain_head.internal());
-                  bsp->valid = build_valid_structure(parent_bsp, *bsp, action_mroot);
+                  bsp->valid = build_valid_structure(parent_bsp, *bsp, ab.action_mroot());
 
                   auto computed_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
 

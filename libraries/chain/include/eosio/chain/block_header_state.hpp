@@ -59,7 +59,7 @@ struct block_header_state {
 
    // ------ functions -----------------------------------------------------------------
    const block_id_type&  id()             const { return block_id; }
-   digest_type           finality_mroot() const { return header.action_mroot; }
+   const digest_type&    finality_mroot() const { return header.action_mroot; }
    block_timestamp_type  timestamp()      const { return header.timestamp; }
    account_name          producer()       const { return header.producer; }
    const block_id_type&  previous()       const { return header.previous; }
