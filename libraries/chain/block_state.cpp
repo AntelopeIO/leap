@@ -178,10 +178,10 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
    if( !pending_qc.is_quorum_met() ) {
       ilog("pending_qc quorum not met for ${bn}", ("bn", block_num()));
       if( valid_qc ) {
-         ilog("valid_qc for ${bn}", ("bn", block_num()));
+         ilog("valid_qc for ${bn} : ${id}", ("bn", block_num())("id", id()));
          return quorum_certificate{ block_num(), *valid_qc };
       } else {
-         ilog("no valid_qc for ${bn}", ("bn", block_num()));
+         ilog("no valid_qc for ${bn} : ${id}", ("bn", block_num())("id", id()));
          return std::nullopt;
       }
    }
