@@ -176,9 +176,12 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
 std::optional<quorum_certificate> block_state::get_best_qc() const {
    // if pending_qc does not have a valid QC, consider valid_qc only
    if( !pending_qc.is_quorum_met() ) {
+      ilog("pending_qc quorum not met for ${bn}", ("bn", block_num()));
       if( valid_qc ) {
+         ilog("valid_qc for ${bn}", ("bn", block_num()));
          return quorum_certificate{ block_num(), *valid_qc };
       } else {
+         ilog("no valid_qc for ${bn}", ("bn", block_num()));
          return std::nullopt;
       }
    }
@@ -188,8 +191,10 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
 
    // if valid_qc does not have value, consider valid_qc_from_pending only
    if( !valid_qc ) {
+      ilog("no valid_qc using pending for block ${bn}", ("bn", block_num()));
       return quorum_certificate{ block_num(), valid_qc_from_pending };
    }
+   ilog("comparing valid_qc ${vs} and pending qc ${ps} for block ${bn}", ("bn", block_num())("vs", valid_qc->is_strong())("ps", valid_qc_from_pending.is_strong()));
 
    // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
    // Strong beats weak. Tie break by valid_qc.
