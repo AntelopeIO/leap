@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/chain/block_timestamp.hpp>
+#include <eosio/chain/finality_core.hpp>
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/bls_signature.hpp>
@@ -60,6 +61,10 @@ namespace eosio::chain {
    struct quorum_certificate {
       uint32_t                 block_num;
       valid_quorum_certificate qc;
+
+      qc_claim_t to_qc_claim() const {
+         return {.block_num = block_num, .is_strong_qc = qc.is_strong()};
+      }
    };
 
 

@@ -689,30 +689,28 @@ struct building_block {
                } else {
                   fork_db.apply_s<void>([&](const auto& forkdb) {
                      auto branch = forkdb.fetch_branch(parent_id());
-                     std::optional<quorum_certificate> qc;
                      for( auto it = branch.begin(); it != branch.end(); ++it ) {
-                        qc = (*it)->get_best_qc();
-                        if( qc ) {
+                        if( auto qc = (*it)->get_best_qc(); qc ) {
                            EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent_id()), block_validate_exception,
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
-                           auto qc_claim = qc_claim_t { qc->block_num, qc->qc.is_strong() };
+                           auto qc_claim = qc->to_qc_claim();
                            ilog("integrate qc is_needed qc: ${qc}, strong=${s}", ("qc", qc->block_num)("s", qc->qc.is_strong()));
-                           if( bb.parent.is_needed(*qc) ) {
+                           if( bb.parent.is_needed(qc_claim) ) {
                               ilog("integrate qc and qc claim ${qc} into block ${bn}", ("qc", qc_claim)("bn", block_header::num_from_id(parent_id())+1));
                               qc_data = qc_data_t{ *qc, qc_claim };
                            } else {
+                              // no new qc info, repeat existing
                               ilog("integrate only qc claim ${qc} into block ${bn}", ("qc", qc_claim)("bn", block_header::num_from_id(parent_id())+1));
-                              qc_data = qc_data_t{ {},  qc_claim };
+                              qc_data = qc_data_t{ {},  bb.parent.core.latest_qc_claim() };
                            }
                            break;
                         }
                      }
 
-                     if (!qc) {
-                        // This only happens when parent block is the IF genesis block.
-                        // There is no ancestor block which has a QC.
-                        // Construct a default QC claim.
+                     if (!qc_data) {
+                        // This only happens when parent block is the IF genesis block or starting from snapshot.
+                        // There is no ancestor block which has a QC. Construct a default QC claim.
                         qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
                      }
                   });
