@@ -406,6 +406,7 @@ static valid_t build_valid_structure(const block_state_ptr parent_bsp, const blo
 
    // construct block's finality leaf node.
    valid_t::finality_leaf_node_t leaf_node{
+      .leaf_version    = finality_tree_leaf_version,
       .block_num       = bhs.block_num(),
       .finality_digest = bhs.compute_finalizer_digest(),
       .action_mroot    = action_mroot

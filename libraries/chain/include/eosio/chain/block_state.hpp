@@ -34,8 +34,10 @@ struct block_state_accessor;
  *    block referenced by the target block's final_on_strong_qc_block_num.
  *    That is, validation_tree(core.final_on_strong_qc_block_num))
  * */
+constexpr uint32_t finality_tree_leaf_version = 0;
 struct valid_t {
    struct finality_leaf_node_t {
+      uint32_t       leaf_version{finality_tree_leaf_version};
       block_num_type block_num{0};    // the block number
       digest_type    finality_digest; // finality digest for the block
       digest_type    action_mroot;    // digest of the root of the action Merkle tree of the block

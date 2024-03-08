@@ -71,6 +71,7 @@ block_state::block_state(const block_state_legacy& bsp) {
       .last_final_block_num = bsp.block_num()
    };
    valid_t::finality_leaf_node_t leaf_node {
+      .leaf_version    = finality_tree_leaf_version,
       .block_num       = bsp.block_num(),
       .finality_digest = digest_type{},
       .action_mroot    = bsp.header.action_mroot // legacy block header still stores actual action_mroot
