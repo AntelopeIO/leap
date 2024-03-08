@@ -379,48 +379,6 @@ struct assembled_block {
    }
 };
 
-// A utility to build a valid structure from the parent block
-static valid_t build_valid_structure(const block_state_ptr parent_bsp, const block_header_state& bhs, const digest_type& action_mroot) {
-   assert(parent_bsp);
-   assert(bhs.core.last_final_block_num() >= parent_bsp->core.last_final_block_num());
-   assert(parent_bsp->valid);
-   assert(parent_bsp->valid->finality_mroots.size() == (parent_bsp->block_num() - parent_bsp->core.last_final_block_num() + 1));
-
-   valid_t valid;
-
-   // Copy parent's finality_merkel_tree and finality_mroots.
-   // For finality_mroots, removing any roots from the front end
-   // to block whose block number is last_final_block_num - 1
-   auto start = bhs.core.last_final_block_num() - parent_bsp->core.last_final_block_num();
-   valid = valid_t {
-      .finality_merkel_tree = parent_bsp->valid->finality_merkel_tree,
-      .finality_mroots = { parent_bsp->valid->finality_mroots.cbegin() + start,
-                           parent_bsp->valid->finality_mroots.cend() }
-   };
-
-   // append the root of the parent's Validation Tree.
-   valid.finality_mroots.emplace_back(parent_bsp->valid->finality_merkel_tree.get_root());
-
-   // post condition of finality_mroots
-   assert(valid.finality_mroots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
-
-   // construct block's finality leaf node.
-   valid_t::finality_leaf_node_t leaf_node{
-      .leaf_version    = finality_tree_leaf_version,
-      .block_num       = bhs.block_num(),
-      .finality_digest = bhs.compute_finalizer_digest(),
-      .action_mroot    = action_mroot
-   };
-   auto leaf_node_digest = fc::sha256::hash(leaf_node);
-
-   // append new finality leaf node digest to finality_merkel_tree
-   valid.finality_merkel_tree.append(leaf_node_digest);
-
-   valid.last_final_block_num = bhs.core.last_final_block_num();
-
-   return valid;
-}
-
 struct building_block {
    // --------------------------------------------------------------------------------
    struct building_block_common {
@@ -820,7 +778,8 @@ struct building_block {
                      });
                   }
 
-                  valid = build_valid_structure(parent_bsp, bhs, action_mroot);
+                  assert(parent_bsp->valid);
+                  valid = parent_bsp->valid->next(bhs, action_mroot);
                }
 
                assembled_block::assembled_block_if ab{
@@ -3291,7 +3250,8 @@ struct controller_impl {
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
                if (!bsp->valid) { // no need to re-validate if it is already valid
                   block_state_ptr parent_bsp = std::get<block_state_ptr>(chain_head.internal());
-                  bsp->valid = build_valid_structure(parent_bsp, *bsp, ab.action_mroot());
+                  assert(parent_bsp->valid);
+                  bsp->valid = parent_bsp->valid->next(*bsp, ab.action_mroot());
 
                   auto computed_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
 

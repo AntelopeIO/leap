@@ -46,6 +46,9 @@ struct valid_t {
    // The Finality Merkle Tree, containing leaf nodes from IF genesis block to current block
    incremental_merkle_tree finality_merkel_tree;
 
+   // build next valid structure from with next header state and action_mroot
+   valid_t next(const block_header_state& bhs, const digest_type& action_mroot);
+
    // The sequence of root digests of the finality trees associated
    // to a unbroken sequence of blocks which consist of the ancestors
    // of the block starting with the one that has a block number equal

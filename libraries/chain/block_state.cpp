@@ -8,6 +8,43 @@
 
 namespace eosio::chain {
 
+valid_t valid_t::next(const block_header_state& bhs, const digest_type& action_mroot) {
+   assert(bhs.core.last_final_block_num() >= last_final_block_num);
+
+   // Copy parent's finality_merkel_tree and finality_mroots.
+   // For finality_mroots, removing any roots from the front end
+   // to block whose block number is last_final_block_num - 1
+   auto start = bhs.core.last_final_block_num() - this->last_final_block_num;
+   valid_t valid {
+      .finality_merkel_tree = this->finality_merkel_tree,
+      .finality_mroots = { this->finality_mroots.cbegin() + start,
+                           this->finality_mroots.cend() }
+   };
+
+   // append the root of the parent's Validation Tree.
+   valid.finality_mroots.emplace_back(this->finality_merkel_tree.get_root());
+
+   // post condition of finality_mroots
+   assert(valid.finality_mroots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
+
+   // construct block's finality leaf node.
+   valid_t::finality_leaf_node_t leaf_node{
+      .leaf_version    = finality_tree_leaf_version,
+      .block_num       = bhs.block_num(),
+      .finality_digest = bhs.compute_finalizer_digest(),
+      .action_mroot    = action_mroot
+   };
+   auto leaf_node_digest = fc::sha256::hash(leaf_node);
+
+   // append new finality leaf node digest to finality_merkel_tree
+   valid.finality_merkel_tree.append(leaf_node_digest);
+
+   // update last_final_block_num
+   valid.last_final_block_num = bhs.core.last_final_block_num();
+
+   return valid;
+}
+
 digest_type valid_t::get_finality_mroot(block_num_type target_block_num) {
    assert(finality_mroots.size() > 0);
    assert(last_final_block_num <= target_block_num &&
