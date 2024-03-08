@@ -1400,7 +1400,7 @@ struct controller_impl {
          if (startup != startup_t::existing_state)
            open_fork_db();
       } catch (const fc::exception& e) {
-         elog( "Update to open fork database, continueing without reversible blocks: ${e}", ("e", e));
+         elog( "Unable to open fork database, continuing without reversible blocks: ${e}", ("e", e));
       }
 
       if (startup == startup_t::genesis) {

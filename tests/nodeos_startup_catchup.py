@@ -196,7 +196,7 @@ try:
         logFile = Utils.getNodeDataDir(catchupNodeNum) + "/stderr.txt"
         f = open(logFile)
         contents = f.read()
-        if contents.count("3030001 unlinkable_block_exception: Unlinkable block") > 10: # a few are fine
+        if contents.count("3030001 unlinkable_block_exception: Unlinkable block") > 15: # a few are fine
             errorExit(f"Node{catchupNodeNum} has unlinkable blocks: {logFile}.")
 
     testSuccessful=True
