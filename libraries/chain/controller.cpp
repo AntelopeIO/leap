@@ -448,18 +448,16 @@ struct building_block {
 
    // --------------------------------------------------------------------------------
    struct building_block_if : public building_block_common {
-      const block_header_state&                  parent;
-      const block_id_type                        parent_id;                        // Comes from building_block_input::parent_id
+      const block_state&                         parent;
       const block_timestamp_type                 timestamp;                        // Comes from building_block_input::timestamp
       const producer_authority                   active_producer_authority;        // Comes from parent.get_scheduled_producer(timestamp)
       const protocol_feature_activation_set_ptr  prev_activated_protocol_features; // Cached: parent.activated_protocol_features()
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
-      building_block_if(const block_header_state& parent, const building_block_input& input)
+      building_block_if(const block_state& parent, const building_block_input& input)
          : building_block_common(input.new_protocol_feature_activations)
          , parent (parent)
-         , parent_id(input.parent_id)
          , timestamp(input.timestamp)
          , active_producer_authority{input.producer,
                               [&]() -> block_signing_authority {
@@ -499,7 +497,7 @@ struct building_block {
    {}
 
    // if constructor
-   building_block(const block_header_state& prev, const building_block_input& input) :
+   building_block(const block_state& prev, const building_block_input& input) :
       v(building_block_if(prev, input))
    {}
 
@@ -540,13 +538,6 @@ struct building_block {
       return std::visit(
          overloaded{[](const building_block_legacy& bb)  { return bb.pending_block_header_state.timestamp; },
                     [](const building_block_if& bb)    { return bb.timestamp; }},
-         v);
-   }
-
-   block_id_type parent_id() const {
-      return std::visit(
-         overloaded{[](const building_block_legacy& bb)  { return bb.pending_block_header_state.previous; },
-                    [](const building_block_if& bb)    { return bb.parent_id; }},
          v);
    }
 
@@ -702,14 +693,14 @@ struct building_block {
                   // find most recent ancestor block that has a QC by traversing fork db
                   // branch from parent
                   fork_db.apply_s<void>([&](const auto& forkdb) {
-                     auto branch = forkdb.fetch_branch(parent_id());
+                     auto branch = forkdb.fetch_branch(bb.parent.id());
                      std::optional<quorum_certificate> qc;
                      for( auto it = branch.begin(); it != branch.end(); ++it ) {
                         qc = (*it)->get_best_qc();
                         if( qc ) {
-                           EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent_id()), block_validate_exception,
+                           EOS_ASSERT( qc->block_num <= block_header::num_from_id(bb.parent.id()), block_validate_exception,
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
-                                       ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
+                                       ("a", qc->block_num)("p", block_header::num_from_id(bb.parent.id())) );
                            auto qc_claim = qc_claim_t { qc->block_num, qc->qc.is_strong() };
                            if( bb.parent.is_needed(*qc) ) {
                               qc_data = qc_data_t{ *qc, qc_claim };
@@ -735,7 +726,7 @@ struct building_block {
                         // calculate updated_core whose information is needed
                         // to build finality_mroot_claim
                         block_ref parent_block_ref {
-                           .block_id  = parent_id(),
+                           .block_id  = bb.parent.id(),
                            .timestamp = bb.parent.timestamp()
                         };
                         updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
@@ -751,7 +742,7 @@ struct building_block {
                }
 
                building_block_input bb_input {
-                  .parent_id = parent_id(),
+                  .parent_id = bb.parent.id(),
                   .parent_timestamp = bb.parent.timestamp(),
                   .timestamp = timestamp(),
                   .producer  = producer(),
@@ -774,7 +765,7 @@ struct building_block {
                if (!validating) {
                   if (!parent_bsp) {
                      parent_bsp = fork_db.apply_s<block_state_ptr> ([&](const auto& forkdb) {
-                        return forkdb.get_block(parent_id(), include_root_t::yes);
+                        return forkdb.get_block(bb.parent.id(), include_root_t::yes);
                      });
                   }
 
@@ -818,7 +809,7 @@ struct pending_state {
    {}
 
    pending_state(maybe_session&& s,
-                 const block_header_state& prev,
+                 const block_state& prev,
                  const building_block_input& input) :
       _db_session(std::move(s)),
       _block_stage(building_block(prev, input))
