@@ -380,7 +380,7 @@ struct assembled_block {
 };
 
 // A utility to build a valid structure from the parent block
-static valid_t build_valid_structure(const block_state_ptr parent_bsp, const block_header_state& bhs, digest_type action_mroot) {
+static valid_t build_valid_structure(const block_state_ptr parent_bsp, const block_header_state& bhs, const digest_type& action_mroot) {
    assert(parent_bsp);
    assert(bhs.core.last_final_block_num() >= parent_bsp->core.last_final_block_num());
    assert(parent_bsp->valid);
