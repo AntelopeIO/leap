@@ -257,10 +257,7 @@ void istream_snapshot_reader::validate() const {
                  ("expected", expected_version)("actual", actual_version));
 
       while (validate_section()) {}
-   } catch( const std::exception& e ) {  \
-      snapshot_exception fce(FC_LOG_MESSAGE( warn, "Binary snapshot validation threw IO exception (${what})",("what",e.what())));
-      throw fce;
-   }
+   } FC_LOG_AND_RETHROW()
 }
 
 bool istream_snapshot_reader::validate_section() const {
