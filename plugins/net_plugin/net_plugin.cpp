@@ -3700,9 +3700,9 @@ namespace eosio {
    }
 
    void connection::handle_message( const vote_message& msg ) {
-      peer_dlog(this, "received vote: block #${bn}:${id}.., ${t}, key ${k}..",
-                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
-                ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
+      peer_dlog(this, "received vote: block #${bn}:${id}.., ${v}, key ${k}..",
+                ("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))
+                ("v", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
       controller& cc = my_impl->chain_plug->chain();
 
       switch( cc.process_vote_message(msg) ) {
@@ -3991,8 +3991,8 @@ namespace eosio {
 
    // called from application thread
    void net_plugin_impl::on_voted_block(const vote_message& msg) {
-      fc_dlog(logger, "on voted signal: block #${bn}:${id}.., ${t}, key ${k}..",
-                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
+      fc_dlog(logger, "on voted signal: block #${bn} ${id}.., ${t}, key ${k}..",
+                ("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))
                 ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
       bcast_vote_message(std::nullopt, msg);
    }
@@ -4001,9 +4001,9 @@ namespace eosio {
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
 
-      fc_dlog(logger, "bcast vote: block #${bn}:${id}.., ${t}, key ${k}..",
-                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
-                ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8,16)));
+      fc_dlog(logger, "bcast ${t} vote: block #${bn} ${id}.., ${v}, key ${k}..",
+                ("t", exclude_peer ? "received" : "our")("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))
+                ("v", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8,16)));
 
       dispatcher->strand.post( [this, exclude_peer, msg{std::move(send_buffer)}]() mutable {
          dispatcher->bcast_vote_msg( exclude_peer, std::move(msg) );

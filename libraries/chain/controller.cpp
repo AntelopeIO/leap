@@ -1675,7 +1675,7 @@ struct controller_impl {
                my_finalizers.set_default_safety_information(
                   finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
                                                 .last_vote = {},
-                                                .lock      = proposal_ref(lib->id(), lib->timestamp()) });
+                                                .lock      = {lib->id(), lib->timestamp()} });
             };
             fork_db.apply_s<void>(set_finalizer_defaults);
          } else {
@@ -1685,7 +1685,7 @@ struct controller_impl {
                my_finalizers.set_default_safety_information(
                   finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
                                                 .last_vote = {},
-                                                .lock      = proposal_ref(lib->id(), lib->timestamp()) });
+                                                .lock      = {lib->id(), lib->timestamp()} });
             };
             fork_db.apply_s<void>(set_finalizer_defaults);
          }
@@ -2937,8 +2937,8 @@ struct controller_impl {
                      auto lib_block   = head;
                      my_finalizers.set_default_safety_information(
                         finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
-                                                      .last_vote = proposal_ref(start_block->id(), start_block->timestamp()),
-                                                      .lock      = proposal_ref(lib_block->id(),   lib_block->timestamp()) });
+                                                      .last_vote = {start_block->id(), start_block->timestamp()},
+                                                      .lock      = {lib_block->id(),   lib_block->timestamp()} });
                   }
 
                   if ( (s != controller::block_status::irreversible && read_mode != db_read_mode::IRREVERSIBLE) && s != controller::block_status::ephemeral)
@@ -3220,7 +3220,7 @@ struct controller_impl {
    // called from net threads and controller's thread pool
    vote_status process_vote_message( const vote_message& vote ) {
       auto aggregate_vote = [&vote](auto& forkdb) -> vote_status {
-          auto bsp = forkdb.get_block(vote.proposal_id);
+          auto bsp = forkdb.get_block(vote.block_id);
           if (bsp) {
              return bsp->aggregate_vote(vote);
           }

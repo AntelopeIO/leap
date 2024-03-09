@@ -103,10 +103,10 @@ bool finality_test_cluster::produce_blocks_and_verify_lib_advancing() {
 void finality_test_cluster::node1_corrupt_vote_proposal_id() {
    node1_orig_vote = node1.votes[0];
 
-   if( node1.votes[0].proposal_id.data()[0] == 'a' ) {
-      node1.votes[0].proposal_id.data()[0] = 'b';
+   if( node1.votes[0].block_id.data()[0] == 'a' ) {
+      node1.votes[0].block_id.data()[0] = 'b';
    } else {
-      node1.votes[0].proposal_id.data()[0] = 'a';
+      node1.votes[0].block_id.data()[0] = 'a';
    }
 }
 
@@ -185,7 +185,7 @@ eosio::chain::vote_status finality_test_cluster::process_vote(node_info& node, s
       vote.strong = false;
 
       // fetch the strong digest
-      auto strong_digest = node.node.control->get_strong_digest_by_id(vote.proposal_id);
+      auto strong_digest = node.node.control->get_strong_digest_by_id(vote.block_id);
       // convert the strong digest to weak and sign it
       vote.sig = node.priv_key.sign(eosio::chain::create_weak_digest(strong_digest));
    }

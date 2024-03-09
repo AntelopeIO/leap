@@ -20,7 +20,7 @@ namespace eosio::chain {
    using bls_key_map_t = std::map<bls_public_key, bls_private_key>;
 
    struct vote_message {
-      fc::sha256                          proposal_id; //vote on proposal
+      block_id_type                       block_id;
       bool                                strong{false};
       bls_public_key                      finalizer_key;
       bls_signature                       sig;
@@ -145,7 +145,7 @@ namespace eosio::chain {
 } //eosio::chain
 
 
-FC_REFLECT(eosio::chain::vote_message, (proposal_id)(strong)(finalizer_key)(sig));
+FC_REFLECT(eosio::chain::vote_message, (block_id)(strong)(finalizer_key)(sig));
 FC_REFLECT_ENUM(eosio::chain::vote_status, (success)(duplicate)(unknown_public_key)(invalid_signature)(unknown_block))
 FC_REFLECT(eosio::chain::valid_quorum_certificate, (_strong_votes)(_weak_votes)(_sig));
 FC_REFLECT(eosio::chain::pending_quorum_certificate, (_quorum)(_max_weak_sum_before_weak_final)(_state)(_strong_sum)(_weak_sum)(_weak_votes)(_strong_votes));
