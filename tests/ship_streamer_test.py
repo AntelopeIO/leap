@@ -226,52 +226,51 @@ try:
     ##
     ## Following requires https://github.com/AntelopeIO/leap/issues/1558
     ##
-    if not activateIF:
-        Print("Test starting ship from snapshot")
-        Utils.rmNodeDataDir(shipNodeNum)
-        isRelaunchSuccess = shipNode.relaunch(chainArg=" --snapshot {}".format(getLatestSnapshot(shipNodeNum)))
-        assert isRelaunchSuccess, "relaunch from snapshot failed"
+    Print("Test starting ship from snapshot")
+    Utils.rmNodeDataDir(shipNodeNum)
+    isRelaunchSuccess = shipNode.relaunch(chainArg=" --snapshot {}".format(getLatestSnapshot(shipNodeNum)))
+    assert isRelaunchSuccess, "relaunch from snapshot failed"
 
-        afterSnapshotBlockNum = shipNode.getBlockNum()
+    afterSnapshotBlockNum = shipNode.getBlockNum()
 
-        Print("Verify we can stream from ship after start from a snapshot with no incoming trxs")
-        start_block_num = afterSnapshotBlockNum
-        block_range = 0
-        end_block_num = start_block_num + block_range
-        cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas"
-        if Utils.Debug: Utils.Print(f"cmd: {cmd}")
-        clients = []
-        files = []
-        starts = []
-        for i in range(0, args.num_clients):
-            start = time.perf_counter()
-            outFile = open(f"{shipClientFilePrefix}{i}_snapshot.out", "w")
-            errFile = open(f"{shipClientFilePrefix}{i}_snapshot.err", "w")
-            Print(f"Start client {i}")
-            popen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
-            starts.append(time.perf_counter())
-            clients.append((popen, cmd))
-            files.append((outFile, errFile))
-            Print(f"Client {i} started, Ship node head is: {shipNode.getBlockNum()}")
+    Print("Verify we can stream from ship after start from a snapshot with no incoming trxs")
+    start_block_num = afterSnapshotBlockNum
+    block_range = 0
+    end_block_num = start_block_num + block_range
+    cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas"
+    if Utils.Debug: Utils.Print(f"cmd: {cmd}")
+    clients = []
+    files = []
+    starts = []
+    for i in range(0, args.num_clients):
+        start = time.perf_counter()
+        outFile = open(f"{shipClientFilePrefix}{i}_snapshot.out", "w")
+        errFile = open(f"{shipClientFilePrefix}{i}_snapshot.err", "w")
+        Print(f"Start client {i}")
+        popen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
+        starts.append(time.perf_counter())
+        clients.append((popen, cmd))
+        files.append((outFile, errFile))
+        Print(f"Client {i} started, Ship node head is: {shipNode.getBlockNum()}")
 
-        Print(f"Stopping all {args.num_clients} clients")
-        for index, (popen, _), (out, err), start in zip(range(len(clients)), clients, files, starts):
-            popen.wait()
-            Print(f"Stopped client {index}.  Ran for {time.perf_counter() - start:.3f} seconds.")
-            out.close()
-            err.close()
-            outFile = open(f"{shipClientFilePrefix}{index}_snapshot.out", "r")
-            data = json.load(outFile)
-            block_num = start_block_num
-            for i in data:
-                # fork can cause block numbers to be repeated
-                this_block_num = i['get_blocks_result_v0']['this_block']['block_num']
-                if this_block_num < block_num:
-                    block_num = this_block_num
-                assert block_num == this_block_num, f"{block_num} != {this_block_num}"
-                assert isinstance(i['get_blocks_result_v0']['deltas'], str) # verify deltas in result
-                block_num += 1
-            assert block_num-1 == end_block_num, f"{block_num-1} != {end_block_num}"
+    Print(f"Stopping all {args.num_clients} clients")
+    for index, (popen, _), (out, err), start in zip(range(len(clients)), clients, files, starts):
+        popen.wait()
+        Print(f"Stopped client {index}.  Ran for {time.perf_counter() - start:.3f} seconds.")
+        out.close()
+        err.close()
+        outFile = open(f"{shipClientFilePrefix}{index}_snapshot.out", "r")
+        data = json.load(outFile)
+        block_num = start_block_num
+        for i in data:
+            # fork can cause block numbers to be repeated
+            this_block_num = i['get_blocks_result_v0']['this_block']['block_num']
+            if this_block_num < block_num:
+                block_num = this_block_num
+            assert block_num == this_block_num, f"{block_num} != {this_block_num}"
+            assert isinstance(i['get_blocks_result_v0']['deltas'], str) # verify deltas in result
+            block_num += 1
+        assert block_num-1 == end_block_num, f"{block_num-1} != {end_block_num}"
 
     testSuccessful = True
 finally:
