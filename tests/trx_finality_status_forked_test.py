@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import sys
 import time
 import decimal
 import json
@@ -119,6 +119,14 @@ try:
             f"ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {json.dumps(status, indent=1)}"
         return status["state"]
 
+    def getBlockNum(status):
+        assert status is not None, "ERROR: getTransactionStatus failed to return any status"
+        assert "head_number" in status, \
+            f"ERROR: getTransactionStatus returned a status object that didn't have a \"head_number\" field. state: {json.dumps(status, indent=1)}"
+        if "block_number" in status:
+            return status["block_number"]
+        return status["head_number"]
+
     transferAmount = 10
     # Does not use transaction retry (not needed)
     transfer = prodD.transferFunds(cluster.eosioAccount, cluster.defproduceraAccount, f"{transferAmount}.0000 {CORE_SYMBOL}", "fund account")
@@ -163,8 +171,9 @@ try:
     while True:
         retStatus = prodD.getTransactionStatus(transId)
         state = getState(retStatus)
+        blockNum = getBlockNum(retStatus)
         info = prodD.getInfo()
-        if state == forkedOutState or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > transBlockNum ):
+        if state == forkedOutState or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > blockNum ):
             break
 
     if state == irreversibleState:
@@ -192,10 +201,8 @@ try:
             info = prodD.getInfo()
             retStatus = prodD.getTransactionStatus(transId)
             state = getState(retStatus)
-            if state == localState or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > retBlockNum ):
-                continue
-            retBlockNum = retStatus["block_number"]
-            if (state == inBlockState or state == irreversibleState) or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > retBlockNum ):
+            blockNum = getBlockNum(retStatus)
+            if (state == inBlockState or state == irreversibleState) or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > blockNum ):
                 break
 
     assert state == inBlockState or state == irreversibleState, \
@@ -227,7 +234,8 @@ try:
             info = prodD.getInfo()
             retStatus = prodD.getTransactionStatus(transId)
             state = getState(retStatus)
-            if state == irreversibleState or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > retStatus["block_number"] ):
+            blockNum = getBlockNum(retStatus)
+            if state == irreversibleState or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > blockNum ):
                 break
 
     assert state == irreversibleState, \
