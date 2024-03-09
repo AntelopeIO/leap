@@ -220,8 +220,8 @@ set_property(TEST keosd_auto_launch_test PROPERTY LABELS nonparallelizable_tests
 add_test(NAME nodeos_snapshot_diff_test COMMAND tests/nodeos_snapshot_diff_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_snapshot_diff_test PROPERTY LABELS nonparallelizable_tests)
 # requires https://github.com/AntelopeIO/leap/issues/1558
-#add_test(NAME nodeos_snapshot_diff_if_test COMMAND tests/nodeos_snapshot_diff_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-#set_property(TEST nodeos_snapshot_diff_if_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME nodeos_snapshot_diff_if_test COMMAND tests/nodeos_snapshot_diff_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_snapshot_diff_if_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_snapshot_forked_test COMMAND tests/nodeos_snapshot_forked_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_snapshot_forked_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_snapshot_forked_if_test COMMAND tests/nodeos_snapshot_forked_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
