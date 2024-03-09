@@ -3636,10 +3636,11 @@ struct controller_impl {
    void maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup) {
       auto maybe_switch = [&](auto& forkdb) {
          if (read_mode != db_read_mode::IRREVERSIBLE) {
-            auto fork_head = forkdb.head();
-            if (chain_head.id() != fork_head->id()) {
+            auto pending_head = forkdb.pending_head();
+            if (chain_head.id() != pending_head->id() && pending_head->id() != forkdb.head()->id()) {
+               dlog("switching forks on controller->maybe_switch_forks call");
                controller::block_report br;
-               maybe_switch_forks(br, fork_head, fork_head->is_valid() ? controller::block_status::validated : controller::block_status::complete,
+               maybe_switch_forks(br, pending_head, pending_head->is_valid() ? controller::block_status::validated : controller::block_status::complete,
                                   cb, trx_lookup);
             }
          }
