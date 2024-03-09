@@ -630,8 +630,12 @@ struct building_block {
    digest_type get_finality_mroot_claim(const block_state& parent, const qc_claim_t& qc_claim) {
       auto next_core_metadata = parent.core.next_metadata(qc_claim);
 
-      assert(parent.valid);
-      return parent.valid->get_finality_mroot(next_core_metadata.final_on_strong_qc_block_num);
+      // For proper IF blocks that do not have an associated Finality Tree defined
+      if (parent.core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num)) {
+         return digest_type{};
+      }
+
+      return parent.get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
    }
 
    assembled_block assemble_block(boost::asio::io_context& ioc,
@@ -760,11 +764,11 @@ struct building_block {
                   // Create the valid structure for validating_bsp if it does not
                   // have one.
                   if (!validating_bsp->valid) {
-                     validating_bsp->valid = bb.parent.valid->next(bhs, action_mroot);
+                     validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot);
                   }
                } else {
                   // Create the valid structure for producing
-                  valid = bb.parent.valid->next(bhs, action_mroot);
+                  valid = bb.parent.new_valid(bhs, action_mroot);
                }
 
                assembled_block::assembled_block_if ab{
@@ -3230,9 +3234,12 @@ struct controller_impl {
 
             // verify received finality digest in action_mroot is the same as the actual one
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-               assert(bsp->valid);
-
-               auto actual_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
+               // For proper IF blocks that do not have an associated Finality Tree defined,
+               // its finality_mroot is empty
+               digest_type actual_finality_mroot{};
+               if (!bsp->core.is_genesis_block_num(bsp->core.final_on_strong_qc_block_num)) {
+                  actual_finality_mroot = bsp->get_validation_mroot(bsp->core.final_on_strong_qc_block_num);
+               }
 
                EOS_ASSERT(bsp->finality_mroot() == actual_finality_mroot,
                   block_validate_exception,

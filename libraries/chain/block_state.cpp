@@ -8,51 +8,6 @@
 
 namespace eosio::chain {
 
-valid_t valid_t::next(const block_header_state& bhs, const digest_type& action_mroot) const {
-   assert(bhs.core.last_final_block_num() >= last_final_block_num);
-
-   // Copy parent's finality_merkel_tree and finality_mroots.
-   // For finality_mroots, removing any roots from the front end
-   // to block whose block number is last_final_block_num - 1
-   auto start = bhs.core.last_final_block_num() - this->last_final_block_num;
-   valid_t valid {
-      .finality_merkel_tree = this->finality_merkel_tree,
-      .finality_mroots = { this->finality_mroots.cbegin() + start,
-                           this->finality_mroots.cend() }
-   };
-
-   // append the root of the parent's Validation Tree.
-   valid.finality_mroots.emplace_back(this->finality_merkel_tree.get_root());
-
-   // post condition of finality_mroots
-   assert(valid.finality_mroots.size() == (bhs.block_num() - bhs.core.last_final_block_num() + 1));
-
-   // construct block's finality leaf node.
-   valid_t::finality_leaf_node_t leaf_node{
-      .leaf_version    = finality_tree_leaf_version,
-      .block_num       = bhs.block_num(),
-      .finality_digest = bhs.compute_finalizer_digest(),
-      .action_mroot    = action_mroot
-   };
-   auto leaf_node_digest = fc::sha256::hash(leaf_node);
-
-   // append new finality leaf node digest to finality_merkel_tree
-   valid.finality_merkel_tree.append(leaf_node_digest);
-
-   // update last_final_block_num
-   valid.last_final_block_num = bhs.core.last_final_block_num();
-
-   return valid;
-}
-
-digest_type valid_t::get_finality_mroot(block_num_type target_block_num) const {
-   assert(finality_mroots.size() > 0);
-   assert(last_final_block_num <= target_block_num &&
-          target_block_num < last_final_block_num + finality_mroots.size());
-
-   return finality_mroots[target_block_num - last_final_block_num];
-}
-
 block_state::block_state(const block_header_state& prev, signed_block_ptr b, const protocol_feature_set& pfs,
                          const validator_t& validator, bool skip_validate_signee)
    : block_header_state(prev.next(*b, validator))
@@ -101,19 +56,21 @@ block_state::block_state(const block_state_legacy& bsp) {
    core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
    activated_protocol_features = bsp.activated_protocol_features;
 
-   // construct valid structure
-   valid = valid_t {
-      .finality_merkel_tree = incremental_merkle_tree{},
-      .finality_mroots      = { digest_type{} }, // for genesis block itself
-      .last_final_block_num = bsp.block_num()
-   };
+   // built leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {
       .leaf_version    = finality_tree_leaf_version,
       .block_num       = bsp.block_num(),
       .finality_digest = digest_type{},
       .action_mroot    = bsp.header.action_mroot // legacy block header still stores actual action_mroot
    };
-   valid->finality_merkel_tree.append(fc::sha256::hash(leaf_node));
+   incremental_merkle_tree validation_tree;
+   validation_tree.append(fc::sha256::hash(leaf_node));
+
+   // construct valid structure
+   valid = valid_t {
+      .validation_tree   = validation_tree,
+      .validation_mroots = { validation_tree.get_root() }
+   };
 
    auto if_ext_id = instant_finality_extension::extension_id();
    std::optional<block_header_extension> ext = bsp.block->extract_header_extension(if_ext_id);
@@ -261,6 +218,52 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
       *valid_qc : // tie broke by valid_qc
       valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
    return quorum_certificate{ block_num(), best_qc };
+}
+
+valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_type& action_mroot) const {
+   assert(valid);
+   assert(next_bhs.core.last_final_block_num() >= core.last_final_block_num());
+
+   // Copy parent's validation_tree and validation_mroots.
+   auto start = next_bhs.core.last_final_block_num() - core.last_final_block_num();
+   valid_t next_valid {
+      .validation_tree = valid->validation_tree,
+      // Remove any roots from the front end to block whose block number is
+      // last_final_block_num - 1
+      .validation_mroots = { valid->validation_mroots.cbegin() + start, valid->validation_mroots.cend() }
+   };
+
+   // construct block's finality leaf node.
+   valid_t::finality_leaf_node_t leaf_node{
+      .leaf_version    = finality_tree_leaf_version,
+      .block_num       = next_bhs.block_num(),
+      .finality_digest = next_bhs.compute_finalizer_digest(),
+      .action_mroot    = action_mroot
+   };
+   auto leaf_node_digest = fc::sha256::hash(leaf_node);
+
+   // append new finality leaf node digest to validation_tree
+   next_valid.validation_tree.append(leaf_node_digest);
+
+   // append the root of the new Validation Tree to validation_mroots.
+   next_valid.validation_mroots.emplace_back(next_valid.validation_tree.get_root());
+
+   // post condition of validation_mroots
+   assert(next_valid.validation_mroots.size() == (next_bhs.block_num() - next_bhs.core.last_final_block_num() + 1));
+
+   return next_valid;
+}
+
+digest_type block_state::get_validation_mroot(block_num_type target_block_num) const {
+   if (!valid) {
+      return digest_type{};
+   }
+
+   assert(valid->validation_mroots.size() > 0);
+   assert(core.last_final_block_num() <= target_block_num &&
+          target_block_num < core.last_final_block_num() + valid->validation_mroots.size());
+
+   return valid->validation_mroots[target_block_num - core.last_final_block_num()];
 }
 
 void inject_additional_signatures( signed_block& b, const std::vector<signature_type>& additional_signatures)
