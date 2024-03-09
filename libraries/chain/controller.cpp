@@ -23,7 +23,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
-#include <eosio/chain/snapshot_specific.hpp>
+#include <eosio/chain/snapshot_detail.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>

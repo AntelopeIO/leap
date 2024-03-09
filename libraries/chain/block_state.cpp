@@ -2,7 +2,7 @@
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/hotstuff/finalizer.hpp>
-#include <eosio/chain/snapshot_specific.hpp>
+#include <eosio/chain/snapshot_detail.hpp>
 #include <eosio/chain/exceptions.hpp>
 
 #include <fc/crypto/bls_utils.hpp>
