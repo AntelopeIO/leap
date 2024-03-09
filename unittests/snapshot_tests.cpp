@@ -453,7 +453,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    //    for example `cp ./unittests/snapshots/snap_v7.* ../unittests/snapshots`
    // 4. edit `unittests/snapshots/CMakeLists.txt` and add the `configure_file` commands for the 3 new files.
    //    now the test should pass.
-   // 5. add the 3 new snapshot files in git (beware the top `.gitignore` hides the `snapshots` directory - why???)
+   // 5. add the 3 new snapshot files in git.
    // -------------------------------------------------------------------------------------------------------------
    if (save_snapshot)
    {
