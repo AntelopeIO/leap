@@ -223,9 +223,6 @@ try:
     Print("Shutdown bridge node")
     nonProdNode.kill(signal.SIGTERM)
 
-    ##
-    ## Following requires https://github.com/AntelopeIO/leap/issues/1558
-    ##
     Print("Test starting ship from snapshot")
     Utils.rmNodeDataDir(shipNodeNum)
     isRelaunchSuccess = shipNode.relaunch(chainArg=" --snapshot {}".format(getLatestSnapshot(shipNodeNum)))
