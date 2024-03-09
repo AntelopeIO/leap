@@ -640,7 +640,7 @@ struct building_block {
                                   std::unique_ptr<proposer_policy> new_proposer_policy,
                                   bool validating,
                                   std::optional<qc_data_t> validating_qc_data,
-                                  std::optional<digest_type> validating_finality_mroot_claim) {
+                                  block_state_ptr validating_bsp) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -694,7 +694,14 @@ struct building_block {
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
                   qc_data = std::move(validating_qc_data);
-                  finality_mroot_claim = std::move(validating_finality_mroot_claim);
+
+                  assert(validating_bsp);
+                  // Use the action_mroot from raceived block's header for
+                  // finality_mroot_claim at the first stage such that the next
+                  // block's header and block id can be built. The actual
+                  // finality_mroot will be validated by apply_block at the
+                  // second stage
+                  finality_mroot_claim = validating_bsp->header.action_mroot;
                } else {
                   // find most recent ancestor block that has a QC by traversing fork db
                   // branch from parent
@@ -747,9 +754,16 @@ struct building_block {
 
                auto bhs = bb.parent.next(bhs_input);
 
-               std::optional<valid_t> valid;
-               if (!validating) {
-                  assert(bb.parent.valid);
+               std::optional<valid_t> valid; // used for producing
+
+               if (validating) {
+                  // Create the valid structure for validating_bsp if it does not
+                  // have one.
+                  if (!validating_bsp->valid) {
+                     validating_bsp->valid = bb.parent.valid->next(bhs, action_mroot);
+                  }
+               } else {
+                  // Create the valid structure for producing
                   valid = bb.parent.valid->next(bhs, action_mroot);
                }
 
@@ -2809,7 +2823,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {}, std::optional<digest_type> validating_finality_mroot_claim = {})
+   void assemble_block(bool validating, std::optional<qc_data_t> validating_qc_data, block_state_ptr validating_bsp)
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -2852,8 +2866,7 @@ struct controller_impl {
 
          auto assembled_block =
             bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), fork_db, std::move(new_proposer_policy),
-                              validating, std::move(validating_qc_data),
-                              std::move(validating_finality_mroot_claim));
+                              validating, std::move(validating_qc_data), validating_bsp);
 
          // Update TaPoS table:
          create_block_summary(  assembled_block.id() );
@@ -3197,11 +3210,12 @@ struct controller_impl {
                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
             }
 
-            std::optional<digest_type> finality_mroot_claim;
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-               finality_mroot_claim = bsp->header.action_mroot;
+               // assemble_block will mutate bsp by setting the valid structure
+               assemble_block(true, extract_qc_data(b), bsp);
+            } else {
+               assemble_block(true, {}, nullptr);
             }
-            assemble_block(true, extract_qc_data(b), std::move(finality_mroot_claim));
             auto& ab = std::get<assembled_block>(pending->_block_stage);
 
             if( producer_block_id != ab.id() ) {
@@ -3214,20 +3228,16 @@ struct controller_impl {
                           ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
             }
 
-            // verify received finality digest in action_mroot is the same as the computed
+            // verify received finality digest in action_mroot is the same as the actual one
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-               if (!bsp->valid) { // no need to re-validate if it is already valid
-                  block_state_ptr parent_bsp = std::get<block_state_ptr>(chain_head.internal());
-                  assert(parent_bsp->valid);
-                  bsp->valid = parent_bsp->valid->next(*bsp, ab.action_mroot());
+               assert(bsp->valid);
 
-                  auto computed_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
+               auto actual_finality_mroot = bsp->valid->get_finality_mroot(bsp->core.final_on_strong_qc_block_num);
 
-                  EOS_ASSERT(bsp->finality_mroot() == computed_finality_mroot,
-                        block_validate_exception,
-                        "finality_mroot does not match, received finality_mroot: ${r} != computed_finality_mroot: ${c}",
-                         ("r", bsp->finality_mroot())("c", computed_finality_mroot));
-               }
+               EOS_ASSERT(bsp->finality_mroot() == actual_finality_mroot,
+                  block_validate_exception,
+                  "finality_mroot does not match, received finality_mroot: ${r} != actual_finality_mroot: ${a}",
+                  ("r", bsp->finality_mroot())("a", actual_finality_mroot));
             }
 
             if( !use_bsp_cached ) {
@@ -4428,7 +4438,7 @@ void controller::start_block( block_timestamp_type when,
 void controller::assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback ) {
    validate_db_available_size();
 
-   my->assemble_block();
+   my->assemble_block(false, {}, nullptr);
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
    const auto& valid_block_signing_authority = my->head_active_schedule_auth().get_scheduled_producer(ab.timestamp()).authority;
