@@ -83,7 +83,7 @@ public:
                deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
                const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
 
-   block_state(snapshot_detail::snapshot_block_state_v7&& sbs);
+   explicit block_state(snapshot_detail::snapshot_block_state_v7&& sbs);
 
    explicit block_state(const block_state_legacy& bsp);
 

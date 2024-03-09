@@ -139,7 +139,6 @@ namespace eosio::chain::snapshot_detail {
          , proposer_policies(bs.proposer_policies)
          , finalizer_policies(bs.finalizer_policies)
          , valid(0)  // snapshot todo
-           // other members of block_state strong_digest, weak_digest, valid_qc? // snapshot todo
       {}
    };
 
@@ -151,11 +150,11 @@ namespace eosio::chain::snapshot_detail {
 
       snapshot_block_state_variant_v7() = default;
 
-      snapshot_block_state_variant_v7(const block_state& bs)
+      explicit snapshot_block_state_variant_v7(const block_state& bs)
          : v(snapshot_block_state_v7(bs))
       {}
 
-      snapshot_block_state_variant_v7(const block_state_legacy& bs)
+      explicit snapshot_block_state_variant_v7(const block_state_legacy& bs)
          : v(snapshot_block_state_legacy_v7(bs))
       {}
    };
