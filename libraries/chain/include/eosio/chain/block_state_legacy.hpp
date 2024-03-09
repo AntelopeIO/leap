@@ -32,7 +32,7 @@ namespace eosio::chain {
                           const signer_callback_type& signer
                 );
 
-      block_state_legacy(snapshot_detail::snapshot_block_state_legacy_v7&& sbs);
+      explicit block_state_legacy(snapshot_detail::snapshot_block_state_legacy_v7&& sbs);
 
       block_state_legacy() = default;
 

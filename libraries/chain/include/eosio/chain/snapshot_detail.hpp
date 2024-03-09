@@ -72,7 +72,7 @@ namespace eosio::chain::snapshot_detail {
 
       snapshot_block_header_state_legacy_v3() = default;
 
-      snapshot_block_header_state_legacy_v3(const block_state_legacy& bs)
+      explicit snapshot_block_header_state_legacy_v3(const block_state_legacy& bs)
          : block_num(bs.block_num())
          , dpos_proposed_irreversible_blocknum(bs.dpos_proposed_irreversible_blocknum)
          , dpos_irreversible_blocknum(bs.dpos_irreversible_blocknum)
@@ -102,7 +102,7 @@ namespace eosio::chain::snapshot_detail {
 
       snapshot_block_state_legacy_v7() = default;
 
-      snapshot_block_state_legacy_v7(const block_state_legacy& bs)
+      explicit snapshot_block_state_legacy_v7(const block_state_legacy& bs)
          : snapshot_block_header_state_legacy_v3(bs)
          , valid(0)  // snapshot todo
       {}
@@ -127,7 +127,7 @@ namespace eosio::chain::snapshot_detail {
 
       snapshot_block_state_v7() = default;
 
-      snapshot_block_state_v7(const block_state& bs)
+      explicit snapshot_block_state_v7(const block_state& bs)
          : block_id(bs.block_id)
          , header(bs.header)
          , activated_protocol_features(bs.activated_protocol_features)
