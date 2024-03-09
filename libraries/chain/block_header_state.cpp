@@ -2,6 +2,7 @@
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/hotstuff/instant_finality_extension.hpp>
 #include <eosio/chain/hotstuff/proposer_policy.hpp>
+#include <eosio/chain/snapshot_specific.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <limits>
 

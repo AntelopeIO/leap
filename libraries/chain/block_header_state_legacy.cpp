@@ -474,6 +474,8 @@ namespace eosio::chain {
       pending_schedule                      = std::move(bhs_v3.pending_schedule);
       activated_protocol_features           = std::move(bhs_v3.activated_protocol_features);
       additional_signatures                 = std::move(bhs_v3.additional_signatures);
+
+      header_exts = header.validate_and_extract_header_extensions();
    }
 
 
