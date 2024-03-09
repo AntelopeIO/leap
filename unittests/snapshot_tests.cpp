@@ -450,11 +450,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    // ----------------------------------------------------------
    // 1. update `current_version` and the list of versions in `for` loop
    // 2. run: `unittests/unit_test -t "snapshot_tests/test_com*" -- --save-snapshot` to generate new snapshot files
-   // 3. copy the newly generated files (see `ls -lrth ./unittests/snapshots/snap_*` to `leap/unittests/snapshots
+   // 3. copy the newly generated files (see `ls -lrth ./unittests/snapshots/snap_*` to `leap/unittests/snapshots`
    //    for example `cp ./unittests/snapshots/snap_v7.* ../unittests/snapshots`
    // 4. edit `unittests/snapshots/CMakeLists.txt` and add the `configure_file` commands for the 3 new files.
    //    now the test should pass.
-   // 5. add the 3 new snapshot files in git.
+   // 5. add the 3 new snapshot files in git (beware the top `.gitignore` hides the `snapshots` directory - why???)
    // -------------------------------------------------------------------------------------------------------------
    if (save_snapshot)
    {
