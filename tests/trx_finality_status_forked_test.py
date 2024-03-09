@@ -169,6 +169,7 @@ try:
 
     Print("Repeatedly check status looking for forked out state until after LIB moves and defproducerd")
     while True:
+        info = prodD.getInfo()
         retStatus = prodD.getTransactionStatus(transId)
         state = getState(retStatus)
         blockNum = getBlockNum(retStatus)
