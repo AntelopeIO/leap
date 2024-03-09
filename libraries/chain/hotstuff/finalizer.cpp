@@ -16,8 +16,12 @@ finalizer::vote_result finalizer::decide_vote(const block_state_ptr& bsp) {
       if (fsi.last_vote.empty()) {
          dlog("monotony check failed, block ${bn} ${p}, cannot vote, fsi.last_vote empty", ("bn", bsp->block_num())("p", bsp->id()));
       } else {
-         dlog("monotony check failed, block ${bn} ${p}, cannot vote, ${t} <= ${lt}, fsi.last_vote ${lbn} ${lid}",
-              ("bn", bsp->block_num())("p", bsp->id())("t", bsp->timestamp())("lt", fsi.last_vote.timestamp)("lbn", fsi.last_vote.block_num())("lid", fsi.last_vote.block_id));
+         if (fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::debug)) {
+            if (bsp->id() != fsi.last_vote.block_id) { // we may have already voted when we received the block
+               dlog("monotony check failed, block ${bn} ${p}, cannot vote, ${t} <= ${lt}, fsi.last_vote ${lbn} ${lid}",
+                    ("bn", bsp->block_num())("p", bsp->id())("t", bsp->timestamp())("lt", fsi.last_vote.timestamp)("lbn", fsi.last_vote.block_num())("lid", fsi.last_vote.block_id));
+            }
+         }
       }
       return res;
    }
