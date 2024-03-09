@@ -1,8 +1,3 @@
-#warning Remove undef NDEBUG for assert before RC
-//Undefine NDEBUG to enable assertions in CICD.
-#undef NDEBUG
-#include <cassert>
-
 #include <eosio/chain/finality_core.hpp>
 #include <eosio/chain/block_header.hpp>
 
@@ -99,6 +94,19 @@ bool finality_core::extends(const block_id_type& id) const {
       return ref.block_id == id;
    }
    return false;
+}
+
+/**
+ *  @pre  last_final_block_num() <= candidate_block_num <= current_block_block_num()
+ *  @post same
+ *  @returns boolean indicating whether `candidate_block_num` is the genesis block number or not
+ */
+bool finality_core::is_genesis_block_num(block_num_type candidate_block_num) const {
+   assert(last_final_block_num() <= candidate_block_num &&
+          candidate_block_num <= current_block_num());
+
+   return (links.front().source_block_num == links.front().target_block_num &&
+           links.front().source_block_num == candidate_block_num);
 }
 
 /**

@@ -110,6 +110,13 @@ struct finality_core
     */
    bool extends(const block_id_type& id) const;
 
+    /**
+    *  @pre  last_final_block_num() <= candidate_block_num <= current_block_block_num()
+    *  @post same
+    *  @returns boolean indicating whether `candidate_block_num` is the genesis block number or not
+    */
+   bool is_genesis_block_num(block_num_type candidate_block_num) const;
+
    /**
     *  @pre last_final_block_num() <= block_num < current_block_num()
     *
