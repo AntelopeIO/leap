@@ -532,6 +532,7 @@ namespace eosio {
 
    public:
       void update_chain_info();
+      void update_chain_info(const block_id_type& lib);
       chain_info_t get_chain_info() const;
       uint32_t get_chain_lib_num() const;
       uint32_t get_chain_head_num() const;
@@ -3243,6 +3244,21 @@ namespace eosio {
       fc_dlog( logger, "updating chain info lib ${lib}, fork ${fork}", ("lib", lib_num)("fork", head_num) );
    }
 
+   // call only from main application thread
+   void net_plugin_impl::update_chain_info(const block_id_type& lib) {
+      controller& cc = chain_plug->chain();
+      uint32_t lib_num = 0, head_num = 0;
+      {
+         fc::lock_guard g( chain_info_mtx );
+         chain_info.lib_num = lib_num = block_header::num_from_id(lib);
+         chain_info.lib_id = lib;
+         chain_info.head_num = head_num = cc.fork_db_head_block_num();
+         chain_info.head_id = cc.fork_db_head_block_id();
+      }
+      fc_dlog( logger, "updating chain info lib ${lib}, fork ${fork}", ("lib", lib_num)("fork", head_num) );
+   }
+
+
    net_plugin_impl::chain_info_t net_plugin_impl::get_chain_info() const {
       fc::lock_guard g( chain_info_mtx );
       return chain_info;
@@ -4017,7 +4033,7 @@ namespace eosio {
    // called from application thread
    void net_plugin_impl::on_irreversible_block( const block_id_type& id, uint32_t block_num) {
       fc_dlog( logger, "on_irreversible_block, blk num = ${num}, id = ${id}", ("num", block_num)("id", id) );
-      update_chain_info();
+      update_chain_info(id);
    }
 
    // called from application thread
