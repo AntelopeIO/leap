@@ -34,11 +34,11 @@ struct block_state_accessor;
  *    block referenced by the target block's final_on_strong_qc_block_num.
  *    That is, validation_tree(core.final_on_strong_qc_block_num))
  * */
-constexpr uint32_t finality_tree_leaf_version = 0;
 struct valid_t {
    struct finality_leaf_node_t {
-      uint32_t       leaf_version{finality_tree_leaf_version};
-      block_num_type block_num{0};    // the block number
+      uint32_t       major_version{light_header_protocol_version_major};
+      uint32_t       minor_version{light_header_protocol_version_minor};
+      block_num_type block_num{0};   // the block number
       digest_type    finality_digest; // finality digest for the block
       digest_type    action_mroot;    // digest of the root of the action Merkle tree of the block
    };
@@ -138,6 +138,6 @@ using block_state_ptr = std::shared_ptr<block_state>;
 } // namespace eosio::chain
 
 // not exporting pending_qc or valid_qc
-FC_REFLECT( eosio::chain::valid_t::finality_leaf_node_t, (leaf_version)(block_num)(finality_digest)(action_mroot) )
+FC_REFLECT( eosio::chain::valid_t::finality_leaf_node_t, (major_version)(minor_version)(block_num)(finality_digest)(action_mroot) )
 FC_REFLECT( eosio::chain::valid_t, (validation_tree)(validation_mroots))
 FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(valid)(validated) )

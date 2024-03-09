@@ -10,11 +10,11 @@ namespace eosio::chain {
 // this is a versioning scheme that is separate from protocol features that only
 // gets updated if a protocol feature causes a breaking change to light block
 // header validation
-constexpr uint32_t light_header_protocol_version = 0;
 
 // data for finality_digest
 struct finality_digest_data_v0_t {
-   uint32_t    version {light_header_protocol_version};
+   uint32_t    major_version{light_header_protocol_version_major};
+   uint32_t    minor_version{light_header_protocol_version_minor};
    uint32_t    active_finalizer_policy_generation {0};
    digest_type finality_tree_digest;
    digest_type base_and_active_finalizer_policy_digest;
@@ -56,7 +56,6 @@ digest_type block_header_state::compute_finalizer_digest() const {
    auto b_afp_digest = fc::sha256::hash(b_afp_digest_data);
 
    finality_digest_data_v0_t finality_digest_data {
-      .version                            = light_header_protocol_version,
       .active_finalizer_policy_generation = active_finalizer_policy->generation,
       .finality_tree_digest               = finality_mroot(),
       .base_and_active_finalizer_policy_digest = b_afp_digest
@@ -218,6 +217,6 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
 
 } // namespace eosio::chain
 
-FC_REFLECT( eosio::chain::finality_digest_data_v0_t, (version)(active_finalizer_policy_generation)(finality_tree_digest)(base_and_active_finalizer_policy_digest) )
+FC_REFLECT( eosio::chain::finality_digest_data_v0_t, (major_version)(minor_version)(active_finalizer_policy_generation)(finality_tree_digest)(base_and_active_finalizer_policy_digest) )
 FC_REFLECT( eosio::chain::base_and_active_finalizer_policy_digest_data_t, (active_finalizer_policy_digest)(base_digest) )
 FC_REFLECT( eosio::chain::base_digest_data_t, (header)(core)(finalizer_policies)(active_proposer_policy)(proposer_policies)(activated_protocol_features) )

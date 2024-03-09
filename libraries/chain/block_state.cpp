@@ -58,7 +58,6 @@ block_state::block_state(const block_state_legacy& bsp) {
 
    // built leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {
-      .leaf_version    = finality_tree_leaf_version,
       .block_num       = bsp.block_num(),
       .finality_digest = digest_type{},
       .action_mroot    = bsp.header.action_mroot // legacy block header still stores actual action_mroot
@@ -235,7 +234,6 @@ valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_
 
    // construct block's finality leaf node.
    valid_t::finality_leaf_node_t leaf_node{
-      .leaf_version    = finality_tree_leaf_version,
       .block_num       = next_bhs.block_num(),
       .finality_digest = next_bhs.compute_finalizer_digest(),
       .action_mroot    = action_mroot

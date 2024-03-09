@@ -13,6 +13,10 @@ namespace eosio::chain {
 
 namespace detail { struct schedule_info; };
 
+// Light header protocol version, separate from protocol feature version
+constexpr uint32_t light_header_protocol_version_major = 1;
+constexpr uint32_t light_header_protocol_version_minor = 0;
+
 struct building_block_input {
    block_id_type                     parent_id;
    block_timestamp_type              parent_timestamp;
