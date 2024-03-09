@@ -1833,7 +1833,7 @@ struct controller_impl {
                   section.read_row(block_state_variant, db);
                   std::visit(overloaded{
                         [&](snapshot_block_state_legacy_v7&& sbs) { chain_head = block_handle{std::make_shared<block_state_legacy>(std::move(sbs))}; },
-                           [&](snapshot_block_state_v7&& sbs)        { chain_head = block_handle{std::make_shared<block_state>(std::move(sbs))}; }},
+                        [&](snapshot_block_state_v7&& sbs)        { chain_head = block_handle{std::make_shared<block_state>(std::move(sbs))}; }},
                      std::move(block_state_variant.v));
                });
             } else {
