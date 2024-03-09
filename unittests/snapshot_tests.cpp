@@ -426,7 +426,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    int ordinal = 0;
    for(std::string version : {"v2", "v3", "v4" , "v5", "v6", "v7"})
    {
-      std::cout << version << '\n';
       if(save_snapshot && version == current_version) continue;
       static_assert(chain_snapshot_header::minimum_compatible_version <= 2, "version 2 unit test is no longer needed.  Please clean up data files");
       auto old_snapshot = SNAPSHOT_SUITE::load_from_file("snap_" + version);
