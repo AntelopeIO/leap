@@ -13,11 +13,6 @@ namespace eosio::chain {
 
 namespace detail { struct schedule_info; };
 
-struct finality_mroot_claim_t {
-   block_num_type block_num;
-   digest_type    finality_mroot;
-};
-
 struct building_block_input {
    block_id_type                     parent_id;
    block_timestamp_type              parent_timestamp;
@@ -33,7 +28,7 @@ struct block_header_state_input : public building_block_input {
    std::optional<finalizer_policy>   new_finalizer_policy; // Comes from building_block::new_finalizer_policy
    qc_claim_t                        most_recent_ancestor_with_qc; // Comes from traversing branch from parent and calling get_best_qc()
                                                            // assert(qc->block_num <= num_from_id(previous));
-   std::optional<finality_mroot_claim_t> finality_mroot_claim;
+   std::optional<digest_type>        finality_mroot_claim;
 };
 
 struct block_header_state {

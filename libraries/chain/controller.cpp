@@ -627,13 +627,20 @@ struct building_block {
                         v);
    }
 
+   digest_type get_finality_mroot_claim(const block_state& parent, const qc_claim_t& qc_claim) {
+      auto next_core_metadata = parent.core.next_metadata(qc_claim);
+
+      assert(parent.valid);
+      return parent.valid->get_finality_mroot(next_core_metadata.final_on_strong_qc_block_num);
+   }
+
    assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
                                   fork_database& fork_db,
                                   std::unique_ptr<proposer_policy> new_proposer_policy,
                                   bool validating,
                                   std::optional<qc_data_t> validating_qc_data,
-                                  std::optional<finality_mroot_claim_t> validating_finality_mroot_claim) {
+                                  std::optional<digest_type> validating_finality_mroot_claim) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -681,7 +688,7 @@ struct building_block {
                   trx_mroot_or_receipt_digests());
 
                std::optional<qc_data_t> qc_data;
-               std::optional<finality_mroot_claim_t> finality_mroot_claim;
+               std::optional<digest_type> finality_mroot_claim;
                std::optional<finality_core> updated_core;
 
                if (validating) {
@@ -717,21 +724,7 @@ struct building_block {
                         qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
                      }
 
-                     // calculate updated_core whose information is needed
-                     // to build finality_mroot_claim
-                     block_ref parent_block_ref {
-                        .block_id  = bb.parent.id(),
-                        .timestamp = bb.parent.timestamp()
-                     };
-                     updated_core = bb.parent.core.next(parent_block_ref, qc_data->qc_claim );
-
-                     assert(bb.parent.valid);
-                     // construct finality_mroot_claim using updated_core's
-                     // final_on_strong_qc_block_num
-                     finality_mroot_claim = finality_mroot_claim_t{
-                        .block_num      = updated_core->final_on_strong_qc_block_num,
-                        .finality_mroot = bb.parent.valid->get_finality_mroot(updated_core->final_on_strong_qc_block_num)
-                     };
+                     finality_mroot_claim = get_finality_mroot_claim(bb.parent, qc_data->qc_claim);
                   });
                }
 
@@ -2816,7 +2809,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {}, std::optional<finality_mroot_claim_t> validating_finality_mroot_claim = {})
+   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {}, std::optional<digest_type> validating_finality_mroot_claim = {})
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -3204,12 +3197,9 @@ struct controller_impl {
                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
             }
 
-            std::optional<finality_mroot_claim_t> finality_mroot_claim;
+            std::optional<digest_type> finality_mroot_claim;
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-               finality_mroot_claim = finality_mroot_claim_t{
-                  .block_num = bsp->core.final_on_strong_qc_block_num,
-                  .finality_mroot = bsp->header.action_mroot
-               };
+               finality_mroot_claim = bsp->header.action_mroot;
             }
             assemble_block(true, extract_qc_data(b), std::move(finality_mroot_claim));
             auto& ab = std::get<assembled_block>(pending->_block_stage);
