@@ -173,7 +173,6 @@ try:
         retStatus = prodD.getTransactionStatus(transId)
         state = getState(retStatus)
         blockNum = getBlockNum(retStatus)
-        info = prodD.getInfo()
         if state == forkedOutState or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > blockNum ):
             break
 
