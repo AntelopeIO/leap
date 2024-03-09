@@ -695,13 +695,10 @@ struct building_block {
                                        "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                                        ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
                            auto qc_claim = qc->to_qc_claim();
-                           ilog("integrate qc is_needed qc: ${qc}, strong=${s}", ("qc", qc->block_num)("s", qc->qc.is_strong()));
                            if( bb.parent.is_needed(qc_claim) ) {
-                              ilog("integrate qc and qc claim ${qc} into block ${bn}", ("qc", qc_claim)("bn", block_header::num_from_id(parent_id())+1));
                               qc_data = qc_data_t{ *qc, qc_claim };
                            } else {
                               // no new qc info, repeat existing
-                              ilog("integrate only qc claim ${qc} into block ${bn}", ("qc", qc_claim)("bn", block_header::num_from_id(parent_id())+1));
                               qc_data = qc_data_t{ {},  bb.parent.core.latest_qc_claim() };
                            }
                            break;
@@ -3457,21 +3454,22 @@ struct controller_impl {
 
       const auto claimed = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
       if( !claimed ) {
-         ilog("qc not found in forkdb, qc: ${qbn}, strong=${s}", ("qbn", qc_ext.qc.block_num)("s", received_qc.is_strong()));
+         dlog("qc not found in forkdb, qc: ${qc} for block ${bn} ${id}, previous ${p}",
+              ("qc", qc_ext.qc.to_qc_claim())("bn", bsp_in->block_num())("id", bsp_in->id())("p", bsp_in->previous()));
          return;
       }
 
       // Don't save the QC from block extension if the claimed block has a better valid_qc.
       if (claimed->valid_qc && (claimed->valid_qc->is_strong() || received_qc.is_weak())) {
-         ilog("qc not better, claimed->valid: ${qbn}, strong=${s}, received: ${rbn}, strong=${rs}",
-              ("qbn", claimed->block_num())("s", claimed->valid_qc->is_strong())
-              ("rbn", qc_ext.qc.block_num)("rs", received_qc.is_strong()));
+         dlog("qc not better, claimed->valid: ${qbn} ${qid}, strong=${s}, received: ${rqc}, for block ${bn} ${id}",
+              ("qbn", claimed->block_num())("qid", claimed->id())("s", claimed->valid_qc->is_strong())
+              ("rqc", qc_ext.qc.to_qc_claim())("bn", bsp_in->block_num())("id", bsp_in->id()));
          return;
       }
 
       // Save the QC. This is safe as the function is called by push_block & accept_block from application thread.
-      ilog("setting valid qc: ${rbn}, strong=${rs} into block ${bn} : ${id}",
-           ("rbn", qc_ext.qc.block_num)("rs", received_qc.is_strong())("bn", claimed->block_num())("id", claimed->id()));
+      dlog("setting valid qc: ${rqc} into claimed block ${bn} : ${id}",
+           ("rqc", qc_ext.qc.to_qc_claim())("rs", received_qc.is_strong())("bn", claimed->block_num())("id", claimed->id()));
       claimed->valid_qc = received_qc;
 
       // advance LIB if QC is strong
