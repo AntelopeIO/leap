@@ -1628,19 +1628,17 @@ struct controller_impl {
       // Also, even though blog.head() may still be nullptr, blog.first_block_num() is guaranteed to be lib_num + 1.
 
       auto finish_init = [&](auto& forkdb) {
-         if( read_mode != db_read_mode::IRREVERSIBLE
-             && forkdb.pending_head()->id() != forkdb.head()->id()
-             && forkdb.head()->id() == forkdb.root()->id()
-            ) {
-            wlog( "read_mode has changed from irreversible: applying best branch from fork database" );
+         if( read_mode != db_read_mode::IRREVERSIBLE ) {
+            auto pending_head = forkdb.pending_head();
+            auto head         = forkdb.head();
+            if ( head && pending_head && pending_head->id() != head->id() && head->id() == forkdb.root()->id() ) {
+               wlog( "read_mode has changed from irreversible: applying best branch from fork database" );
 
-            for( auto pending_head = forkdb.pending_head();
-                 pending_head->id() != forkdb.head()->id();
-                 pending_head = forkdb.pending_head()
-               ) {
-               wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
-               controller::block_report br;
-               maybe_switch_forks( br, pending_head, controller::block_status::complete, {}, trx_meta_cache_lookup{} );
+               for( ; pending_head->id() != forkdb.head()->id(); pending_head = forkdb.pending_head() ) {
+                  wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
+                  controller::block_report br;
+                  maybe_switch_forks( br, pending_head, controller::block_status::complete, {}, trx_meta_cache_lookup{} );
+               }
             }
          }
       };
