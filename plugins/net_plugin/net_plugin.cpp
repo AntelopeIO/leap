@@ -3236,10 +3236,10 @@ namespace eosio {
       uint32_t lib_num = 0, head_num = 0;
       {
          fc::lock_guard g( chain_info_mtx );
-         chain_info.lib_num = lib_num = cc.last_irreversible_block_num();
          chain_info.lib_id = cc.last_irreversible_block_id();
-         chain_info.head_num = head_num = cc.fork_db_head_block_num();
+         chain_info.lib_num = lib_num = block_header::num_from_id(chain_info.lib_id);
          chain_info.head_id = cc.fork_db_head_block_id();
+         chain_info.head_num = head_num = block_header::num_from_id(chain_info.head_id);
       }
       fc_dlog( logger, "updating chain info lib ${lib}, fork ${fork}", ("lib", lib_num)("fork", head_num) );
    }
@@ -3252,8 +3252,8 @@ namespace eosio {
          fc::lock_guard g( chain_info_mtx );
          chain_info.lib_num = lib_num = block_header::num_from_id(lib);
          chain_info.lib_id = lib;
-         chain_info.head_num = head_num = cc.fork_db_head_block_num();
          chain_info.head_id = cc.fork_db_head_block_id();
+         chain_info.head_num = head_num = block_header::num_from_id(chain_info.head_id);
       }
       fc_dlog( logger, "updating chain info lib ${lib}, fork ${fork}", ("lib", lib_num)("fork", head_num) );
    }
