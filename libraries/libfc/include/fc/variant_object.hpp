@@ -80,12 +80,12 @@ namespace fc
          *this = variant_object( std::move(key), variant(std::forward<T>(val)) );
       }
       variant_object( const variant_object& );
-      variant_object( variant_object&& );
+      variant_object( variant_object&& ) noexcept ;
 
       variant_object( const mutable_variant_object& );
       variant_object( mutable_variant_object&& );
 
-      variant_object& operator=( variant_object&& );
+      variant_object& operator=( variant_object&& ) noexcept ;
       variant_object& operator=( const variant_object& );
 
       variant_object& operator=( mutable_variant_object&& );
@@ -233,7 +233,7 @@ namespace fc
          set( std::move(key), variant(std::forward<T>(val)) );
       }
 
-      mutable_variant_object( mutable_variant_object&& );
+      mutable_variant_object( mutable_variant_object&& ) noexcept ;
       mutable_variant_object( const mutable_variant_object& );
       explicit mutable_variant_object( const variant_object& );
       /*
@@ -242,7 +242,7 @@ namespace fc
        */
       explicit mutable_variant_object( variant_object&& );
 
-      mutable_variant_object& operator=( mutable_variant_object&& );
+      mutable_variant_object& operator=( mutable_variant_object&& ) noexcept ;
       mutable_variant_object& operator=( const mutable_variant_object& );
       mutable_variant_object& operator=( const variant_object& );
       /**

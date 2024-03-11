@@ -23,6 +23,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
+#include <eosio/chain/snapshot_detail.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
@@ -925,7 +926,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
-   my_finalizers_t                   my_finalizers;
+   my_finalizers_t                 my_finalizers;
    std::atomic<bool>               writing_snapshot = false;
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
@@ -1681,19 +1682,17 @@ struct controller_impl {
       // Also, even though blog.head() may still be nullptr, blog.first_block_num() is guaranteed to be lib_num + 1.
 
       auto finish_init = [&](auto& forkdb) {
-         if( read_mode != db_read_mode::IRREVERSIBLE
-             && forkdb.pending_head()->id() != forkdb.head()->id()
-             && forkdb.head()->id() == forkdb.root()->id()
-            ) {
-            wlog( "read_mode has changed from irreversible: applying best branch from fork database" );
+         if( read_mode != db_read_mode::IRREVERSIBLE ) {
+            auto pending_head = forkdb.pending_head();
+            auto head         = forkdb.head();
+            if ( head && pending_head && pending_head->id() != head->id() && head->id() == forkdb.root()->id() ) {
+               wlog( "read_mode has changed from irreversible: applying best branch from fork database" );
 
-            for( auto pending_head = forkdb.pending_head();
-                 pending_head->id() != forkdb.head()->id();
-                 pending_head = forkdb.pending_head()
-               ) {
-               wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
-               controller::block_report br;
-               maybe_switch_forks( br, pending_head, controller::block_status::complete, {}, trx_meta_cache_lookup{} );
+               for( ; pending_head->id() != forkdb.head()->id(); pending_head = forkdb.pending_head() ) {
+                  wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
+                  controller::block_report br;
+                  maybe_switch_forks( br, pending_head, controller::block_status::complete, {}, trx_meta_cache_lookup{} );
+               }
             }
          }
       };
@@ -1819,12 +1818,12 @@ struct controller_impl {
          section.add_row(chain_snapshot_header(), db);
       });
 
-#warning todo: add snapshot support for new (IF) block_state section
       apply<void>(chain_head, [&](const auto& head) {
-         if constexpr (std::is_same_v<block_state_legacy_ptr, typename std::decay_t<decltype(head)>>)
-            snapshot->write_section("eosio::chain::block_state", [&]( auto& section ) {
-               section.template add_row<block_header_state_legacy>(*head, db);
-            });
+         snapshot_detail::snapshot_block_state_variant_v7 block_state_variant(*head);
+
+         snapshot->write_section("eosio::chain::block_state", [&]( auto& section ) {
+            section.add_row(block_state_variant, db);
+         });
       });
       
       controller_index_set::walk_indices([this, &snapshot]( auto utils ){
@@ -1873,24 +1872,51 @@ struct controller_impl {
          header.validate();
       });
 
-#warning todo: add snapshot support for new (IF) block_state section
       auto read_block_state_section = [&](auto& forkdb) { /// load and upgrade the block header state
-         block_header_state_legacy head_header_state;
-         using v2 = legacy::snapshot_block_header_state_v2;
+         using namespace snapshot_detail;
+         using v7 = snapshot_block_state_variant_v7;
 
-         if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
-            snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
-               legacy::snapshot_block_header_state_v2 legacy_header_state;
-               section.read_row(legacy_header_state, db);
-               head_header_state = block_header_state_legacy(std::move(legacy_header_state));
-            });
+         if (header.version >= v7::minimum_version) {
+            // loading a snapshot saved by Leap 6.0 and above.
+            // -----------------------------------------------
+            if (std::clamp(header.version, v7::minimum_version, v7::maximum_version) == header.version ) {
+               snapshot->read_section("eosio::chain::block_state", [this]( auto &section ){
+                  v7 block_state_variant;
+                  section.read_row(block_state_variant, db);
+                  std::visit(overloaded{
+                        [&](snapshot_block_state_legacy_v7&& sbs) { chain_head = block_handle{std::make_shared<block_state_legacy>(std::move(sbs))}; },
+                        [&](snapshot_block_state_v7&& sbs)        { chain_head = block_handle{std::make_shared<block_state>(std::move(sbs))}; }},
+                     std::move(block_state_variant.v));
+               });
+            } else {
+               EOS_THROW(snapshot_exception, "Unsupported block_state version");
+            }
          } else {
-            snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
-               section.read_row(head_header_state, db);
-            });
+            // loading a snapshot saved by Leap up to version 5.
+            // -------------------------------------------------
+            auto head_header_state = std::make_shared<block_state_legacy>();
+            using v2 = snapshot_block_header_state_legacy_v2;
+            using v3 = snapshot_block_header_state_legacy_v3;
+
+            if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
+               snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
+                  v2 legacy_header_state;
+                  section.read_row(legacy_header_state, db);
+                  static_cast<block_header_state_legacy&>(*head_header_state) = block_header_state_legacy(std::move(legacy_header_state));
+               });
+            } else if (std::clamp(header.version, v3::minimum_version, v3::maximum_version) == header.version ) {
+               snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
+                  v3 legacy_header_state;
+                  section.read_row(legacy_header_state, db);
+                  static_cast<block_header_state_legacy&>(*head_header_state) = block_header_state_legacy(std::move(legacy_header_state));
+               });
+            } else {
+               EOS_THROW(snapshot_exception, "Unsupported block_header_state version");
+            }
+            chain_head = block_handle{head_header_state};
          }
 
-         snapshot_head_block = head_header_state.block_num;
+         snapshot_head_block = chain_head.block_num();
          EOS_ASSERT( blog_start <= (snapshot_head_block + 1) && snapshot_head_block <= blog_end,
                      block_log_exception,
                      "Block log is provided with snapshot but does not contain the head block from the snapshot nor a block right after it",
@@ -1898,10 +1924,6 @@ struct controller_impl {
                      ("block_log_first_num", blog_start)
                      ("block_log_last_num", blog_end)
          );
-
-         auto head = std::make_shared<block_state_legacy>();
-         chain_head = block_handle{head};
-         static_cast<block_header_state_legacy&>(*head) = head_header_state;
       };
       fork_db.apply_l<void>(read_block_state_section);
 
@@ -1909,17 +1931,17 @@ struct controller_impl {
          using value_t = typename decltype(utils)::index_t::value_type;
 
          // skip the table_id_object as its inlined with contract tables section
-         if (std::is_same<value_t, table_id_object>::value) {
+         if (std::is_same_v<value_t, table_id_object>) {
             return;
          }
 
          // skip the database_header as it is only relevant to in-memory database
-         if (std::is_same<value_t, database_header_object>::value) {
+         if (std::is_same_v<value_t, database_header_object>) {
             return;
          }
 
          // special case for in-place upgrade of global_property_object
-         if (std::is_same<value_t, global_property_object>::value) {
+         if (std::is_same_v<value_t, global_property_object>) {
             using v2 = legacy::snapshot_global_property_object_v2;
             using v3 = legacy::snapshot_global_property_object_v3;
             using v4 = legacy::snapshot_global_property_object_v4;

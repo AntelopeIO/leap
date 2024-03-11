@@ -11,6 +11,10 @@
 
 namespace eosio::chain {
 
+namespace snapshot_detail {
+  struct snapshot_block_state_v7;
+}
+
 namespace detail { struct schedule_info; };
 
 // Light header protocol version, separate from protocol feature version

@@ -129,6 +129,10 @@ public:
 
    block_state(const block_state_legacy& bsp, const digest_type& non_canonical_action_mroot);
 
+   explicit block_state(snapshot_detail::snapshot_block_state_v7&& sbs);
+
+   explicit block_state(const block_state_legacy& bsp);
+
    void sign(const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
    void verify_signee(const std::vector<signature_type>& additional_signatures, const block_signing_authority& valid_block_signing_authority) const;
 };

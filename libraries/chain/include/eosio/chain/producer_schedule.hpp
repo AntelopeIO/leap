@@ -6,7 +6,7 @@
 #include <eosio/chain/authority.hpp>
 #include <eosio/chain/snapshot.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    namespace legacy {
       /**
@@ -307,7 +307,7 @@ namespace eosio { namespace chain {
       return true;
    }
 
-} } /// eosio::chain
+} /// eosio::chain
 
 FC_REFLECT( eosio::chain::legacy::producer_key, (producer_name)(block_signing_key) )
 FC_REFLECT( eosio::chain::legacy::producer_schedule_type, (version)(producers) )
