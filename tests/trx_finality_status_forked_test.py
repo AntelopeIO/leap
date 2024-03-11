@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import sys
 import time
 import decimal
 import json
@@ -82,7 +82,7 @@ try:
     prodNodes=[ prodNode0, prodNode1, prodNode2, prodNode3 ]
 
     prodA=prodNode0 # defproducera
-    prodD=prodNode3 # defproducerc
+    prodD=prodNode3 # defproducerd
 
     # ***   Identify a block where production is stable   ***
 
@@ -118,6 +118,14 @@ try:
         assert "state" in status, \
             f"ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {json.dumps(status, indent=1)}"
         return status["state"]
+
+    def getBlockNum(status):
+        assert status is not None, "ERROR: getTransactionStatus failed to return any status"
+        assert "head_number" in status, \
+            f"ERROR: getTransactionStatus returned a status object that didn't have a \"head_number\" field. state: {json.dumps(status, indent=1)}"
+        if "block_number" in status:
+            return status["block_number"]
+        return status["head_number"]
 
     transferAmount = 10
     # Does not use transaction retry (not needed)
@@ -159,14 +167,18 @@ try:
     if not nonProdNode.relaunch():
         errorExit(f"Failure - (non-production) node {nonProdNode.nodeNum} should have restarted")
 
-    while prodD.getInfo()['last_irreversible_block_num'] < transBlockNum:
-        Print("Wait for LIB to move, which indicates prodD may have forked out the branch")
-        assert prodD.waitForLibToAdvance(60), \
-            "ERROR: Network did not reach consensus after bridge node was restarted."
+    Print("Repeatedly check status looking for forked out state until after LIB moves and defproducerd")
+    while True:
+        info = prodD.getInfo()
         retStatus = prodD.getTransactionStatus(transId)
         state = getState(retStatus)
-        if state == forkedOutState:
+        blockNum = getBlockNum(retStatus)
+        if state == forkedOutState or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > blockNum ):
             break
+
+    if state == irreversibleState:
+        Print(f"Transaction became irreversible before it could be found forked out: {json.dumps(retStatus, indent=1)}")
+        sys.exit(0)
 
     assert state == forkedOutState, \
         f"ERROR: getTransactionStatus didn't return \"{forkedOutState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
@@ -177,11 +189,21 @@ try:
         Print(f"node info: {json.dumps(info, indent=1)}")
 
     assert prodD.waitForProducer("defproducerd"), \
-        f"Waiting for prodC to produce, but it never happened" + \
+        f"Waiting for prodD to produce, but it never happened" + \
         f"\n\nprod A info: {json.dumps(prodA.getInfo(), indent=1)}\n\nprod D info: {json.dumps(prodD.getInfo(), indent=1)}"
 
     retStatus = prodD.getTransactionStatus(transId)
     state = getState(retStatus)
+
+    # it is possible for another fork switch to cause the trx to be forked out again
+    if state == forkedOutState:
+        while True:
+            info = prodD.getInfo()
+            retStatus = prodD.getTransactionStatus(transId)
+            state = getState(retStatus)
+            blockNum = getBlockNum(retStatus)
+            if (state == inBlockState or state == irreversibleState) or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > blockNum ):
+                break
 
     assert state == inBlockState or state == irreversibleState, \
         f"ERROR: getTransactionStatus didn't return \"{inBlockState}\" or \"{irreversibleState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
@@ -205,6 +227,16 @@ try:
 
     retStatus = prodD.getTransactionStatus(transId)
     state = getState(retStatus)
+
+    # it is possible for another fork switch to cause the trx to be forked out again
+    if state == forkedOutState:
+        while True:
+            info = prodD.getInfo()
+            retStatus = prodD.getTransactionStatus(transId)
+            state = getState(retStatus)
+            blockNum = getBlockNum(retStatus)
+            if state == irreversibleState or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > blockNum ):
+                break
 
     assert state == irreversibleState, \
         f"ERROR: getTransactionStatus didn't return \"{irreversibleState}\" state.\n\nstatus: {json.dumps(retStatus, indent=1)}" + \
