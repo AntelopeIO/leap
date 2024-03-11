@@ -3468,8 +3468,7 @@ struct controller_impl {
       }
 
       // Save the QC. This is safe as the function is called by push_block & accept_block from application thread.
-      dlog("setting valid qc: ${rqc} into claimed block ${bn} : ${id}",
-           ("rqc", qc_ext.qc.to_qc_claim())("rs", received_qc.is_strong())("bn", claimed->block_num())("id", claimed->id()));
+      dlog("setting valid qc: ${rqc} into claimed block ${bn} ${id}", ("rqc", qc_ext.qc.to_qc_claim())("bn", claimed->block_num())("id", claimed->id()));
       claimed->valid_qc = received_qc;
 
       // advance LIB if QC is strong
