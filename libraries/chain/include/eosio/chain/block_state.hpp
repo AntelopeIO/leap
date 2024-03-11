@@ -127,7 +127,7 @@ public:
                const signer_callback_type&              signer,
                const block_signing_authority&           valid_block_signing_authority);
 
-   block_state(const block_state_legacy& bsp, const digest_type& non_canonical_action_mroot);
+   block_state(const block_state_legacy& bsp, const digest_type& action_mroot_svnn);
 
    explicit block_state(snapshot_detail::snapshot_block_state_v7&& sbs);
 

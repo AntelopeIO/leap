@@ -165,7 +165,7 @@ struct completed_block {
    block_handle bsp;
 
    // to be used during Legacy to Savanna transistion where action_mroot
-   // needs to be converted from canonical_merkle to non-canonical_merkle
+   // needs to be converted from canonical_merkle to Savanna merkle
    std::optional<digests_t> action_receipt_digests;
 
    bool is_legacy() const { return std::holds_alternative<block_state_legacy_ptr>(bsp.internal()); }
@@ -3018,8 +3018,8 @@ struct controller_impl {
             assert(std::holds_alternative<block_state_legacy_ptr>(chain_head.internal()));
             block_state_legacy_ptr head = std::get<block_state_legacy_ptr>(chain_head.internal()); // will throw if called after transistion
 
-            // Legacy uses canonical-merkle while Savanna uses non-canonical-merkle.
-            // Calculate non-canonical to be stored in Leaf Node when converting
+            // Legacy uses canonical-merkle while Savanna uses a new way.
+            // Calculate Merkel tree root in Savanna way to be stored in Leaf Node when converting
             // to Savanna.
             assert(cb.action_receipt_digests);
             auto action_mroot = calculate_merkle((*cb.action_receipt_digests));
@@ -3290,7 +3290,7 @@ struct controller_impl {
             // create completed_block with the existing block_state as we just verified it is the same as assembled_block
             if constexpr (std::is_same_v<BSP, block_state_legacy_ptr>) {
                // Store action_receipt_digests in completed_block for
-               // calculating non-canonical-merkle action_mroot during
+               // calculating action_mroot in the Savanna way during
                // Legacy to Savanna transition
                assert(std::holds_alternative<assembled_block::assembled_block_legacy>(ab.v));
                auto legacy_ab = std::get<assembled_block::assembled_block_legacy>(ab.v);
