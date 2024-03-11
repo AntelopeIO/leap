@@ -1,8 +1,10 @@
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/snapshot_detail.hpp>
 
-namespace eosio { namespace chain {
+
+namespace eosio::chain {
 
    namespace {
       constexpr auto additional_sigs_eid = additional_block_signatures_extension::extension_id();
@@ -58,7 +60,7 @@ namespace eosio { namespace chain {
                                            bool skip_validate_signee
                            )
       :block_header_state_legacy( prev.next( *b, detail::extract_additional_signatures(b), pfs, validator, skip_validate_signee ) )
-   ,block( std::move(b) )
+      ,block( std::move(b) )
    {}
 
    block_state_legacy::block_state_legacy( pending_block_header_state_legacy&& cur,
@@ -74,4 +76,10 @@ namespace eosio { namespace chain {
    ,_cached_trxs( std::move(trx_metas) )
    {}
 
-} } /// eosio::chain
+   block_state_legacy::block_state_legacy(snapshot_detail::snapshot_block_state_legacy_v7&& sbs)
+      : block_header_state_legacy(std::move(static_cast<snapshot_detail::snapshot_block_header_state_legacy_v3&>(sbs)))
+        // , valid(std::move(sbs.valid) // [snapshot todo]
+   {
+   }
+
+} /// eosio::chain

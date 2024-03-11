@@ -5,42 +5,23 @@
 #include <eosio/chain/chain_snapshot.hpp>
 #include <future>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
-namespace legacy {
+namespace snapshot_detail {
+   struct snapshot_block_header_state_legacy_v2;
+   struct snapshot_block_header_state_legacy_v3;
+}
 
-   /**
-    * a fc::raw::unpack compatible version of the old block_state structure stored in
-    * version 2 snapshots
-    */
-   struct snapshot_block_header_state_v2 {
-      static constexpr uint32_t minimum_version = 0;
-      static constexpr uint32_t maximum_version = 2;
-      static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_block_header_state_v2 is no longer needed");
-
-      struct schedule_info {
-         uint32_t                          schedule_lib_num = 0; /// last irr block num
-         digest_type                       schedule_hash;
-         producer_schedule_type            schedule;
-      };
-
-      /// from block_header_state_legacy_common
-      uint32_t                             block_num = 0;
-      uint32_t                             dpos_proposed_irreversible_blocknum = 0;
-      uint32_t                             dpos_irreversible_blocknum = 0;
-      producer_schedule_type               active_schedule;
-      incremental_canonical_merkle_tree    blockroot_merkle;
-      flat_map<account_name,uint32_t>      producer_to_last_produced;
-      flat_map<account_name,uint32_t>      producer_to_last_implied_irb;
-      public_key_type                      block_signing_key;
-      vector<uint8_t>                      confirm_count;
-
-      // from block_header_state_legacy
-      block_id_type                        id;
-      signed_block_header                  header;
-      schedule_info                        pending_schedule;
-      protocol_feature_activation_set_ptr  activated_protocol_features;
+namespace detail {
+   struct schedule_info {
+      // schedule_lib_num is compared with dpos lib, but the value is actually current block at time of pending
+      // After hotstuff is activated, schedule_lib_num is compared to next().next() round for determination of
+      // changing from pending to active.
+      uint32_t                          schedule_lib_num = 0; /// block_num of pending
+      digest_type                       schedule_hash;
+      producer_authority_schedule       schedule;
    };
+
 }
 
 using signer_callback_type = std::function<std::vector<signature_type>(const digest_type&)>;
@@ -63,16 +44,6 @@ namespace detail {
       block_signing_authority           valid_block_signing_authority;
       vector<uint8_t>                   confirm_count;
    };
-
-   struct schedule_info {
-      // schedule_lib_num is compared with dpos lib, but the value is actually current block at time of pending
-      // After hotstuff is activated, schedule_lib_num is compared to next().next() round for determination of
-      // changing from pending to active.
-      uint32_t                          schedule_lib_num = 0; /// block_num of pending
-      digest_type                       schedule_hash;
-      producer_authority_schedule       schedule;
-   };
-
 }
 
 struct pending_block_header_state_legacy : public detail::block_header_state_legacy_common {
@@ -158,7 +129,8 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
    :detail::block_header_state_legacy_common( std::move(base) )
    {}
 
-   explicit block_header_state_legacy( legacy::snapshot_block_header_state_v2&& snapshot );
+   explicit block_header_state_legacy( snapshot_detail::snapshot_block_header_state_legacy_v2&& snapshot );
+   explicit block_header_state_legacy( snapshot_detail::snapshot_block_header_state_legacy_v3&& snapshot );
 
    pending_block_header_state_legacy next( block_timestamp_type when, uint16_t num_prev_blocks_to_confirm )const;
 
@@ -182,7 +154,7 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
 using block_header_state_legacy_ptr = std::shared_ptr<block_header_state_legacy>;
 
-} } /// namespace eosio::chain
+} /// namespace eosio::chain
 
 FC_REFLECT( eosio::chain::detail::block_header_state_legacy_common,
             (block_num)
@@ -211,25 +183,3 @@ FC_REFLECT_DERIVED(  eosio::chain::block_header_state_legacy, (eosio::chain::det
 )
 
 
-FC_REFLECT( eosio::chain::legacy::snapshot_block_header_state_v2::schedule_info,
-          ( schedule_lib_num )
-          ( schedule_hash )
-          ( schedule )
-)
-
-
-FC_REFLECT( eosio::chain::legacy::snapshot_block_header_state_v2,
-          ( block_num )
-          ( dpos_proposed_irreversible_blocknum )
-          ( dpos_irreversible_blocknum )
-          ( active_schedule )
-          ( blockroot_merkle )
-          ( producer_to_last_produced )
-          ( producer_to_last_implied_irb )
-          ( block_signing_key )
-          ( confirm_count )
-          ( id )
-          ( header )
-          ( pending_schedule )
-          ( activated_protocol_features )
-)

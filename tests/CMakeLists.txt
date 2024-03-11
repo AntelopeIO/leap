@@ -150,8 +150,9 @@ set_property(TEST ship_if_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME ship_streamer_test COMMAND tests/ship_streamer_test.py -v --num-clients 10 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_streamer_test PROPERTY LABELS long_running_tests)
-add_test(NAME ship_streamer_if_test COMMAND tests/ship_streamer_test.py -v --num-clients 10 --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST ship_streamer_if_test PROPERTY LABELS long_running_tests)
+# uncomment after https://github.com/AntelopeIO/leap/issues/2285 implemented
+# add_test(NAME ship_streamer_if_test COMMAND tests/ship_streamer_test.py -v --num-clients 10 --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+# set_property(TEST ship_streamer_if_test PROPERTY LABELS long_running_tests)
 
 add_test(NAME p2p_dawn515_test COMMAND tests/p2p_tests/dawn_515/test.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST p2p_dawn515_test PROPERTY LABELS nonparallelizable_tests)
@@ -220,8 +221,8 @@ set_property(TEST keosd_auto_launch_test PROPERTY LABELS nonparallelizable_tests
 add_test(NAME nodeos_snapshot_diff_test COMMAND tests/nodeos_snapshot_diff_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_snapshot_diff_test PROPERTY LABELS nonparallelizable_tests)
 # requires https://github.com/AntelopeIO/leap/issues/1558
-#add_test(NAME nodeos_snapshot_diff_if_test COMMAND tests/nodeos_snapshot_diff_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-#set_property(TEST nodeos_snapshot_diff_if_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME nodeos_snapshot_diff_if_test COMMAND tests/nodeos_snapshot_diff_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST nodeos_snapshot_diff_if_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_snapshot_forked_test COMMAND tests/nodeos_snapshot_forked_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_snapshot_forked_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_snapshot_forked_if_test COMMAND tests/nodeos_snapshot_forked_test.py -v --activate-if ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

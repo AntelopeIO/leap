@@ -158,23 +158,6 @@ namespace eosio::chain {
       block_branch_t fetch_branch_from_head() const;
 
       template <class R, class F>
-      R apply(const F& f) {
-         if constexpr (std::is_same_v<void, R>) {
-            if (legacy) {
-               f(*fork_db_l);
-            } else {
-               f(*fork_db_s);
-            }
-         } else {
-            if (legacy) {
-               return f(*fork_db_l);
-            } else {
-               return f(*fork_db_s);
-            }
-         }
-      }
-
-      template <class R, class F>
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
             if (legacy) {
