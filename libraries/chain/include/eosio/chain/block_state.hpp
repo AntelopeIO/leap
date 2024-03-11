@@ -127,7 +127,7 @@ public:
                const signer_callback_type&              signer,
                const block_signing_authority&           valid_block_signing_authority);
 
-   explicit block_state(const block_state_legacy& bsp);
+   block_state(const block_state_legacy& bsp, const digest_type& non_canonical_action_mroot);
 
    void sign(const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
    void verify_signee(const std::vector<signature_type>& additional_signatures, const block_signing_authority& valid_block_signing_authority) const;

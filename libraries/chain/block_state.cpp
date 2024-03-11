@@ -49,8 +49,9 @@ block_state::block_state(const block_header_state&                bhs,
    sign(signer, valid_block_signing_authority);
 }
 
-// Used for transition from dpos to instant-finality
-block_state::block_state(const block_state_legacy& bsp) {
+// Used for transition from dpos to Savanna.
+// In Savanna, action_mroot is non_canonical_merkel.
+block_state::block_state(const block_state_legacy& bsp, const digest_type& non_canonical_action_mroot) {
    block_header_state::block_id = bsp.id();
    header = bsp.header;
    core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
@@ -60,7 +61,7 @@ block_state::block_state(const block_state_legacy& bsp) {
    valid_t::finality_leaf_node_t leaf_node {
       .block_num       = bsp.block_num(),
       .finality_digest = digest_type{},
-      .action_mroot    = bsp.header.action_mroot // legacy block header still stores actual action_mroot
+      .action_mroot    = non_canonical_action_mroot
    };
    incremental_merkle_tree validation_tree;
    validation_tree.append(fc::sha256::hash(leaf_node));

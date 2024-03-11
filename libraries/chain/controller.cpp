@@ -163,6 +163,10 @@ R apply_l(const block_handle& bh, F&& f) {
 struct completed_block {
    block_handle bsp;
 
+   // to be used during Legacy to Savanna transistion where action_mroot
+   // needs to be converted from canonical_merkle to non-canonical_merkle
+   std::optional<digests_t> action_receipt_digests;
+
    bool is_legacy() const { return std::holds_alternative<block_state_legacy_ptr>(bsp.internal()); }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -231,6 +235,8 @@ struct assembled_block {
       // if the unsigned_block pre-dates block-signing authorities this may be present.
       std::optional<producer_authority_schedule> new_producer_authority_cache;
 
+      // Passed to completed_block, to be used by Legacy to Savanna transisition
+      std::optional<digests_t>          action_receipt_digests;
    };
 
    // --------------------------------------------------------------------------------
@@ -240,7 +246,6 @@ struct assembled_block {
       deque<transaction_metadata_ptr>   trx_metas;                 // Comes from building_block::pending_trx_metas
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
-      digest_type                       action_mroot;              // Comes from assemble_block
       std::optional<valid_t>            valid;                     // Comes from assemble_block
       std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
 
@@ -309,13 +314,6 @@ struct assembled_block {
          v);
    }
 
-   digest_type action_mroot() const {
-      return std::visit(
-         overloaded{[](const assembled_block_legacy& ab) -> digest_type { assert(false); return digest_type{}; },
-                    [](const assembled_block_if& ab)     -> digest_type { return ab.action_mroot; }},
-         v);
-   }
-
    const producer_authority_schedule& active_producers() const {
       return std::visit(overloaded{[](const assembled_block_legacy& ab) -> const producer_authority_schedule& {
                                       return ab.pending_block_header_state.active_schedule;
@@ -367,13 +365,13 @@ struct assembled_block {
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
                                          std::move(ab.trx_metas), pfs, validator, signer);
 
-                                      return completed_block{block_handle{std::move(bsp)}};
+                                      return completed_block{block_handle{std::move(bsp)}, std::move(ab.action_receipt_digests)};
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
                                                                                std::move(ab.trx_receipts), ab.valid, ab.qc, signer,
                                                                                valid_block_signing_authority);
-                                      return completed_block{block_handle{std::move(bsp)}};
+                                      return completed_block{block_handle{std::move(bsp)}, {}};
                                    }},
                         v);
    }
@@ -674,7 +672,8 @@ struct building_block {
                   .v = assembled_block::assembled_block_legacy{block_ptr->calculate_id(),
                                                              std::move(bb.pending_block_header_state),
                                                              std::move(bb.pending_trx_metas), std::move(block_ptr),
-                                                             std::move(bb.new_pending_producer_schedule)}
+                                                             std::move(bb.new_pending_producer_schedule),
+                                                             std::move(bb.action_receipt_digests)}
                };
             },
             [&](building_block_if& bb) -> assembled_block {
@@ -776,7 +775,6 @@ struct building_block {
                   bhs,
                   std::move(bb.pending_trx_metas),
                   std::move(bb.pending_trx_receipts),
-                  action_mroot, // cached for validation in apply_block
                   valid,
                   qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}
                };
@@ -2988,7 +2986,15 @@ struct controller_impl {
          if (apply_l<bool>(chain_head, transition)) {
             assert(std::holds_alternative<block_state_legacy_ptr>(chain_head.internal()));
             block_state_legacy_ptr head = std::get<block_state_legacy_ptr>(chain_head.internal()); // will throw if called after transistion
-            auto new_head = std::make_shared<block_state>(*head);
+
+            // Legacy uses canonical-merkle while Savanna uses non-canonical-merkle.
+            // Calculate non-canonical to be stored in Leaf Node when converting
+            // to Savanna.
+            assert(cb.action_receipt_digests);
+            auto action_mroot = calculate_merkle((*cb.action_receipt_digests));
+
+            auto new_head = std::make_shared<block_state>(*head, action_mroot);
+
             chain_head = block_handle{std::move(new_head)};
             if (s != controller::block_status::irreversible) {
                fork_db.switch_from_legacy(chain_head);
@@ -3251,7 +3257,16 @@ struct controller_impl {
                bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
             }
             // create completed_block with the existing block_state as we just verified it is the same as assembled_block
-            pending->_block_stage = completed_block{ block_handle{bsp} };
+            if constexpr (std::is_same_v<BSP, block_state_legacy_ptr>) {
+               // Store action_receipt_digests in completed_block for
+               // calculating non-canonical-merkle action_mroot during
+               // Legacy to Savanna transition
+               assert(std::holds_alternative<assembled_block::assembled_block_legacy>(ab.v));
+               auto legacy_ab = std::get<assembled_block::assembled_block_legacy>(ab.v);
+               pending->_block_stage = completed_block{ block_handle{bsp}, legacy_ab.action_receipt_digests };
+            } else {
+               pending->_block_stage = completed_block{ block_handle{bsp} };
+            }
 
             br = pending->_block_report; // copy before commit block destroys pending
             commit_block(s);
