@@ -692,7 +692,6 @@ struct building_block {
 
                std::optional<qc_data_t> qc_data;
                std::optional<digest_type> finality_mroot_claim;
-               std::optional<finality_core> updated_core;
 
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
