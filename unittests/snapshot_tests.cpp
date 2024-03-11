@@ -421,12 +421,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    std::filesystem::copy(source_log_dir / "blocks.index", config.blocks_dir / "blocks.index");
    tester base_chain(config, *genesis);
 
-   std::string current_version = "v6";
+   std::string current_version = "v7";
 
-#warning update test for v7
-   /*
    int ordinal = 0;
-   for(std::string version : {"v2", "v3", "v4" , "v5", "v6"})
+   for(std::string version : {"v2", "v3", "v4" , "v5", "v6", "v7"})
    {
       if(save_snapshot && version == current_version) continue;
       static_assert(chain_snapshot_header::minimum_compatible_version <= 2, "version 2 unit test is no longer needed.  Please clean up data files");
@@ -446,6 +444,17 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    }
    // This isn't quite fully automated.  The snapshots still need to be gzipped and moved to
    // the correct place in the source tree.
+   // -------------------------------------------------------------------------------------------------------------
+   // Process for supporting a new snapshot version in this test:
+   // ----------------------------------------------------------
+   // 1. update `current_version` and the list of versions in `for` loop
+   // 2. run: `unittests/unit_test -t "snapshot_tests/test_com*" -- --save-snapshot` to generate new snapshot files
+   // 3. copy the newly generated files (see `ls -lrth ./unittests/snapshots/snap_*` to `leap/unittests/snapshots`
+   //    for example `cp ./unittests/snapshots/snap_v7.* ../unittests/snapshots`
+   // 4. edit `unittests/snapshots/CMakeLists.txt` and add the `configure_file` commands for the 3 new files.
+   //    now the test should pass.
+   // 5. add the 3 new snapshot files in git.
+   // -------------------------------------------------------------------------------------------------------------
    if (save_snapshot)
    {
       // create a latest snapshot
@@ -455,7 +464,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
 
       SNAPSHOT_SUITE::write_to_file("snap_" + current_version, latest);
    }
-    */
 }
 
 /*
