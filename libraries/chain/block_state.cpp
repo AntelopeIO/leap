@@ -261,6 +261,7 @@ digest_type block_state::get_validation_mroot(block_num_type target_block_num) c
    assert(valid->validation_mroots.size() > 0);
    assert(core.last_final_block_num() <= target_block_num &&
           target_block_num < core.last_final_block_num() + valid->validation_mroots.size());
+   assert(target_block_num - core.last_final_block_num() < valid->validation_mroots.size());
 
    return valid->validation_mroots[target_block_num - core.last_final_block_num()];
 }

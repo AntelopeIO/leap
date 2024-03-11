@@ -636,13 +636,50 @@ struct building_block {
       return parent.get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
    }
 
+   qc_data_t get_qc_data(fork_database& fork_db, const building_block_if& bb) {
+      // find most recent ancestor block that has a QC by traversing fork db
+      // branch from parent
+
+      qc_data_t qc_data{};
+
+      fork_db.apply_s<void>([&](const auto& forkdb) {
+         auto branch = forkdb.fetch_branch(bb.parent.id());
+         std::optional<quorum_certificate> qc;
+         for( auto it = branch.begin(); it != branch.end(); ++it ) {
+            qc = (*it)->get_best_qc();
+            if( qc ) {
+               EOS_ASSERT( qc->block_num <= block_header::num_from_id(bb.parent.id()), block_validate_exception,
+                           "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
+                           ("a", qc->block_num)("p", block_header::num_from_id(bb.parent.id())) );
+               auto qc_claim = qc_claim_t { qc->block_num, qc->qc.is_strong() };
+               if( bb.parent.is_needed(*qc) ) {
+                  qc_data = qc_data_t{ *qc, qc_claim };
+               } else {
+                  qc_data = qc_data_t{ {},  qc_claim };
+               }
+               break;
+            }
+         }
+
+         if (!qc) {
+            // This only happens when parent block is the IF genesis block.
+            // There is no ancestor block which has a QC.
+            // Construct a default QC claim.
+            qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
+         }
+
+      });
+
+      return qc_data;
+   }
+
    assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
                                   fork_database& fork_db,
                                   std::unique_ptr<proposer_policy> new_proposer_policy,
                                   bool validating,
                                   std::optional<qc_data_t> validating_qc_data,
-                                  block_state_ptr validating_bsp) {
+                                  const block_state_ptr& validating_bsp) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -690,12 +727,13 @@ struct building_block {
                              }},
                   trx_mroot_or_receipt_digests());
 
-               std::optional<qc_data_t> qc_data;
-               std::optional<digest_type> finality_mroot_claim;
+               qc_data_t qc_data;
+               digest_type finality_mroot_claim;
 
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
-                  qc_data = std::move(validating_qc_data);
+                  assert(validating_qc_data);
+                  qc_data = *validating_qc_data;
 
                   assert(validating_bsp);
                   // Use the action_mroot from raceived block's header for
@@ -705,36 +743,8 @@ struct building_block {
                   // second stage
                   finality_mroot_claim = validating_bsp->header.action_mroot;
                } else {
-                  // find most recent ancestor block that has a QC by traversing fork db
-                  // branch from parent
-                  fork_db.apply_s<void>([&](const auto& forkdb) {
-                     auto branch = forkdb.fetch_branch(bb.parent.id());
-                     std::optional<quorum_certificate> qc;
-                     for( auto it = branch.begin(); it != branch.end(); ++it ) {
-                        qc = (*it)->get_best_qc();
-                        if( qc ) {
-                           EOS_ASSERT( qc->block_num <= block_header::num_from_id(bb.parent.id()), block_validate_exception,
-                                       "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
-                                       ("a", qc->block_num)("p", block_header::num_from_id(bb.parent.id())) );
-                           auto qc_claim = qc_claim_t { qc->block_num, qc->qc.is_strong() };
-                           if( bb.parent.is_needed(*qc) ) {
-                              qc_data = qc_data_t{ *qc, qc_claim };
-                           } else {
-                              qc_data = qc_data_t{ {},  qc_claim };
-                           }
-                           break;
-                        }
-                     }
-
-                     if (!qc) {
-                        // This only happens when parent block is the IF genesis block.
-                        // There is no ancestor block which has a QC.
-                        // Construct a default QC claim.
-                        qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
-                     }
-
-                     finality_mroot_claim = get_finality_mroot_claim(bb.parent, qc_data->qc_claim);
-                  });
+                  qc_data = get_qc_data(fork_db, bb);
+                  finality_mroot_claim = get_finality_mroot_claim(bb.parent, qc_data.qc_claim);
                }
 
                building_block_input bb_input {
@@ -750,7 +760,7 @@ struct building_block {
                   transaction_mroot,
                   std::move(new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_data->qc_claim,
+                  qc_data.qc_claim,
                   std::move(finality_mroot_claim)
                };
 
@@ -775,7 +785,7 @@ struct building_block {
                   std::move(bb.pending_trx_metas),
                   std::move(bb.pending_trx_receipts),
                   valid,
-                  qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}
+                  qc_data.qc
                };
 
                return assembled_block{.v = std::move(ab)};
@@ -2824,7 +2834,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void assemble_block(bool validating, std::optional<qc_data_t> validating_qc_data, block_state_ptr validating_bsp)
+   void assemble_block(bool validating, std::optional<qc_data_t> validating_qc_data, const block_state_ptr& validating_bsp)
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
