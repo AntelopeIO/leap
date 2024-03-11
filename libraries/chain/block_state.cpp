@@ -98,8 +98,6 @@ block_state::block_state(snapshot_detail::snapshot_block_state_v7&& sbs)
          .header                      = std::move(sbs.header),
          .activated_protocol_features = std::move(sbs.activated_protocol_features),
          .core                        = std::move(sbs.core),
-         .proposal_mtree              = std::move(sbs.proposal_mtree),
-         .finality_mtree              = std::move(sbs.finality_mtree),
          .active_finalizer_policy     = std::move(sbs.active_finalizer_policy),
          .active_proposer_policy      = std::move(sbs.active_proposer_policy),
          .proposer_policies           = std::move(sbs.proposer_policies),

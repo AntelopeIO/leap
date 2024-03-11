@@ -114,8 +114,6 @@ namespace eosio::chain::snapshot_detail {
       block_header                                        header;
       protocol_feature_activation_set_ptr                 activated_protocol_features;
       finality_core                                       core;
-      incremental_merkle_tree                             proposal_mtree;
-      incremental_merkle_tree                             finality_mtree;
       finalizer_policy_ptr                                active_finalizer_policy;
       proposer_policy_ptr                                 active_proposer_policy;
       flat_map<block_timestamp_type, proposer_policy_ptr> proposer_policies;
@@ -132,8 +130,6 @@ namespace eosio::chain::snapshot_detail {
          , header(bs.header)
          , activated_protocol_features(bs.activated_protocol_features)
          , core(bs.core)
-         , proposal_mtree(bs.proposal_mtree)
-         , finality_mtree(bs.finality_mtree)
          , active_finalizer_policy(bs.active_finalizer_policy)
          , active_proposer_policy(bs.active_proposer_policy)
          , proposer_policies(bs.proposer_policies)
@@ -211,8 +207,7 @@ FC_REFLECT( eosio::chain::snapshot_detail::snapshot_block_state_v7,
             (block_id)
             (header)
             (activated_protocol_features)
-            (core)(proposal_mtree)
-            (finality_mtree)
+            (core)
             (active_finalizer_policy)
             (active_proposer_policy)
             (proposer_policies)
