@@ -79,8 +79,8 @@ struct block_header_state {
    digest_type           compute_finalizer_digest() const;
 
    // block descending from this need the provided qc in the block extension
-   bool is_needed(const quorum_certificate& qc) const {
-      return qc.block_num > core.latest_qc_claim().block_num;
+   bool is_needed(const qc_claim_t& qc_claim) const {
+      return qc_claim > core.latest_qc_claim();
    }
 
    const vector<digest_type>& get_new_protocol_feature_activations() const;

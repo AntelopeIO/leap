@@ -645,32 +645,29 @@ struct building_block {
 
       fork_db.apply_s<void>([&](const auto& forkdb) {
          auto branch = forkdb.fetch_branch(bb.parent.id());
-         std::optional<quorum_certificate> qc;
          for( auto it = branch.begin(); it != branch.end(); ++it ) {
-            qc = (*it)->get_best_qc();
-            if( qc ) {
+            if( auto qc = (*it)->get_best_qc(); qc ) {
                EOS_ASSERT( qc->block_num <= block_header::num_from_id(bb.parent.id()), block_validate_exception,
                            "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
                            ("a", qc->block_num)("p", block_header::num_from_id(bb.parent.id())) );
-               auto qc_claim = qc_claim_t { qc->block_num, qc->qc.is_strong() };
-               if( bb.parent.is_needed(*qc) ) {
+               auto qc_claim = qc->to_qc_claim();
+               if( bb.parent.is_needed(qc_claim) ) {
                   qc_data = qc_data_t{ *qc, qc_claim };
                } else {
-                  qc_data = qc_data_t{ {},  qc_claim };
+                  // no new qc info, repeat existing
+                  qc_data = qc_data_t{ {},  bb.parent.core.latest_qc_claim() };
                }
                break;
             }
          }
 
-         if (!qc) {
-            // This only happens when parent block is the IF genesis block.
-            // There is no ancestor block which has a QC.
-            // Construct a default QC claim.
+         if (qc_data.qc_claim == qc_claim_t{0, false}) {
+            // This only happens when parent block is the IF genesis block or starting from snapshot.
+            // There is no ancestor block which has a QC. Construct a default QC claim.
             qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
-         }
-
+          }
       });
-
+     
       return qc_data;
    }
 
@@ -1116,9 +1113,8 @@ struct controller_impl {
       return fork_db.apply<block_state_ptr>(
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
-            [&](const fork_database_if_t&forkdb) -> block_state_ptr {
-               auto bsp = forkdb.search_on_head_branch(block_num, include_root_t::yes);
-               return bsp;
+            [&](const fork_database_if_t& forkdb) -> block_state_ptr {
+               return forkdb.search_on_head_branch(block_num, include_root_t::yes);
             }
          }
       );
@@ -1129,9 +1125,19 @@ struct controller_impl {
       return fork_db.apply<block_state_ptr>(
          overloaded{
             [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
-            [&](const fork_database_if_t&forkdb) -> block_state_ptr {
-               auto bsp = forkdb.search_on_branch(id, block_num, include_root_t::yes);
-               return bsp;
+            [&](const fork_database_if_t& forkdb) -> block_state_ptr {
+               return forkdb.search_on_branch(id, block_num, include_root_t::yes);
+            }
+         }
+      );
+   }
+
+   block_state_ptr fetch_bsp(const block_id_type& id) const {
+      return fork_db.apply<block_state_ptr>(
+         overloaded{
+            [](const fork_database_legacy_t&) -> block_state_ptr { return nullptr; },
+            [&](const fork_database_if_t& forkdb) -> block_state_ptr {
+               return forkdb.get_block(id, include_root_t::yes);
             }
          }
       );
@@ -1718,7 +1724,7 @@ struct controller_impl {
                my_finalizers.set_default_safety_information(
                   finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
                                                 .last_vote = {},
-                                                .lock      = proposal_ref(lib->id(), lib->timestamp()) });
+                                                .lock      = {lib->id(), lib->timestamp()} });
             };
             fork_db.apply_s<void>(set_finalizer_defaults);
          } else {
@@ -1728,7 +1734,7 @@ struct controller_impl {
                my_finalizers.set_default_safety_information(
                   finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
                                                 .last_vote = {},
-                                                .lock      = proposal_ref(lib->id(), lib->timestamp()) });
+                                                .lock      = {lib->id(), lib->timestamp()} });
             };
             fork_db.apply_s<void>(set_finalizer_defaults);
          }
@@ -3003,8 +3009,8 @@ struct controller_impl {
                      auto lib_block   = head;
                      my_finalizers.set_default_safety_information(
                         finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
-                                                      .last_vote = proposal_ref(start_block->id(), start_block->timestamp()),
-                                                      .lock      = proposal_ref(lib_block->id(),   lib_block->timestamp()) });
+                                                      .last_vote = {start_block->id(), start_block->timestamp()},
+                                                      .lock      = {lib_block->id(),   lib_block->timestamp()} });
                   }
 
                   if ( (s != controller::block_status::irreversible && read_mode != db_read_mode::IRREVERSIBLE) && s != controller::block_status::ephemeral)
@@ -3323,7 +3329,7 @@ struct controller_impl {
    // called from net threads and controller's thread pool
    vote_status process_vote_message( const vote_message& vote ) {
       auto aggregate_vote = [&vote](auto& forkdb) -> vote_status {
-          auto bsp = forkdb.get_block(vote.proposal_id);
+          auto bsp = forkdb.get_block(vote.block_id);
           if (bsp) {
              return bsp->aggregate_vote(vote);
           }
@@ -3560,15 +3566,21 @@ struct controller_impl {
 
       const auto claimed = fetch_bsp_on_branch_by_num( bsp_in->previous(), qc_ext.qc.block_num );
       if( !claimed ) {
+         dlog("qc not found in forkdb, qc: ${qc} for block ${bn} ${id}, previous ${p}",
+              ("qc", qc_ext.qc.to_qc_claim())("bn", bsp_in->block_num())("id", bsp_in->id())("p", bsp_in->previous()));
          return;
       }
 
       // Don't save the QC from block extension if the claimed block has a better valid_qc.
       if (claimed->valid_qc && (claimed->valid_qc->is_strong() || received_qc.is_weak())) {
+         dlog("qc not better, claimed->valid: ${qbn} ${qid}, strong=${s}, received: ${rqc}, for block ${bn} ${id}",
+              ("qbn", claimed->block_num())("qid", claimed->id())("s", claimed->valid_qc->is_strong())
+              ("rqc", qc_ext.qc.to_qc_claim())("bn", bsp_in->block_num())("id", bsp_in->id()));
          return;
       }
 
       // Save the QC. This is safe as the function is called by push_block & accept_block from application thread.
+      dlog("setting valid qc: ${rqc} into claimed block ${bn} ${id}", ("rqc", qc_ext.qc.to_qc_claim())("bn", claimed->block_num())("id", claimed->id()));
       claimed->valid_qc = received_qc;
 
       // advance LIB if QC is strong
@@ -3586,14 +3598,13 @@ struct controller_impl {
    void consider_voting(const block_state_ptr& bsp) {
       // 1. Get the `core.final_on_strong_qc_block_num` for the block you are considering to vote on and use that to find the actual block ID
       //    of the ancestor block that has that block number.
-      // 2. If that block ID is not an ancestor of the current head block, then do not vote for that block.
+      // 2. If that block ID is for a non validated block, then do not vote for that block.
       // 3. Otherwise, consider voting for that block according to the decide_vote rules.
 
       if (bsp->core.final_on_strong_qc_block_num > 0) {
          const auto& final_on_strong_qc_block_ref = bsp->core.get_block_reference(bsp->core.final_on_strong_qc_block_num);
-         auto final = fetch_bsp_on_head_branch_by_num(final_on_strong_qc_block_ref.block_num());
-         if (final) {
-            assert(final->is_valid()); // if found on head branch then it must be validated
+         auto final = fetch_bsp(final_on_strong_qc_block_ref.block_id);
+         if (final && final->is_valid()) {
             create_and_send_vote_msg(bsp);
          }
       }
@@ -3734,10 +3745,11 @@ struct controller_impl {
    void maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup) {
       auto maybe_switch = [&](auto& forkdb) {
          if (read_mode != db_read_mode::IRREVERSIBLE) {
-            auto fork_head = forkdb.head();
-            if (chain_head.id() != fork_head->id()) {
+            auto pending_head = forkdb.pending_head();
+            if (chain_head.id() != pending_head->id() && pending_head->id() != forkdb.head()->id()) {
+               dlog("switching forks on controller->maybe_switch_forks call");
                controller::block_report br;
-               maybe_switch_forks(br, fork_head, fork_head->is_valid() ? controller::block_status::validated : controller::block_status::complete,
+               maybe_switch_forks(br, pending_head, pending_head->is_valid() ? controller::block_status::validated : controller::block_status::complete,
                                   cb, trx_lookup);
             }
          }

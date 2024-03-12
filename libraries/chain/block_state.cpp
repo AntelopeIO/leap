@@ -44,6 +44,7 @@ block_state::block_state(const block_header_state&                bhs,
    block->transactions = std::move(trx_receipts);
 
    if( qc ) {
+      dlog("integrate qc ${qc} into block ${bn} ${id}", ("qc", qc->to_qc_claim())("bn", block_num())("id", id()));
       emplace_extension(block->block_extensions, quorum_certificate_extension::extension_id(), fc::raw::pack( *qc ));
    }
 

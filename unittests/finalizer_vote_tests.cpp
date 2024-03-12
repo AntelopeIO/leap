@@ -129,8 +129,8 @@ struct simulator_t {
       my_finalizer.fsi = fsi_t{block_timestamp_type(0), genesis_ref, genesis_ref};
    }
 
-   vote_result vote(const bhsp& p) {
-      auto vote_res = my_finalizer.decide_vote(p->core, p->id(), p->timestamp());
+   vote_result vote(const bsp& p) {
+      auto vote_res = my_finalizer.decide_vote(p);
       return vote_res;
    }
 
