@@ -119,9 +119,9 @@ namespace eosio::chain {
       >;
 
       std::mutex             mtx;
-      fork_multi_index_type  index;
       bsp_t                  root;
       bsp_t                  head;
+      fork_multi_index_type  index;
 
       explicit fork_database_impl() = default;
 

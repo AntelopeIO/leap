@@ -14,7 +14,7 @@
 #include <chainbase/chainbase.hpp>
 #include "multi_index_includes.hpp"
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    /**
     * a fc::raw::unpack compatible version of the old global_property_object structure stored in
@@ -24,7 +24,8 @@ namespace eosio { namespace chain {
       struct snapshot_global_property_object_v2 {
          static constexpr uint32_t minimum_version = 0;
          static constexpr uint32_t maximum_version = 2;
-         static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_global_property_object_v2 is no longer needed");
+         static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version,
+                       "snapshot_global_property_object_v2 is no longer needed");
 
          std::optional<block_num_type>    proposed_schedule_block_num;
          producer_schedule_type           proposed_schedule;
@@ -33,7 +34,8 @@ namespace eosio { namespace chain {
       struct snapshot_global_property_object_v3 {
          static constexpr uint32_t minimum_version = 3;
          static constexpr uint32_t maximum_version = 3;
-         static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_global_property_object_v3 is no longer needed");
+         static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version,
+                       "snapshot_global_property_object_v3 is no longer needed");
 
          std::optional<block_num_type>       proposed_schedule_block_num;
          producer_authority_schedule         proposed_schedule;
@@ -43,7 +45,8 @@ namespace eosio { namespace chain {
       struct snapshot_global_property_object_v4 {
          static constexpr uint32_t minimum_version = 4;
          static constexpr uint32_t maximum_version = 4;
-         static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_global_property_object_v4 is no longer needed");
+         static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version,
+                       "snapshot_global_property_object_v4 is no longer needed");
 
          std::optional<block_num_type>       proposed_schedule_block_num;
          producer_authority_schedule         proposed_schedule;
@@ -73,7 +76,8 @@ namespace eosio { namespace chain {
       kv_database_config                  kv_configuration;
       wasm_config                         wasm_configuration;
 
-     void initalize_from( const legacy::snapshot_global_property_object_v2& legacy, const chain_id_type& chain_id_val, const kv_database_config& kv_config_val, const wasm_config& wasm_config_val ) {
+     void initalize_from( const legacy::snapshot_global_property_object_v2& legacy, const chain_id_type& chain_id_val,
+                          const kv_database_config& kv_config_val, const wasm_config& wasm_config_val ) {
          proposed_schedule_block_num = legacy.proposed_schedule_block_num;
          proposed_schedule = producer_authority_schedule(legacy.proposed_schedule);
          configuration = legacy.configuration;
@@ -82,7 +86,8 @@ namespace eosio { namespace chain {
          wasm_configuration = wasm_config_val;
       }
 
-      void initalize_from( const legacy::snapshot_global_property_object_v3& legacy, const kv_database_config& kv_config_val, const wasm_config& wasm_config_val ) {
+      void initalize_from( const legacy::snapshot_global_property_object_v3& legacy,
+                           const kv_database_config& kv_config_val, const wasm_config& wasm_config_val ) {
          proposed_schedule_block_num = legacy.proposed_schedule_block_num;
          proposed_schedule = legacy.proposed_schedule;
          configuration = legacy.configuration;
@@ -127,7 +132,8 @@ namespace eosio { namespace chain {
          using snapshot_type = snapshot_global_property_object;
 
          static snapshot_global_property_object to_snapshot_row( const global_property_object& value, const chainbase::database& ) {
-            return {value.proposed_schedule_block_num, producer_authority_schedule::from_shared(value.proposed_schedule), value.configuration, value.chain_id, value.kv_configuration, value.wasm_configuration};
+            return {value.proposed_schedule_block_num, producer_authority_schedule::from_shared(value.proposed_schedule),
+                    value.configuration, value.chain_id, value.kv_configuration, value.wasm_configuration};
          }
 
          static void from_snapshot_row( snapshot_global_property_object&& row, global_property_object& value, chainbase::database& ) {
@@ -164,7 +170,7 @@ namespace eosio { namespace chain {
       >
    >;
 
-}}
+}
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::global_property_object, eosio::chain::global_property_multi_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::dynamic_global_property_object,

@@ -5,16 +5,24 @@
 namespace eosio::chain {
 
 // ----------------------------------------------------------------------------------------
-finalizer::vote_result finalizer::decide_vote(const finality_core& core, const block_id_type& proposal_id,
-                                               const block_timestamp_type proposal_timestamp) {
+finalizer::vote_result finalizer::decide_vote(const block_state_ptr& bsp) {
    vote_result res;
 
-   res.monotony_check = fsi.last_vote.empty() || proposal_timestamp > fsi.last_vote.timestamp;
+   res.monotony_check = fsi.last_vote.empty() || bsp->timestamp() > fsi.last_vote.timestamp;
    // fsi.last_vote.empty() means we have never voted on a proposal, so the protocol feature
    // just activated and we can proceed
 
    if (!res.monotony_check) {
-      dlog("monotony check failed for proposal ${bn} ${p}, cannot vote", ("bn", block_header::num_from_id(proposal_id))("p", proposal_id));
+      if (fsi.last_vote.empty()) {
+         dlog("monotony check failed, block ${bn} ${p}, cannot vote, fsi.last_vote empty", ("bn", bsp->block_num())("p", bsp->id()));
+      } else {
+         if (fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::debug)) {
+            if (bsp->id() != fsi.last_vote.block_id) { // we may have already voted when we received the block
+               dlog("monotony check failed, block ${bn} ${p}, cannot vote, ${t} <= ${lt}, fsi.last_vote ${lbn} ${lid}",
+                    ("bn", bsp->block_num())("p", bsp->id())("t", bsp->timestamp())("lt", fsi.last_vote.timestamp)("lbn", fsi.last_vote.block_num())("lid", fsi.last_vote.block_id));
+            }
+         }
+      }
       return res;
    }
 
@@ -23,16 +31,24 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
       // than the height of the proposal I'm locked on.
       // This allows restoration of liveness if a replica is locked on a stale proposal
       // -------------------------------------------------------------------------------
-      res.liveness_check = core.latest_qc_block_timestamp() > fsi.lock.timestamp;
+      res.liveness_check = bsp->core.latest_qc_block_timestamp() > fsi.lock.timestamp;
 
       if (!res.liveness_check) {
+         dlog("liveness check failed, block ${bn} ${id}: ${c} <= ${l}, fsi.lock ${lbn} ${lid}, latest_qc_claim: ${qc}",
+              ("bn", bsp->block_num())("id", bsp->id())("c", bsp->core.latest_qc_block_timestamp())("l", fsi.lock.timestamp)
+              ("lbn", fsi.lock.block_num())("lid", fsi.lock.block_id)("qc", bsp->core.latest_qc_claim()));
          // Safety check : check if this proposal extends the proposal we're locked on
-         res.safety_check = core.extends(fsi.lock.block_id);
+         res.safety_check = bsp->core.extends(fsi.lock.block_id);
+         if (!res.safety_check) {
+            dlog("safety  check  failed, block ${bn} ${id} did not extend fsi.lock ${lbn} ${lid}",
+                 ("bn", bsp->block_num())("id", bsp->id())("lbn", fsi.lock.block_num())("lid", fsi.lock.block_id));
+         }
       }
    } else {
       // Safety and Liveness both fail if `fsi.lock` is empty. It should not happen.
       // `fsi.lock` is initially set to `lib` when switching to IF or starting from a snapshot.
       // -------------------------------------------------------------------------------------
+      wlog("liveness check & safety check failed, block ${bn} ${id}, fsi.lock is empty", ("bn", bsp->block_num())("id", bsp->id()));
       res.liveness_check = false;
       res.safety_check   = false;
    }
@@ -43,36 +59,37 @@ finalizer::vote_result finalizer::decide_vote(const finality_core& core, const b
    // If we vote, update `fsi.last_vote` and also `fsi.lock` if we have a newer commit qc
    // -----------------------------------------------------------------------------------
    if (can_vote) {
-      auto [p_start, p_end] = std::make_pair(core.latest_qc_block_timestamp(), proposal_timestamp);
+      auto [p_start, p_end] = std::make_pair(bsp->core.latest_qc_block_timestamp(), bsp->timestamp());
 
       bool time_range_disjoint  = fsi.last_vote_range_start >= p_end || fsi.last_vote.timestamp <= p_start;
       bool voting_strong        = time_range_disjoint;
       if (!voting_strong && !fsi.last_vote.empty()) {
          // we can vote strong if the proposal is a descendant of (i.e. extends) our last vote id
-         voting_strong = core.extends(fsi.last_vote.block_id);
+         voting_strong = bsp->core.extends(fsi.last_vote.block_id);
       }
 
-      fsi.last_vote             = proposal_ref(proposal_id, proposal_timestamp);
+      fsi.last_vote             = { bsp->id(), bsp->timestamp() };
       fsi.last_vote_range_start = p_start;
 
-      auto& final_on_strong_qc_block_ref = core.get_block_reference(core.final_on_strong_qc_block_num);
-      if (voting_strong && final_on_strong_qc_block_ref.timestamp > fsi.lock.timestamp)
-         fsi.lock = proposal_ref(final_on_strong_qc_block_ref.block_id, final_on_strong_qc_block_ref.timestamp);
+      auto& final_on_strong_qc_block_ref = bsp->core.get_block_reference(bsp->core.final_on_strong_qc_block_num);
+      if (voting_strong && final_on_strong_qc_block_ref.timestamp > fsi.lock.timestamp) {
+         fsi.lock = { final_on_strong_qc_block_ref.block_id, final_on_strong_qc_block_ref.timestamp };
+      }
 
       res.decision = voting_strong ? vote_decision::strong_vote : vote_decision::weak_vote;
    }
 
-   dlog("block=${bn}, liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote=${can_vote}, voting=${v}",
-        ("bn", block_header::num_from_id(proposal_id))("l",res.liveness_check)("s",res.safety_check)("m",res.monotony_check)
-        ("can_vote",can_vote)("v", res.decision));
+   dlog("block=${bn} ${id}, liveness_check=${l}, safety_check=${s}, monotony_check=${m}, can vote=${can_vote}, voting=${v}, locked=${lbn} ${lid}",
+        ("bn", bsp->block_num())("id", bsp->id())("l",res.liveness_check)("s",res.safety_check)("m",res.monotony_check)
+        ("can_vote",can_vote)("v", res.decision)("lbn", fsi.lock.block_num())("lid", fsi.lock.block_id));
    return res;
 }
 
 // ----------------------------------------------------------------------------------------
 std::optional<vote_message> finalizer::maybe_vote(const bls_public_key& pub_key,
-                                                  const block_header_state_ptr& p,
+                                                  const block_state_ptr& bsp,
                                                   const digest_type& digest) {
-   finalizer::vote_decision decision = decide_vote(p->core, p->id(), p->timestamp()).decision;
+   finalizer::vote_decision decision = decide_vote(bsp).decision;
    if (decision == vote_decision::strong_vote || decision == vote_decision::weak_vote) {
       bls_signature sig;
       if (decision == vote_decision::weak_vote) {
@@ -82,7 +99,7 @@ std::optional<vote_message> finalizer::maybe_vote(const bls_public_key& pub_key,
       } else {
          sig =  priv_key.sign({(uint8_t*)digest.data(), (uint8_t*)digest.data() + digest.data_size()});
       }
-      return vote_message{ p->id(), decision == vote_decision::strong_vote, pub_key, sig };
+      return vote_message{ bsp->id(), decision == vote_decision::strong_vote, pub_key, sig };
    }
    return {};
 }

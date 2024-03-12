@@ -2,6 +2,7 @@
 #include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/hotstuff/finalizer.hpp>
+#include <eosio/chain/snapshot_detail.hpp>
 #include <eosio/chain/exceptions.hpp>
 
 #include <fc/crypto/bls_utils.hpp>
@@ -38,6 +39,7 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    block->transactions = std::move(trx_receipts);
 
    if( qc ) {
+      dlog("integrate qc ${qc} into block ${bn} ${id}", ("qc", qc->to_qc_claim())("bn", block_num())("id", id()));
       emplace_extension(block->block_extensions, quorum_certificate_extension::extension_id(), fc::raw::pack( *qc ));
    }
 
@@ -68,6 +70,28 @@ block_state::block_state(const block_state_legacy& bsp) {
    validated = bsp.is_valid();
    pub_keys_recovered = bsp._pub_keys_recovered;
    cached_trxs = bsp._cached_trxs;
+}
+
+block_state::block_state(snapshot_detail::snapshot_block_state_v7&& sbs)
+   : block_header_state {
+         .block_id                    = sbs.block_id,
+         .header                      = std::move(sbs.header),
+         .activated_protocol_features = std::move(sbs.activated_protocol_features),
+         .core                        = std::move(sbs.core),
+         .proposal_mtree              = std::move(sbs.proposal_mtree),
+         .finality_mtree              = std::move(sbs.finality_mtree),
+         .active_finalizer_policy     = std::move(sbs.active_finalizer_policy),
+         .active_proposer_policy      = std::move(sbs.active_proposer_policy),
+         .proposer_policies           = std::move(sbs.proposer_policies),
+         .finalizer_policies          = std::move(sbs.finalizer_policies)
+      }
+   , strong_digest(compute_finalizer_digest())
+   , weak_digest(create_weak_digest(strong_digest))
+   , pending_qc(active_finalizer_policy->finalizers.size(), active_finalizer_policy->threshold,
+                active_finalizer_policy->max_weak_sum_before_weak_final()) // just in case we receive votes
+     // , valid(std::move(sbs.valid) // [snapshot todo]
+{
+   header_exts = header.validate_and_extract_header_extensions();
 }
 
 deque<transaction_metadata_ptr> block_state::extract_trxs_metas() {

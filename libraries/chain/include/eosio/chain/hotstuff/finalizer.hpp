@@ -26,14 +26,12 @@
 // -------------------------------------------------------------------------------------------
 
 namespace eosio::chain {
-   // ----------------------------------------------------------------------------------------
-   using proposal_ref = block_ref;
 
    // ----------------------------------------------------------------------------------------
    struct finalizer_safety_information {
       block_timestamp_type last_vote_range_start;
-      proposal_ref         last_vote;
-      proposal_ref         lock;
+      block_ref            last_vote;
+      block_ref            lock;
 
       static constexpr uint64_t magic = 0x5AFE11115AFE1111ull;
 
@@ -59,10 +57,9 @@ namespace eosio::chain {
       bls_private_key               priv_key;
       finalizer_safety_information  fsi;
 
-      vote_result  decide_vote(const finality_core& core, const block_id_type &id,
-                               const block_timestamp_type timestamp);
+      vote_result  decide_vote(const block_state_ptr& bsp);
 
-      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_header_state_ptr& bhsp,
+      std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_state_ptr& bsp,
                                              const digest_type& digest);
    };
 
@@ -81,7 +78,7 @@ namespace eosio::chain {
 
       template<class F>
       void maybe_vote(const finalizer_policy& fin_pol,
-                      const block_header_state_ptr& bhsp,
+                      const block_state_ptr& bsp,
                       const digest_type& digest,
                       F&& process_vote) {
          std::vector<vote_message> votes;
@@ -90,7 +87,7 @@ namespace eosio::chain {
          // first accumulate all the votes
          for (const auto& f : fin_pol.finalizers) {
             if (auto it = finalizers.find(f.public_key); it != finalizers.end()) {
-               std::optional<vote_message> vote_msg = it->second.maybe_vote(it->first, bhsp, digest);
+               std::optional<vote_message> vote_msg = it->second.maybe_vote(it->first, bsp, digest);
                if (vote_msg)
                   votes.push_back(std::move(*vote_msg));
             }

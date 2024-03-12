@@ -532,6 +532,7 @@ namespace eosio {
 
    public:
       void update_chain_info();
+      void update_chain_info(const block_id_type& lib);
       chain_info_t get_chain_info() const;
       uint32_t get_chain_lib_num() const;
       uint32_t get_chain_head_num() const;
@@ -3100,7 +3101,7 @@ namespace eosio {
       if( my_impl->dispatcher->have_block( blk_id ) ) {
          peer_dlog( this, "canceling wait, already received block ${num}, id ${id}...",
                     ("num", blk_num)("id", blk_id.str().substr(8,16)) );
-         my_impl->sync_master->sync_recv_block( shared_from_this(), blk_id, blk_num, false );
+         my_impl->sync_master->sync_recv_block( shared_from_this(), blk_id, blk_num, true );
          cancel_wait();
 
          pending_message_buffer.advance_read_ptr( message_length );
@@ -3235,13 +3236,28 @@ namespace eosio {
       uint32_t lib_num = 0, head_num = 0;
       {
          fc::lock_guard g( chain_info_mtx );
-         chain_info.lib_num = lib_num = cc.last_irreversible_block_num();
          chain_info.lib_id = cc.last_irreversible_block_id();
-         chain_info.head_num = head_num = cc.fork_db_head_block_num();
+         chain_info.lib_num = lib_num = block_header::num_from_id(chain_info.lib_id);
          chain_info.head_id = cc.fork_db_head_block_id();
+         chain_info.head_num = head_num = block_header::num_from_id(chain_info.head_id);
       }
       fc_dlog( logger, "updating chain info lib ${lib}, fork ${fork}", ("lib", lib_num)("fork", head_num) );
    }
+
+   // call only from main application thread
+   void net_plugin_impl::update_chain_info(const block_id_type& lib) {
+      controller& cc = chain_plug->chain();
+      uint32_t lib_num = 0, head_num = 0;
+      {
+         fc::lock_guard g( chain_info_mtx );
+         chain_info.lib_num = lib_num = block_header::num_from_id(lib);
+         chain_info.lib_id = lib;
+         chain_info.head_id = cc.fork_db_head_block_id();
+         chain_info.head_num = head_num = block_header::num_from_id(chain_info.head_id);
+      }
+      fc_dlog( logger, "updating chain info lib ${lib}, fork ${fork}", ("lib", lib_num)("fork", head_num) );
+   }
+
 
    net_plugin_impl::chain_info_t net_plugin_impl::get_chain_info() const {
       fc::lock_guard g( chain_info_mtx );
@@ -3700,9 +3716,9 @@ namespace eosio {
    }
 
    void connection::handle_message( const vote_message& msg ) {
-      peer_dlog(this, "received vote: block #${bn}:${id}.., ${t}, key ${k}..",
-                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
-                ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
+      peer_dlog(this, "received vote: block #${bn}:${id}.., ${v}, key ${k}..",
+                ("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))
+                ("v", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
       controller& cc = my_impl->chain_plug->chain();
 
       switch( cc.process_vote_message(msg) ) {
@@ -3991,8 +4007,8 @@ namespace eosio {
 
    // called from application thread
    void net_plugin_impl::on_voted_block(const vote_message& msg) {
-      fc_dlog(logger, "on voted signal: block #${bn}:${id}.., ${t}, key ${k}..",
-                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
+      fc_dlog(logger, "on voted signal: block #${bn} ${id}.., ${t}, key ${k}..",
+                ("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))
                 ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8, 16)));
       bcast_vote_message(std::nullopt, msg);
    }
@@ -4001,9 +4017,9 @@ namespace eosio {
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
 
-      fc_dlog(logger, "bcast vote: block #${bn}:${id}.., ${t}, key ${k}..",
-                ("bn", block_header::num_from_id(msg.proposal_id))("id", msg.proposal_id.str().substr(8,16))
-                ("t", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8,16)));
+      fc_dlog(logger, "bcast ${t} vote: block #${bn} ${id}.., ${v}, key ${k}..",
+                ("t", exclude_peer ? "received" : "our")("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))
+                ("v", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8,16)));
 
       dispatcher->strand.post( [this, exclude_peer, msg{std::move(send_buffer)}]() mutable {
          dispatcher->bcast_vote_msg( exclude_peer, std::move(msg) );
@@ -4017,7 +4033,7 @@ namespace eosio {
    // called from application thread
    void net_plugin_impl::on_irreversible_block( const block_id_type& id, uint32_t block_num) {
       fc_dlog( logger, "on_irreversible_block, blk num = ${num}, id = ${id}", ("num", block_num)("id", id) );
-      update_chain_info();
+      update_chain_info(id);
    }
 
    // called from application thread

@@ -31,21 +31,21 @@ std::vector<FSI> create_random_fsi(size_t count) {
    res.reserve(count);
    for (size_t i=0; i<count; ++i) {
       res.push_back(FSI{tstamp(i),
-                        proposal_ref{sha256::hash((const char *)"vote"), tstamp(i*100 + 3)},
-                        proposal_ref{sha256::hash((const char *)"lock"), tstamp(i*100)} });
+                        block_ref{sha256::hash((const char *)"vote"), tstamp(i*100 + 3)},
+                        block_ref{sha256::hash((const char *)"lock"), tstamp(i*100)} });
       if (i)
          assert(res.back() != res[0]);
    }
    return res;
 }
 
-std::vector<proposal_ref> create_proposal_refs(size_t count) {
-   std::vector<proposal_ref> res;
+std::vector<block_ref> create_proposal_refs(size_t count) {
+   std::vector<block_ref> res;
    res.reserve(count);
    for (size_t i=0; i<count; ++i) {
       std::string id_str {"vote"};
       id_str += std::to_string(i);
-      res.push_back(proposal_ref{sha256::hash(id_str.c_str()), tstamp(i)});
+      res.push_back(block_ref{sha256::hash(id_str.c_str()), tstamp(i)});
    }
    return res;
 }

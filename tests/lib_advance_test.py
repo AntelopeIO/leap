@@ -72,7 +72,7 @@ try:
     prodNodes=[ prodNode0, prodNode1, prodNode2, prodNode3 ]
 
     prodA=prodNode0 # defproducera
-    prodD=prodNode3 # defproducerc
+    prodD=prodNode3 # defproducerd
 
     # ***   Identify a block where production is stable   ***
 

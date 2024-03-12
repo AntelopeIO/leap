@@ -92,3 +92,4 @@ node_modules
 package-lock.json
 
 snapshots
+!unittests/snapshots

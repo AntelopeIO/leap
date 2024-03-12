@@ -11,6 +11,10 @@
 
 namespace eosio::chain {
 
+namespace snapshot_detail {
+  struct snapshot_block_state_v7;
+}
+
 namespace detail { struct schedule_info; };
 
 struct building_block_input {
@@ -72,8 +76,8 @@ struct block_header_state {
    block_header_state next(const signed_block_header& h, validator_t& validator) const;
 
    // block descending from this need the provided qc in the block extension
-   bool is_needed(const quorum_certificate& qc) const {
-      return qc.block_num > core.latest_qc_claim().block_num;
+   bool is_needed(const qc_claim_t& qc_claim) const {
+      return qc_claim > core.latest_qc_claim();
    }
 
    const vector<digest_type>& get_new_protocol_feature_activations() const;
