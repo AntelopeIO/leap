@@ -20,7 +20,7 @@ namespace fc
       }
       return *this;
    }
-   variant_object::entry& variant_object::entry::operator=( variant_object::entry&& e ) noexcept    {
+   variant_object::entry& variant_object::entry::operator=( variant_object::entry&& e ) noexcept {
       fc_swap( _key, e._key );
       fc_swap( _value, e._value );
       return *this;
