@@ -107,7 +107,7 @@ block_state::block_state(snapshot_detail::snapshot_block_state_v7&& sbs)
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(active_finalizer_policy->finalizers.size(), active_finalizer_policy->threshold,
                 active_finalizer_policy->max_weak_sum_before_weak_final()) // just in case we receive votes
-     // , valid(std::move(sbs.valid) // [snapshot todo]
+   , valid(std::move(sbs.valid))
 {
    header_exts = header.validate_and_extract_header_extensions();
 }
