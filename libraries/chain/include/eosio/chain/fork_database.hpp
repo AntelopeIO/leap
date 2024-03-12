@@ -1,4 +1,5 @@
 #pragma once
+#include <fc/io/cfile.hpp>
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain/block_handle.hpp>
@@ -35,9 +36,6 @@ namespace eosio::chain {
    template<class BSP>  // either block_state_legacy_ptr or block_state_ptr
    class fork_database_t {
    public:
-      static constexpr uint32_t legacy_magic_number = 0x30510FDB;
-      static constexpr uint32_t magic_number = 0x4242FDB;
-
       using bsp_t            = BSP;
       using bs_t             = bsp_t::element_type;
       using bhsp_t           = bs_t::bhsp_t;
@@ -46,11 +44,11 @@ namespace eosio::chain {
       using full_branch_t    = std::vector<bhsp_t>;
       using branch_pair_t    = pair<branch_t, branch_t>;
 
-      explicit fork_database_t(uint32_t magic_number = legacy_magic_number);
+      explicit fork_database_t();
       ~fork_database_t();
 
-      void open( const std::filesystem::path& fork_db_file, validator_t& validator );
-      void close( const std::filesystem::path& fork_db_file );
+      void open( const std::filesystem::path& fork_db_file, fc::cfile_datastream& ds, validator_t& validator );
+      void close( std::ofstream& out );
 
       bsp_t get_block( const block_id_type& id, include_root_t include_root = include_root_t::no ) const;
       bool block_exists( const block_id_type& id ) const;
@@ -79,6 +77,8 @@ namespace eosio::chain {
       void add( const bsp_t& next_block, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate );
 
       void remove( const block_id_type& id );
+
+      bool in_valid_state() const; // not thread safe
 
       bool has_root() const;
       bsp_t  root() const; // undefined if !has_root()
@@ -136,8 +136,12 @@ namespace eosio::chain {
     * All methods assert until open() is closed.
     */
    class fork_database {
+      static constexpr uint32_t magic_number = 0x30510FDB;
+
+      enum class in_use_t : uint32_t { legacy, savanna, both };
+
       const std::filesystem::path data_dir;
-      std::atomic<bool> legacy = true;
+      std::atomic<in_use_t> in_use = in_use_t::legacy;
       std::unique_ptr<fork_database_legacy_t> fork_db_l; // legacy
       std::unique_ptr<fork_database_if_t>     fork_db_s; // savanna
    public:
@@ -160,13 +164,13 @@ namespace eosio::chain {
       template <class R, class F>
       R apply(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (legacy) {
+            if (in_use == in_use_t::legacy) {
                f(*fork_db_l);
             } else {
                f(*fork_db_s);
             }
          } else {
-            if (legacy) {
+            if (in_use == in_use_t::legacy) {
                return f(*fork_db_l);
             } else {
                return f(*fork_db_s);
@@ -177,13 +181,13 @@ namespace eosio::chain {
       template <class R, class F>
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
-            if (legacy) {
+            if (in_use == in_use_t::legacy) {
                f(*fork_db_l);
             } else {
                f(*fork_db_s);
             }
          } else {
-            if (legacy) {
+            if (in_use == in_use_t::legacy) {
                return f(*fork_db_l);
             } else {
                return f(*fork_db_s);
@@ -195,11 +199,11 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (!legacy) {
+            if (in_use == in_use_t::savanna || in_use == in_use_t::both) {
                f(*fork_db_s);
             }
          } else {
-            if (!legacy) {
+            if (in_use == in_use_t::savanna || in_use == in_use_t::both) {
                return f(*fork_db_s);
             }
             return {};
@@ -210,11 +214,11 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_l(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (legacy) {
+            if (in_use == in_use_t::legacy || in_use == in_use_t::both) {
                f(*fork_db_l);
             }
          } else {
-            if (legacy) {
+            if (in_use == in_use_t::legacy || in_use == in_use_t::both) {
                return f(*fork_db_l);
             }
             return {};
@@ -226,13 +230,13 @@ namespace eosio::chain {
       template <class R, class LegacyF, class SavannaF>
       R apply(const LegacyF& legacy_f, const SavannaF& savanna_f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (legacy) {
+            if (in_use == in_use_t::legacy) {
                legacy_f(*fork_db_l);
             } else {
                savanna_f(*fork_db_s);
             }
          } else {
-            if (legacy) {
+            if (in_use == in_use_t::legacy) {
                return legacy_f(*fork_db_l);
             } else {
                return savanna_f(*fork_db_s);
@@ -242,6 +246,6 @@ namespace eosio::chain {
 
       // if we ever support more than one version then need to save min/max in fork_database_t
       static constexpr uint32_t min_supported_version = 1;
-      static constexpr uint32_t max_supported_version = 1;
+      static constexpr uint32_t max_supported_version = 2;
    };
 } /// eosio::chain
