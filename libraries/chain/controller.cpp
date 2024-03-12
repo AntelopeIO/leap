@@ -644,31 +644,31 @@ struct building_block {
       return parent.get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
    }
 
-   qc_data_t get_qc_data(fork_database& fork_db, const building_block_if& bb) {
+   qc_data_t get_qc_data(fork_database& fork_db, const block_state& parent) {
       // find most recent ancestor block that has a QC by traversing fork db
       // branch from parent
 
       return fork_db.apply_s<qc_data_t>([&](const auto& forkdb) {
-         auto branch = forkdb.fetch_branch(bb.parent.id());
+         auto branch = forkdb.fetch_branch(parent.id());
 
          for( auto it = branch.begin(); it != branch.end(); ++it ) {
             if( auto qc = (*it)->get_best_qc(); qc ) {
-               EOS_ASSERT( qc->block_num <= block_header::num_from_id(bb.parent.id()), block_validate_exception,
+               EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent.id()), block_validate_exception,
                            "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
-                           ("a", qc->block_num)("p", block_header::num_from_id(bb.parent.id())) );
+                           ("a", qc->block_num)("p", block_header::num_from_id(parent.id())) );
                auto qc_claim = qc->to_qc_claim();
-               if( bb.parent.is_needed(qc_claim) ) {
+               if( parent.is_needed(qc_claim) ) {
                   return qc_data_t{ *qc, qc_claim };
                } else {
                   // no new qc info, repeat existing
-                  return qc_data_t{ {},  bb.parent.core.latest_qc_claim() };
+                  return qc_data_t{ {},  parent.core.latest_qc_claim() };
                }
             }
          }
 
          // This only happens when parent block is the IF genesis block or starting from snapshot.
          // There is no ancestor block which has a QC. Construct a default QC claim.
-         return qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
+         return qc_data_t{ {}, parent.core.latest_qc_claim() };
       });
    }
 
@@ -742,7 +742,7 @@ struct building_block {
                   // second stage
                   finality_mroot_claim = validating_bsp->header.action_mroot;
                } else {
-                  qc_data = get_qc_data(fork_db, bb);
+                  qc_data = get_qc_data(fork_db, bb.parent);
                   finality_mroot_claim = get_finality_mroot_claim(bb.parent, qc_data.qc_claim);
                }
 
