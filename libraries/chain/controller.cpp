@@ -118,14 +118,6 @@ class maybe_session {
       std::optional<database::session>     _session;
 };
 
-struct qc_data_t {
-   std::optional<quorum_certificate> qc; // Comes either from traversing branch from parent and calling get_best_qc()
-                                         // or from an incoming block extension.
-   qc_claim_t qc_claim;                  // describes the above qc. In rare cases (bootstrap, starting from snapshot,
-                                         // disaster recovery), we may not have a qc so we use the `lib` block_num
-                                         // and specify `weak`.
-};
-
 // apply methods of block_handle defined here as access to internal block_handle restricted to controller
 template <class R, class F>
 R apply(const block_handle& bh, F&& f) {
@@ -633,45 +625,6 @@ struct building_block {
                         v);
    }
 
-   digest_type get_finality_mroot_claim(const block_state& parent, const qc_claim_t& qc_claim) {
-      auto next_core_metadata = parent.core.next_metadata(qc_claim);
-
-      // For proper IF blocks that do not have an associated Finality Tree defined
-      if (parent.core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num)) {
-         return digest_type{};
-      }
-
-      return parent.get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
-   }
-
-   qc_data_t get_qc_data(fork_database& fork_db, const block_state& parent) {
-      // find most recent ancestor block that has a QC by traversing fork db
-      // branch from parent
-
-      return fork_db.apply_s<qc_data_t>([&](const auto& forkdb) {
-         auto branch = forkdb.fetch_branch(parent.id());
-
-         for( auto it = branch.begin(); it != branch.end(); ++it ) {
-            if( auto qc = (*it)->get_best_qc(); qc ) {
-               EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent.id()), block_validate_exception,
-                           "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
-                           ("a", qc->block_num)("p", block_header::num_from_id(parent.id())) );
-               auto qc_claim = qc->to_qc_claim();
-               if( parent.is_needed(qc_claim) ) {
-                  return qc_data_t{ *qc, qc_claim };
-               } else {
-                  // no new qc info, repeat existing
-                  return qc_data_t{ {},  parent.core.latest_qc_claim() };
-               }
-            }
-         }
-
-         // This only happens when parent block is the IF genesis block or starting from snapshot.
-         // There is no ancestor block which has a QC. Construct a default QC claim.
-         return qc_data_t{ {}, parent.core.latest_qc_claim() };
-      });
-   }
-
    assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
                                   fork_database& fork_db,
@@ -742,8 +695,12 @@ struct building_block {
                   // second stage
                   finality_mroot_claim = validating_bsp->header.action_mroot;
                } else {
-                  qc_data = get_qc_data(fork_db, bb.parent);
-                  finality_mroot_claim = get_finality_mroot_claim(bb.parent, qc_data.qc_claim);
+                  auto branch = fork_db.apply_s<std::vector<block_state_ptr>>([&](const auto& forkdb) {
+                     return forkdb.fetch_branch(bb.parent.id());
+                  });
+                  qc_data = bb.parent.get_most_ancestor_qc_data(branch);
+
+                  finality_mroot_claim = bb.parent.get_finality_mroot_claim(qc_data.qc_claim);
                }
 
                building_block_input bb_input {

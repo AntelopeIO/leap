@@ -67,6 +67,13 @@ namespace eosio::chain {
       }
    };
 
+   struct qc_data_t {
+      std::optional<quorum_certificate> qc; // Comes either from traversing branch from parent and calling get_best_qc()
+                                            // or from an incoming block extension.
+      qc_claim_t qc_claim;                  // describes the above qc. In rare cases (bootstrap, starting from snapshot,
+                                            // disaster recovery), we may not have a qc so we use the `lib` block_num
+                                            // and specify `weak`.
+   };
 
    // pending_quorum_certificate
    class pending_quorum_certificate {
