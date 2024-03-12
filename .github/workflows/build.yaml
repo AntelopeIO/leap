@@ -136,6 +136,7 @@ jobs:
           - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
           - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
           - cfg: {name: 'asserton',      base: 'asserton', builddir: 'asserton'}
+          - cfg: {name: 'ubsan',         base: 'ubsan',    builddir: 'ubsan'}
           - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
           - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-hightier"]
@@ -176,6 +177,7 @@ jobs:
           - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
           - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
           - cfg: {name: 'asserton',      base: 'asserton', builddir: 'asserton'}
+          - cfg: {name: 'ubsan',         base: 'ubsan',    builddir: 'ubsan'}
           - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
           - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-midtier"]
@@ -216,6 +218,7 @@ jobs:
           - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
           - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
           - cfg: {name: 'asserton',      base: 'asserton', builddir: 'asserton'}
+          - cfg: {name: 'ubsan',         base: 'ubsan',    builddir: 'ubsan'}
           - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
           - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-lowtier"]
