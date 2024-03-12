@@ -26,10 +26,10 @@ namespace fc
       public:
          entry();
          entry( std::string k, variant v );
-         entry( entry&& e );
+         entry( entry&& e ) noexcept ;
          entry( const entry& e);
          entry& operator=(const entry&);
-         entry& operator=(entry&&);
+         entry& operator=(entry&&) noexcept ;
 
          const std::string& key()const;
          const variant& value()const;
