@@ -297,7 +297,7 @@ digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) co
    return get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
 }
 
-qc_data_t block_state::get_most_ancestor_qc_data(std::vector<block_state_ptr> branch) const {
+qc_data_t block_state::get_most_ancestor_qc_data(const std::vector<block_state_ptr>& branch) const {
    // find most recent ancestor block that has a QC by traversing the branch
    for( auto bsp = branch.begin(); bsp != branch.end(); ++bsp ) {
       if( auto qc = (*bsp)->get_best_qc(); qc ) {
