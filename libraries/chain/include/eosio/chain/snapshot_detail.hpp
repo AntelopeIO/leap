@@ -120,8 +120,7 @@ namespace eosio::chain::snapshot_detail {
       flat_map<uint32_t, finalizer_policy_ptr>            finalizer_policies;
 
       // from block_state
-      using valid_t = uint32_t; // snapshot todo
-      std::optional<valid_t> valid;
+      std::optional<valid_t>                              valid;
 
       snapshot_block_state_v7() = default;
 
@@ -134,7 +133,7 @@ namespace eosio::chain::snapshot_detail {
          , active_proposer_policy(bs.active_proposer_policy)
          , proposer_policies(bs.proposer_policies)
          , finalizer_policies(bs.finalizer_policies)
-         , valid(0)  // snapshot todo
+         , valid(bs.valid)
       {}
    };
 

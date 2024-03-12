@@ -30,7 +30,7 @@ struct block_state_accessor;
  * 2. The Validation Tree associated with a target block is the Finality Merkle
  *    Tree over Finality Leaf Nodes starting with the one for the IF Genesis Block
  *    and ending with the one for the target Block.
- * 3. The Finality Tree ssociated with a target block is the Validation Tree of the
+ * 3. The Finality Tree associated with a target block is the Validation Tree of the
  *    block referenced by the target block's final_on_strong_qc_block_num.
  *    That is, validation_tree(core.final_on_strong_qc_block_num))
  * */
