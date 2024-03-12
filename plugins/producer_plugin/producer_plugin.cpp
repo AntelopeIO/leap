@@ -1898,8 +1898,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    try {
       uint16_t blocks_to_confirm = 0;
 
-      auto block_state = chain.head_block_state_legacy(); // null means if is active
-      if (in_producing_mode() && block_state && block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum) { // only if hotstuff not enabled
+      auto block_state = chain.head_block_state_legacy(); // null means savanna is active
+      if (in_producing_mode() && block_state) { // only if savanna not enabled
          // determine how many blocks this producer can confirm
          // 1) if it is not a producer from this node, assume no confirmations (we will discard this block anyway)
          // 2) if it is a producer on this node that has never produced, the conservative approach is to assume no
