@@ -249,8 +249,7 @@ valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_
    auto start = next_bhs.core.last_final_block_num() - core.last_final_block_num();
    valid_t next_valid {
       .validation_tree = valid->validation_tree,
-      // Remove any roots from the front end to block whose block number is
-      // last_final_block_num - 1
+      // Trim roots from the front end, up to block number `next_bhs.core.last_final_block_num()`
       .validation_mroots = { valid->validation_mroots.cbegin() + start, valid->validation_mroots.cend() }
    };
 

@@ -47,9 +47,9 @@ struct valid_t {
    incremental_merkle_tree validation_tree;
 
    // The sequence of root digests of the validation trees associated
-   // to a unbroken sequence of blocks which consist of the block
+   // with an unbroken sequence of blocks consisting of the blocks
    // starting with the one that has a block number equal
-   // to core.last_final_block_num, and the current block
+   // to core.last_final_block_num, and ending with the current block
    std::vector<digest_type> validation_mroots;
 };
 

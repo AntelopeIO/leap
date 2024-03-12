@@ -54,8 +54,8 @@ namespace eosio::chain {
       checksum256_type                 transaction_mroot; /// mroot of cycles_summary
 
       // In Legacy, action_mroot is the mroot of all delivered action receipts.
-      // In Savanna, action_mroot is the digest of the root of the Finality Tree
-      // associated with the block, i.e. the digest of the root of
+      // In Savanna, action_mroot is the root of the Finality Tree
+      // associated with the block, i.e. the root of
       // validation_tree(core.final_on_strong_qc_block_num).
       checksum256_type                 action_mroot;
 

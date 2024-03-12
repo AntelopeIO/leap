@@ -325,6 +325,13 @@ struct assembled_block {
                         v);
    }
 
+   std::optional<digests_t> get_action_receipt_digests() const {
+      return std::visit(
+         overloaded{[](const assembled_block_legacy& ab) -> std::optional<digests_t> { return ab.action_receipt_digests; },
+                    [](const assembled_block_if& ab)     -> std::optional<digests_t> { return {}; }},
+         v);
+   }
+
    const producer_authority_schedule* next_producers() const {
       return std::visit(overloaded{[](const assembled_block_legacy& ab) -> const producer_authority_schedule* {
                                       return ab.new_producer_authority_cache.has_value()
@@ -641,10 +648,9 @@ struct building_block {
       // find most recent ancestor block that has a QC by traversing fork db
       // branch from parent
 
-      qc_data_t qc_data{};
-
-      fork_db.apply_s<void>([&](const auto& forkdb) {
+      return fork_db.apply_s<qc_data_t>([&](const auto& forkdb) {
          auto branch = forkdb.fetch_branch(bb.parent.id());
+
          for( auto it = branch.begin(); it != branch.end(); ++it ) {
             if( auto qc = (*it)->get_best_qc(); qc ) {
                EOS_ASSERT( qc->block_num <= block_header::num_from_id(bb.parent.id()), block_validate_exception,
@@ -652,23 +658,18 @@ struct building_block {
                            ("a", qc->block_num)("p", block_header::num_from_id(bb.parent.id())) );
                auto qc_claim = qc->to_qc_claim();
                if( bb.parent.is_needed(qc_claim) ) {
-                  qc_data = qc_data_t{ *qc, qc_claim };
+                  return qc_data_t{ *qc, qc_claim };
                } else {
                   // no new qc info, repeat existing
-                  qc_data = qc_data_t{ {},  bb.parent.core.latest_qc_claim() };
+                  return qc_data_t{ {},  bb.parent.core.latest_qc_claim() };
                }
-               break;
             }
          }
 
-         if (qc_data.qc_claim == qc_claim_t{0, false}) {
-            // This only happens when parent block is the IF genesis block or starting from snapshot.
-            // There is no ancestor block which has a QC. Construct a default QC claim.
-            qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
-          }
+         // This only happens when parent block is the IF genesis block or starting from snapshot.
+         // There is no ancestor block which has a QC. Construct a default QC claim.
+         return qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
       });
-     
-      return qc_data;
    }
 
    assembled_block assemble_block(boost::asio::io_context& ioc,
@@ -3260,6 +3261,21 @@ struct controller_impl {
             if constexpr (std::is_same_v<BSP, block_state_ptr>) {
                // assemble_block will mutate bsp by setting the valid structure
                assemble_block(true, extract_qc_data(b), bsp);
+
+               // verify received finality digest in action_mroot is the same as the actual one
+
+               // For proper IF blocks that do not have an associated Finality Tree defined,
+               // its finality_mroot is empty
+               digest_type actual_finality_mroot;
+
+               if (!bsp->core.is_genesis_block_num(bsp->core.final_on_strong_qc_block_num)) {
+                  actual_finality_mroot = bsp->get_validation_mroot(bsp->core.final_on_strong_qc_block_num);
+               }
+
+               EOS_ASSERT(bsp->finality_mroot() == actual_finality_mroot,
+                  block_validate_exception,
+                  "finality_mroot does not match, received finality_mroot: ${r} != actual_finality_mroot: ${a}",
+                  ("r", bsp->finality_mroot())("a", actual_finality_mroot));
             } else {
                assemble_block(true, {}, nullptr);
             }
@@ -3275,35 +3291,11 @@ struct controller_impl {
                           ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
             }
 
-            // verify received finality digest in action_mroot is the same as the actual one
-            if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-               // For proper IF blocks that do not have an associated Finality Tree defined,
-               // its finality_mroot is empty
-               digest_type actual_finality_mroot{};
-               if (!bsp->core.is_genesis_block_num(bsp->core.final_on_strong_qc_block_num)) {
-                  actual_finality_mroot = bsp->get_validation_mroot(bsp->core.final_on_strong_qc_block_num);
-               }
-
-               EOS_ASSERT(bsp->finality_mroot() == actual_finality_mroot,
-                  block_validate_exception,
-                  "finality_mroot does not match, received finality_mroot: ${r} != actual_finality_mroot: ${a}",
-                  ("r", bsp->finality_mroot())("a", actual_finality_mroot));
-            }
-
             if( !use_bsp_cached ) {
                bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
             }
             // create completed_block with the existing block_state as we just verified it is the same as assembled_block
-            if constexpr (std::is_same_v<BSP, block_state_legacy_ptr>) {
-               // Store action_receipt_digests in completed_block for
-               // calculating action_mroot in the Savanna way during
-               // Legacy to Savanna transition
-               assert(std::holds_alternative<assembled_block::assembled_block_legacy>(ab.v));
-               auto legacy_ab = std::get<assembled_block::assembled_block_legacy>(ab.v);
-               pending->_block_stage = completed_block{ block_handle{bsp}, legacy_ab.action_receipt_digests };
-            } else {
-               pending->_block_stage = completed_block{ block_handle{bsp} };
-            }
+            pending->_block_stage = completed_block{ block_handle{bsp}, ab.get_action_receipt_digests() };
 
             br = pending->_block_report; // copy before commit block destroys pending
             commit_block(s);
