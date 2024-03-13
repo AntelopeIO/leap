@@ -28,7 +28,7 @@ namespace eosio { namespace chain {
    bool block_header::is_proper_svnn_block() const {
       auto exts = validate_and_extract_header_extensions();
       return ( exts.count(instant_finality_extension::extension_id()) > 0 &&
-               schedule_version ==  proper_svnn_block_flag );
+               schedule_version ==  proper_svnn_schedule_version );
    }
 
    header_extension_multimap block_header::validate_and_extract_header_extensions()const {

@@ -89,7 +89,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .previous          = input.parent_id,
       .transaction_mroot = input.transaction_mroot,
       .action_mroot      = input.finality_mroot_claim,
-      .schedule_version  = block_header::proper_svnn_block_flag
+      .schedule_version  = block_header::proper_svnn_schedule_version
    };
 
    // activated protocol features
@@ -110,7 +110,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       // +1 since this is called after the block is built, this will be the active schedule for the next block
       if (it->first.slot <= input.timestamp.slot + 1) {
          result.active_proposer_policy = it->second;
-         result.header.schedule_version = block_header::proper_svnn_block_flag;
+         result.header.schedule_version = block_header::proper_svnn_schedule_version;
          result.active_proposer_policy->proposer_schedule.version = result.header.schedule_version;
          result.proposer_policies = { ++it, proposer_policies.end() };
       } else {

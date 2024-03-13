@@ -60,7 +60,7 @@ namespace eosio::chain {
       checksum256_type                 action_mroot;
 
       // Proper Savanna Block's schedule_version is 1LL << 31
-      static constexpr uint32_t proper_svnn_block_flag = (1LL << 31);
+      static constexpr uint32_t proper_svnn_schedule_version = (1LL << 31);
 
       /**
        * LEGACY SUPPORT - After enabling the wtmsig-blocks extension this field is deprecated and must be empty
