@@ -786,6 +786,16 @@ namespace eosio::chain {
       });
    }
 
+   void fork_database::reset_root(const block_handle::block_handle_variant_t& v) {
+       std::visit(overloaded{ [&](const block_state_legacy_ptr& bsp) { fork_db_l->reset_root(bsp); },
+                              [&](const block_state_ptr& bsp) {
+                                  if (in_use == in_use_t::legacy)
+                                     in_use = in_use_t::savanna;
+                                  fork_db_s->reset_root(bsp);
+                              } },
+                  v);
+   }
+
    // do class instantiations
    template class fork_database_t<block_state_legacy_ptr>;
    template class fork_database_t<block_state_ptr>;

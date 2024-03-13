@@ -161,6 +161,8 @@ namespace eosio::chain {
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
 
+      void reset_root(const block_handle::block_handle_variant_t& v);
+
       template <class R, class F>
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {

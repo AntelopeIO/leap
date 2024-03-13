@@ -139,6 +139,19 @@ R apply(const block_handle& bh, F&& f) {
                            }, bh.internal());
 }
 
+// apply methods of block_handle defined here as access to internal block_handle restricted to controller
+template <class R, class F_L, class F_S>
+   R apply(const block_handle& bh, F_L&& f_l, F_S&& f_s) {
+   if constexpr (std::is_same_v<void, R>)
+      std::visit<void>(overloaded{[&](const block_state_legacy_ptr& head) { std::forward<F_L>(f_l)(head); },
+                                  [&](const block_state_ptr& head)        { std::forward<F_S>(f_s)(head); }
+                       }, bh.internal());
+   else
+      return std::visit<R>(overloaded{[&](const block_state_legacy_ptr& head) -> R { return std::forward<F_L>(f_l)(head); },
+                                      [&](const block_state_ptr& head) -> R        { return std::forward<F_S>(f_s)(head); }
+                           }, bh.internal());
+}
+
 // apply savanna block_state
 template <class R, class F>
 R apply_s(const block_handle& bh, F&& f) {
@@ -1024,12 +1037,7 @@ struct controller_impl {
    }
 
    void fork_db_reset_root_to_chain_head() {
-      fork_db.apply<void>([&](auto& forkdb) {
-         apply<void>(chain_head, [&](const auto& head) {
-            if constexpr (std::is_same_v<std::decay_t<decltype(head)>, std::decay_t<decltype(forkdb.head())>>)
-               forkdb.reset_root(head);
-         });
-      });
+      fork_db.reset_root(chain_head.internal());
    }
 
    signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
