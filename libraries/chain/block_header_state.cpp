@@ -54,7 +54,7 @@ digest_type block_header_state::compute_base_digest() const {
    return enc.result();
 }
 
-digest_type block_header_state::compute_finalizer_digest() const {
+digest_type block_header_state::compute_finality_digest() const {
    assert(active_finalizer_policy);
    auto active_finalizer_policy_digest = fc::sha256::hash(*active_finalizer_policy);
    auto base_digest = compute_base_digest();

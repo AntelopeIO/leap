@@ -13,7 +13,7 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
                          const validator_t& validator, bool skip_validate_signee)
    : block_header_state(prev.next(*b, validator))
    , block(std::move(b))
-   , strong_digest(compute_finalizer_digest())
+   , strong_digest(compute_finality_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
 {
@@ -34,7 +34,7 @@ block_state::block_state(const block_header_state&                bhs,
                          const block_signing_authority& valid_block_signing_authority)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
-   , strong_digest(compute_finalizer_digest())
+   , strong_digest(compute_finality_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
    , valid(valid)
@@ -103,7 +103,7 @@ block_state::block_state(snapshot_detail::snapshot_block_state_v7&& sbs)
          .proposer_policies           = std::move(sbs.proposer_policies),
          .finalizer_policies          = std::move(sbs.finalizer_policies)
       }
-   , strong_digest(compute_finalizer_digest())
+   , strong_digest(compute_finality_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(active_finalizer_policy->finalizers.size(), active_finalizer_policy->threshold,
                 active_finalizer_policy->max_weak_sum_before_weak_final()) // just in case we receive votes
@@ -256,7 +256,7 @@ valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_
    // construct block's finality leaf node.
    valid_t::finality_leaf_node_t leaf_node{
       .block_num       = next_bhs.block_num(),
-      .finality_digest = next_bhs.compute_finalizer_digest(),
+      .finality_digest = next_bhs.compute_finality_digest(),
       .action_mroot    = action_mroot
    };
    auto leaf_node_digest = fc::sha256::hash(leaf_node);

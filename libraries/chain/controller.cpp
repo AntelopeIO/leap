@@ -3317,7 +3317,7 @@ struct controller_impl {
    }
 
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
-      auto finalizer_digest = bsp->compute_finalizer_digest();
+      auto finalizer_digest = bsp->compute_finality_digest();
 
       // Each finalizer configured on the node which is present in the active finalizer policy
       // may create and sign a vote
