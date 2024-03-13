@@ -477,7 +477,11 @@ struct building_block {
       uint32_t get_block_num() const { return block_num; }
 
       uint32_t get_next_proposer_schedule_version() const {
-         return block_header::proper_svnn_schedule_version;
+         if (!parent.proposer_policies.empty()) {
+            return (--parent.proposer_policies.end())->second->proposer_schedule.version + 1;
+         }
+         assert(active_proposer_policy);
+         return active_proposer_policy->proposer_schedule.version + 1;
       }
 
    };

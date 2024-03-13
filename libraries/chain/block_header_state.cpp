@@ -111,7 +111,6 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       if (it->first.slot <= input.timestamp.slot + 1) {
          result.active_proposer_policy = it->second;
          result.header.schedule_version = block_header::proper_svnn_schedule_version;
-         result.active_proposer_policy->proposer_schedule.version = result.header.schedule_version;
          result.proposer_policies = { ++it, proposer_policies.end() };
       } else {
          result.proposer_policies = proposer_policies;
