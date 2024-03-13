@@ -85,7 +85,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .confirmed         = 0,
       .previous          = input.parent_id,
       .transaction_mroot = input.transaction_mroot,
-      .action_mroot      = input.finality_mroot_claim ? *input.finality_mroot_claim : digest_type{},
+      .action_mroot      = input.finality_mroot_claim,
       .schedule_version  = block_header::proper_svnn_block_flag
    };
 
