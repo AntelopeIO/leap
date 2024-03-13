@@ -676,7 +676,8 @@ namespace eosio::chain {
 
       // check that fork_dbs are in a consistent state
       if (!legacy_valid && !savanna_valid) {
-         elog( "fork_database is in a bad state when closing; not writing out '${filename}'", ("filename", fork_db_file) );
+         elog( "fork_database is in a bad state when closing; not writing out '${filename}', legacy_valid=${l}, savanna_valid=${s}",
+               ("filename", fork_db_file)("l", legacy_valid)("s", savanna_valid) );
          return;
       }
 
