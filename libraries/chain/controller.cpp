@@ -139,7 +139,7 @@ R apply(const block_handle& bh, F&& f) {
                            }, bh.internal());
 }
 
-// apply methods of block_handle defined here as access to internal block_handle restricted to controller
+// applies different lambdas, depending on whether `block_handle` holds a `block_state_legacy` or a `block_state`
 template <class R, class F_L, class F_S>
    R apply(const block_handle& bh, F_L&& f_l, F_S&& f_s) {
    if constexpr (std::is_same_v<void, R>)
