@@ -206,15 +206,15 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
    digest_type action_mroot; // digest_type default value is empty
 
    if (h.is_proper_svnn_block()) {
-      // if there is no Finality Tree Root associated to the block,
+      // if there is no Finality Tree Root associated with the block,
       // then this needs to validate that h.action_mroot is the empty digest
-      if (h.action_mroot.empty()) {
-         auto next_core_metadata = core.next_metadata(if_ext.qc_claim);
-         EOS_ASSERT(core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num),
-            block_validate_exception,
-            "next block's action_mroot is empty but the block associated with its final_on_strong_qc_block_numa (${n}) is not genesis block",
-            ("n", next_core_metadata.final_on_strong_qc_block_num));
-      }
+      auto next_core_metadata = core.next_metadata(if_ext.qc_claim);
+      auto no_finality_tree_associated = core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num);
+
+      EOS_ASSERT( no_finality_tree_associated == h.action_mroot.empty(),
+         block_validate_exception,
+         "No Finality Tree Root associated with the block test does not match with empty action_mroot test: no finality tree associated (${n}), action_mroot empty (${e}), final_on_strong_qc_block_num (${f})",
+         ("n", no_finality_tree_associated)("e", h.action_mroot.empty())("f", next_core_metadata.final_on_strong_qc_block_num));
 
       action_mroot = h.action_mroot;
    };
