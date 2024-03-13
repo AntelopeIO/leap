@@ -12,7 +12,7 @@ namespace eosio::chain {
 // header validation
 
 // data for finality_digest
-struct finality_digest_data_v0_t {
+struct finality_digest_data_v1 {
    uint32_t    major_version{light_header_protocol_version_major};
    uint32_t    minor_version{light_header_protocol_version_minor};
    uint32_t    active_finalizer_policy_generation {0};
@@ -26,28 +26,31 @@ struct base_and_active_finalizer_policy_digest_data_t {
    digest_type base_digest;
 };
 
-// data for base_digest
-struct base_digest_data_t {
-   block_header                             header;
-   finality_core                            core;
-   flat_map<uint32_t, finalizer_policy_ptr> finalizer_policies;
-   proposer_policy_ptr                      active_proposer_policy;
-   flat_map<block_timestamp_type, proposer_policy_ptr>  proposer_policies;
-   protocol_feature_activation_set_ptr      activated_protocol_features;
-};
+// compute base_digest explicitly because of pointers involved.
+digest_type block_header_state::compute_base_digest() const {
+   digest_type::encoder enc;
+
+   fc::raw::pack( enc, header );
+   fc::raw::pack( enc, core );
+
+   for (const auto& fp_pair : finalizer_policies) {
+      fc::raw::pack( enc, *fp_pair.second );
+   }
+
+   fc::raw::pack( enc, *active_proposer_policy );
+
+   for (const auto& pp_pair : proposer_policies) {
+      fc::raw::pack( enc, *pp_pair.second );
+   }
+
+   fc::raw::pack( enc, *activated_protocol_features );
+
+   return enc.result();
+}
 
 digest_type block_header_state::compute_finalizer_digest() const {
    auto active_finalizer_policy_digest = fc::sha256::hash(*active_finalizer_policy);
-
-   base_digest_data_t base_digest_data {
-      .header                      = header,
-      .core                        = core,
-      .finalizer_policies          = finalizer_policies,
-      .active_proposer_policy      = active_proposer_policy,
-      .proposer_policies           = proposer_policies,
-      .activated_protocol_features = activated_protocol_features
-   };
-   auto base_digest = fc::sha256::hash(base_digest_data);
+   auto base_digest = compute_base_digest();
 
    base_and_active_finalizer_policy_digest_data_t b_afp_digest_data {
       .active_finalizer_policy_digest = active_finalizer_policy_digest,
@@ -55,7 +58,7 @@ digest_type block_header_state::compute_finalizer_digest() const {
    };
    auto b_afp_digest = fc::sha256::hash(b_afp_digest_data);
 
-   finality_digest_data_v0_t finality_digest_data {
+   finality_digest_data_v1 finality_digest_data {
       .active_finalizer_policy_generation = active_finalizer_policy->generation,
       .finality_tree_digest               = finality_mroot(),
       .base_and_active_finalizer_policy_digest = b_afp_digest
@@ -233,6 +236,5 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
 
 } // namespace eosio::chain
 
-FC_REFLECT( eosio::chain::finality_digest_data_v0_t, (major_version)(minor_version)(active_finalizer_policy_generation)(finality_tree_digest)(base_and_active_finalizer_policy_digest) )
+FC_REFLECT( eosio::chain::finality_digest_data_v1, (major_version)(minor_version)(active_finalizer_policy_generation)(finality_tree_digest)(base_and_active_finalizer_policy_digest) )
 FC_REFLECT( eosio::chain::base_and_active_finalizer_policy_digest_data_t, (active_finalizer_policy_digest)(base_digest) )
-FC_REFLECT( eosio::chain::base_digest_data_t, (header)(core)(finalizer_policies)(active_proposer_policy)(proposer_policies)(activated_protocol_features) )

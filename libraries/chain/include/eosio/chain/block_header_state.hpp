@@ -75,6 +75,7 @@ struct block_header_state {
    block_header_state next(block_header_state_input& data) const;
    block_header_state next(const signed_block_header& h, validator_t& validator) const;
 
+   digest_type compute_base_digest() const;
    digest_type compute_finalizer_digest() const;
 
    // Returns true if the block is a Proper Savanna Block
