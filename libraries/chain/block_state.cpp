@@ -297,28 +297,6 @@ digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) co
    return get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
 }
 
-qc_data_t block_state::get_most_ancestor_qc_data(const std::vector<block_state_ptr>& branch) const {
-   // find most recent ancestor block that has a QC by traversing the branch
-   for( auto bsp = branch.begin(); bsp != branch.end(); ++bsp ) {
-      if( auto qc = (*bsp)->get_best_qc(); qc ) {
-         EOS_ASSERT( qc->block_num <= block_header::num_from_id(id()), block_validate_exception,
-                     "most recent ancestor QC block number (${a}) cannot be greater than current block number (${p})",
-                     ("a", qc->block_num)("p", block_header::num_from_id(id())) );
-         auto qc_claim = qc->to_qc_claim();
-         if( is_needed(qc_claim) ) {
-            return qc_data_t{ *qc, qc_claim };
-         } else {
-            // no new qc info, repeat existing
-            return qc_data_t{ {},  core.latest_qc_claim() };
-         }
-      }
-   }
-
-   // This only happens when current block is the IF genesis block or starting from snapshot.
-   // There is no ancestor block which has a QC. Construct a default QC claim.
-   return qc_data_t{ {}, core.latest_qc_claim() };
-}
-
 void inject_additional_signatures( signed_block& b, const std::vector<signature_type>& additional_signatures)
 {
    if (!additional_signatures.empty()) {

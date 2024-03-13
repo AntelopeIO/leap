@@ -107,10 +107,6 @@ public:
    // Returns finality_mroot_claim of the current block
    digest_type get_finality_mroot_claim(const qc_claim_t& qc_claim) const;
 
-   // Returns the qc_data of the most ancestor block having a QC on the branch (including
-   // the current block)
-   qc_data_t get_most_ancestor_qc_data(const std::vector<std::shared_ptr<block_state>>& branch) const;
-
    // vote_status
    vote_status aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
    void verify_qc(const valid_quorum_certificate& qc) const; // verify given qc is valid with respect block_state
