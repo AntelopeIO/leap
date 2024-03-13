@@ -59,6 +59,9 @@ namespace eosio::chain {
       // validation_tree(core.final_on_strong_qc_block_num).
       checksum256_type                 action_mroot;
 
+      // Proper Savanna Block's schedule_version is 1LL << 31
+      static constexpr uint32_t proper_svnn_block_flag = (1LL << 31);
+
       /**
        * LEGACY SUPPORT - After enabling the wtmsig-blocks extension this field is deprecated and must be empty
        *
@@ -80,6 +83,9 @@ namespace eosio::chain {
       uint32_t          block_num() const { return num_from_id(previous) + 1; }
       static uint32_t   num_from_id(const block_id_type& id);
       uint32_t          protocol_version() const { return 0; }
+
+      // Returns true if the block is a Proper Savanna Block
+      bool is_proper_svnn_block() const;
 
       header_extension_multimap validate_and_extract_header_extensions()const;
       std::optional<block_header_extension> extract_header_extension(uint16_t extension_id)const;

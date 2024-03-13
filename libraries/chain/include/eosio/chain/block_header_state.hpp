@@ -61,7 +61,7 @@ struct block_header_state {
 
    // ------ functions -----------------------------------------------------------------
    const block_id_type&  id()             const { return block_id; }
-   const digest_type&    finality_mroot() const { return header.action_mroot; }
+   const digest_type     finality_mroot() const { return header.is_proper_svnn_block() ? header.action_mroot : digest_type{}; }
    block_timestamp_type  timestamp()      const { return header.timestamp; }
    account_name          producer()       const { return header.producer; }
    const block_id_type&  previous()       const { return header.previous; }
@@ -76,7 +76,10 @@ struct block_header_state {
    block_header_state next(block_header_state_input& data) const;
    block_header_state next(const signed_block_header& h, validator_t& validator) const;
 
-   digest_type           compute_finalizer_digest() const;
+   digest_type compute_finalizer_digest() const;
+
+   // Returns true if the block is a Proper Savanna Block
+   bool is_proper_svnn_block() const;
 
    // block descending from this need the provided qc in the block extension
    bool is_needed(const qc_claim_t& qc_claim) const {

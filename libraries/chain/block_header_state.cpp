@@ -86,7 +86,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .previous          = input.parent_id,
       .transaction_mroot = input.transaction_mroot,
       .action_mroot      = input.finality_mroot_claim ? *input.finality_mroot_claim : digest_type{},
-      .schedule_version  = header.schedule_version
+      .schedule_version  = block_header::proper_svnn_block_flag
    };
 
    // activated protocol features
@@ -107,7 +107,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       // +1 since this is called after the block is built, this will be the active schedule for the next block
       if (it->first.slot <= input.timestamp.slot + 1) {
          result.active_proposer_policy = it->second;
-         result.header.schedule_version = header.schedule_version + 1;
+         result.header.schedule_version = block_header::proper_svnn_block_flag;
          result.active_proposer_policy->proposer_schedule.version = result.header.schedule_version;
          result.proposer_policies = { ++it, proposer_policies.end() };
       } else {
@@ -203,13 +203,29 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
       .new_protocol_feature_activations = std::move(new_protocol_feature_activations)
    };
 
+   digest_type action_mroot; // digest_type default value is empty
+
+   if (h.is_proper_svnn_block()) {
+      // if there is no Finality Tree Root associated to the block,
+      // then this needs to validate that h.action_mroot is the empty digest
+      if (h.action_mroot.empty()) {
+         auto next_core_metadata = core.next_metadata(if_ext.qc_claim);
+         EOS_ASSERT(core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num),
+            block_validate_exception,
+            "next block's action_mroot is empty but the block associated with its final_on_strong_qc_block_numa (${n}) is not genesis block",
+            ("n", next_core_metadata.final_on_strong_qc_block_num));
+      }
+
+      action_mroot = h.action_mroot;
+   };
+
    block_header_state_input bhs_input{
       bb_input,
       h.transaction_mroot,
       if_ext.new_proposer_policy,
       if_ext.new_finalizer_policy,
       if_ext.qc_claim,
-      h.action_mroot // for finality_mroot_claim
+      action_mroot // for finality_mroot_claim
    };
 
    return next(bhs_input);
