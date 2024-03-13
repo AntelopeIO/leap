@@ -57,7 +57,6 @@ block_state::block_state(const block_state_legacy& bsp, const digest_type& actio
    header = bsp.header;
    core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
    activated_protocol_features = bsp.activated_protocol_features;
-   header.schedule_version = block_header::proper_svnn_schedule_version;
 
    // built leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {
