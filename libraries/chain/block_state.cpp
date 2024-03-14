@@ -31,7 +31,7 @@ block_state::block_state(const block_header_state&                bhs,
                          const std::optional<valid_t>&            valid,
                          const std::optional<quorum_certificate>& qc,
                          const signer_callback_type&              signer,
-                         const block_signing_authority& valid_block_signing_authority)
+                         const block_signing_authority&           valid_block_signing_authority)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
    , strong_digest(compute_finality_digest())
