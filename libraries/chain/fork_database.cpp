@@ -50,8 +50,8 @@ namespace eosio::chain {
       return r;
    }
 
-   std::string log_fork_comparison(const block_handle& bh) {
-      return std::visit([](const auto& bsp) { return log_fork_comparison(*bsp); }, bh.internal());
+   std::string log_fork_comparison(const block_handle_variant_t& bhv) {
+      return std::visit([](const auto& bsp) { return log_fork_comparison(*bsp); }, bhv);
    }
 
    struct by_block_id;
@@ -373,11 +373,6 @@ namespace eosio::chain {
    }
 
    template<class BSP>
-   bool fork_database_t<BSP>::in_valid_state() const {
-      return !!my->root;
-   }
-
-   template<class BSP>
    bool fork_database_t<BSP>::has_root() const {
       return !!my->root;
    }
@@ -671,8 +666,8 @@ namespace eosio::chain {
 
    void fork_database::close() {
       auto fork_db_file {data_dir / config::forkdb_filename};
-      bool legacy_valid  = fork_db_l && fork_db_l->in_valid_state();
-      bool savanna_valid = fork_db_s && fork_db_s->in_valid_state();
+      bool legacy_valid  = fork_db_l && fork_db_l->has_root();
+      bool savanna_valid = fork_db_s && fork_db_s->has_root();
 
       // check that fork_dbs are in a consistent state
       if (!legacy_valid && !savanna_valid) {
@@ -686,7 +681,7 @@ namespace eosio::chain {
       fc::raw::pack( out, magic_number );
       fc::raw::pack( out, max_supported_version ); // write out current version which is always max_supported_version
                                                    // version == 1 -> legacy
-                                                   // version == 1 -> savanna (two possible fork_db, one containing `block_state_legacy`,
+                                                   // version == 2 -> savanna (two possible fork_db, one containing `block_state_legacy`,
                                                    //                          one containing `block_state`)
 
       fc::raw::pack(out, static_cast<uint32_t>(in_use.load()));
@@ -770,12 +765,12 @@ namespace eosio::chain {
       }
    }
 
-   void fork_database::switch_from_legacy(const block_handle& bh) {
+   void fork_database::switch_from_legacy(const block_handle_variant_t& bhv) {
       // no need to close fork_db because we don't want to write anything out, file is removed on open
       // threads may be accessing (or locked on mutex about to access legacy forkdb) so don't delete it until program exit
       assert(in_use == in_use_t::legacy);
-      assert(std::holds_alternative<block_state_ptr>(bh.internal()));
-      block_state_ptr new_head = std::get<block_state_ptr>(bh.internal());
+      assert(std::holds_alternative<block_state_ptr>(bhv));
+      block_state_ptr new_head = std::get<block_state_ptr>(bhv);
       fork_db_s = std::make_unique<fork_database_if_t>();
       in_use = in_use_t::savanna;
       fork_db_s->reset_root(new_head);
@@ -787,7 +782,7 @@ namespace eosio::chain {
       });
    }
 
-   void fork_database::reset_root(const block_handle::block_handle_variant_t& v) {
+   void fork_database::reset_root(const block_handle_variant_t& v) {
        std::visit(overloaded{ [&](const block_state_legacy_ptr& bsp) { fork_db_l->reset_root(bsp); },
                               [&](const block_state_ptr& bsp) {
                                   if (in_use == in_use_t::legacy)

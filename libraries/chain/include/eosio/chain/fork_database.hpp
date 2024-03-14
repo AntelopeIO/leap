@@ -1,8 +1,8 @@
 #pragma once
-#include <fc/io/cfile.hpp>
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/block_state.hpp>
-#include <eosio/chain/block_handle.hpp>
+
+namespace fc { class cfile_datastream; } // forward decl
 
 namespace eosio::chain {
 
@@ -17,7 +17,7 @@ namespace eosio::chain {
    // Used for logging of comparison values used for best fork determination
    std::string log_fork_comparison(const block_state& bs);
    std::string log_fork_comparison(const block_state_legacy& bs);
-   std::string log_fork_comparison(const block_handle& bh);
+   std::string log_fork_comparison(const block_handle_variant_t& bh);
 
    /**
     * @class fork_database_t
@@ -77,8 +77,6 @@ namespace eosio::chain {
       void add( const bsp_t& next_block, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate );
 
       void remove( const block_id_type& id );
-
-      bool in_valid_state() const; // not thread safe
 
       bool has_root() const;
       bsp_t  root() const; // undefined if !has_root()
@@ -153,7 +151,7 @@ namespace eosio::chain {
       void close();
 
       // expected to be called from main thread
-      void switch_from_legacy(const block_handle& bh);
+      void switch_from_legacy(const block_handle_variant_t& bhv);
 
       bool fork_db_if_present() const { return !!fork_db_s; }
       bool fork_db_legacy_present() const { return !!fork_db_l; }
@@ -161,18 +159,18 @@ namespace eosio::chain {
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
 
-      void reset_root(const block_handle::block_handle_variant_t& v);
+      void reset_root(const block_handle_variant_t& v);
 
       template <class R, class F>
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
-            if (in_use == in_use_t::legacy) {
+            if (in_use.load(std::memory_order_relaxed) == in_use_t::legacy) {
                f(*fork_db_l);
             } else {
                f(*fork_db_s);
             }
          } else {
-            if (in_use == in_use_t::legacy) {
+            if (in_use.load(std::memory_order_relaxed) == in_use_t::legacy) {
                return f(*fork_db_l);
             } else {
                return f(*fork_db_s);
@@ -184,11 +182,13 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (in_use == in_use_t::savanna || in_use == in_use_t::both) {
+            if (auto in_use_value = in_use.load(std::memory_order_relaxed);
+                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                f(*fork_db_s);
             }
          } else {
-            if (in_use == in_use_t::savanna || in_use == in_use_t::both) {
+            if (auto in_use_value = in_use.load(std::memory_order_relaxed);
+                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                return f(*fork_db_s);
             }
             return {};
@@ -199,11 +199,13 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_l(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (in_use == in_use_t::legacy || in_use == in_use_t::both) {
+            if (auto in_use_value = in_use.load(std::memory_order_relaxed);
+                in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
                f(*fork_db_l);
             }
          } else {
-            if (in_use == in_use_t::legacy || in_use == in_use_t::both) {
+            if (auto in_use_value = in_use.load(std::memory_order_relaxed);
+                in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
                return f(*fork_db_l);
             }
             return {};
@@ -215,13 +217,13 @@ namespace eosio::chain {
       template <class R, class LegacyF, class SavannaF>
       R apply(const LegacyF& legacy_f, const SavannaF& savanna_f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (in_use == in_use_t::legacy) {
+            if (in_use.load(std::memory_order_relaxed) == in_use_t::legacy) {
                legacy_f(*fork_db_l);
             } else {
                savanna_f(*fork_db_s);
             }
          } else {
-            if (in_use == in_use_t::legacy) {
+            if (in_use.load(std::memory_order_relaxed) == in_use_t::legacy) {
                return legacy_f(*fork_db_l);
             } else {
                return savanna_f(*fork_db_s);
@@ -229,7 +231,7 @@ namespace eosio::chain {
          }
       }
 
-      // if we ever support more than one version then need to save min/max in fork_database_t
+      // Update max_supported_version if the persistent file format changes.
       static constexpr uint32_t min_supported_version = 1;
       static constexpr uint32_t max_supported_version = 2;
    };

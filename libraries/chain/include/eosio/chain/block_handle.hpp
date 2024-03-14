@@ -8,8 +8,6 @@ namespace eosio::chain {
 // Created via controller::create_block_handle(const block_id_type& id, const signed_block_ptr& b)
 // Valid to request id and signed_block_ptr it was created from.
 struct block_handle {
-   using block_handle_variant_t = std::variant<block_state_legacy_ptr, block_state_ptr>;
-
 private:
    block_handle_variant_t _bsp;
 

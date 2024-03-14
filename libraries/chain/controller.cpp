@@ -139,19 +139,6 @@ R apply(const block_handle& bh, F&& f) {
                            }, bh.internal());
 }
 
-// applies different lambdas, depending on whether `block_handle` holds a `block_state_legacy` or a `block_state`
-template <class R, class F_L, class F_S>
-   R apply(const block_handle& bh, F_L&& f_l, F_S&& f_s) {
-   if constexpr (std::is_same_v<void, R>)
-      std::visit<void>(overloaded{[&](const block_state_legacy_ptr& head) { std::forward<F_L>(f_l)(head); },
-                                  [&](const block_state_ptr& head)        { std::forward<F_S>(f_s)(head); }
-                       }, bh.internal());
-   else
-      return std::visit<R>(overloaded{[&](const block_state_legacy_ptr& head) -> R { return std::forward<F_L>(f_l)(head); },
-                                      [&](const block_state_ptr& head) -> R        { return std::forward<F_S>(f_s)(head); }
-                           }, bh.internal());
-}
-
 // apply savanna block_state
 template <class R, class F>
 R apply_s(const block_handle& bh, F&& f) {
@@ -1414,7 +1401,7 @@ struct controller_impl {
          if (!fork_db.fork_db_if_present()) {
             // switch to savanna if needed
             apply_s<void>(chain_head, [&](const auto& head) {
-               fork_db.switch_from_legacy(chain_head);
+               fork_db.switch_from_legacy(chain_head.internal());
             });
          }
          auto do_startup = [&](auto& forkdb) {
@@ -2981,7 +2968,7 @@ struct controller_impl {
             auto new_head = std::make_shared<block_state>(*head);
             chain_head = block_handle{std::move(new_head)};
             if (s != controller::block_status::irreversible) {
-               fork_db.switch_from_legacy(chain_head);
+               fork_db.switch_from_legacy(chain_head.internal());
             }
          }
 
@@ -3692,7 +3679,7 @@ struct controller_impl {
          } else if( new_head->id() != chain_head.id() ) {
             ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
                  ("current_head_id", chain_head.id())("current_head_num", chain_head.block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
-                 ("c", log_fork_comparison(chain_head))("n", log_fork_comparison(*new_head)));
+                 ("c", log_fork_comparison(chain_head.internal()))("n", log_fork_comparison(*new_head)));
 
             // not possible to log transaction specific infor when switching forks
             if (auto dm_logger = get_deep_mind_logger(false)) {
