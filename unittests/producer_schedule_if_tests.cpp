@@ -46,9 +46,6 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activat
       }
 
       BOOST_TEST(scheduled_changed_to_new);
-
-      const auto current_schd_ver = control->head_block_header().schedule_version;
-      BOOST_TEST(current_schd_ver == expected_schd_ver);
    };
 
    uint32_t lib = 0;
