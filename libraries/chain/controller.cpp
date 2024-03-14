@@ -652,6 +652,10 @@ struct building_block {
                              }},
                   trx_mroot_or_receipt_digests());
 
+               if (validating_qc_data) {
+                  bb.pending_block_header_state.qc_claim = validating_qc_data->qc_claim;
+               }
+
                // in dpos, we create a signed_block here. In IF mode, we do it later (when we are ready to sign it)
                auto block_ptr = std::make_shared<signed_block>(bb.pending_block_header_state.make_block_header(
                   transaction_mroot, action_mroot, bb.new_pending_producer_schedule, std::move(bb.new_finalizer_policy),
@@ -1227,6 +1231,76 @@ struct controller_impl {
       }
    }
 
+   bool should_transition_to_savanna(const block_state_ptr&) {
+      return false;
+   }
+   bool should_transition_to_savanna(const block_state_legacy_ptr& bsp) {
+      std::optional<block_header_extension> ext = bsp->block->extract_header_extension(instant_finality_extension::extension_id());
+      return !!ext;
+   }
+
+   void transition_to_savanna() {
+      fork_db.switch_from_legacy(); // create savanna forkdb if not already created
+      // copy head branch branch from legacy forkdb legacy to savanna forkdb
+      std::vector<block_state_legacy_ptr> legacy_branch;
+      block_state_legacy_ptr legacy_root;
+      fork_db.apply_to_l<void>([&](auto& forkdb) {
+         legacy_root = forkdb.root();
+         legacy_branch = forkdb.fetch_branch(forkdb.head()->id());
+      });
+
+      assert(!legacy_branch.empty());
+      assert(!!legacy_root);
+      fork_db.apply_s<void>([&](auto& forkdb) {
+         if (!forkdb.root() || forkdb.root()->id() != legacy_root->id()) {
+            auto new_root = std::make_shared<block_state>(*legacy_root);
+            forkdb.reset_root(new_root);
+         }
+         block_state_ptr prev = forkdb.root();
+         elog("root ${lpbsid} ${lpbid} ${pbsid} ${pbid}",
+            ("lpbsid", legacy_root->id())("lpbid", legacy_root->block->calculate_id())("pbsid", prev->id())("pbid", prev->block->calculate_id()));
+         for (auto bitr = legacy_branch.rbegin(); bitr != legacy_branch.rend(); ++bitr) {
+            const bool skip_validate_signee = true;
+            auto new_bsp = std::make_shared<block_state>(
+                  *prev,
+                  (*bitr)->block,
+                  protocol_features.get_protocol_feature_set(),
+                  validator_t{}, skip_validate_signee);
+            elog("new ${lpbsid} ${lpbid} ${pbsid} ${pbid}",
+               ("lpbsid", (*bitr)->id())("lpbid", (*bitr)->block->calculate_id())("pbsid", new_bsp->id())("pbid", new_bsp->block->calculate_id()));
+            forkdb.add(new_bsp, (*bitr)->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::no);
+            prev = new_bsp;
+         }
+         assert(forkdb.head()->id() == legacy_branch.front()->id());
+         chain_head = block_handle{forkdb.head()};
+      });
+      ilog("Transition to instant finality happening at block ${b}", ("b", chain_head.block_num()));
+
+      // cancel any proposed schedule changes, prepare for new ones under instant_finality
+      const auto& gpo = db.get<global_property_object>();
+      db.modify(gpo, [&](auto& gp) {
+         gp.proposed_schedule_block_num = 0;
+         gp.proposed_schedule.version   = 0;
+         gp.proposed_schedule.producers.clear();
+      });
+
+      {
+         // If Leap started at a block prior to the IF transition, it needs to provide a default safety
+         // information for those finalizers that don't already have one. This typically should be done when
+         // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
+         // to the IF consensus.
+         // See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
+         // [if todo] set values accurately
+         // -----------------------------------------------------------------------------------------------
+         auto start_block = chain_head;
+         auto lib_block   = chain_head;
+         my_finalizers.set_default_safety_information(
+            finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                          .last_vote = {start_block.id(), start_block.block_time()},
+                                          .lock      = {lib_block.id(),   lib_block.block_time()} });
+      }
+   }
+
    void log_irreversible() {
       EOS_ASSERT( fork_db_has_root(), fork_database_exception, "fork database not properly initialized" );
 
@@ -1252,6 +1326,7 @@ struct controller_impl {
       if( new_lib_num <= lib_num )
          return;
 
+      bool savanna_transistion_required = false;
       auto mark_branch_irreversible = [&, this](auto& forkdb) {
          auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( if_irreversible_block_id, new_lib_num)
                                         : forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib_num );
@@ -1288,6 +1363,12 @@ struct controller_impl {
 
                db.commit( (*bitr)->block_num() );
                root_id = (*bitr)->id();
+
+               if (should_transition_to_savanna(*bitr)) {
+                  savanna_transistion_required = true;
+                  // Do not advance irreversible past IF Genesis Block
+                  break;
+               }
             }
          } catch( std::exception& ) {
             if( root_id != forkdb.root()->id() ) {
@@ -1308,6 +1389,9 @@ struct controller_impl {
       };
 
       fork_db.apply<void>(mark_branch_irreversible);
+      if (savanna_transistion_required) {
+         transition_to_savanna();
+      }
    }
 
    void initialize_blockchain_state(const genesis_state& genesis) {
@@ -1406,7 +1490,10 @@ struct controller_impl {
          if (!fork_db.fork_db_if_present()) {
             // switch to savanna if needed
             apply_s<void>(chain_head, [&](const auto& head) {
-               fork_db.switch_from_legacy(chain_head);
+               fork_db.switch_from_legacy();
+               fork_db.apply_s<void>([&](auto& forkdb) {
+                  forkdb.reset_root(head);
+               });
             });
          }
          auto do_startup = [&](auto& forkdb) {
@@ -2925,56 +3012,6 @@ struct controller_impl {
 
          if ( s == controller::block_status::incomplete || s == controller::block_status::complete || s == controller::block_status::validated ) {
             apply_s<void>(chain_head, [&](const auto& head) { create_and_send_vote_msg(head); });
-         }
-
-         // TODO: temp transition to instant-finality, happens immediately after block with new_finalizer_policy
-         auto transition = [&](const auto& head) -> bool {
-            std::optional<block_header_extension> ext = head->block->extract_header_extension(instant_finality_extension::extension_id());
-            if (ext) {
-               const auto& if_extension = std::get<instant_finality_extension>(*ext);
-               if (if_extension.new_finalizer_policy) {
-                  ilog("Transition to instant finality happening after block ${b}", ("b", head->block_num()));
-                  set_if_irreversible_block_id(head->id());
-
-                  // cancel any proposed schedule changes, prepare for new ones under instant_finality
-                  const auto& gpo = db.get<global_property_object>();
-                  db.modify(gpo, [&](auto& gp) {
-                     gp.proposed_schedule_block_num = 0;
-                     gp.proposed_schedule.version   = 0;
-                     gp.proposed_schedule.producers.clear();
-                  });
-
-                  {
-                     // If Leap started at a block prior to the IF transition, it needs to provide a default safety
-                     // information for those finalizers that don't already have one. This typically should be done when
-                     // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
-                     // to the IF consensus.
-                     // See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
-                     // [if todo] set values accurately
-                     // -----------------------------------------------------------------------------------------------
-                     auto start_block = head;
-                     auto lib_block   = head;
-                     my_finalizers.set_default_safety_information(
-                        finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
-                                                      .last_vote = {start_block->id(), start_block->timestamp()},
-                                                      .lock      = {lib_block->id(),   lib_block->timestamp()} });
-                  }
-
-                  if ( (s != controller::block_status::irreversible && read_mode != db_read_mode::IRREVERSIBLE) && s != controller::block_status::ephemeral)
-                     log_irreversible();
-                  return true;
-               }
-            }
-            return false;
-         };
-         if (apply_l<bool>(chain_head, transition)) {
-            assert(std::holds_alternative<block_state_legacy_ptr>(chain_head.internal()));
-            block_state_legacy_ptr head = std::get<block_state_legacy_ptr>(chain_head.internal()); // will throw if called after transistion
-            auto new_head = std::make_shared<block_state>(*head);
-            chain_head = block_handle{std::move(new_head)};
-            if (s != controller::block_status::irreversible) {
-               fork_db.switch_from_legacy(chain_head);
-            }
          }
 
       } catch (...) {

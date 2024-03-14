@@ -50,23 +50,21 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
 block_state::block_state(const block_state_legacy& bsp) {
    block_header_state::block_id = bsp.id();
    header = bsp.header;
-   core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
+   header_exts = bsp.header_exts;
+   block = bsp.block;
    activated_protocol_features = bsp.activated_protocol_features;
-
-   auto if_ext_id = instant_finality_extension::extension_id();
-   std::optional<block_header_extension> ext = bsp.block->extract_header_extension(if_ext_id);
+   core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
+   std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
    assert(ext); // required by current transition mechanism
-   const auto& if_extension = std::get<instant_finality_extension>(*ext);
-   assert(if_extension.new_finalizer_policy); // required by current transition mechanism
-   active_finalizer_policy = std::make_shared<finalizer_policy>(*if_extension.new_finalizer_policy);
-   // TODO: https://github.com/AntelopeIO/leap/issues/2057
-   // TODO: Do not aggregate votes on blocks created from block_state_legacy. This can be removed when #2057 complete.
-   pending_qc = pending_quorum_certificate{active_finalizer_policy->finalizers.size(), active_finalizer_policy->threshold, active_finalizer_policy->max_weak_sum_before_weak_final()};
+   const auto& if_ext = std::get<instant_finality_extension>(*ext);
+   assert(if_ext.new_finalizer_policy); // required by current transition mechanism
+   active_finalizer_policy = std::make_shared<finalizer_policy>(*if_ext.new_finalizer_policy);
    active_proposer_policy = std::make_shared<proposer_policy>();
    active_proposer_policy->active_time = bsp.timestamp();
    active_proposer_policy->proposer_schedule = bsp.active_schedule;
-   header_exts = bsp.header_exts;
-   block = bsp.block;
+   // TODO: https://github.com/AntelopeIO/leap/issues/2057
+   // TODO: Do not aggregate votes on blocks created from block_state_legacy. This can be removed when #2057 complete.
+   pending_qc = pending_quorum_certificate{active_finalizer_policy->finalizers.size(), active_finalizer_policy->threshold, active_finalizer_policy->max_weak_sum_before_weak_final()};
    validated = bsp.is_valid();
    pub_keys_recovered = bsp._pub_keys_recovered;
    cached_trxs = bsp._cached_trxs;

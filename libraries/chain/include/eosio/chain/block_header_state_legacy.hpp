@@ -51,6 +51,7 @@ struct pending_block_header_state_legacy : public detail::block_header_state_leg
    block_timestamp_type                 timestamp;
    uint32_t                             active_schedule_version = 0;
    uint16_t                             confirmed = 1;
+   std::optional<qc_claim_t>            qc_claim; // transition to savanna has begun
 
    signed_block_header make_block_header( const checksum256_type& transaction_mroot,
                                           const checksum256_type& action_mroot,

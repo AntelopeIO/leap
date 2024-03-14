@@ -21,6 +21,60 @@ const vector<digest_type>& block_header_state::get_new_protocol_feature_activati
 }
 
 #warning Add last_proposed_finalizer_policy_generation to snapshot_block_header_state_v3, see header file TODO
+
+void finish_next(const block_header_state& prev,
+                 block_header_state& result,
+                 vector<digest_type> new_protocol_feature_activations,
+                 std::shared_ptr<proposer_policy> new_proposer_policy,
+                 qc_claim_t qc_claim) {
+
+   // activated protocol features
+   // ---------------------------
+   if (!new_protocol_feature_activations.empty()) {
+      result.activated_protocol_features = std::make_shared<protocol_feature_activation_set>(
+         *prev.activated_protocol_features, std::move(new_protocol_feature_activations));
+   } else {
+      result.activated_protocol_features = prev.activated_protocol_features;
+   }
+
+   // proposer policy
+   // ---------------
+   result.active_proposer_policy = prev.active_proposer_policy;
+
+   if(!prev.proposer_policies.empty()) {
+      auto it = prev.proposer_policies.begin();
+      // +1 since this is called after the block is built, this will be the active schedule for the next block
+      if (it->first.slot <= result.header.timestamp.slot + 1) {
+         result.active_proposer_policy = it->second;
+         result.header.schedule_version = prev.header.schedule_version + 1;
+         result.active_proposer_policy->proposer_schedule.version = result.header.schedule_version;
+         result.proposer_policies = { ++it, prev.proposer_policies.end() };
+      } else {
+         result.proposer_policies = prev.proposer_policies;
+      }
+   }
+
+   if (new_proposer_policy) {
+      // called when assembling the block
+      result.proposer_policies[new_proposer_policy->active_time] = std::move(new_proposer_policy);
+   }
+
+   // finalizer policy
+   // ----------------
+   result.active_finalizer_policy = prev.active_finalizer_policy;
+
+   // finality_core
+   // -----------------------
+   block_ref parent_block {
+      .block_id  = prev.block_id,
+      .timestamp = prev.timestamp()
+   };
+   result.core = prev.core.next(parent_block, qc_claim);
+
+   // Finally update block id from header
+   // -----------------------------------
+   result.block_id = result.header.calculate_id();
+}
    
 block_header_state block_header_state::next(block_header_state_input& input) const {
    block_header_state result;
@@ -37,61 +91,9 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .schedule_version  = header.schedule_version
    };
 
-   // activated protocol features
-   // ---------------------------
-   if (!input.new_protocol_feature_activations.empty()) {
-      result.activated_protocol_features = std::make_shared<protocol_feature_activation_set>(
-         *activated_protocol_features, input.new_protocol_feature_activations);
-   } else {
-      result.activated_protocol_features = activated_protocol_features;
-   }
-
-   // proposal_mtree and finality_mtree
-   // ---------------------------------
-   // [greg todo] ??
-
-   // proposer policy
-   // ---------------
-   result.active_proposer_policy = active_proposer_policy;
-
-   if(!proposer_policies.empty()) {
-      auto it = proposer_policies.begin();
-      // +1 since this is called after the block is built, this will be the active schedule for the next block
-      if (it->first.slot <= input.timestamp.slot + 1) {
-         result.active_proposer_policy = it->second;
-         result.header.schedule_version = header.schedule_version + 1;
-         result.active_proposer_policy->proposer_schedule.version = result.header.schedule_version;
-         result.proposer_policies = { ++it, proposer_policies.end() };
-      } else {
-         result.proposer_policies = proposer_policies;
-      }
-   }
-
-   if (input.new_proposer_policy) {
-      // called when assembling the block
-      result.proposer_policies[input.new_proposer_policy->active_time] = input.new_proposer_policy;
-   }
-
-   // finalizer policy
-   // ----------------
-   result.active_finalizer_policy = active_finalizer_policy;
-
-   // [greg todo] correct support for new finalizer_policy activation using finalizer_policies map
-   //   if (input.new_finalizer_policy)
-   //      ++input.new_finalizer_policy->generation;
-
-
    instant_finality_extension new_if_ext {input.most_recent_ancestor_with_qc,
                                           std::move(input.new_finalizer_policy),
-                                          std::move(input.new_proposer_policy)};
-
-   // finality_core
-   // -----------------------
-   block_ref parent_block {
-      .block_id  = input.parent_id,
-      .timestamp = input.parent_timestamp
-   };
-   result.core = core.next(parent_block, input.most_recent_ancestor_with_qc);
+                                          input.new_proposer_policy};
 
    uint16_t if_ext_id = instant_finality_extension::extension_id();
    emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
@@ -101,15 +103,13 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    // -----------------------------------------
    if (!input.new_protocol_feature_activations.empty()) {
       uint16_t ext_id = protocol_feature_activation::extension_id();
-      protocol_feature_activation pfa_ext{.protocol_features = std::move(input.new_protocol_feature_activations)};
+      protocol_feature_activation pfa_ext{.protocol_features = input.new_protocol_feature_activations};
 
       emplace_extension(result.header.header_extensions, ext_id, fc::raw::pack(pfa_ext));
       result.header_exts.emplace(ext_id, std::move(pfa_ext));
    }
 
-   // Finally update block id from header
-   // -----------------------------------
-   result.block_id = result.header.calculate_id();
+   finish_next(*this, result, std::move(input.new_protocol_feature_activations), std::move(input.new_proposer_policy), input.most_recent_ancestor_with_qc);
 
    return result;
 }
@@ -125,10 +125,12 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
    
    EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch ${p} != ${id}", ("p", h.previous)("id", block_id) );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
-   EOS_ASSERT( h.confirmed == 0, block_validate_exception, "invalid confirmed ${c}", ("c", h.confirmed) );
    EOS_ASSERT( !h.new_producers, producer_schedule_exception, "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures" );
 
-   auto exts = h.validate_and_extract_header_extensions();
+   block_header_state result;
+   result.header = static_cast<const block_header&>(h);
+   result.header_exts = h.validate_and_extract_header_extensions();
+   auto& exts = result.header_exts;
 
    // retrieve protocol_feature_activation from incoming block header extension
    // -------------------------------------------------------------------------
@@ -136,7 +138,7 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
    if( exts.count(protocol_feature_activation::extension_id() > 0) ) {
       auto  pfa_entry = exts.lower_bound(protocol_feature_activation::extension_id());
       auto& pfa_ext   = std::get<protocol_feature_activation>(pfa_entry->second);
-      new_protocol_feature_activations = std::move(pfa_ext.protocol_features);
+      new_protocol_feature_activations = pfa_ext.protocol_features;
       validator( timestamp(), activated_protocol_features->protocol_features, new_protocol_feature_activations );
    }
 
@@ -147,19 +149,9 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
    auto  if_entry = exts.lower_bound(instant_finality_extension::extension_id());
    auto& if_ext   = std::get<instant_finality_extension>(if_entry->second);
 
-   building_block_input bb_input{
-      .parent_id        = block_id,
-      .parent_timestamp = timestamp(),
-      .timestamp        = h.timestamp,
-      .producer         = producer,
-      .new_protocol_feature_activations = std::move(new_protocol_feature_activations)
-   };
+   finish_next(*this, result, std::move(new_protocol_feature_activations), if_ext.new_proposer_policy, if_ext.qc_claim);
 
-   block_header_state_input bhs_input{
-      bb_input,      h.transaction_mroot, h.action_mroot, if_ext.new_proposer_policy, if_ext.new_finalizer_policy,
-      if_ext.qc_claim };
-
-   return next(bhs_input);
+   return result;
 }
 
 } // namespace eosio::chain

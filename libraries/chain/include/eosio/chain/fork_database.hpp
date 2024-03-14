@@ -97,7 +97,7 @@ namespace eosio::chain {
       block_branch_t fetch_block_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
 
       /**
-       *  eturns full branch of block_header_state pointers including the root.
+       *  Returns full branch of block_header_state pointers including the root.
        *  The order of the sequence is in descending block number order.
        *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
        */
@@ -148,8 +148,8 @@ namespace eosio::chain {
       void open( validator_t& validator );
       void close();
 
-      // expected to be called from main thread
-      void switch_from_legacy(const block_handle& bh);
+      // creates savanna fork db if not already created
+      void switch_from_legacy();
 
       bool fork_db_if_present() const { return !!fork_db_s; }
       bool fork_db_legacy_present() const { return !!fork_db_l; }
@@ -201,6 +201,17 @@ namespace eosio::chain {
                return f(*fork_db_l);
             }
             return {};
+         }
+      }
+
+      /// Apply to legacy fork db regardless of mode
+      template <class R, class F>
+      R apply_to_l(const F& f) {
+         assert(!!fork_db_l);
+         if constexpr (std::is_same_v<void, R>) {
+            f(*fork_db_l);
+         } else {
+            return f(*fork_db_l);
          }
       }
 
