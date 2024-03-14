@@ -46,6 +46,18 @@ try:
 
     assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio", "launch should have waited for production to change"
 
+    Print("Configure and launch txn generators")
+    targetTpsPerGenerator = 10
+    testTrxGenDurationSec=60*60
+    numTrxGenerators=2
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[cluster.defproduceraAccount.name, cluster.defproducerbAccount.name],
+                                acctPrivKeysList=[cluster.defproduceraAccount.activePrivateKey,cluster.defproducerbAccount.activePrivateKey], nodeId=cluster.getNode(0).nodeId,
+                                tpsPerGenerator=targetTpsPerGenerator, numGenerators=numTrxGenerators, durationSec=testTrxGenDurationSec,
+                                waitToComplete=False)
+
+    status = cluster.waitForTrxGeneratorsSpinup(nodeId=cluster.getNode(0).nodeId, numGenerators=numTrxGenerators)
+    assert status is not None and status is not False, "ERROR: Failed to spinup Transaction Generators"
+
     assert cluster.activateInstantFinality(biosFinalizer=False), "Activate instant finality failed"
 
     assert cluster.biosNode.waitForLibToAdvance(), "Lib should advance after instant finality activated"
