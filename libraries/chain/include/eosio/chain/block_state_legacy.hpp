@@ -27,6 +27,7 @@ namespace eosio::chain {
       block_state_legacy( pending_block_header_state_legacy&& cur,
                           signed_block_ptr&& b, // unsigned block
                           deque<transaction_metadata_ptr>&& trx_metas,
+                          std::optional<digests_t>&& action_receipt_digests,
                           const protocol_feature_set& pfs,
                           const validator_t& validator,
                           const signer_callback_type& signer
@@ -81,10 +82,14 @@ namespace eosio::chain {
       /// this data is redundant with the data stored in block, but facilitates
       /// recapturing transactions when we pop a block
       deque<transaction_metadata_ptr>                    _cached_trxs;
+
+      // to be used during Legacy to Savanna transistion where action_mroot
+      // needs to be converted from Legacy merkle to Savanna merkle
+      std::optional<digests_t>                            action_receipt_digests;
    };
 
    using block_state_legacy_ptr = std::shared_ptr<block_state_legacy>;
 
 } /// namespace eosio::chain
 
-FC_REFLECT_DERIVED( eosio::chain::block_state_legacy, (eosio::chain::block_header_state_legacy), (block)(validated) )
+FC_REFLECT_DERIVED( eosio::chain::block_state_legacy, (eosio::chain::block_header_state_legacy), (block)(validated)(action_receipt_digests) )

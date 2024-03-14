@@ -178,8 +178,6 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
    
    EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch ${p} != ${id}", ("p", h.previous)("id", block_id) );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
-   EOS_ASSERT( h.schedule_version == block_header::proper_svnn_schedule_version, block_validate_exception,
-               "invalid schedule_version ${s}, expected: ${e}", ("s", h.schedule_version)("e", block_header::proper_svnn_schedule_version) );
    EOS_ASSERT( !h.new_producers, producer_schedule_exception, "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures" );
 
    block_header_state result;

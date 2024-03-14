@@ -156,10 +156,6 @@ R apply_l(const block_handle& bh, F&& f) {
 struct completed_block {
    block_handle bsp;
 
-   // to be used during Legacy to Savanna transistion where action_mroot
-   // needs to be converted from Legacy merkle to Savanna merkle
-   std::optional<digests_t> action_receipt_digests;
-
    bool is_legacy() const { return std::holds_alternative<block_state_legacy_ptr>(bsp.internal()); }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -317,13 +313,6 @@ struct assembled_block {
                         v);
    }
 
-   std::optional<digests_t> get_action_receipt_digests() const {
-      return std::visit(
-         overloaded{[](const assembled_block_legacy& ab) -> std::optional<digests_t> { return ab.action_receipt_digests; },
-                    [](const assembled_block_if& ab)     -> std::optional<digests_t> { return {}; }},
-         v);
-   }
-
    const producer_authority_schedule* next_producers() const {
       return std::visit(overloaded{[](const assembled_block_legacy& ab) -> const producer_authority_schedule* {
                                       return ab.new_producer_authority_cache.has_value()
@@ -363,15 +352,15 @@ struct assembled_block {
       return std::visit(overloaded{[&](assembled_block_legacy& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
-                                         std::move(ab.trx_metas), pfs, validator, signer);
+                                         std::move(ab.trx_metas), std::move(ab.action_receipt_digests), pfs, validator, signer);
 
-                                      return completed_block{block_handle{std::move(bsp)}, std::move(ab.action_receipt_digests)};
+                                      return completed_block{block_handle{std::move(bsp)}};
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
                                                                                std::move(ab.trx_receipts), ab.valid, ab.qc, signer,
                                                                                valid_block_signing_authority);
-                                      return completed_block{block_handle{std::move(bsp)}, {}};
+                                      return completed_block{block_handle{std::move(bsp)}};
                                    }},
                         v);
    }
@@ -670,11 +659,11 @@ struct building_block {
                                 auto trx_merkle_fut =
                                    post_async_task(ioc, [&]() { return legacy_merkle(std::move(trx_receipts)); });
                                 auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(action_receipts)); });
+                                   post_async_task(ioc, [&]() { return legacy_merkle(action_receipts); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, legacy_merkle(std::move(action_receipts)));
+                                return std::make_pair(trx_checksum, legacy_merkle(action_receipts));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -745,7 +734,7 @@ struct building_block {
                   std::move(new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
                   qc_data.qc_claim,
-                  std::move(finality_mroot_claim)
+                  finality_mroot_claim
                };
 
                auto bhs = bb.parent.next(bhs_input);
@@ -1289,10 +1278,9 @@ struct controller_impl {
       fork_db.apply_s<void>([&](auto& forkdb) {
          if (!forkdb.root() || forkdb.root()->id() != legacy_root->id()) {
             // Calculate Merkel tree root in Savanna way so that it is stored in Leaf Node when building block_state.
-            assert(cb.action_receipt_digests);
-            auto action_mroot = calculate_merkle((*cb.action_receipt_digests));
-
-            auto new_root = std::make_shared<block_state>(*legacy_root);
+            assert(legacy_root->action_receipt_digests);
+            auto action_mroot = calculate_merkle(*legacy_root->action_receipt_digests);
+            auto new_root = std::make_shared<block_state>(*legacy_root, action_mroot);
             forkdb.reset_root(new_root);
          }
          block_state_ptr prev = forkdb.root();
@@ -1305,6 +1293,11 @@ struct controller_impl {
                   (*bitr)->block,
                   protocol_features.get_protocol_feature_set(),
                   validator_t{}, skip_validate_signee);
+            // legacy_branch is from head, all should be validated
+            assert((*bitr)->action_receipt_digests);
+            auto action_mroot = calculate_merkle(*(*bitr)->action_receipt_digests);
+            // Create the valid structure for producing
+            new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
             elog("new ${lpbsid} ${lpbid} ${pbsid} ${pbid}",
                ("lpbsid", (*bitr)->id())("lpbid", (*bitr)->block->calculate_id())("pbsid", new_bsp->id())("pbid", new_bsp->block->calculate_id()));
             forkdb.add(new_bsp, (*bitr)->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::no);
@@ -3292,6 +3285,11 @@ struct controller_impl {
                   ("r", bsp->finality_mroot())("a", actual_finality_mroot));
             } else {
                assemble_block(true, {}, nullptr);
+               auto& ab = std::get<assembled_block>(pending->_block_stage);
+               ab.apply_legacy<void>([&](assembled_block::assembled_block_legacy& abl) {
+                  assert(abl.action_receipt_digests);
+                  bsp->action_receipt_digests = std::move(*abl.action_receipt_digests);
+               });
             }
             auto& ab = std::get<assembled_block>(pending->_block_stage);
 
@@ -3309,7 +3307,7 @@ struct controller_impl {
                bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
             }
             // create completed_block with the existing block_state as we just verified it is the same as assembled_block
-            pending->_block_stage = completed_block{ block_handle{bsp}, ab.get_action_receipt_digests() };
+            pending->_block_stage = completed_block{ block_handle{bsp} };
 
             br = pending->_block_report; // copy before commit block destroys pending
             commit_block(s);
