@@ -17,13 +17,7 @@ struct finality_digest_data_v1 {
    uint32_t    minor_version{light_header_protocol_version_minor};
    uint32_t    active_finalizer_policy_generation {0};
    digest_type finality_tree_digest;
-   digest_type base_and_active_finalizer_policy_digest;
-};
-
-// data for base_and_active_finalizer_policy_digest
-struct base_and_active_finalizer_policy_digest_data_t {
-   digest_type active_finalizer_policy_digest;
-   digest_type base_digest;
+   digest_type active_finalizer_policy_and_base_digest;
 };
 
 // compute base_digest explicitly because of pointers involved.
@@ -59,16 +53,13 @@ digest_type block_header_state::compute_finality_digest() const {
    auto active_finalizer_policy_digest = fc::sha256::hash(*active_finalizer_policy);
    auto base_digest = compute_base_digest();
 
-   base_and_active_finalizer_policy_digest_data_t b_afp_digest_data {
-      .active_finalizer_policy_digest = active_finalizer_policy_digest,
-      .base_digest                    = base_digest
-   };
-   auto b_afp_digest = fc::sha256::hash(b_afp_digest_data);
+   std::pair<const digest_type&, const digest_type&> active_and_base{ active_finalizer_policy_digest, base_digest };
+   auto afp_base_digest = fc::sha256::hash(active_and_base);
 
    finality_digest_data_v1 finality_digest_data {
-      .active_finalizer_policy_generation = active_finalizer_policy->generation,
-      .finality_tree_digest               = finality_mroot(),
-      .base_and_active_finalizer_policy_digest = b_afp_digest
+      .active_finalizer_policy_generation      = active_finalizer_policy->generation,
+      .finality_tree_digest                    = finality_mroot(),
+      .active_finalizer_policy_and_base_digest = afp_base_digest
    };
 
    return fc::sha256::hash(finality_digest_data);
@@ -244,5 +235,4 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
 
 } // namespace eosio::chain
 
-FC_REFLECT( eosio::chain::finality_digest_data_v1, (major_version)(minor_version)(active_finalizer_policy_generation)(finality_tree_digest)(base_and_active_finalizer_policy_digest) )
-FC_REFLECT( eosio::chain::base_and_active_finalizer_policy_digest_data_t, (active_finalizer_policy_digest)(base_digest) )
+FC_REFLECT( eosio::chain::finality_digest_data_v1, (major_version)(minor_version)(active_finalizer_policy_generation)(finality_tree_digest)(active_finalizer_policy_and_base_digest) )
