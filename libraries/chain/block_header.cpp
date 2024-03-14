@@ -25,14 +25,6 @@ namespace eosio { namespace chain {
       return result;
    }
 
-   bool block_header::is_proper_svnn_block() const {
-      // We don't check whether finality extension exists here for performance reason.
-      // When block header is validated in block_header_state's next(),
-      // it is already validate if schedule_version == proper_svnn_schedule_version,
-      // finality extension must exist.
-      return ( schedule_version ==  proper_svnn_schedule_version );
-   }
-
    header_extension_multimap block_header::validate_and_extract_header_extensions()const {
       using decompose_t = block_header_extension_types::decompose_t;
 
