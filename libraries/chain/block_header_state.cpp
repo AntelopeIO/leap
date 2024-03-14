@@ -17,13 +17,7 @@ struct finality_digest_data_v1 {
    uint32_t    minor_version{light_header_protocol_version_minor};
    uint32_t    active_finalizer_policy_generation {0};
    digest_type finality_tree_digest;
-   digest_type base_and_active_finalizer_policy_digest;
-};
-
-// data for base_and_active_finalizer_policy_digest
-struct base_and_active_finalizer_policy_digest_data_t {
-   digest_type active_finalizer_policy_digest;
-   digest_type base_digest;
+   digest_type active_finalizer_policy_and_base_digest;
 };
 
 // compute base_digest explicitly because of pointers involved.
@@ -34,34 +28,38 @@ digest_type block_header_state::compute_base_digest() const {
    fc::raw::pack( enc, core );
 
    for (const auto& fp_pair : finalizer_policies) {
+      fc::raw::pack( enc, fp_pair.first );
+      assert(fp_pair.second);
       fc::raw::pack( enc, *fp_pair.second );
    }
 
+   assert(active_proposer_policy);
    fc::raw::pack( enc, *active_proposer_policy );
 
    for (const auto& pp_pair : proposer_policies) {
+      assert(pp_pair.second);
       fc::raw::pack( enc, *pp_pair.second );
    }
 
-   fc::raw::pack( enc, *activated_protocol_features );
+   if (activated_protocol_features) {
+      fc::raw::pack( enc, *activated_protocol_features );
+   }
 
    return enc.result();
 }
 
-digest_type block_header_state::compute_finalizer_digest() const {
+digest_type block_header_state::compute_finality_digest() const {
+   assert(active_finalizer_policy);
    auto active_finalizer_policy_digest = fc::sha256::hash(*active_finalizer_policy);
    auto base_digest = compute_base_digest();
 
-   base_and_active_finalizer_policy_digest_data_t b_afp_digest_data {
-      .active_finalizer_policy_digest = active_finalizer_policy_digest,
-      .base_digest                    = base_digest
-   };
-   auto b_afp_digest = fc::sha256::hash(b_afp_digest_data);
+   std::pair<const digest_type&, const digest_type&> active_and_base{ active_finalizer_policy_digest, base_digest };
+   auto afp_base_digest = fc::sha256::hash(active_and_base);
 
    finality_digest_data_v1 finality_digest_data {
-      .active_finalizer_policy_generation = active_finalizer_policy->generation,
-      .finality_tree_digest               = finality_mroot(),
-      .base_and_active_finalizer_policy_digest = b_afp_digest
+      .active_finalizer_policy_generation      = active_finalizer_policy->generation,
+      .finality_tree_digest                    = finality_mroot(),
+      .active_finalizer_policy_and_base_digest = afp_base_digest
    };
 
    return fc::sha256::hash(finality_digest_data);
@@ -110,7 +108,6 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       // +1 since this is called after the block is built, this will be the active schedule for the next block
       if (it->first.slot <= input.timestamp.slot + 1) {
          result.active_proposer_policy = it->second;
-         result.header.schedule_version = block_header::proper_svnn_schedule_version;
          result.proposer_policies = { ++it, proposer_policies.end() };
       } else {
          result.proposer_policies = proposer_policies;
@@ -176,6 +173,9 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
    EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch ${p} != ${id}", ("p", h.previous)("id", block_id) );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
    EOS_ASSERT( h.confirmed == 0, block_validate_exception, "invalid confirmed ${c}", ("c", h.confirmed) );
+   EOS_ASSERT( h.schedule_version == block_header::proper_svnn_schedule_version, block_validate_exception,
+      "invalid schedule_version ${s}, expected: ${e}",
+      ("s", h.schedule_version)("e", block_header::proper_svnn_schedule_version) );
    EOS_ASSERT( !h.new_producers, producer_schedule_exception, "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures" );
 
    auto exts = h.validate_and_extract_header_extensions();
@@ -205,13 +205,13 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
       .new_protocol_feature_activations = std::move(new_protocol_feature_activations)
    };
 
-   digest_type action_mroot; // digest_type default value is empty
+   digest_type action_mroot = {};
 
    if (h.is_proper_svnn_block()) {
       // if there is no Finality Tree Root associated with the block,
       // then this needs to validate that h.action_mroot is the empty digest
       auto next_core_metadata = core.next_metadata(if_ext.qc_claim);
-      auto no_finality_tree_associated = core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num);
+      bool no_finality_tree_associated = core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num);
 
       EOS_ASSERT( no_finality_tree_associated == h.action_mroot.empty(),
          block_validate_exception,
@@ -235,5 +235,4 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
 
 } // namespace eosio::chain
 
-FC_REFLECT( eosio::chain::finality_digest_data_v1, (major_version)(minor_version)(active_finalizer_policy_generation)(finality_tree_digest)(base_and_active_finalizer_policy_digest) )
-FC_REFLECT( eosio::chain::base_and_active_finalizer_policy_digest_data_t, (active_finalizer_policy_digest)(base_digest) )
+FC_REFLECT( eosio::chain::finality_digest_data_v1, (major_version)(minor_version)(active_finalizer_policy_generation)(finality_tree_digest)(active_finalizer_policy_and_base_digest) )

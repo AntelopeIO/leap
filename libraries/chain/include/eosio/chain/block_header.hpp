@@ -59,8 +59,6 @@ namespace eosio::chain {
       // validation_tree(core.final_on_strong_qc_block_num).
       checksum256_type                 action_mroot;
 
-      // Proper Savanna Block's schedule_version is 1LL << 31
-      static constexpr uint32_t proper_svnn_schedule_version = (1LL << 31);
 
       /**
        * LEGACY SUPPORT - After enabling the wtmsig-blocks extension this field is deprecated and must be empty
@@ -84,8 +82,15 @@ namespace eosio::chain {
       static uint32_t   num_from_id(const block_id_type& id);
       uint32_t          protocol_version() const { return 0; }
 
-      // Returns true if the block is a Proper Savanna Block
-      bool is_proper_svnn_block() const;
+      // A flag to indicate whether a block is a Proper Savanna Block
+      static constexpr uint32_t proper_svnn_schedule_version = (1LL << 31);
+
+      // Returns true if the block is a Proper Savanna Block.
+      // We don't check whether finality extension exists here for performance reason.
+      // When block header is validated in block_header_state's next(),
+      // it is already validate if schedule_version == proper_svnn_schedule_version,
+      // finality extension must exist.
+      bool is_proper_svnn_block() const { return ( schedule_version ==  proper_svnn_schedule_version ); }
 
       header_extension_multimap validate_and_extract_header_extensions()const;
       std::optional<block_header_extension> extract_header_extension(uint16_t extension_id)const;

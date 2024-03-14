@@ -147,13 +147,13 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
    produce_blocks(config::producer_repetitions);
 
    // sch1  must become active no later than 2 rounds but sch2 cannot become active yet
-      BOOST_CHECK_EQUAL( control->active_producers().version, 1u );
+   BOOST_CHECK_EQUAL( control->active_producers().version, 1u );
    BOOST_CHECK_EQUAL( true, compare_schedules( sch1, control->active_producers() ) );
 
    produce_blocks(config::producer_repetitions);
 
    // sch2 becomes active
-      BOOST_CHECK_EQUAL( control->active_producers().version, 2u );
+   BOOST_CHECK_EQUAL( control->active_producers().version, 2u );
    BOOST_CHECK_EQUAL( true, compare_schedules( sch2, control->active_producers() ) );
 } FC_LOG_AND_RETHROW()
 

@@ -157,7 +157,7 @@ struct completed_block {
    block_handle bsp;
 
    // to be used during Legacy to Savanna transistion where action_mroot
-   // needs to be converted from canonical_merkle to Savanna merkle
+   // needs to be converted from Legacy merkle to Savanna merkle
    std::optional<digests_t> action_receipt_digests;
 
    bool is_legacy() const { return std::holds_alternative<block_state_legacy_ptr>(bsp.internal()); }
@@ -668,13 +668,13 @@ struct building_block {
                auto [transaction_mroot, action_mroot] = std::visit(
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
-                                   post_async_task(ioc, [&]() { return canonical_merkle(std::move(trx_receipts)); });
+                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(trx_receipts)); });
                                 auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return canonical_merkle(std::move(action_receipts)); });
+                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(action_receipts)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, canonical_merkle(std::move(action_receipts)));
+                                return std::make_pair(trx_checksum, legacy_merkle(std::move(action_receipts)));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -3006,9 +3006,8 @@ struct controller_impl {
             assert(std::holds_alternative<block_state_legacy_ptr>(chain_head.internal()));
             block_state_legacy_ptr head = std::get<block_state_legacy_ptr>(chain_head.internal()); // will throw if called after transistion
 
-            // Legacy uses canonical-merkle while Savanna uses a new way.
-            // Calculate Merkel tree root in Savanna way to be stored in Leaf Node when converting
-            // to Savanna.
+            // Calculate Merkel tree root in Savanna way so that it is stored in
+            // Leaf Node when building block_state.
             assert(cb.action_receipt_digests);
             auto action_mroot = calculate_merkle((*cb.action_receipt_digests));
 
@@ -3317,7 +3316,7 @@ struct controller_impl {
    }
 
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
-      auto finalizer_digest = bsp->compute_finalizer_digest();
+      auto finalizer_digest = bsp->compute_finality_digest();
 
       // Each finalizer configured on the node which is present in the active finalizer policy
       // may create and sign a vote
@@ -3854,7 +3853,7 @@ struct controller_impl {
       if (if_active) {
          return calculate_merkle( std::move(digests) );
       } else {
-         return canonical_merkle( std::move(digests) );
+         return legacy_merkle( std::move(digests) );
       }
    }
 
