@@ -24,16 +24,6 @@ using mvo = mutable_variant_object;
 
 BOOST_AUTO_TEST_SUITE(if_ibc)
 
-// These are the producers and finalizers to use across all chains
-const std::vector<account_name> test_nodes =
-{
-   "a"_n, "b"_n, "c"_n, "d"_n, "e"_n,
-   "f"_n, "g"_n, "h"_n, "i"_n, "j"_n,
-   "k"_n, "l"_n, "m"_n, "n"_n, "o"_n,
-   "p"_n, "q"_n, "r"_n, "s"_n, "t"_n,
-   "u"_n
-};
-
 // Extending the default chain tester
 // ( libraries/testing/include/eosio/testing/tester.hpp )
 class ibc_tester : public tester {
@@ -83,63 +73,6 @@ public:
       );
    }
 
-/*   void check_proof(){
-
-      auto cr = push_action( _bridge, "checkproof"_n, _bridge, mutable_variant_object()
-         ("proof", mutable_variant_object() 
-            ("finality_proof", mutable_variant_object() 
-               ("qc_block", mutable_variant_object()
-                  ("light_header_protocol_version_major", 1)
-                  ("light_header_protocol_version_minor", 0)
-                  ("finalizer_policy_generation", 1)
-                  ("active_finalizer_policy", fc::variants())
-                  ("witness_hash", "888ceeb757ea240d1c1ae2f4f717e67b73dcd592b2ba097f63b4c3e3ca4350e1")
-                  ("finality_mroot", "1d2ab7379301370d3fa1b27a9f4ac077f6ea445a1aa3dbf7e18e9cc2c25b140c")
-               )
-               ("qc", mutable_variant_object()
-                  ("signature", "")
-                  ("finalizers", fc::variants())
-               )
-            )
-            ("target_block_proof_of_inclusion", mutable_variant_object() 
-               ("target_node_index", 7)
-               ("last_node_index", 7)
-               ("target", mutable_variant_object() 
-                  ("finality_data", mutable_variant_object() 
-                     ("major_version", 1)
-                     ("minor_version", 0)
-                     ("finalizer_policy_generation", 1)
-                     ("active_finalizer_policy", fc::variants())
-                     ("witness_hash", "dff620c1c4d31cade95ed609269a86d4ecb2357f9302d17675c0665c75786508")
-                     ("finality_mroot", "1397eb7c86719f160188fa740fc3610ccb5a6681ad56807dc99a17fe73a7b7fd")
-                  )
-                  ("dynamic_data", mutable_variant_object() 
-                     ("block_num", 28)
-                     ("action_proofs", fc::variants())
-                     ("action_mroot", "4e890ef0e014f93bd1b31fabf1041ecc9fb1c44e957c2f7b1682333ee426677a")
-                  )
-               )
-               ("merkle_branches", fc::variants({
-                  mutable_variant_object() 
-                     ("direction", 1)
-                     ("hash", "4e17da018040c80339f2714828d1927d5b616f9af7aa4768c1876df6f05e5602")
-                  ,
-                  mutable_variant_object() 
-                     ("direction", 1)
-                     ("hash", "7ee0e16f1941fb5a98d80d20ca92e0c689e9284285d5f90ecd4f8f1ea2ffb53c")
-                  ,
-                  mutable_variant_object() 
-                     ("direction", 1)
-                     ("hash", "401526ba03ec4a955c83cda131dacd3e89becaad2cf04107170e436dd90a553f")
-               }))
-
-            )
-         )
-
-      );
-
-   }
-   */
    void check_proof(){
 
       auto cr = push_action( _bridge, "checkproof"_n, _bridge, mutable_variant_object()
