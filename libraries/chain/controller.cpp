@@ -118,14 +118,6 @@ class maybe_session {
       std::optional<database::session>     _session;
 };
 
-struct qc_data_t {
-   std::optional<quorum_certificate> qc; // Comes either from traversing branch from parent and calling get_best_qc()
-                                         // or from an incoming block extension.
-   qc_claim_t qc_claim;                  // describes the above qc. In rare cases (bootstrap, starting from snapshot,
-                                         // disaster recovery), we may not have a qc so we use the `lib` block_num
-                                         // and specify `weak`.
-};
-
 // apply methods of block_handle defined here as access to internal block_handle restricted to controller
 template <class R, class F>
 R apply(const block_handle& bh, F&& f) {
@@ -163,6 +155,10 @@ R apply_l(const block_handle& bh, F&& f) {
 
 struct completed_block {
    block_handle bsp;
+
+   // to be used during Legacy to Savanna transistion where action_mroot
+   // needs to be converted from Legacy merkle to Savanna merkle
+   std::optional<digests_t> action_receipt_digests;
 
    bool is_legacy() const { return std::holds_alternative<block_state_legacy_ptr>(bsp.internal()); }
 
@@ -232,6 +228,8 @@ struct assembled_block {
       // if the unsigned_block pre-dates block-signing authorities this may be present.
       std::optional<producer_authority_schedule> new_producer_authority_cache;
 
+      // Passed to completed_block, to be used by Legacy to Savanna transisition
+      std::optional<digests_t>          action_receipt_digests;
    };
 
    // --------------------------------------------------------------------------------
@@ -241,6 +239,7 @@ struct assembled_block {
       deque<transaction_metadata_ptr>   trx_metas;                 // Comes from building_block::pending_trx_metas
                                                                    // Carried over to put into block_state (optimization for fork reorgs)
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
+      std::optional<valid_t>            valid;                     // Comes from assemble_block
       std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
 
       block_header_state& get_bhs() { return bhs; }
@@ -318,6 +317,13 @@ struct assembled_block {
                         v);
    }
 
+   std::optional<digests_t> get_action_receipt_digests() const {
+      return std::visit(
+         overloaded{[](const assembled_block_legacy& ab) -> std::optional<digests_t> { return ab.action_receipt_digests; },
+                    [](const assembled_block_if& ab)     -> std::optional<digests_t> { return {}; }},
+         v);
+   }
+
    const producer_authority_schedule* next_producers() const {
       return std::visit(overloaded{[](const assembled_block_legacy& ab) -> const producer_authority_schedule* {
                                       return ab.new_producer_authority_cache.has_value()
@@ -359,13 +365,13 @@ struct assembled_block {
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
                                          std::move(ab.trx_metas), pfs, validator, signer);
 
-                                      return completed_block{block_handle{std::move(bsp)}};
+                                      return completed_block{block_handle{std::move(bsp)}, std::move(ab.action_receipt_digests)};
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
-                                                                               std::move(ab.trx_receipts), ab.qc, signer,
+                                                                               std::move(ab.trx_receipts), ab.valid, ab.qc, signer,
                                                                                valid_block_signing_authority);
-                                      return completed_block{block_handle{std::move(bsp)}};
+                                      return completed_block{block_handle{std::move(bsp)}, {}};
                                    }},
                         v);
    }
@@ -440,18 +446,16 @@ struct building_block {
 
    // --------------------------------------------------------------------------------
    struct building_block_if : public building_block_common {
-      const block_header_state&                  parent;
-      const block_id_type                        parent_id;                        // Comes from building_block_input::parent_id
+      const block_state&                         parent;
       const block_timestamp_type                 timestamp;                        // Comes from building_block_input::timestamp
       const producer_authority                   active_producer_authority;        // Comes from parent.get_scheduled_producer(timestamp)
       const protocol_feature_activation_set_ptr  prev_activated_protocol_features; // Cached: parent.activated_protocol_features()
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
-      building_block_if(const block_header_state& parent, const building_block_input& input)
+      building_block_if(const block_state& parent, const building_block_input& input)
          : building_block_common(input.new_protocol_feature_activations)
          , parent (parent)
-         , parent_id(input.parent_id)
          , timestamp(input.timestamp)
          , active_producer_authority{input.producer,
                               [&]() -> block_signing_authority {
@@ -491,7 +495,7 @@ struct building_block {
    {}
 
    // if constructor
-   building_block(const block_header_state& prev, const building_block_input& input) :
+   building_block(const block_state& prev, const building_block_input& input) :
       v(building_block_if(prev, input))
    {}
 
@@ -532,13 +536,6 @@ struct building_block {
       return std::visit(
          overloaded{[](const building_block_legacy& bb)  { return bb.pending_block_header_state.timestamp; },
                     [](const building_block_if& bb)    { return bb.timestamp; }},
-         v);
-   }
-
-   block_id_type parent_id() const {
-      return std::visit(
-         overloaded{[](const building_block_legacy& bb)  { return bb.pending_block_header_state.previous; },
-                    [](const building_block_if& bb)    { return bb.parent_id; }},
          v);
    }
 
@@ -628,12 +625,41 @@ struct building_block {
                         v);
    }
 
+   qc_data_t get_qc_data(fork_database& fork_db, const block_state& parent) {
+      // find most recent ancestor block that has a QC by traversing fork db
+      // branch from parent
+
+      return fork_db.apply_s<qc_data_t>([&](const auto& forkdb) {
+         auto branch = forkdb.fetch_branch(parent.id());
+
+         for( auto it = branch.begin(); it != branch.end(); ++it ) {
+            if( auto qc = (*it)->get_best_qc(); qc ) {
+               EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent.id()), block_validate_exception,
+                           "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
+                           ("a", qc->block_num)("p", block_header::num_from_id(parent.id())) );
+               auto qc_claim = qc->to_qc_claim();
+               if( parent.is_needed(qc_claim) ) {
+                  return qc_data_t{ *qc, qc_claim };
+               } else {
+                  // no new qc info, repeat existing
+                  return qc_data_t{ {},  parent.core.latest_qc_claim() };
+               }
+            }
+         }
+
+         // This only happens when parent block is the IF genesis block or starting from snapshot.
+         // There is no ancestor block which has a QC. Construct a default QC claim.
+         return qc_data_t{ {}, parent.core.latest_qc_claim() };
+      });
+   }
+
    assembled_block assemble_block(boost::asio::io_context& ioc,
                                   const protocol_feature_set& pfs,
                                   fork_database& fork_db,
                                   std::unique_ptr<proposer_policy> new_proposer_policy,
                                   bool validating,
-                                  std::optional<qc_data_t> validating_qc_data) {
+                                  std::optional<qc_data_t> validating_qc_data,
+                                  const block_state_ptr& validating_bsp) {
       digests_t& action_receipts = action_receipt_digests();
       return std::visit(
          overloaded{
@@ -642,13 +668,13 @@ struct building_block {
                auto [transaction_mroot, action_mroot] = std::visit(
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
-                                   post_async_task(ioc, [&]() { return canonical_merkle(std::move(trx_receipts)); });
+                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(trx_receipts)); });
                                 auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return canonical_merkle(std::move(action_receipts)); });
+                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(action_receipts)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, canonical_merkle(std::move(action_receipts)));
+                                return std::make_pair(trx_checksum, legacy_merkle(std::move(action_receipts)));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -667,7 +693,8 @@ struct building_block {
                   .v = assembled_block::assembled_block_legacy{block_ptr->calculate_id(),
                                                              std::move(bb.pending_block_header_state),
                                                              std::move(bb.pending_trx_metas), std::move(block_ptr),
-                                                             std::move(bb.new_pending_producer_schedule)}
+                                                             std::move(bb.new_pending_producer_schedule),
+                                                             std::move(bb.action_receipt_digests)}
                };
             },
             [&](building_block_if& bb) -> assembled_block {
@@ -676,8 +703,7 @@ struct building_block {
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
                                    post_async_task(ioc, [&]() { return calculate_merkle(std::move(trx_receipts)); });
-                                auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(action_receipts)); });
+                                auto action_merkle_fut = post_async_task(ioc, [&]() { return calculate_merkle(std::move(action_receipts)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
@@ -685,42 +711,28 @@ struct building_block {
                              }},
                   trx_mroot_or_receipt_digests());
 
-               // find most recent ancestor block that has a QC by traversing fork db
-               // branch from parent
-               std::optional<qc_data_t> qc_data;
+               qc_data_t qc_data;
+               digest_type finality_mroot_claim;
+
                if (validating) {
                   // we are simulating a block received from the network. Use the embedded qc from the block
-                  qc_data = std::move(validating_qc_data);
+                  assert(validating_qc_data);
+                  qc_data = *validating_qc_data;
+
+                  assert(validating_bsp);
+                  // Use the action_mroot from raceived block's header for
+                  // finality_mroot_claim at the first stage such that the next
+                  // block's header and block id can be built. The actual
+                  // finality_mroot will be validated by apply_block at the
+                  // second stage
+                  finality_mroot_claim = validating_bsp->header.action_mroot;
                } else {
-                  fork_db.apply_s<void>([&](const auto& forkdb) {
-                     auto branch = forkdb.fetch_branch(parent_id());
-                     for( auto it = branch.begin(); it != branch.end(); ++it ) {
-                        if( auto qc = (*it)->get_best_qc(); qc ) {
-                           EOS_ASSERT( qc->block_num <= block_header::num_from_id(parent_id()), block_validate_exception,
-                                       "most recent ancestor QC block number (${a}) cannot be greater than parent's block number (${p})",
-                                       ("a", qc->block_num)("p", block_header::num_from_id(parent_id())) );
-                           auto qc_claim = qc->to_qc_claim();
-                           if( bb.parent.is_needed(qc_claim) ) {
-                              qc_data = qc_data_t{ *qc, qc_claim };
-                           } else {
-                              // no new qc info, repeat existing
-                              qc_data = qc_data_t{ {},  bb.parent.core.latest_qc_claim() };
-                           }
-                           break;
-                        }
-                     }
-
-                     if (!qc_data) {
-                        // This only happens when parent block is the IF genesis block or starting from snapshot.
-                        // There is no ancestor block which has a QC. Construct a default QC claim.
-                        qc_data = qc_data_t{ {}, bb.parent.core.latest_qc_claim() };
-                     }
-                  });
-
+                  qc_data = get_qc_data(fork_db, bb.parent);;
+                  finality_mroot_claim = bb.parent.get_finality_mroot_claim(qc_data.qc_claim);
                }
 
                building_block_input bb_input {
-                  .parent_id = parent_id(),
+                  .parent_id = bb.parent.id(),
                   .parent_timestamp = bb.parent.timestamp(),
                   .timestamp = timestamp(),
                   .producer  = producer(),
@@ -728,14 +740,37 @@ struct building_block {
                };
 
                block_header_state_input bhs_input{
-                  bb_input, transaction_mroot, action_mroot, std::move(new_proposer_policy),
+                  bb_input,
+                  transaction_mroot,
+                  std::move(new_proposer_policy),
                   std::move(bb.new_finalizer_policy),
-                  qc_data->qc_claim
+                  qc_data.qc_claim,
+                  std::move(finality_mroot_claim)
                };
 
-               assembled_block::assembled_block_if ab{bb.active_producer_authority, bb.parent.next(bhs_input),
-                                                      std::move(bb.pending_trx_metas), std::move(bb.pending_trx_receipts),
-                                                      qc_data ? std::move(qc_data->qc) : std::optional<quorum_certificate>{}};
+               auto bhs = bb.parent.next(bhs_input);
+
+               std::optional<valid_t> valid; // used for producing
+
+               if (validating) {
+                  // Create the valid structure for validating_bsp if it does not
+                  // have one.
+                  if (!validating_bsp->valid) {
+                     validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot);
+                  }
+               } else {
+                  // Create the valid structure for producing
+                  valid = bb.parent.new_valid(bhs, action_mroot);
+               }
+
+               assembled_block::assembled_block_if ab{
+                  bb.active_producer_authority,
+                  bhs,
+                  std::move(bb.pending_trx_metas),
+                  std::move(bb.pending_trx_receipts),
+                  valid,
+                  qc_data.qc
+               };
 
                return assembled_block{.v = std::move(ab)};
             }},
@@ -763,7 +798,7 @@ struct pending_state {
    {}
 
    pending_state(maybe_session&& s,
-                 const block_header_state& prev,
+                 const block_state& prev,
                  const building_block_input& input) :
       _db_session(std::move(s)),
       _block_stage(building_block(prev, input))
@@ -1253,6 +1288,10 @@ struct controller_impl {
       assert(!!legacy_root);
       fork_db.apply_s<void>([&](auto& forkdb) {
          if (!forkdb.root() || forkdb.root()->id() != legacy_root->id()) {
+            // Calculate Merkel tree root in Savanna way so that it is stored in Leaf Node when building block_state.
+            assert(cb.action_receipt_digests);
+            auto action_mroot = calculate_merkle((*cb.action_receipt_digests));
+
             auto new_root = std::make_shared<block_state>(*legacy_root);
             forkdb.reset_root(new_root);
          }
@@ -2896,7 +2935,7 @@ struct controller_impl {
       guard_pending.cancel();
    } /// start_block
 
-   void assemble_block(bool validating = false, std::optional<qc_data_t> validating_qc_data = {})
+   void assemble_block(bool validating, std::optional<qc_data_t> validating_qc_data, const block_state_ptr& validating_bsp)
    {
       EOS_ASSERT( pending, block_validate_exception, "it is not valid to finalize when there is no pending block");
       EOS_ASSERT( std::holds_alternative<building_block>(pending->_block_stage), block_validate_exception, "already called finish_block");
@@ -2939,7 +2978,7 @@ struct controller_impl {
 
          auto assembled_block =
             bb.assemble_block(thread_pool.get_executor(), protocol_features.get_protocol_feature_set(), fork_db, std::move(new_proposer_policy),
-                              validating, std::move(validating_qc_data));
+                              validating, std::move(validating_qc_data), validating_bsp);
 
          // Update TaPoS table:
          create_block_summary(  assembled_block.id() );
@@ -3233,7 +3272,27 @@ struct controller_impl {
                           ("lhs", r)("rhs", static_cast<const transaction_receipt_header&>(receipt)));
             }
 
-            assemble_block(true, extract_qc_data(b));
+            if constexpr (std::is_same_v<BSP, block_state_ptr>) {
+               // assemble_block will mutate bsp by setting the valid structure
+               assemble_block(true, extract_qc_data(b), bsp);
+
+               // verify received finality digest in action_mroot is the same as the actual one
+
+               // For proper IF blocks that do not have an associated Finality Tree defined,
+               // its finality_mroot is empty
+               digest_type actual_finality_mroot;
+
+               if (!bsp->core.is_genesis_block_num(bsp->core.final_on_strong_qc_block_num)) {
+                  actual_finality_mroot = bsp->get_validation_mroot(bsp->core.final_on_strong_qc_block_num);
+               }
+
+               EOS_ASSERT(bsp->finality_mroot() == actual_finality_mroot,
+                  block_validate_exception,
+                  "finality_mroot does not match, received finality_mroot: ${r} != actual_finality_mroot: ${a}",
+                  ("r", bsp->finality_mroot())("a", actual_finality_mroot));
+            } else {
+               assemble_block(true, {}, nullptr);
+            }
             auto& ab = std::get<assembled_block>(pending->_block_stage);
 
             if( producer_block_id != ab.id() ) {
@@ -3242,7 +3301,7 @@ struct controller_impl {
                report_block_header_diff(*b, ab.header());
 
                // this implicitly asserts that all header fields (less the signature) are identical
-               EOS_ASSERT(producer_block_id == ab.id(), block_validate_exception, "Block ID does not match",
+               EOS_ASSERT(producer_block_id == ab.id(), block_validate_exception, "Block ID does not match, ${producer_block_id} != ${validator_block_id}",
                           ("producer_block_id", producer_block_id)("validator_block_id", ab.id()));
             }
 
@@ -3250,7 +3309,7 @@ struct controller_impl {
                bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
             }
             // create completed_block with the existing block_state as we just verified it is the same as assembled_block
-            pending->_block_stage = completed_block{ block_handle{bsp} };
+            pending->_block_stage = completed_block{ block_handle{bsp}, ab.get_action_receipt_digests() };
 
             br = pending->_block_report; // copy before commit block destroys pending
             commit_block(s);
@@ -3291,7 +3350,7 @@ struct controller_impl {
    }
 
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
-      auto finalizer_digest = bsp->compute_finalizer_digest();
+      auto finalizer_digest = bsp->compute_finality_digest();
 
       // Each finalizer configured on the node which is present in the active finalizer policy
       // may create and sign a vote
@@ -3828,7 +3887,7 @@ struct controller_impl {
       if (if_active) {
          return calculate_merkle( std::move(digests) );
       } else {
-         return canonical_merkle( std::move(digests) );
+         return legacy_merkle( std::move(digests) );
       }
    }
 
@@ -4450,7 +4509,7 @@ void controller::start_block( block_timestamp_type when,
 void controller::assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback ) {
    validate_db_available_size();
 
-   my->assemble_block();
+   my->assemble_block(false, {}, nullptr);
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
    const auto& valid_block_signing_authority = my->head_active_schedule_auth().get_scheduled_producer(ab.timestamp()).authority;

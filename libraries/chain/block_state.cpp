@@ -13,7 +13,7 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
                          const validator_t& validator, bool skip_validate_signee)
    : block_header_state(prev.next(*b, validator))
    , block(std::move(b))
-   , strong_digest(compute_finalizer_digest())
+   , strong_digest(compute_finality_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
 {
@@ -25,14 +25,19 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    }
 }
 
-block_state::block_state(const block_header_state& bhs, deque<transaction_metadata_ptr>&& trx_metas,
-                         deque<transaction_receipt>&& trx_receipts, const std::optional<quorum_certificate>& qc,
-                         const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority)
+block_state::block_state(const block_header_state&                bhs,
+                         deque<transaction_metadata_ptr>&&        trx_metas,
+                         deque<transaction_receipt>&&             trx_receipts,
+                         const std::optional<valid_t>&            valid,
+                         const std::optional<quorum_certificate>& qc,
+                         const signer_callback_type&              signer,
+                         const block_signing_authority&           valid_block_signing_authority)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
-   , strong_digest(compute_finalizer_digest())
+   , strong_digest(compute_finality_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(bhs.active_finalizer_policy->finalizers.size(), bhs.active_finalizer_policy->threshold, bhs.active_finalizer_policy->max_weak_sum_before_weak_final())
+   , valid(valid)
    , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
 {
@@ -46,14 +51,30 @@ block_state::block_state(const block_header_state& bhs, deque<transaction_metada
    sign(signer, valid_block_signing_authority);
 }
 
-// Used for transition from dpos to instant-finality
-block_state::block_state(const block_state_legacy& bsp) {
+// Used for transition from dpos to Savanna.
+block_state::block_state(const block_state_legacy& bsp, const digest_type& action_mroot_svnn) {
    block_header_state::block_id = bsp.id();
    header = bsp.header;
    header_exts = bsp.header_exts;
    block = bsp.block;
    activated_protocol_features = bsp.activated_protocol_features;
    core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
+
+   // built leaf_node and validation_tree
+   valid_t::finality_leaf_node_t leaf_node {
+      .block_num       = bsp.block_num(),
+      .finality_digest = digest_type{},
+      .action_mroot    = action_mroot_svnn
+   };
+   incremental_merkle_tree validation_tree;
+   validation_tree.append(fc::sha256::hash(leaf_node));
+
+   // construct valid structure
+   valid = valid_t {
+      .validation_tree   = validation_tree,
+      .validation_mroots = { validation_tree.get_root() }
+   };
+
    std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
    assert(ext); // required by current transition mechanism
    const auto& if_ext = std::get<instant_finality_extension>(*ext);
@@ -76,18 +97,16 @@ block_state::block_state(snapshot_detail::snapshot_block_state_v7&& sbs)
          .header                      = std::move(sbs.header),
          .activated_protocol_features = std::move(sbs.activated_protocol_features),
          .core                        = std::move(sbs.core),
-         .proposal_mtree              = std::move(sbs.proposal_mtree),
-         .finality_mtree              = std::move(sbs.finality_mtree),
          .active_finalizer_policy     = std::move(sbs.active_finalizer_policy),
          .active_proposer_policy      = std::move(sbs.active_proposer_policy),
          .proposer_policies           = std::move(sbs.proposer_policies),
          .finalizer_policies          = std::move(sbs.finalizer_policies)
       }
-   , strong_digest(compute_finalizer_digest())
+   , strong_digest(compute_finality_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(active_finalizer_policy->finalizers.size(), active_finalizer_policy->threshold,
                 active_finalizer_policy->max_weak_sum_before_weak_final()) // just in case we receive votes
-     // , valid(std::move(sbs.valid) // [snapshot todo]
+   , valid(std::move(sbs.valid))
 {
    header_exts = header.validate_and_extract_header_extensions();
 }
@@ -219,6 +238,62 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
       *valid_qc : // tie broke by valid_qc
       valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
    return quorum_certificate{ block_num(), best_qc };
+}
+
+valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_type& action_mroot) const {
+   assert(valid);
+   assert(next_bhs.core.last_final_block_num() >= core.last_final_block_num());
+
+   // Copy parent's validation_tree and validation_mroots.
+   auto start = next_bhs.core.last_final_block_num() - core.last_final_block_num();
+   valid_t next_valid {
+      .validation_tree = valid->validation_tree,
+      // Trim roots from the front end, up to block number `next_bhs.core.last_final_block_num()`
+      .validation_mroots = { valid->validation_mroots.cbegin() + start, valid->validation_mroots.cend() }
+   };
+
+   // construct block's finality leaf node.
+   valid_t::finality_leaf_node_t leaf_node{
+      .block_num       = next_bhs.block_num(),
+      .finality_digest = next_bhs.compute_finality_digest(),
+      .action_mroot    = action_mroot
+   };
+   auto leaf_node_digest = fc::sha256::hash(leaf_node);
+
+   // append new finality leaf node digest to validation_tree
+   next_valid.validation_tree.append(leaf_node_digest);
+
+   // append the root of the new Validation Tree to validation_mroots.
+   next_valid.validation_mroots.emplace_back(next_valid.validation_tree.get_root());
+
+   // post condition of validation_mroots
+   assert(next_valid.validation_mroots.size() == (next_bhs.block_num() - next_bhs.core.last_final_block_num() + 1));
+
+   return next_valid;
+}
+
+digest_type block_state::get_validation_mroot(block_num_type target_block_num) const {
+   if (!valid) {
+      return digest_type{};
+   }
+
+   assert(valid->validation_mroots.size() > 0);
+   assert(core.last_final_block_num() <= target_block_num &&
+          target_block_num < core.last_final_block_num() + valid->validation_mroots.size());
+   assert(target_block_num - core.last_final_block_num() < valid->validation_mroots.size());
+
+   return valid->validation_mroots[target_block_num - core.last_final_block_num()];
+}
+
+digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) const {
+   auto next_core_metadata = core.next_metadata(qc_claim);
+
+   // For proper IF blocks that do not have an associated Finality Tree defined
+   if (core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num)) {
+      return digest_type{};
+   }
+
+   return get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
 }
 
 void inject_additional_signatures( signed_block& b, const std::vector<signature_type>& additional_signatures)
