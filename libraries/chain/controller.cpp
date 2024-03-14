@@ -1798,6 +1798,14 @@ struct controller_impl {
       });
    }
 
+   block_state_pair get_block_state_to_snapshot() const
+   {
+       return apply<block_state_pair>(
+          chain_head,
+          overloaded{[](const block_state_legacy_ptr& head) { return block_state_pair{ head, {} }; },
+                     [](const block_state_ptr&        head) { return block_state_pair{ {}, head }; }});
+   }
+
    void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
       // clear in case the previous call to clear did not finish in time of deadline
       clear_expired_input_transactions( fc::time_point::maximum() );
@@ -1807,10 +1815,10 @@ struct controller_impl {
       });
 
       apply<void>(chain_head, [&](const auto& head) {
-         snapshot_detail::snapshot_block_state_variant_v7 block_state_variant(*head);
+         snapshot_detail::snapshot_block_state_data_v7 block_state_data(get_block_state_to_snapshot());
 
          snapshot->write_section("eosio::chain::block_state", [&]( auto& section ) {
-            section.add_row(block_state_variant, db);
+            section.add_row(block_state_data, db);
          });
       });
       
@@ -1862,19 +1870,21 @@ struct controller_impl {
 
       auto read_block_state_section = [&](auto& forkdb) { /// load and upgrade the block header state
          using namespace snapshot_detail;
-         using v7 = snapshot_block_state_variant_v7;
+         using v7 = snapshot_block_state_data_v7;
 
          if (header.version >= v7::minimum_version) {
             // loading a snapshot saved by Leap 6.0 and above.
             // -----------------------------------------------
             if (std::clamp(header.version, v7::minimum_version, v7::maximum_version) == header.version ) {
                snapshot->read_section("eosio::chain::block_state", [this]( auto &section ){
-                  v7 block_state_variant;
-                  section.read_row(block_state_variant, db);
-                  std::visit(overloaded{
-                        [&](snapshot_block_state_legacy_v7&& sbs) { chain_head = block_handle{std::make_shared<block_state_legacy>(std::move(sbs))}; },
-                        [&](snapshot_block_state_v7&& sbs)        { chain_head = block_handle{std::make_shared<block_state>(std::move(sbs))}; }},
-                     std::move(block_state_variant.v));
+                  v7 block_state_data;
+                  section.read_row(block_state_data, db);
+                  assert(block_state_data.bs_l || block_state_data.bs);
+                  // todo: during the transition phase, both may be set. Restore appropriately!
+                  if (block_state_data.bs_l)
+                     chain_head = block_handle{std::make_shared<block_state_legacy>(std::move(*block_state_data.bs_l))};
+                  else
+                     chain_head = block_handle{std::make_shared<block_state>(std::move(*block_state_data.bs))};
                });
             } else {
                EOS_THROW(snapshot_exception, "Unsupported block_state version");

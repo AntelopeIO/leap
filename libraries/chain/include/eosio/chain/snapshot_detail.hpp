@@ -137,21 +137,22 @@ namespace eosio::chain::snapshot_detail {
       {}
    };
 
-   struct snapshot_block_state_variant_v7 {
+   struct snapshot_block_state_data_v7 {
       static constexpr uint32_t minimum_version = 7;
       static constexpr uint32_t maximum_version = 7;
 
-      std::variant<snapshot_block_state_legacy_v7, snapshot_block_state_v7> v;
+      std::optional<snapshot_block_state_legacy_v7> bs_l;
+      std::optional<snapshot_block_state_v7>        bs;
 
-      snapshot_block_state_variant_v7() = default;
+      snapshot_block_state_data_v7() = default;
 
-      explicit snapshot_block_state_variant_v7(const block_state& bs)
-         : v(snapshot_block_state_v7(bs))
-      {}
-
-      explicit snapshot_block_state_variant_v7(const block_state_legacy& bs)
-         : v(snapshot_block_state_legacy_v7(bs))
-      {}
+      explicit snapshot_block_state_data_v7(const block_state_pair& p)
+      {
+         if (p.first)
+            bs_l = snapshot_block_state_legacy_v7(*p.first);
+         if (p.second)
+            bs = snapshot_block_state_v7(*p.second);
+      }
    };
 
 }
@@ -214,6 +215,7 @@ FC_REFLECT( eosio::chain::snapshot_detail::snapshot_block_state_v7,
             (valid)
    )
 
-FC_REFLECT( eosio::chain::snapshot_detail::snapshot_block_state_variant_v7,
-            (v)
+FC_REFLECT( eosio::chain::snapshot_detail::snapshot_block_state_data_v7,
+            (bs_l)
+            (bs)
    )
