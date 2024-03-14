@@ -50,7 +50,7 @@ namespace eosio::chain {
       return r;
    }
 
-   std::string log_fork_comparison(const block_handle_variant_t& bhv) {
+   std::string log_fork_comparison(const block_state_variant_t& bhv) {
       return std::visit([](const auto& bsp) { return log_fork_comparison(*bsp); }, bhv);
    }
 
@@ -765,7 +765,7 @@ namespace eosio::chain {
       }
    }
 
-   void fork_database::switch_from_legacy(const block_handle_variant_t& bhv) {
+   void fork_database::switch_from_legacy(const block_state_variant_t& bhv) {
       // no need to close fork_db because we don't want to write anything out, file is removed on open
       // threads may be accessing (or locked on mutex about to access legacy forkdb) so don't delete it until program exit
       assert(in_use == in_use_t::legacy);
@@ -782,7 +782,7 @@ namespace eosio::chain {
       });
    }
 
-   void fork_database::reset_root(const block_handle_variant_t& v) {
+   void fork_database::reset_root(const block_state_variant_t& v) {
        std::visit(overloaded{ [&](const block_state_legacy_ptr& bsp) { fork_db_l->reset_root(bsp); },
                               [&](const block_state_ptr& bsp) {
                                   if (in_use == in_use_t::legacy)

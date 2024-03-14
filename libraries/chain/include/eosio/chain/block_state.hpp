@@ -142,7 +142,7 @@ public:
 
 using block_state_ptr = std::shared_ptr<block_state>;
 
-using block_handle_variant_t = std::variant<std::shared_ptr<block_state_legacy>, block_state_ptr>;
+using block_state_variant_t = std::variant<std::shared_ptr<block_state_legacy>, block_state_ptr>;
 
    
 } // namespace eosio::chain

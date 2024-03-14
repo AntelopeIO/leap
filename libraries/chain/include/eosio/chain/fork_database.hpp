@@ -17,7 +17,7 @@ namespace eosio::chain {
    // Used for logging of comparison values used for best fork determination
    std::string log_fork_comparison(const block_state& bs);
    std::string log_fork_comparison(const block_state_legacy& bs);
-   std::string log_fork_comparison(const block_handle_variant_t& bh);
+   std::string log_fork_comparison(const block_state_variant_t& bh);
 
    /**
     * @class fork_database_t
@@ -151,7 +151,7 @@ namespace eosio::chain {
       void close();
 
       // expected to be called from main thread
-      void switch_from_legacy(const block_handle_variant_t& bhv);
+      void switch_from_legacy(const block_state_variant_t& bhv);
 
       bool fork_db_if_present() const { return !!fork_db_s; }
       bool fork_db_legacy_present() const { return !!fork_db_l; }
@@ -159,7 +159,7 @@ namespace eosio::chain {
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
 
-      void reset_root(const block_handle_variant_t& v);
+      void reset_root(const block_state_variant_t& v);
 
       template <class R, class F>
       R apply(const F& f) const {
