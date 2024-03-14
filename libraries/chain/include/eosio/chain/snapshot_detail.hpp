@@ -29,7 +29,7 @@ namespace eosio::chain::snapshot_detail {
       uint32_t                             dpos_proposed_irreversible_blocknum = 0;
       uint32_t                             dpos_irreversible_blocknum = 0;
       legacy::producer_schedule_type       active_schedule;
-      incremental_canonical_merkle_tree    blockroot_merkle;
+      incremental_legacy_merkle_tree       blockroot_merkle;
       flat_map<account_name,uint32_t>      producer_to_last_produced;
       flat_map<account_name,uint32_t>      producer_to_last_implied_irb;
       public_key_type                      block_signing_key;
@@ -57,7 +57,7 @@ namespace eosio::chain::snapshot_detail {
       uint32_t                             dpos_proposed_irreversible_blocknum = 0;
       uint32_t                             dpos_irreversible_blocknum = 0;
       producer_authority_schedule          active_schedule;
-      incremental_canonical_merkle_tree    blockroot_merkle;
+      incremental_legacy_merkle_tree       blockroot_merkle;
       flat_map<account_name,uint32_t>      producer_to_last_produced;
       flat_map<account_name,uint32_t>      producer_to_last_implied_irb;
       block_signing_authority              valid_block_signing_authority;
@@ -114,16 +114,13 @@ namespace eosio::chain::snapshot_detail {
       block_header                                        header;
       protocol_feature_activation_set_ptr                 activated_protocol_features;
       finality_core                                       core;
-      incremental_merkle_tree                             proposal_mtree;
-      incremental_merkle_tree                             finality_mtree;
       finalizer_policy_ptr                                active_finalizer_policy;
       proposer_policy_ptr                                 active_proposer_policy;
       flat_map<block_timestamp_type, proposer_policy_ptr> proposer_policies;
       flat_map<uint32_t, finalizer_policy_ptr>            finalizer_policies;
 
       // from block_state
-      using valid_t = uint32_t; // snapshot todo
-      std::optional<valid_t> valid;
+      std::optional<valid_t>                              valid;
 
       snapshot_block_state_v7() = default;
 
@@ -132,13 +129,11 @@ namespace eosio::chain::snapshot_detail {
          , header(bs.header)
          , activated_protocol_features(bs.activated_protocol_features)
          , core(bs.core)
-         , proposal_mtree(bs.proposal_mtree)
-         , finality_mtree(bs.finality_mtree)
          , active_finalizer_policy(bs.active_finalizer_policy)
          , active_proposer_policy(bs.active_proposer_policy)
          , proposer_policies(bs.proposer_policies)
          , finalizer_policies(bs.finalizer_policies)
-         , valid(0)  // snapshot todo
+         , valid(bs.valid)
       {}
    };
 
@@ -211,8 +206,7 @@ FC_REFLECT( eosio::chain::snapshot_detail::snapshot_block_state_v7,
             (block_id)
             (header)
             (activated_protocol_features)
-            (core)(proposal_mtree)
-            (finality_mtree)
+            (core)
             (active_finalizer_policy)
             (active_proposer_policy)
             (proposer_policies)

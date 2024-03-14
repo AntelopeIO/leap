@@ -7,10 +7,63 @@
 
 namespace eosio::chain {
 
-// moved this warning out of header so it only uses once
-#warning TDDO https://github.com/AntelopeIO/leap/issues/2080
-// digest_type           compute_finalizer_digest() const { return id; };
+// this is a versioning scheme that is separate from protocol features that only
+// gets updated if a protocol feature causes a breaking change to light block
+// header validation
 
+// data for finality_digest
+struct finality_digest_data_v1 {
+   uint32_t    major_version{light_header_protocol_version_major};
+   uint32_t    minor_version{light_header_protocol_version_minor};
+   uint32_t    active_finalizer_policy_generation {0};
+   digest_type finality_tree_digest;
+   digest_type active_finalizer_policy_and_base_digest;
+};
+
+// compute base_digest explicitly because of pointers involved.
+digest_type block_header_state::compute_base_digest() const {
+   digest_type::encoder enc;
+
+   fc::raw::pack( enc, header );
+   fc::raw::pack( enc, core );
+
+   for (const auto& fp_pair : finalizer_policies) {
+      fc::raw::pack( enc, fp_pair.first );
+      assert(fp_pair.second);
+      fc::raw::pack( enc, *fp_pair.second );
+   }
+
+   assert(active_proposer_policy);
+   fc::raw::pack( enc, *active_proposer_policy );
+
+   for (const auto& pp_pair : proposer_policies) {
+      assert(pp_pair.second);
+      fc::raw::pack( enc, *pp_pair.second );
+   }
+
+   if (activated_protocol_features) {
+      fc::raw::pack( enc, *activated_protocol_features );
+   }
+
+   return enc.result();
+}
+
+digest_type block_header_state::compute_finality_digest() const {
+   assert(active_finalizer_policy);
+   auto active_finalizer_policy_digest = fc::sha256::hash(*active_finalizer_policy);
+   auto base_digest = compute_base_digest();
+
+   std::pair<const digest_type&, const digest_type&> active_and_base{ active_finalizer_policy_digest, base_digest };
+   auto afp_base_digest = fc::sha256::hash(active_and_base);
+
+   finality_digest_data_v1 finality_digest_data {
+      .active_finalizer_policy_generation      = active_finalizer_policy->generation,
+      .finality_tree_digest                    = finality_mroot(),
+      .active_finalizer_policy_and_base_digest = afp_base_digest
+   };
+
+   return fc::sha256::hash(finality_digest_data);
+}
 
 const producer_authority& block_header_state::get_scheduled_producer(block_timestamp_type t) const {
    return detail::get_scheduled_producer(active_proposer_policy->proposer_schedule.producers, t);
@@ -33,8 +86,8 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       .confirmed         = 0,
       .previous          = input.parent_id,
       .transaction_mroot = input.transaction_mroot,
-      .action_mroot      = input.action_mroot,
-      .schedule_version  = header.schedule_version
+      .action_mroot      = input.finality_mroot_claim,
+      .schedule_version  = block_header::proper_svnn_schedule_version
    };
 
    // activated protocol features
@@ -46,10 +99,6 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       result.activated_protocol_features = activated_protocol_features;
    }
 
-   // proposal_mtree and finality_mtree
-   // ---------------------------------
-   // [greg todo] ??
-
    // proposer policy
    // ---------------
    result.active_proposer_policy = active_proposer_policy;
@@ -59,8 +108,6 @@ block_header_state block_header_state::next(block_header_state_input& input) con
       // +1 since this is called after the block is built, this will be the active schedule for the next block
       if (it->first.slot <= input.timestamp.slot + 1) {
          result.active_proposer_policy = it->second;
-         result.header.schedule_version = header.schedule_version + 1;
-         result.active_proposer_policy->proposer_schedule.version = result.header.schedule_version;
          result.proposer_policies = { ++it, proposer_policies.end() };
       } else {
          result.proposer_policies = proposer_policies;
@@ -80,19 +127,19 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    //   if (input.new_finalizer_policy)
    //      ++input.new_finalizer_policy->generation;
 
-
-   instant_finality_extension new_if_ext {input.most_recent_ancestor_with_qc,
-                                          std::move(input.new_finalizer_policy),
-                                          std::move(input.new_proposer_policy)};
-
    // finality_core
-   // -----------------------
+   // -------------
    block_ref parent_block {
       .block_id  = input.parent_id,
       .timestamp = input.parent_timestamp
    };
    result.core = core.next(parent_block, input.most_recent_ancestor_with_qc);
 
+   // finality extension
+   // ------------------
+   instant_finality_extension new_if_ext {input.most_recent_ancestor_with_qc,
+                                          std::move(input.new_finalizer_policy),
+                                          std::move(input.new_proposer_policy)};
    uint16_t if_ext_id = instant_finality_extension::extension_id();
    emplace_extension(result.header.header_extensions, if_ext_id, fc::raw::pack(new_if_ext));
    result.header_exts.emplace(if_ext_id, std::move(new_if_ext));
@@ -126,6 +173,9 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
    EOS_ASSERT( h.previous == block_id, unlinkable_block_exception, "previous mismatch ${p} != ${id}", ("p", h.previous)("id", block_id) );
    EOS_ASSERT( h.producer == producer, wrong_producer, "wrong producer specified" );
    EOS_ASSERT( h.confirmed == 0, block_validate_exception, "invalid confirmed ${c}", ("c", h.confirmed) );
+   EOS_ASSERT( h.schedule_version == block_header::proper_svnn_schedule_version, block_validate_exception,
+      "invalid schedule_version ${s}, expected: ${e}",
+      ("s", h.schedule_version)("e", block_header::proper_svnn_schedule_version) );
    EOS_ASSERT( !h.new_producers, producer_schedule_exception, "Block header contains legacy producer schedule outdated by activation of WTMsig Block Signatures" );
 
    auto exts = h.validate_and_extract_header_extensions();
@@ -155,11 +205,34 @@ block_header_state block_header_state::next(const signed_block_header& h, valida
       .new_protocol_feature_activations = std::move(new_protocol_feature_activations)
    };
 
+   digest_type action_mroot = {};
+
+   if (h.is_proper_svnn_block()) {
+      // if there is no Finality Tree Root associated with the block,
+      // then this needs to validate that h.action_mroot is the empty digest
+      auto next_core_metadata = core.next_metadata(if_ext.qc_claim);
+      bool no_finality_tree_associated = core.is_genesis_block_num(next_core_metadata.final_on_strong_qc_block_num);
+
+      EOS_ASSERT( no_finality_tree_associated == h.action_mroot.empty(),
+         block_validate_exception,
+         "No Finality Tree Root associated with the block test does not match with empty action_mroot test: no finality tree associated (${n}), action_mroot empty (${e}), final_on_strong_qc_block_num (${f})",
+         ("n", no_finality_tree_associated)("e", h.action_mroot.empty())("f", next_core_metadata.final_on_strong_qc_block_num));
+
+      action_mroot = h.action_mroot;
+   };
+
    block_header_state_input bhs_input{
-      bb_input,      h.transaction_mroot, h.action_mroot, if_ext.new_proposer_policy, if_ext.new_finalizer_policy,
-      if_ext.qc_claim };
+      bb_input,
+      h.transaction_mroot,
+      if_ext.new_proposer_policy,
+      if_ext.new_finalizer_policy,
+      if_ext.qc_claim,
+      action_mroot // for finality_mroot_claim
+   };
 
    return next(bhs_input);
 }
 
 } // namespace eosio::chain
+
+FC_REFLECT( eosio::chain::finality_digest_data_v1, (major_version)(minor_version)(active_finalizer_policy_generation)(finality_tree_digest)(active_finalizer_policy_and_base_digest) )
