@@ -136,14 +136,17 @@ namespace eosio::chain {
     * All methods assert until open() is closed.
     */
    class fork_database {
-      static constexpr uint32_t magic_number = 0x30510FDB;
-
+   public:
       enum class in_use_t : uint32_t { legacy, savanna, both };
 
+   private:
+      static constexpr uint32_t magic_number = 0x30510FDB;
+
       const std::filesystem::path data_dir;
-      std::atomic<in_use_t> in_use = in_use_t::legacy;
-      std::unique_ptr<fork_database_legacy_t> fork_db_l; // legacy
-      std::unique_ptr<fork_database_if_t>     fork_db_s; // savanna
+      std::atomic<in_use_t>  in_use = in_use_t::legacy;
+      fork_database_legacy_t fork_db_l; // legacy
+      fork_database_if_t     fork_db_s; // savanna
+
    public:
       explicit fork_database(const std::filesystem::path& data_dir);
       ~fork_database(); // close on destruction
@@ -155,8 +158,7 @@ namespace eosio::chain {
       // expected to be called from main thread
       void switch_from_legacy(const block_state_variant_t& bhv);
 
-      bool fork_db_if_present() const { return !!fork_db_s; }
-      bool fork_db_legacy_present() const { return !!fork_db_l; }
+      in_use_t version_in_use() const { return in_use.load(); }
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
@@ -167,15 +169,32 @@ namespace eosio::chain {
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
             if (in_use.load() == in_use_t::legacy) {
-               f(*fork_db_l);
+               f(fork_db_l);
             } else {
-               f(*fork_db_s);
+               f(fork_db_s);
             }
          } else {
             if (in_use.load() == in_use_t::legacy) {
-               return f(*fork_db_l);
+               return f(fork_db_l);
             } else {
-               return f(*fork_db_s);
+               return f(fork_db_s);
+            }
+         }
+      }
+
+      template <class R, class F>
+      R apply(const F& f) {
+         if constexpr (std::is_same_v<void, R>) {
+            if (in_use.load() == in_use_t::legacy) {
+               f(fork_db_l);
+            } else {
+               f(fork_db_s);
+            }
+         } else {
+            if (in_use.load() == in_use_t::legacy) {
+               return f(fork_db_l);
+            } else {
+               return f(fork_db_s);
             }
          }
       }
@@ -186,12 +205,12 @@ namespace eosio::chain {
          if constexpr (std::is_same_v<void, R>) {
             if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
-               f(*fork_db_s);
+               f(fork_db_s);
             }
          } else {
             if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
-               return f(*fork_db_s);
+               return f(fork_db_s);
             }
             return {};
          }
@@ -203,12 +222,12 @@ namespace eosio::chain {
          if constexpr (std::is_same_v<void, R>) {
             if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
-               f(*fork_db_l);
+               f(fork_db_l);
             }
          } else {
             if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
-               return f(*fork_db_l);
+               return f(fork_db_l);
             }
             return {};
          }
@@ -220,15 +239,15 @@ namespace eosio::chain {
       R apply(const LegacyF& legacy_f, const SavannaF& savanna_f) {
          if constexpr (std::is_same_v<void, R>) {
             if (in_use.load() == in_use_t::legacy) {
-               legacy_f(*fork_db_l);
+               legacy_f(fork_db_l);
             } else {
-               savanna_f(*fork_db_s);
+               savanna_f(fork_db_s);
             }
          } else {
             if (in_use.load() == in_use_t::legacy) {
-               return legacy_f(*fork_db_l);
+               return legacy_f(fork_db_l);
             } else {
-               return savanna_f(*fork_db_s);
+               return savanna_f(fork_db_s);
             }
          }
       }

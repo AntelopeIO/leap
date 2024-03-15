@@ -386,7 +386,7 @@ namespace eosio::chain {
 
    template<class BSP>
    bool fork_database_impl<BSP>::is_valid() const {
-      return !!root && !!head && get_block_impl(head->id());
+      return !!root && !!head; // && get_block_impl(head->id());
    }
 
    template<class BSP>
@@ -671,9 +671,6 @@ namespace eosio::chain {
 
    fork_database::fork_database(const std::filesystem::path& data_dir)
       : data_dir(data_dir)
-        // genesis starts with legacy
-      , fork_db_l{std::make_unique<fork_database_legacy_t>()}
-      , fork_db_s{std::make_unique<fork_database_if_t>()}
    {
    }
 
@@ -683,8 +680,8 @@ namespace eosio::chain {
 
    void fork_database::close() {
       auto fork_db_file {data_dir / config::forkdb_filename};
-      bool legacy_valid  = fork_db_l && fork_db_l->has_root() && !!fork_db_l->head();
-      bool savanna_valid = fork_db_s && fork_db_s->has_root() && !!fork_db_s->head();
+      bool legacy_valid  = fork_db_l.is_valid();
+      bool savanna_valid = fork_db_s.is_valid();
 
       // check that fork_dbs are in a consistent state
       if (!legacy_valid && !savanna_valid) {
@@ -705,16 +702,18 @@ namespace eosio::chain {
 
       fc::raw::pack(out, legacy_valid);
       if (legacy_valid)
-         fork_db_l->close(out);
+         fork_db_l.close(out);
 
       fc::raw::pack(out, savanna_valid);
       if (savanna_valid)
-         fork_db_s->close(out);
+         fork_db_s.close(out);
    }
 
    void fork_database::open( validator_t& validator ) {
       if (!std::filesystem::is_directory(data_dir))
          std::filesystem::create_directories(data_dir);
+
+      assert(!fork_db_l.is_valid() && !fork_db_s.is_valid());
 
       auto fork_db_file = data_dir / config::forkdb_filename;
       if( std::filesystem::exists( fork_db_file ) ) {
@@ -745,8 +744,7 @@ namespace eosio::chain {
             {
                // ---------- pre-Savanna format. Just a single fork_database_l ----------------
                in_use = in_use_t::legacy;
-               fork_db_l = std::make_unique<fork_database_legacy_t>();
-               fork_db_l->open(fork_db_file, ds, validator);
+               fork_db_l.open(fork_db_file, ds, validator);
                break;
             }
 
@@ -760,15 +758,13 @@ namespace eosio::chain {
                bool legacy_valid { false };
                fc::raw::unpack( ds, legacy_valid );
                if (legacy_valid) {
-                  fork_db_l = std::make_unique<fork_database_legacy_t>();
-                  fork_db_l->open(fork_db_file, ds, validator);
+                  fork_db_l.open(fork_db_file, ds, validator);
                }
 
                bool savanna_valid { false };
                fc::raw::unpack( ds, savanna_valid );
                if (savanna_valid) {
-                  fork_db_s = std::make_unique<fork_database_if_t>();
-                  fork_db_s->open(fork_db_file, ds, validator);
+                  fork_db_s.open(fork_db_file, ds, validator);
                }
                break;
             }
@@ -788,9 +784,9 @@ namespace eosio::chain {
       assert(in_use == in_use_t::legacy);
       assert(std::holds_alternative<block_state_ptr>(bhv));
       block_state_ptr new_head = std::get<block_state_ptr>(bhv);
-      fork_db_s = std::make_unique<fork_database_if_t>();
+      assert(!fork_db_s.is_valid());
       in_use = in_use_t::savanna;
-      fork_db_s->reset_root(new_head);
+      fork_db_s.reset_root(new_head);
    }
 
    block_branch_t fork_database::fetch_branch_from_head() const {
@@ -800,11 +796,11 @@ namespace eosio::chain {
    }
 
    void fork_database::reset_root(const block_state_variant_t& v) {
-       std::visit(overloaded{ [&](const block_state_legacy_ptr& bsp) { fork_db_l->reset_root(bsp); },
+       std::visit(overloaded{ [&](const block_state_legacy_ptr& bsp) { fork_db_l.reset_root(bsp); },
                               [&](const block_state_ptr& bsp) {
                                   if (in_use == in_use_t::legacy)
                                      in_use = in_use_t::savanna;
-                                  fork_db_s->reset_root(bsp);
+                                  fork_db_s.reset_root(bsp);
                               } },
                   v);
    }

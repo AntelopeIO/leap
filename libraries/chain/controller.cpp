@@ -1433,7 +1433,7 @@ struct controller_impl {
       }
 
       if (startup == startup_t::genesis) {
-         if (!fork_db.fork_db_if_present()) {
+         if (fork_db.version_in_use() == fork_database::in_use_t::legacy) {
             // switch to savanna if needed
             apply_s<void>(chain_head, [&](const auto& head) {
                fork_db.switch_from_legacy(chain_head.internal());
@@ -1689,12 +1689,12 @@ struct controller_impl {
       // If we start at a block during or after the IF transition, we need to provide this information
       // at startup.
       // ---------------------------------------------------------------------------------------------
-      if (fork_db.fork_db_if_present()) {
+      if (auto in_use = fork_db.version_in_use(); in_use  == fork_database::in_use_t::both || in_use  == fork_database::in_use_t::savanna) {
          // we are already past the IF transition point where we create the updated fork_db.
          // so we can't rely on the finalizer safety information update happening during the transition.
          // see https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
          // -------------------------------------------------------------------------------------------
-         if (fork_db.fork_db_legacy_present()) {
+         if (in_use  == fork_database::in_use_t::both) {
             // fork_db_legacy is present as well, which means that we have not completed the transition
             auto set_finalizer_defaults = [&](auto& forkdb) -> void {
                auto lib = forkdb.root();
