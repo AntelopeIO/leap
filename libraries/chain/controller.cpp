@@ -3535,7 +3535,10 @@ struct controller_impl {
          } );
       };
 
-      return fork_db.apply<std::future<block_handle>>(f);
+      if (b->is_proper_svnn_block()) {
+         return fork_db.apply_s<std::future<block_handle>>(f);
+      }
+      return fork_db.apply_l<std::future<block_handle>>(f);
    }
 
    // thread safe, expected to be called from thread other than the main thread
@@ -3554,7 +3557,10 @@ struct controller_impl {
          return create_block_state_i( id, b, *prev );
       };
 
-      return fork_db.apply<std::optional<block_handle>>(f);
+      if (b->is_proper_svnn_block()) {
+         return fork_db.apply_s<std::optional<block_handle>>(f);
+      }
+      return fork_db.apply_l<std::optional<block_handle>>(f);
    }
 
    // expected to be called from application thread as it modifies bsp->valid_qc and if_irreversible_block_id
