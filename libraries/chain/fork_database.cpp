@@ -331,7 +331,8 @@ namespace eosio::chain {
    }
 
    template <class BSP>
-   void fork_database_impl<BSP>::add_impl(const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator) {
+   void fork_database_impl<BSP>::add_impl(const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate,
+                                          bool validate, validator_t& validator) {
       EOS_ASSERT( root, fork_database_exception, "root not yet set" );
       EOS_ASSERT( n, fork_database_exception, "attempt to add null block state" );
 
