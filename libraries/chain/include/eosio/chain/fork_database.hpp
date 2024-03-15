@@ -164,13 +164,13 @@ namespace eosio::chain {
       template <class R, class F>
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
-            if (in_use.load(std::memory_order_relaxed) == in_use_t::legacy) {
+            if (in_use.load() == in_use_t::legacy) {
                f(*fork_db_l);
             } else {
                f(*fork_db_s);
             }
          } else {
-            if (in_use.load(std::memory_order_relaxed) == in_use_t::legacy) {
+            if (in_use.load() == in_use_t::legacy) {
                return f(*fork_db_l);
             } else {
                return f(*fork_db_s);
@@ -182,12 +182,12 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (auto in_use_value = in_use.load(std::memory_order_relaxed);
+            if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                f(*fork_db_s);
             }
          } else {
-            if (auto in_use_value = in_use.load(std::memory_order_relaxed);
+            if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                return f(*fork_db_s);
             }
@@ -199,12 +199,12 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_l(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (auto in_use_value = in_use.load(std::memory_order_relaxed);
+            if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
                f(*fork_db_l);
             }
          } else {
-            if (auto in_use_value = in_use.load(std::memory_order_relaxed);
+            if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
                return f(*fork_db_l);
             }
@@ -217,13 +217,13 @@ namespace eosio::chain {
       template <class R, class LegacyF, class SavannaF>
       R apply(const LegacyF& legacy_f, const SavannaF& savanna_f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (in_use.load(std::memory_order_relaxed) == in_use_t::legacy) {
+            if (in_use.load() == in_use_t::legacy) {
                legacy_f(*fork_db_l);
             } else {
                savanna_f(*fork_db_s);
             }
          } else {
-            if (in_use.load(std::memory_order_relaxed) == in_use_t::legacy) {
+            if (in_use.load() == in_use_t::legacy) {
                return legacy_f(*fork_db_l);
             } else {
                return savanna_f(*fork_db_s);
