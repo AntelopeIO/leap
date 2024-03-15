@@ -30,7 +30,6 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/hotstuff/finalizer.hpp>
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>
-#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
 
 #include <chainbase/chainbase.hpp>
@@ -3332,15 +3331,14 @@ struct controller_impl {
 
    // called from net threads and controller's thread pool
    vote_status process_vote_message( const vote_message& vote ) {
+      // only aggregate votes on proper if blocks
       auto aggregate_vote = [&vote](auto& forkdb) -> vote_status {
           auto bsp = forkdb.get_block(vote.block_id);
-          if (bsp) {
+          if (bsp && bsp->block->is_proper_svnn_block()) {
              return bsp->aggregate_vote(vote);
           }
           return vote_status::unknown_block;
       };
-      // TODO: https://github.com/AntelopeIO/leap/issues/2057
-      // TODO: Do not aggregate votes on block_state if in legacy block fork_db
       auto aggregate_vote_legacy = [](auto&) -> vote_status {
          return vote_status::unknown_block;
       };
@@ -3348,6 +3346,9 @@ struct controller_impl {
    }
 
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
+      if (!bsp->block->is_proper_svnn_block())
+         return;
+
       auto finalizer_digest = bsp->compute_finality_digest();
 
       // Each finalizer configured on the node which is present in the active finalizer policy
