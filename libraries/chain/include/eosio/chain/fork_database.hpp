@@ -78,6 +78,8 @@ namespace eosio::chain {
 
       void remove( const block_id_type& id );
 
+      bool is_valid() const; // sanity checks on this fork_db
+
       bool has_root() const;
       bsp_t  root() const; // undefined if !has_root()
       bsp_t  head() const;

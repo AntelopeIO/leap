@@ -128,6 +128,7 @@ namespace eosio::chain {
       void             open_impl( const std::filesystem::path& fork_db_file, fc::cfile_datastream& ds, validator_t& validator );
       void             close_impl( std::ofstream& out );
       void             add_impl( const bsp_t& n, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate, bool validate, validator_t& validator );
+      bool             is_valid() const;
 
       bsp_t            get_block_impl( const block_id_type& id, include_root_t include_root = include_root_t::no ) const;
       bool             block_exists_impl( const block_id_type& id ) const;
@@ -375,6 +376,17 @@ namespace eosio::chain {
                         const vector<digest_type>& new_features )
                     {}
       );
+   }
+
+   template<class BSP>
+   bool fork_database_t<BSP>::is_valid() const {
+      std::lock_guard g( my->mtx );
+      return my->is_valid();
+   }
+
+   template<class BSP>
+   bool fork_database_impl<BSP>::is_valid() const {
+      return !!root && !!head && get_block_impl(head->id());
    }
 
    template<class BSP>
