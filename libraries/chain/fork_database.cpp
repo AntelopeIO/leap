@@ -180,8 +180,11 @@ namespace eosio::chain {
          head = root;
       } else {
          head = get_block_impl( head_id );
+         if (!head)
+            std::filesystem::remove( fork_db_file );
          EOS_ASSERT( head, fork_database_exception,
-                     "could not find head while reconstructing fork database from file; '${filename}' is likely corrupted",
+                     "could not find head while reconstructing fork database from file; "
+                     "'${filename}' is likely corrupted and has been removed",
                      ("filename", fork_db_file) );
       }
 
@@ -205,6 +208,8 @@ namespace eosio::chain {
 
    template<class BSP>
    void fork_database_impl<BSP>::close_impl(std::ofstream& out) {
+      assert(!!head && !!root); // if head or root are null, we don't save and shouldn't get here
+
       fc::raw::pack( out, *root );
 
       uint32_t num_blocks_in_fork_db = index.size();
@@ -245,7 +250,7 @@ namespace eosio::chain {
          fc::raw::pack( out, *(*itr) );
       }
 
-      fc::raw::pack( out, head ? head->id() : digest_type());
+      fc::raw::pack( out, head->id() );
 
       index.clear();
    }
@@ -666,8 +671,8 @@ namespace eosio::chain {
 
    void fork_database::close() {
       auto fork_db_file {data_dir / config::forkdb_filename};
-      bool legacy_valid  = fork_db_l && fork_db_l->has_root();
-      bool savanna_valid = fork_db_s && fork_db_s->has_root();
+      bool legacy_valid  = fork_db_l && fork_db_l->has_root() && !!fork_db_l->head();
+      bool savanna_valid = fork_db_s && fork_db_s->has_root() && !!fork_db_s->head();
 
       // check that fork_dbs are in a consistent state
       if (!legacy_valid && !savanna_valid) {
