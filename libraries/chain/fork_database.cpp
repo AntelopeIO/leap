@@ -386,7 +386,7 @@ namespace eosio::chain {
 
    template<class BSP>
    bool fork_database_impl<BSP>::is_valid() const {
-      return !!root && !!head; // && get_block_impl(head->id());
+      return !!root && !!head && (root->id() == head->id() || get_block_impl(head->id()));
    }
 
    template<class BSP>
