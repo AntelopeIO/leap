@@ -1051,12 +1051,7 @@ struct controller_impl {
    }
 
    void fork_db_reset_root_to_chain_head() {
-      fork_db.apply<void>([&](auto& forkdb) {
-         apply<void>(chain_head, [&](const auto& head) {
-            if constexpr (std::is_same_v<std::decay_t<decltype(head)>, std::decay_t<decltype(forkdb.head())>>)
-               forkdb.reset_root(head);
-         });
-      });
+      fork_db.reset_root(chain_head.internal());
    }
 
    signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
@@ -1267,7 +1262,7 @@ struct controller_impl {
       // copy head branch branch from legacy forkdb legacy to savanna forkdb
       std::vector<block_state_legacy_ptr> legacy_branch;
       block_state_legacy_ptr legacy_root;
-      fork_db.apply_to_l<void>([&](auto& forkdb) {
+      fork_db.apply_l<void>([&](auto& forkdb) {
          legacy_root = forkdb.root();
          legacy_branch = forkdb.fetch_branch(forkdb.head()->id());
       });
@@ -1518,7 +1513,7 @@ struct controller_impl {
       }
 
       if (startup == startup_t::genesis) {
-         if (!fork_db.fork_db_if_present()) {
+         if (fork_db.version_in_use() == fork_database::in_use_t::legacy) {
             // switch to savanna if needed
             apply_s<void>(chain_head, [&](const auto& head) {
                fork_db.switch_from_legacy();
@@ -1777,12 +1772,12 @@ struct controller_impl {
       // If we start at a block during or after the IF transition, we need to provide this information
       // at startup.
       // ---------------------------------------------------------------------------------------------
-      if (fork_db.fork_db_if_present()) {
+      if (auto in_use = fork_db.version_in_use(); in_use  == fork_database::in_use_t::both || in_use  == fork_database::in_use_t::savanna) {
          // we are already past the IF transition point where we create the updated fork_db.
          // so we can't rely on the finalizer safety information update happening during the transition.
          // see https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
          // -------------------------------------------------------------------------------------------
-         if (fork_db.fork_db_legacy_present()) {
+         if (in_use  == fork_database::in_use_t::both) {
             // fork_db_legacy is present as well, which means that we have not completed the transition
             auto set_finalizer_defaults = [&](auto& forkdb) -> void {
                auto lib = forkdb.root();
@@ -3795,7 +3790,7 @@ struct controller_impl {
          } else if( new_head->id() != chain_head.id() ) {
             ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
                  ("current_head_id", chain_head.id())("current_head_num", chain_head.block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
-                 ("c", log_fork_comparison(chain_head))("n", log_fork_comparison(*new_head)));
+                 ("c", log_fork_comparison(chain_head.internal()))("n", log_fork_comparison(*new_head)));
 
             // not possible to log transaction specific infor when switching forks
             if (auto dm_logger = get_deep_mind_logger(false)) {

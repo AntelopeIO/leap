@@ -1,7 +1,8 @@
 #pragma once
 #include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/block_state.hpp>
-#include <eosio/chain/block_handle.hpp>
+
+namespace fc { class cfile_datastream; } // forward decl
 
 namespace eosio::chain {
 
@@ -16,7 +17,7 @@ namespace eosio::chain {
    // Used for logging of comparison values used for best fork determination
    std::string log_fork_comparison(const block_state& bs);
    std::string log_fork_comparison(const block_state_legacy& bs);
-   std::string log_fork_comparison(const block_handle& bh);
+   std::string log_fork_comparison(const block_state_variant_t& bh);
 
    /**
     * @class fork_database_t
@@ -35,9 +36,6 @@ namespace eosio::chain {
    template<class BSP>  // either block_state_legacy_ptr or block_state_ptr
    class fork_database_t {
    public:
-      static constexpr uint32_t legacy_magic_number = 0x30510FDB;
-      static constexpr uint32_t magic_number = 0x4242FDB;
-
       using bsp_t            = BSP;
       using bs_t             = bsp_t::element_type;
       using bhsp_t           = bs_t::bhsp_t;
@@ -46,11 +44,11 @@ namespace eosio::chain {
       using full_branch_t    = std::vector<bhsp_t>;
       using branch_pair_t    = pair<branch_t, branch_t>;
 
-      explicit fork_database_t(uint32_t magic_number = legacy_magic_number);
+      explicit fork_database_t();
       ~fork_database_t();
 
-      void open( const std::filesystem::path& fork_db_file, validator_t& validator );
-      void close( const std::filesystem::path& fork_db_file );
+      void open( const std::filesystem::path& fork_db_file, fc::cfile_datastream& ds, validator_t& validator );
+      void close( std::ofstream& out );
 
       bsp_t get_block( const block_id_type& id, include_root_t include_root = include_root_t::no ) const;
       bool block_exists( const block_id_type& id ) const;
@@ -79,6 +77,8 @@ namespace eosio::chain {
       void add( const bsp_t& next_block, mark_valid_t mark_valid, ignore_duplicate_t ignore_duplicate );
 
       void remove( const block_id_type& id );
+
+      bool is_valid() const; // sanity checks on this fork_db
 
       bool has_root() const;
       bsp_t  root() const; // undefined if !has_root()
@@ -136,10 +136,17 @@ namespace eosio::chain {
     * All methods assert until open() is closed.
     */
    class fork_database {
+   public:
+      enum class in_use_t : uint32_t { legacy, savanna, both };
+
+   private:
+      static constexpr uint32_t magic_number = 0x30510FDB;
+
       const std::filesystem::path data_dir;
-      std::atomic<bool> legacy = true;
-      std::unique_ptr<fork_database_legacy_t> fork_db_l; // legacy
-      std::unique_ptr<fork_database_if_t>     fork_db_s; // savanna
+      std::atomic<in_use_t>  in_use = in_use_t::legacy;
+      fork_database_legacy_t fork_db_l; // legacy
+      fork_database_if_t     fork_db_s; // savanna
+
    public:
       explicit fork_database(const std::filesystem::path& data_dir);
       ~fork_database(); // close on destruction
@@ -151,25 +158,43 @@ namespace eosio::chain {
       // creates savanna fork db if not already created
       void switch_from_legacy();
 
-      bool fork_db_if_present() const { return !!fork_db_s; }
-      bool fork_db_legacy_present() const { return !!fork_db_l; }
+      in_use_t version_in_use() const { return in_use.load(); }
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
 
+      void reset_root(const block_state_variant_t& v);
+
       template <class R, class F>
       R apply(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
-            if (legacy) {
-               f(*fork_db_l);
+            if (in_use.load() == in_use_t::legacy) {
+               f(fork_db_l);
             } else {
-               f(*fork_db_s);
+               f(fork_db_s);
             }
          } else {
-            if (legacy) {
-               return f(*fork_db_l);
+            if (in_use.load() == in_use_t::legacy) {
+               return f(fork_db_l);
             } else {
-               return f(*fork_db_s);
+               return f(fork_db_s);
+            }
+         }
+      }
+
+      template <class R, class F>
+      R apply(const F& f) {
+         if constexpr (std::is_same_v<void, R>) {
+            if (in_use.load() == in_use_t::legacy) {
+               f(fork_db_l);
+            } else {
+               f(fork_db_s);
+            }
+         } else {
+            if (in_use.load() == in_use_t::legacy) {
+               return f(fork_db_l);
+            } else {
+               return f(fork_db_s);
             }
          }
       }
@@ -178,12 +203,14 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (!legacy) {
-               f(*fork_db_s);
+            if (auto in_use_value = in_use.load();
+                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+               f(fork_db_s);
             }
          } else {
-            if (!legacy) {
-               return f(*fork_db_s);
+            if (auto in_use_value = in_use.load();
+                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+               return f(fork_db_s);
             }
             return {};
          }
@@ -193,25 +220,16 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_l(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (legacy) {
-               f(*fork_db_l);
+            if (auto in_use_value = in_use.load();
+                in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
+               f(fork_db_l);
             }
          } else {
-            if (legacy) {
-               return f(*fork_db_l);
+            if (auto in_use_value = in_use.load();
+                in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
+               return f(fork_db_l);
             }
             return {};
-         }
-      }
-
-      /// Apply to legacy fork db regardless of mode
-      template <class R, class F>
-      R apply_to_l(const F& f) {
-         assert(!!fork_db_l);
-         if constexpr (std::is_same_v<void, R>) {
-            f(*fork_db_l);
-         } else {
-            return f(*fork_db_l);
          }
       }
 
@@ -220,22 +238,22 @@ namespace eosio::chain {
       template <class R, class LegacyF, class SavannaF>
       R apply(const LegacyF& legacy_f, const SavannaF& savanna_f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (legacy) {
-               legacy_f(*fork_db_l);
+            if (in_use.load() == in_use_t::legacy) {
+               legacy_f(fork_db_l);
             } else {
-               savanna_f(*fork_db_s);
+               savanna_f(fork_db_s);
             }
          } else {
-            if (legacy) {
-               return legacy_f(*fork_db_l);
+            if (in_use.load() == in_use_t::legacy) {
+               return legacy_f(fork_db_l);
             } else {
-               return savanna_f(*fork_db_s);
+               return savanna_f(fork_db_s);
             }
          }
       }
 
-      // if we ever support more than one version then need to save min/max in fork_database_t
+      // Update max_supported_version if the persistent file format changes.
       static constexpr uint32_t min_supported_version = 1;
-      static constexpr uint32_t max_supported_version = 1;
+      static constexpr uint32_t max_supported_version = 2;
    };
 } /// eosio::chain
