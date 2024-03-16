@@ -1074,8 +1074,6 @@ BOOST_AUTO_TEST_CASE( get_sender_test ) { try {
 BOOST_AUTO_TEST_CASE( protocol_activatation_works_after_transition_to_savanna ) { try {
    validating_tester c({}, {}, setup_policy::preactivate_feature_and_new_bios );
 
-      // needed for bios contract
-      // const auto& dwk = pfm.get_builtin_digest(builtin_protocol_feature_t::webauthn_key);
    c.preactivate_savanna_protocol_features();
    c.produce_block();
 
