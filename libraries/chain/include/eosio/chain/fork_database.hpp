@@ -17,7 +17,6 @@ namespace eosio::chain {
    // Used for logging of comparison values used for best fork determination
    std::string log_fork_comparison(const block_state& bs);
    std::string log_fork_comparison(const block_state_legacy& bs);
-   std::string log_fork_comparison(const block_state_variant_t& bh);
 
    /**
     * @class fork_database_t
@@ -155,15 +154,13 @@ namespace eosio::chain {
       void open( validator_t& validator );
       void close();
 
-      // creates savanna fork db if not already created
+      // switches to using both legacy and savanna during transition
       void switch_from_legacy();
 
       in_use_t version_in_use() const { return in_use.load(); }
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
-
-      void reset_root(const block_state_variant_t& v);
 
       template <class R, class F>
       R apply(const F& f) const {

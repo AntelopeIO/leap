@@ -1051,7 +1051,12 @@ struct controller_impl {
    }
 
    void fork_db_reset_root_to_chain_head() {
-      fork_db.reset_root(chain_head.internal());
+      fork_db.apply<void>([&](auto& forkdb) {
+         apply<void>(chain_head, [&](const auto& head) {
+            if constexpr (std::is_same_v<std::decay_t<decltype(head)>, std::decay_t<decltype(forkdb.head())>>)
+               forkdb.reset_root(head);
+         });
+      });
    }
 
    signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
@@ -3788,9 +3793,10 @@ struct controller_impl {
                throw;
             }
          } else if( new_head->id() != chain_head.id() ) {
+            auto head_fork_comp_str = apply<std::string>(chain_head, [](auto& head) -> std::string { return log_fork_comparison(*head); });
             ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
                  ("current_head_id", chain_head.id())("current_head_num", chain_head.block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
-                 ("c", log_fork_comparison(chain_head.internal()))("n", log_fork_comparison(*new_head)));
+                 ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
 
             // not possible to log transaction specific infor when switching forks
             if (auto dm_logger = get_deep_mind_logger(false)) {

@@ -50,10 +50,6 @@ namespace eosio::chain {
       return r;
    }
 
-   std::string log_fork_comparison(const block_state_variant_t& bhv) {
-      return std::visit([](const auto& bsp) { return log_fork_comparison(*bsp); }, bhv);
-   }
-
    struct by_block_id;
    struct by_best_branch;
    struct by_prev;
@@ -792,16 +788,6 @@ namespace eosio::chain {
       return apply<block_branch_t>([&](auto& forkdb) {
          return forkdb.fetch_block_branch(forkdb.head()->id());
       });
-   }
-
-   void fork_database::reset_root(const block_state_variant_t& v) {
-       std::visit(overloaded{ [&](const block_state_legacy_ptr& bsp) { fork_db_l.reset_root(bsp); },
-                              [&](const block_state_ptr& bsp) {
-                                  if (in_use == in_use_t::legacy)
-                                     in_use = in_use_t::savanna;
-                                  fork_db_s.reset_root(bsp);
-                              } },
-                  v);
    }
 
    // do class instantiations

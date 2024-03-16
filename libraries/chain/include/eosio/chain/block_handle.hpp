@@ -9,7 +9,7 @@ namespace eosio::chain {
 // Valid to request id and signed_block_ptr it was created from.
 struct block_handle {
 private:
-   block_state_variant_t _bsp;
+   std::variant<block_state_legacy_ptr, block_state_ptr> _bsp;
 
 public:
    block_handle() = default;
