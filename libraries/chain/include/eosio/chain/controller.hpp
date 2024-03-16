@@ -263,6 +263,7 @@ namespace eosio::chain {
 
          void set_if_irreversible_block_id(const block_id_type& id);
          uint32_t if_irreversible_block_num() const;
+         finality_data_t get_chain_head_finality_data(block_id_type block_id) const;
 
          uint32_t last_irreversible_block_num() const;
          block_id_type last_irreversible_block_id() const;

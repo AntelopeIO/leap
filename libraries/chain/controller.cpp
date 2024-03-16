@@ -753,6 +753,7 @@ struct building_block {
                   // have one.
                   if (!validating_bsp->valid) {
                      validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot);
+                     validating_bsp->action_mroot = action_mroot; // caching for constructing finality_data. Only needed when block is commited.
                   }
                } else {
                   // Create the valid structure for producing
@@ -4102,6 +4103,13 @@ struct controller_impl {
       }
    }
 
+   finality_data_t get_chain_head_finality_data(block_id_type block_id) const {
+      return apply_s<finality_data_t>(chain_head, [&](const auto& head) {
+         assert(head->id() == block_id);
+         return head->get_finality_data();
+      });
+   }
+
    uint32_t earliest_available_block_num() const {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db_root_block_num();
    }
@@ -4666,6 +4674,10 @@ void controller::set_if_irreversible_block_id(const block_id_type& id) {
 
 uint32_t controller::if_irreversible_block_num() const {
    return block_header::num_from_id(my->if_irreversible_block_id);
+}
+
+finality_data_t controller::get_chain_head_finality_data(block_id_type block_id) const {
+   return my->get_chain_head_finality_data(block_id);
 }
 
 uint32_t controller::last_irreversible_block_num() const {

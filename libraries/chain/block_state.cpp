@@ -297,6 +297,17 @@ digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) co
    return get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
 }
 
+finality_data_t block_state::get_finality_data() const {
+   assert(action_mroot.has_value());
+   finality_data_t finality_data {
+      // other fields take the default values set by finality_data_t definition
+      .action_mroot = *action_mroot,
+      .base_digest  = compute_base_digest()  // from block_header_state
+   };
+
+   return finality_data;
+}
+
 void inject_additional_signatures( signed_block& b, const std::vector<signature_type>& additional_signatures)
 {
    if (!additional_signatures.empty()) {
