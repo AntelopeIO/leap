@@ -1050,15 +1050,6 @@ struct controller_impl {
       });
    }
 
-   void fork_db_reset_root_to_chain_head() {
-      fork_db.apply<void>([&](auto& forkdb) {
-         apply<void>(chain_head, [&](const auto& head) {
-            if constexpr (std::is_same_v<std::decay_t<decltype(head)>, std::decay_t<decltype(forkdb.head())>>)
-               forkdb.reset_root(head);
-         });
-      });
-   }
-
    signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
       return fork_db.apply<signed_block_ptr>([&](const auto& forkdb) {
          auto bsp = forkdb.get_block(id);
@@ -1559,7 +1550,16 @@ struct controller_impl {
          elog( "Unable to open fork database, continuing without reversible blocks: ${e}", ("e", e));
       }
 
-      if (startup == startup_t::genesis) {
+      auto fork_db_reset_root_to_chain_head = [&]() {
+         fork_db.apply<void>([&](auto& forkdb) {
+            apply<void>(chain_head, [&](const auto& head) {
+               if constexpr (std::is_same_v<std::decay_t<decltype(head)>, std::decay_t<decltype(forkdb.head())>>)
+                  forkdb.reset_root(head);
+            });
+         });
+      };
+
+      auto switch_from_legacy_if_needed = [&]() {
          if (fork_db.version_in_use() == fork_database::in_use_t::legacy) {
             // switch to savanna if needed
             apply_s<void>(chain_head, [&](const auto& head) {
@@ -1569,6 +1569,10 @@ struct controller_impl {
                });
             });
          }
+      };
+
+      if (startup == startup_t::genesis) {
+         switch_from_legacy_if_needed();
          auto do_startup = [&](auto& forkdb) {
             if( forkdb.head() ) {
                if( read_mode == db_read_mode::IRREVERSIBLE && forkdb.head()->id() != forkdb.root()->id() ) {
@@ -1587,6 +1591,7 @@ struct controller_impl {
       }
 
       if( !fork_db_has_root() ) {
+         switch_from_legacy_if_needed();
          fork_db_reset_root_to_chain_head();
       }
 
