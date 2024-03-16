@@ -30,7 +30,8 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "irreversible_only", "type": "bool" },
                 { "name": "fetch_block", "type": "bool" },
                 { "name": "fetch_traces", "type": "bool" },
-                { "name": "fetch_deltas", "type": "bool" }
+                { "name": "fetch_deltas", "type": "bool" },
+                { "name": "fetch_finality_data", "type": "bool" }
             ]
         },
         {
@@ -46,7 +47,8 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "prev_block", "type": "block_position?" },
                 { "name": "block", "type": "bytes?" },
                 { "name": "traces", "type": "bytes?" },
-                { "name": "deltas", "type": "bytes?" }
+                { "name": "deltas", "type": "bytes?" },
+                { "name": "finality_data", "type": "bytes?" }
             ]
         },
         {

@@ -102,6 +102,7 @@ struct get_blocks_request_v0 {
    bool                        fetch_block            = false;
    bool                        fetch_traces           = false;
    bool                        fetch_deltas           = false;
+   bool                        fetch_finality_data    = false;
 };
 
 struct get_blocks_ack_request_v0 {
@@ -119,6 +120,7 @@ struct get_blocks_result_base {
 struct get_blocks_result_v0 : get_blocks_result_base {
    std::optional<bytes>          traces;
    std::optional<bytes>          deltas;
+   std::optional<bytes>          finality_data;
 };
 
 using state_request = std::variant<get_status_request_v0, get_blocks_request_v0, get_blocks_ack_request_v0>;
@@ -132,8 +134,8 @@ FC_REFLECT(eosio::state_history::table_delta, (struct_version)(name)(rows));
 FC_REFLECT(eosio::state_history::block_position, (block_num)(block_id));
 FC_REFLECT_EMPTY(eosio::state_history::get_status_request_v0);
 FC_REFLECT(eosio::state_history::get_status_result_v0, (head)(last_irreversible)(trace_begin_block)(trace_end_block)(chain_state_begin_block)(chain_state_end_block)(chain_id));
-FC_REFLECT(eosio::state_history::get_blocks_request_v0, (start_block_num)(end_block_num)(max_messages_in_flight)(have_positions)(irreversible_only)(fetch_block)(fetch_traces)(fetch_deltas));
+FC_REFLECT(eosio::state_history::get_blocks_request_v0, (start_block_num)(end_block_num)(max_messages_in_flight)(have_positions)(irreversible_only)(fetch_block)(fetch_traces)(fetch_deltas)(fetch_finality_data));
 FC_REFLECT(eosio::state_history::get_blocks_ack_request_v0, (num_messages));
 FC_REFLECT(eosio::state_history::get_blocks_result_base, (head)(last_irreversible)(this_block)(prev_block)(block));
-FC_REFLECT_DERIVED(eosio::state_history::get_blocks_result_v0, (eosio::state_history::get_blocks_result_base), (traces)(deltas));
+FC_REFLECT_DERIVED(eosio::state_history::get_blocks_result_v0, (eosio::state_history::get_blocks_result_base), (traces)(deltas)(finality_data));
 // clang-format on
