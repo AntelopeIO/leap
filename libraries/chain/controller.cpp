@@ -2918,7 +2918,7 @@ struct controller_impl {
 
          const auto& gpo = db.get<global_property_object>();
 
-         // instant finality uses alternative method for chaning producer schedule
+         // instant finality uses alternative method for changing producer schedule
          bb.apply_l<void>([&](building_block::building_block_legacy& bb_legacy) {
             pending_block_header_state_legacy& pbhs = bb_legacy.pending_block_header_state;
 
@@ -2927,18 +2927,18 @@ struct controller_impl {
                 pbhs.prev_pending_schedule.schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
                )
             {
-               // Promote proposed schedule to pending schedule; happens in next block after hotstuff activated
-               EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
-                           producer_schedule_exception, "wrong producer schedule version specified" );
-
-               bb_legacy.new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
-
+               // Promote proposed schedule to pending schedule.
                if( !replaying ) {
                   ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
                         ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
                         ("lib", pbhs.dpos_irreversible_blocknum)
                         ("schedule", bb_legacy.new_pending_producer_schedule ) );
                }
+
+               EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
+                           producer_schedule_exception, "wrong producer schedule version specified" );
+
+               bb_legacy.new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
 
                db.modify( gpo, [&]( auto& gp ) {
                   gp.proposed_schedule_block_num = std::optional<block_num_type>();
