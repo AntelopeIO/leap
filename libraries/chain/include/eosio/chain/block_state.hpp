@@ -130,7 +130,7 @@ public:
                const signer_callback_type&              signer,
                const block_signing_authority&           valid_block_signing_authority);
 
-   block_state(const block_state_legacy& bsp, const digest_type& action_mroot_svnn);
+   static std::shared_ptr<block_state> create_if_genesis_block(const block_state_legacy& bsp);
 
    explicit block_state(snapshot_detail::snapshot_block_state_v7&& sbs);
 

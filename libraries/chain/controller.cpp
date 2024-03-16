@@ -223,7 +223,7 @@ struct assembled_block {
       // if the unsigned_block pre-dates block-signing authorities this may be present.
       std::optional<producer_authority_schedule> new_producer_authority_cache;
 
-      // Passed to completed_block, to be used by Legacy to Savanna transisition
+      // Passed to completed_block, to be used by Legacy to Savanna transition
       std::optional<digests_t>          action_receipt_digests;
    };
 
@@ -1265,7 +1265,7 @@ struct controller_impl {
    void transition_to_savanna() {
       fork_db.switch_from_legacy(); // create savanna forkdb if not already created
       // copy head branch branch from legacy forkdb legacy to savanna forkdb
-      std::vector<block_state_legacy_ptr> legacy_branch;
+      fork_database_legacy_t::branch_t legacy_branch;
       block_state_legacy_ptr legacy_root;
       fork_db.apply_l<void>([&](auto& forkdb) {
          legacy_root = forkdb.root();
@@ -1276,10 +1276,7 @@ struct controller_impl {
       assert(!!legacy_root);
       fork_db.apply_s<void>([&](auto& forkdb) {
          if (!forkdb.root() || forkdb.root()->id() != legacy_root->id()) {
-            // Calculate Merkel tree root in Savanna way so that it is stored in Leaf Node when building block_state.
-            assert(legacy_root->action_receipt_digests);
-            auto action_mroot = calculate_merkle(*legacy_root->action_receipt_digests);
-            auto new_root = std::make_shared<block_state>(*legacy_root, action_mroot);
+            auto new_root = block_state::create_if_genesis_block(*legacy_root);
             forkdb.reset_root(new_root);
          }
          block_state_ptr prev = forkdb.root();
@@ -1307,6 +1304,7 @@ struct controller_impl {
       });
       ilog("Transition to instant finality happening at block ${b}", ("b", chain_head.block_num()));
 
+      // TODO: committed with the next block, but what if that is aborted, should be done somewhere else
       // cancel any proposed schedule changes, prepare for new ones under instant_finality
       const auto& gpo = db.get<global_property_object>();
       db.modify(gpo, [&](auto& gp) {
@@ -1468,9 +1466,53 @@ struct controller_impl {
       if( start_block_num <= blog_head->block_num() ) {
          ilog( "existing block log, attempting to replay from ${s} to ${n} blocks", ("s", start_block_num)("n", blog_head->block_num()) );
          try {
+            std::vector<block_state_legacy_ptr> legacy_branch; // for blocks that will need to be converted to IF blocks
             while( auto next = blog.read_block_by_num( chain_head.block_num() + 1 ) ) {
+               apply_l<void>(chain_head, [&](const auto& head) {
+                  if (next->is_proper_svnn_block()) {
+                     const bool skip_validate_signee = !conf.force_all_checks;
+                     assert(!legacy_branch.empty()); // should have started with a block_state chain_head or we transition during replay
+                     // transition to savanna
+                     block_state_ptr prev;
+                     for (size_t i = 0; i < legacy_branch.size(); ++i) {
+                        if (i == 0) {
+                           prev = block_state::create_if_genesis_block(*legacy_branch[0]);
+                        } else {
+                           const auto& bspl = legacy_branch[i];
+                           auto new_bsp = std::make_shared<block_state>(
+                                 *prev,
+                                 bspl->block,
+                                 protocol_features.get_protocol_feature_set(),
+                                 validator_t{}, skip_validate_signee);
+                           // legacy_branch is from head, all should be validated
+                           assert(bspl->action_receipt_digests);
+                           auto action_mroot = calculate_merkle(*bspl->action_receipt_digests);
+                           // Create the valid structure for producing
+                           new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
+                           prev = new_bsp;
+                        }
+                     }
+                     // TODO: committed with the next block, but what if that is aborted, should be done somewhere else
+                     // cancel any proposed schedule changes, prepare for new ones under instant_finality
+                     const auto& gpo = db.get<global_property_object>();
+                     db.modify(gpo, [&](auto& gp) {
+                        gp.proposed_schedule_block_num = 0;
+                        gp.proposed_schedule.version   = 0;
+                        gp.proposed_schedule.producers.clear();
+                     });
+
+                     chain_head = block_handle{ prev };
+                  }
+               });
                apply<void>(chain_head, [&](const auto& head) {
                   replay_push_block<std::decay_t<decltype(head)>>( next, controller::block_status::irreversible );
+               });
+               apply_l<void>(chain_head, [&](const auto& head) {
+                  assert(!next->is_proper_svnn_block());
+                  if (next->contains_header_extension(instant_finality_extension::extension_id())) {
+                     assert(legacy_branch.empty() || head->block->previous == legacy_branch.back()->block->calculate_id());
+                     legacy_branch.push_back(head);
+                  }
                });
                if( check_shutdown() ) break;
                if( next->block_num() % 500 == 0 ) {

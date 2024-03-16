@@ -94,6 +94,7 @@ namespace eosio::chain {
 
       header_extension_multimap validate_and_extract_header_extensions()const;
       std::optional<block_header_extension> extract_header_extension(uint16_t extension_id)const;
+      bool contains_header_extension(uint16_t extension_id)const;
    };
 
 
