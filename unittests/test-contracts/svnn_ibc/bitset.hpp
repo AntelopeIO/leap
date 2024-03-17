@@ -3,14 +3,10 @@ using namespace eosio;
 class bitset {
 public:
     bitset(size_t size) 
-        : num_bits(size), data(new uint64_t[(size + 63) / 64]()) {}
+        : num_bits(size), data((size + 63) / 64) {}
     
-    bitset(size_t size, uint64_t* _data) 
-        : num_bits(size), data(_data) {}
-
-    ~bitset() {
-        delete[] data;
-    }
+   bitset(size_t size, const std::vector<uint64_t>& raw_bitset)
+       : num_bits(size), data(raw_bitset) {}
 
     // Set a bit to 1
     void set(size_t index) {
@@ -37,7 +33,7 @@ public:
 
 private:
     size_t num_bits;
-    uint64_t* data;
+    std::vector<uint64_t> data;
 
     // Check if the index is within bounds
     void check_bounds(size_t index) const {

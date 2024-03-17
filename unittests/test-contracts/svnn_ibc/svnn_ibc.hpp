@@ -11,7 +11,7 @@
 
 using namespace eosio;
 
-CONTRACT if_ibc : public contract {
+CONTRACT svnn_ibc : public contract {
    public:
       using contract::contract;
 
@@ -21,27 +21,9 @@ CONTRACT if_ibc : public contract {
       const uint32_t POLICY_CACHE_EXPIRY = 600; //10 minutes for testing
       const uint32_t PROOF_CACHE_EXPIRY = 600; //10 minutes for testing
 
-      //Compute the next power of 2 for a given number
-      static uint64_t next_power_of_2(uint64_t value) {
-          value -= 1;
-          value |= value >> 1;
-          value |= value >> 2;
-          value |= value >> 4;
-          value |= value >> 8;
-          value |= value >> 16;
-          value |= value >> 32;
-          value += 1;   return value;
-      }
-
-      static uint64_t clz_power_of_2(uint64_t v) {
-          return 64 - (__builtin_clzll(v)+1); 
-      }
-
-      //Compute the maximum number of layers of a merkle tree for a given number of leaves
       static uint64_t calculate_max_depth(uint64_t node_count) {
           if (node_count == 0) return 0;
-          auto implied_count = next_power_of_2(node_count);
-          return clz_power_of_2(implied_count) + 1;
+          return std::llround(std::log2(node_count)) + 2;
       }
 
       static uint32_t reverse_bytes(const uint32_t input){
@@ -80,53 +62,39 @@ CONTRACT if_ibc : public contract {
 
           for (uint64_t i = 0; i < layers_depth; i++) {
               if (c_last_node_index % 2) c_last_node_index+=1;
-
               bool isLeft = c_index % 2 == 0 ? 0 : 1;
               uint64_t pairIndex = isLeft ? c_index - 1 :
                           c_index == last_node_index - 1 && i < layers_depth - 1 ? c_index :
                           c_index + 1;
-
               c_last_node_index/=2;
               if (pairIndex < last_node_index) proof.push_back(isLeft);
-
               c_index = c_index / 2;
-
           }
-
           return proof;
-
       }
 
       */
 
       struct merkle_branch {
-
          uint8_t direction;
          checksum256 hash;
-
       };
 
 
       //compute the merkle root of target node and vector of merkle branches
       static checksum256 _compute_root(const std::vector<merkle_branch> proof_nodes, const checksum256& target){
-
           checksum256 hash = target;
-
           for (int i = 0 ; i < proof_nodes.size() ; i++){
               const checksum256 node = proof_nodes[i].hash;
               std::array<uint8_t, 32> arr = node.extract_as_byte_array();
-
               if (proof_nodes[i].direction == 0){
                   hash = hash_pair(std::make_pair(hash, node));
               }
               else {
                   hash = hash_pair(std::make_pair(node, hash));
               }
-
           }
-
           return hash;
-
       }
 
       struct quorum_certificate {
@@ -204,42 +172,28 @@ CONTRACT if_ibc : public contract {
          std::vector<char>    returnvalue;
 
          checksum256 digest() const {
-
             checksum256 hashes[2];
-
             const r_action_base* base = this;
-
             const auto action_input_size = pack_size(data);
             const auto return_value_size = pack_size(returnvalue);
-
             const auto rhs_size = action_input_size + return_value_size;
-
             const auto serialized_base = pack(*base);
             const auto serialized_data = pack(data);
             const auto serialized_output = pack(returnvalue);
-
             hashes[0] = sha256(serialized_base.data(), serialized_base.size());
-
             std::vector<uint8_t> data_digest(action_input_size);
             std::vector<uint8_t> output_digest(return_value_size);
-
             std::vector<uint8_t> h1_result(rhs_size);
             std::copy (serialized_data.cbegin(), serialized_data.cend(), h1_result.begin());
             std::copy (serialized_output.cbegin(), serialized_output.cend(), h1_result.begin() + action_input_size);
-
             hashes[1] = sha256(reinterpret_cast<char*>(h1_result.data()), rhs_size);
-
             std::array<uint8_t, 32> arr1 = hashes[0].extract_as_byte_array();
             std::array<uint8_t, 32> arr2 = hashes[1].extract_as_byte_array();
-
             std::array<uint8_t, 64> result;
             std::copy (arr1.cbegin(), arr1.cend(), result.begin());
             std::copy (arr2.cbegin(), arr2.cend(), result.begin() + 32);
-
             checksum256 final_hash = sha256(reinterpret_cast<char*>(result.data()), 64);
-
             return final_hash;
-
          }
 
          EOSLIB_SERIALIZE( r_action, (account)(name)(authorization)(data)(returnvalue))
@@ -279,25 +233,17 @@ CONTRACT if_ibc : public contract {
          std::optional<checksum256> action_mroot;
 
          checksum256 get_action_mroot() const {
-
             if (action_mroot.has_value()) return action_mroot.value();
             else {
-
                check(action_proofs.size()>0, "must have at least one action proof");
-
                checksum256 root = checksum256();
-
                for (auto ap : action_proofs){
                   if (root == checksum256()) root = ap.root();
                   else check(ap.root() == root, "all action proofs must resolve to the same merkle root");
                }
-
                return root;
-
             }
-
          }; 
-
       };
             
       struct block_finality_data {
@@ -326,7 +272,6 @@ CONTRACT if_ibc : public contract {
                std::vector<char> serialized_policy = pack(active_finalizer_policy.value());
                checksum256 policy_digest = sha256(serialized_policy.data(), serialized_policy.size());
                checksum256 base_fpolicy_digest = hash_pair( std::make_pair( policy_digest, witness_hash) );
-
                return base_fpolicy_digest;
             }
             else {
@@ -336,23 +281,16 @@ CONTRACT if_ibc : public contract {
 
          //returns hash of major_version + minor_version + finalizer_policy_generation + resolve_witness() + finality_mroot
          checksum256 finality_digest() const {
-
             std::array<uint8_t, 76> result;
-
             memcpy(&result[0], (uint8_t *)&major_version, 4);
             memcpy(&result[4], (uint8_t *)&minor_version, 4);
             memcpy(&result[8], (uint8_t *)&finalizer_policy_generation, 4);
-
             std::array<uint8_t, 32> arr1 = finality_mroot.extract_as_byte_array();
             std::array<uint8_t, 32> arr2 = resolve_witness().extract_as_byte_array();
-
             std::copy (arr1.cbegin(), arr1.cend(), result.begin() + 12);
             std::copy (arr2.cbegin(), arr2.cend(), result.begin() + 44);
-
             checksum256 hash = sha256(reinterpret_cast<char*>(result.data()), 76);
-
             return hash;
-
          };
 
       };
@@ -367,29 +305,19 @@ CONTRACT if_ibc : public contract {
 
          //returns hash of finality_digest() and dynamic_data_digest()
          checksum256 digest() const {
-
             checksum256 finality_digest = finality_data.finality_digest();
-
             checksum256 action_mroot = dynamic_data.get_action_mroot();
-
             std::array<uint8_t, 76> result;
-
             memcpy(&result[0], (uint8_t *)&finality_data.major_version, 4);
             memcpy(&result[4], (uint8_t *)&finality_data.minor_version, 4);
             memcpy(&result[8], (uint8_t *)&dynamic_data.block_num, 4);
-
             std::array<uint8_t, 32> arr1 = finality_digest.extract_as_byte_array();
             std::array<uint8_t, 32> arr2 = action_mroot.extract_as_byte_array();
-
             std::copy (arr1.cbegin(), arr1.cend(), result.begin() + 12);
             std::copy (arr2.cbegin(), arr2.cend(), result.begin() + 44);
-
-            auto hash = sha256(reinterpret_cast<char*>(result.data()), 76);
-            
+            checksum256 hash = sha256(reinterpret_cast<char*>(result.data()), 76);
             return hash;
-
          };
-
       };
 
       struct action_data {
@@ -426,15 +354,10 @@ CONTRACT if_ibc : public contract {
 
          //returns the merkle root obtained by hashing target.digest() with merkle_branches
          checksum256 root() const {
-
             auto call_digest = [](const auto& var) -> checksum256 { return var.digest(); };
-
             checksum256 digest = std::visit(call_digest, target);
-            
             checksum256 root = _compute_root(merkle_branches, digest);
-
             return root;
-
          }; 
 
       };

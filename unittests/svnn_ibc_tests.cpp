@@ -1,4 +1,3 @@
-// From fork tests
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/testing/tester.hpp>
@@ -17,12 +16,11 @@
 using namespace eosio::chain;
 using namespace eosio::testing;
 
-// From params_test
 #include <eosio/chain/exceptions.hpp>
 using mvo = mutable_variant_object;
 
 
-BOOST_AUTO_TEST_SUITE(if_ibc)
+BOOST_AUTO_TEST_SUITE(svnn_ibc)
 
 // Extending the default chain tester
 // ( libraries/testing/include/eosio/testing/tester.hpp )
@@ -32,14 +30,13 @@ public:
 
    // This is mostly for creating accounts and loading contracts.
    void setup(){
-
       // load bridge contract
       create_account( _bridge );
-      set_code( _bridge, eosio::testing::test_contracts::if_ibc_wasm());
-      set_abi( _bridge, eosio::testing::test_contracts::if_ibc_abi());
-
+      set_code( _bridge, eosio::testing::test_contracts::svnn_ibc_wasm());
+      set_abi( _bridge, eosio::testing::test_contracts::svnn_ibc_abi());
    }
 
+   //set a finalizer policy
    void set_policy(){
       auto cr = push_action( _bridge, "setfpolicy"_n, _bridge, mutable_variant_object()
          ("from_block_num", 1)
@@ -69,12 +66,11 @@ public:
                   ("public_key", "08c9bd408bac02747e493d918e4b3e6bd1a2ffaf9bfca4f2e79dd22e12556bf46e911f25613c24d9f6403996c5246c19ef94aff48094868425eda1e46bcd059c59f3b060521be797f5cc2e6debe2180efa12c0814618a38836a64c3d7440740f")
             }))
          )
-         
       );
    }
 
+   //verify a proof
    void check_proof(){
-
       auto cr = push_action( _bridge, "checkproof"_n, _bridge, mutable_variant_object()
          ("proof", mutable_variant_object() 
             ("finality_proof", mutable_variant_object() 
@@ -120,14 +116,10 @@ public:
                      ("direction", 1)
                      ("hash", "401526ba03ec4a955c83cda131dacd3e89becaad2cf04107170e436dd90a553f")
                }))
-
             )
          )
-
       );
-
    }
-
 };
 
 BOOST_AUTO_TEST_CASE( first_test ) try {
@@ -137,7 +129,6 @@ BOOST_AUTO_TEST_CASE( first_test ) try {
    chain_a.setup();
 
    chain_a.set_policy();
-
    chain_a.check_proof();
 
 } FC_LOG_AND_RETHROW()

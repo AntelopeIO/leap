@@ -1,4 +1,4 @@
-set( IBC_CONTRACT "if_ibc" )
+set( IBC_CONTRACT "svnn_ibc" )
 
 if( EOSIO_COMPILE_TEST_CONTRACTS )
    add_contract( ${IBC_CONTRACT} ${IBC_CONTRACT} ${IBC_CONTRACT}.cpp )
