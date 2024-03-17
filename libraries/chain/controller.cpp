@@ -4103,9 +4103,8 @@ struct controller_impl {
       }
    }
 
-   finality_data_t get_chain_head_finality_data(block_id_type block_id) const {
+   finality_data_t head_finality_data() const {
       return apply_s<finality_data_t>(chain_head, [&](const auto& head) {
-         assert(head->id() == block_id);
          return head->get_finality_data();
       });
    }
@@ -4633,6 +4632,10 @@ const signed_block_ptr& controller::head_block()const {
    return my->chain_head.block();
 }
 
+finality_data_t controller::head_finality_data() const {
+   return my->head_finality_data();
+}
+
 uint32_t controller::fork_db_head_block_num()const {
    return my->fork_db_head_block_num();
 }
@@ -4676,10 +4679,6 @@ uint32_t controller::if_irreversible_block_num() const {
    return block_header::num_from_id(my->if_irreversible_block_id);
 }
 
-finality_data_t controller::get_chain_head_finality_data(block_id_type block_id) const {
-   return my->get_chain_head_finality_data(block_id);
-}
-
 uint32_t controller::last_irreversible_block_num() const {
    return my->fork_db_root_block_num();
 }
@@ -4691,7 +4690,6 @@ block_id_type controller::last_irreversible_block_id() const {
 time_point controller::last_irreversible_block_time() const {
    return my->fork_db_root_timestamp().to_time_point();
 }
-
 
 const dynamic_global_property_object& controller::get_dynamic_global_properties()const {
   return my->db.get<dynamic_global_property_object>();

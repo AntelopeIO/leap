@@ -240,6 +240,8 @@ namespace eosio::chain {
          const signed_block_ptr& head_block()const;
          // returns nullptr after instant finality enabled
          block_state_legacy_ptr head_block_state_legacy()const;
+         // returns finality_data associated with chain head for SHiP
+         finality_data_t      head_finality_data() const;
 
          uint32_t             fork_db_head_block_num()const;
          block_id_type        fork_db_head_block_id()const;
@@ -263,7 +265,6 @@ namespace eosio::chain {
 
          void set_if_irreversible_block_id(const block_id_type& id);
          uint32_t if_irreversible_block_num() const;
-         finality_data_t get_chain_head_finality_data(block_id_type block_id) const;
 
          uint32_t last_irreversible_block_num() const;
          block_id_type last_irreversible_block_id() const;
