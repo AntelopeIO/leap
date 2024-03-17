@@ -237,7 +237,7 @@ class blocks_result_send_queue_entry : public send_queue_entry_base, public std:
    }
 
    template <typename Next>
-   void send_log(uint64_t entry_size, bool is_deltas, Next&& next) {
+   void send_log(uint64_t entry_size, bool fin, Next&& next) {
       if (entry_size) {
          data.resize(16); // should be at least for 1 byte (optional) + 10 bytes (variable sized uint64_t)
          fc::datastream<char*> ds(data.data(), data.size());
@@ -248,10 +248,10 @@ class blocks_result_send_queue_entry : public send_queue_entry_base, public std:
          data = {'\0'}; // optional false
       }
 
-      async_send(is_deltas && entry_size == 0, data,
-                [is_deltas, entry_size, next = std::forward<Next>(next), me=this->shared_from_this()]() mutable {
+      async_send(fin && entry_size == 0, data,
+                [fin, entry_size, next = std::forward<Next>(next), me=this->shared_from_this()]() mutable {
                    if (entry_size) {
-                      me->async_send_buf(is_deltas, [me, next = std::move(next)]() {
+                      me->async_send_buf(fin, [me, next = std::move(next)]() {
                          next();
                       });
                    } else
@@ -259,14 +259,24 @@ class blocks_result_send_queue_entry : public send_queue_entry_base, public std:
                 });
    }
 
-   void send_deltas() {
+   // last to be sent
+   void send_finality_data() {
       stream.reset();
-      send_log(session->get_delta_log_entry(r, stream), true, [me=this->shared_from_this()]() {
+      send_log(session->get_finality_data_log_entry(r, stream), true, [me=this->shared_from_this()]() {
          me->stream.reset();
          me->session->session_mgr.pop_entry();
       });
    }
 
+   // second to be sent
+   void send_deltas() {
+      stream.reset();
+      send_log(session->get_delta_log_entry(r, stream), false, [me=this->shared_from_this()]() {
+         me->send_finality_data();
+      });
+   }
+
+   // first to be sent
    void send_traces() {
       stream.reset();
       send_log(session->get_trace_log_entry(r, stream), false, [me=this->shared_from_this()]() {
@@ -379,10 +389,11 @@ private:
       }
    }
 
-   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0& result,
-                                std::optional<locked_decompress_stream>& buf) {
-      if (result.traces.has_value()) {
-         auto& optional_log = plugin.get_trace_log();
+   uint64_t get_log_entry_impl(const eosio::state_history::get_blocks_result_v0& result,
+                               bool has_value,
+                               std::optional<state_history_log>& optional_log,
+                               std::optional<locked_decompress_stream>& buf) {
+      if (has_value) {
          if( optional_log ) {
             buf.emplace( optional_log->create_locked_decompress_stream() );
             return optional_log->get_unpacked_entry( result.this_block->block_num, *buf );
@@ -391,16 +402,19 @@ private:
       return 0;
    }
 
+   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0& result,
+                                std::optional<locked_decompress_stream>& buf) {
+      return get_log_entry_impl(result, result.traces.has_value(), plugin.get_trace_log(), buf);
+   }
+
    uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0& result,
                                 std::optional<locked_decompress_stream>& buf) {
-      if (result.deltas.has_value()) {
-         auto& optional_log = plugin.get_chain_state_log();
-         if( optional_log ) {
-            buf.emplace( optional_log->create_locked_decompress_stream() );
-            return optional_log->get_unpacked_entry( result.this_block->block_num, *buf );
-         }
-      }
-      return 0;
+      return get_log_entry_impl(result, result.deltas.has_value(), plugin.get_chain_state_log(), buf);
+   }
+
+   uint64_t get_finality_data_log_entry(const eosio::state_history::get_blocks_result_v0& result,
+                                std::optional<locked_decompress_stream>& buf) {
+      return get_log_entry_impl(result, result.finality_data.has_value(), plugin.get_finality_data_log(), buf);
    }
 
    void process(state_history::get_status_request_v0&) {
@@ -535,6 +549,9 @@ private:
             result.traces.emplace();
          if (current_request->fetch_deltas && plugin.get_chain_state_log())
             result.deltas.emplace();
+         if (current_request->fetch_finality_data && plugin.get_finality_data_log()) {
+            result.finality_data.emplace(); // create finality_data (it's an optional field)
+         }
       }
       ++to_send_block_num;
 
