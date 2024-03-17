@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
    bool fetch_block = false;
    bool fetch_traces = false;
    bool fetch_deltas = false;
+   bool fetch_finality_data = false;
 
    cli.add_options()
       ("help,h", bpo::bool_switch(&help)->default_value(false), "Print this help message and exit.")
@@ -42,6 +43,7 @@ int main(int argc, char* argv[]) {
       ("fetch-block", bpo::bool_switch(&fetch_block)->default_value(fetch_block), "Fetch blocks")
       ("fetch-traces", bpo::bool_switch(&fetch_traces)->default_value(fetch_traces), "Fetch traces")
       ("fetch-deltas", bpo::bool_switch(&fetch_deltas)->default_value(fetch_deltas), "Fetch deltas")
+      ("fetch-finality-data", bpo::bool_switch(&fetch_finality_data)->default_value(fetch_finality_data), "Fetch finality data")
       ;
    bpo::variables_map varmap;
    bpo::store(bpo::parse_command_line(argc, argv, cli), varmap);
@@ -85,6 +87,7 @@ int main(int argc, char* argv[]) {
       //   bool                        fetch_block            = false;
       //   bool                        fetch_traces           = false;
       //   bool                        fetch_deltas           = false;
+      //   bool                        fetch_finality_data    = false;
       //};
       request_writer.StartArray();
          request_writer.String("get_blocks_request_v0");
@@ -106,6 +109,8 @@ int main(int argc, char* argv[]) {
          request_writer.Bool(fetch_traces);
          request_writer.Key("fetch_deltas");
          request_writer.Bool(fetch_deltas);
+         request_writer.Key("fetch_finality_data");
+         request_writer.Bool(fetch_finality_data);
          request_writer.EndObject();
       request_writer.EndArray();
 

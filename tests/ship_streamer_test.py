@@ -71,7 +71,7 @@ try:
 
     shipNodeNum = 3
     specificExtraNodeosArgs={}
-    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --trace-history --chain-state-history --state-history-stride 200 --plugin eosio::net_api_plugin --plugin eosio::producer_api_plugin "
+    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --trace-history --chain-state-history --finality-data-history  --state-history-stride 200 --plugin eosio::net_api_plugin --plugin eosio::producer_api_plugin "
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin  "
 
@@ -134,7 +134,7 @@ try:
     end_block_num = start_block_num + block_range
 
     shipClient = "tests/ship_streamer"
-    cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas"
+    cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas --fetch-finality-data"
     if Utils.Debug: Utils.Print(f"cmd: {cmd}")
     clients = []
     files = []
@@ -234,7 +234,7 @@ try:
     start_block_num = afterSnapshotBlockNum
     block_range = 0
     end_block_num = start_block_num + block_range
-    cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas"
+    cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas --fetch-finality-data"
     if Utils.Debug: Utils.Print(f"cmd: {cmd}")
     clients = []
     files = []
