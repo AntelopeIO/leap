@@ -1263,16 +1263,14 @@ struct controller_impl {
          legacy_branch = forkdb.fetch_branch(forkdb.head()->id());
       });
 
-      assert(!legacy_branch.empty());
       assert(!!legacy_root);
+      ilog("Transitioning to savanna, IF Genesis Block ${gb}, IF Critical Block ${cb}", ("gb", legacy_root->block_num())("cb", chain_head.block_num()));
       fork_db.apply_s<void>([&](auto& forkdb) {
          if (!forkdb.root() || forkdb.root()->id() != legacy_root->id()) {
             auto new_root = block_state::create_if_genesis_block(*legacy_root);
             forkdb.reset_root(new_root);
          }
          block_state_ptr prev = forkdb.root();
-         elog("root ${lpbsid} ${lpbid} ${pbsid} ${pbid}",
-            ("lpbsid", legacy_root->id())("lpbid", legacy_root->block->calculate_id())("pbsid", prev->id())("pbid", prev->block->calculate_id()));
          for (auto bitr = legacy_branch.rbegin(); bitr != legacy_branch.rend(); ++bitr) {
             const bool skip_validate_signee = true;
             auto new_bsp = std::make_shared<block_state>(
@@ -1285,24 +1283,13 @@ struct controller_impl {
             auto action_mroot = calculate_merkle(*(*bitr)->action_receipt_digests);
             // Create the valid structure for producing
             new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
-            elog("new ${lpbsid} ${lpbid} ${pbsid} ${pbid}",
-               ("lpbsid", (*bitr)->id())("lpbid", (*bitr)->block->calculate_id())("pbsid", new_bsp->id())("pbid", new_bsp->block->calculate_id()));
             forkdb.add(new_bsp, (*bitr)->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::no);
             prev = new_bsp;
          }
          assert(forkdb.head()->id() == legacy_branch.front()->id());
          chain_head = block_handle{forkdb.head()};
       });
-      ilog("Transition to instant finality happening at block ${b}", ("b", chain_head.block_num()));
-
-      // TODO: committed with the next block, but what if that is aborted, should be done somewhere else
-      // cancel any proposed schedule changes, prepare for new ones under instant_finality
-      const auto& gpo = db.get<global_property_object>();
-      db.modify(gpo, [&](auto& gp) {
-         gp.proposed_schedule_block_num = 0;
-         gp.proposed_schedule.version   = 0;
-         gp.proposed_schedule.producers.clear();
-      });
+      ilog("Transition to instant finality happening after block ${b}, First IF Proper Block ${pb}", ("b", chain_head.block_num())("pb", chain_head.block_num()+1));
 
       {
          // If Leap started at a block prior to the IF transition, it needs to provide a default safety
@@ -1483,15 +1470,6 @@ struct controller_impl {
                            prev = new_bsp;
                         }
                      }
-                     // TODO: committed with the next block, but what if that is aborted, should be done somewhere else
-                     // cancel any proposed schedule changes, prepare for new ones under instant_finality
-                     const auto& gpo = db.get<global_property_object>();
-                     db.modify(gpo, [&](auto& gp) {
-                        gp.proposed_schedule_block_num = 0;
-                        gp.proposed_schedule.version   = 0;
-                        gp.proposed_schedule.producers.clear();
-                     });
-
                      chain_head = block_handle{ prev };
                   }
                });
@@ -3011,13 +2989,14 @@ struct controller_impl {
          std::unique_ptr<proposer_policy> new_proposer_policy;
          auto process_new_proposer_policy = [&](auto&) -> void {
             const auto& gpo = db.get<global_property_object>();
-            if (gpo.proposed_schedule_block_num != 0) {
+            if (gpo.proposed_schedule_block_num) {
                new_proposer_policy                    = std::make_unique<proposer_policy>();
                new_proposer_policy->active_time       = detail::get_next_next_round_block_time(bb.timestamp());
                new_proposer_policy->proposer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+               ilog("Scheduling proposer schedule change at ${t}: ${s}", ("t", new_proposer_policy->active_time)("s", new_proposer_policy->proposer_schedule));
 
                db.modify( gpo, [&]( auto& gp ) {
-                  gp.proposed_schedule_block_num = 0;
+                  gp.proposed_schedule_block_num = std::optional<block_num_type>();
                   gp.proposed_schedule.version = 0;
                   gp.proposed_schedule.producers.clear();
                });
@@ -3117,6 +3096,18 @@ struct controller_impl {
       assert(pending); // has to exist and be building_block since called from host function
       auto& bb = std::get<building_block>(pending->_block_stage);
       bb.set_proposed_finalizer_policy(fin_pol);
+
+      apply_l<void>(chain_head, [&](auto&) {
+         // Savanna uses new algorithm for proposer schedule change, prevent any in-flight legacy proposer schedule changes
+         const auto& gpo = db.get<global_property_object>();
+         if (gpo.proposed_schedule_block_num) {
+            db.modify(gpo, [&](auto& gp) {
+               gp.proposed_schedule_block_num = std::optional<block_num_type>();
+               gp.proposed_schedule.version   = 0;
+               gp.proposed_schedule.producers.clear();
+            });
+         }
+      });
    }
 
    /**
@@ -4879,7 +4870,7 @@ int64_t controller_impl::set_proposed_producers( vector<producer_authority> prod
    // global_property_object is used instead of building_block so that if the transaction fails it is rolledback.
 
    if (producers.empty())
-      return -1; // regardless of disallow_empty_producer_schedule
+      return -1; // INSTANT_FINALITY depends on DISALLOW_EMPTY_PRODUCER_SCHEDULE
 
    assert(pending);
    const auto& gpo = db.get<global_property_object>();
