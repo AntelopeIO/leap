@@ -1229,7 +1229,7 @@ namespace eosio { namespace testing {
       return tid;
    }
 
-   void base_tester::schedule_protocol_features_wo_preactivation(const vector<digest_type> feature_digests) {
+   void base_tester::schedule_protocol_features_wo_preactivation(const vector<digest_type>& feature_digests) {
       protocol_features_to_be_activated_wo_preactivation.insert(
          protocol_features_to_be_activated_wo_preactivation.end(),
          feature_digests.begin(),
@@ -1237,11 +1237,24 @@ namespace eosio { namespace testing {
       );
    }
 
-   void base_tester::preactivate_protocol_features(const vector<digest_type> feature_digests) {
+   void base_tester::preactivate_protocol_features(const vector<digest_type>& feature_digests) {
       for( const auto& feature_digest: feature_digests ) {
          push_action( config::system_account_name, "activate"_n, config::system_account_name,
                       fc::mutable_variant_object()("feature_digest", feature_digest) );
       }
+   }
+
+   void base_tester::preactivate_savanna_protocol_features() {
+      const auto& pfm = control->get_protocol_feature_manager();
+      const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::instant_finality);
+
+      // dependencies of builtin_protocol_feature_t::instant_finality
+      const auto& deps = pfm.get_builtin_digest(builtin_protocol_feature_t::disallow_empty_producer_schedule);
+      const auto& wtm  = pfm.get_builtin_digest(builtin_protocol_feature_t::wtmsig_block_signatures);
+      const auto& arv  = pfm.get_builtin_digest(builtin_protocol_feature_t::action_return_value);
+      const auto& bls   = pfm.get_builtin_digest(builtin_protocol_feature_t::bls_primitives);
+
+      preactivate_protocol_features( {*deps, *wtm, *arv, *bls, *d} );
    }
 
    void base_tester::preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& builtins) {

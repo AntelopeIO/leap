@@ -310,12 +310,23 @@ retires a deferred transaction is invalid.
          } )
          (  builtin_protocol_feature_t::instant_finality, builtin_protocol_feature_spec{
             "INSTANT_FINALITY",
-            fc::variant("bc726a24928ea2d71ba294b70c5c9efc515c1542139bcf9e42f8bc174f2e72ff").as<digest_type>(),
+            fc::variant("bd496b9e85ce61dcddeee4576ea185add87844238da992a9ee6df2a2bdb357c2").as<digest_type>(),
             // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
 /*
 Builtin protocol feature: INSTANT_FINALITY
+Depends on: DISALLOW_EMPTY_PRODUCER_SCHEDULE
+            WTMSIG_BLOCK_SIGNATURES
+            ACTION_RETURN_VALUE
+            BLS_PRIMITIVES2
+
+Once this protocol feature is activated, the first subsequent block including a `set_finalizers`
+host function call will trigger a switch to the Savanna consensus algorithm.
 */
-            {}
+            { builtin_protocol_feature_t::disallow_empty_producer_schedule,
+              builtin_protocol_feature_t::wtmsig_block_signatures,
+              builtin_protocol_feature_t::action_return_value,
+              builtin_protocol_feature_t::bls_primitives
+            }
          } )
    ;
 
@@ -592,8 +603,8 @@ Builtin protocol feature: INSTANT_FINALITY
          }
 
          EOS_THROW(  protocol_feature_validation_exception,
-                     "Not all the builtin dependencies of the builtin protocol feature with codename '${codename}' and digest of ${digest} were satisfied.",
-                     ("missing_dependencies", missing_builtins_with_names)
+                     "Not all the builtin dependencies of the builtin protocol feature with codename '${codename}' and digest of ${digest} were satisfied. Missing dependencies: ${missing_dependencies}",
+                     ("codename", f.builtin_feature_codename)("digest",feature_digest)("missing_dependencies", missing_builtins_with_names)
          );
       }
 
@@ -973,22 +984,23 @@ Builtin protocol feature: INSTANT_FINALITY
          auto file_path = p / filename;
 
          EOS_ASSERT( !std::filesystem::exists( file_path ), plugin_exception,
-                     "Could not save builtin protocol feature with codename '${codename}' because a file at the following path already exists: ${path}",
+                     "Could not save builtin protocol feature with codename '${codename}' because a file at "
+                     "the following path already exists: ${path}",
                      ("codename", builtin_protocol_feature_codename( f.get_codename() ))
-                           ("path", file_path)
+                     ("path", file_path)
          );
 
          if( fc::json::save_to_file( f, file_path ) ) {
             ilog( "Saved default specification for builtin protocol feature '${codename}' (with digest of '${digest}') to: ${path}",
                   ("codename", builtin_protocol_feature_codename(f.get_codename()))
-                        ("digest", feature_digest)
-                        ("path", file_path)
+                  ("digest", feature_digest)
+                  ("path", file_path)
             );
          } else {
             elog( "Error occurred while writing default specification for builtin protocol feature '${codename}' (with digest of '${digest}') to: ${path}",
                   ("codename", builtin_protocol_feature_codename(f.get_codename()))
-                        ("digest", feature_digest)
-                        ("path", file_path)
+                  ("digest", feature_digest)
+                  ("path", file_path)
             );
          }
       };
