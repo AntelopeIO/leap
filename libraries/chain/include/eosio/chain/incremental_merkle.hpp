@@ -2,6 +2,7 @@
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/merkle.hpp>
 #include <fc/io/raw.hpp>
+#include <bit>
 
 namespace eosio::chain {
 
@@ -17,7 +18,8 @@ namespace detail {
 constexpr uint64_t calculate_max_depth(uint64_t node_count) {
    if (node_count == 0)
       return 0;
-   return std::llround(std::ceil(std::log2(node_count))) + 1;
+   // following is non-floating point equivalent to `std::ceil(std::log2(node_count)) + 1)
+   return 8*sizeof(node_count) - std::countl_zero(std::bit_ceil(node_count));
 }
 
 template<typename ContainerA, typename ContainerB>
