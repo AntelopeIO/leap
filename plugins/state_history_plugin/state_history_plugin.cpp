@@ -117,20 +117,16 @@ public:
 
    // thread-safe
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
-      std::optional<chain::block_id_type> id;
       if( trace_log ) {
-         id = trace_log->get_block_id( block_num );
-         if( id )
+         if ( auto id = trace_log->get_block_id( block_num ); id )
             return id;
       }
       if( chain_state_log ) {
-         id = chain_state_log->get_block_id( block_num );
-         if( id )
+         if( auto id = chain_state_log->get_block_id( block_num ); id )
             return id;
       }
       if( finality_data_log ) {
-         id = finality_data_log->get_block_id( block_num );
-         if( id )
+         if( auto id = finality_data_log->get_block_id( block_num ); id )
             return id;
       }
       try {
@@ -284,12 +280,12 @@ public:
          return;
 
       std::optional<finality_data_t> finality_data = chain_plug->chain().head_finality_data();
-      if (!finality_data)
+      if (!finality_data.has_value())
          return;
 
       state_history_log_header header{
          .magic = ship_magic(ship_current_version, 0), .block_id = id, .payload_size = 0};
-      finality_data_log->pack_and_write_entry(header, block->previous, [this, finality_data](auto&& buf) {
+      finality_data_log->pack_and_write_entry(header, block->previous, [finality_data](auto&& buf) {
          fc::datastream<boost::iostreams::filtering_ostreambuf&> ds{buf};
          fc::raw::pack(ds, *finality_data);
       });
