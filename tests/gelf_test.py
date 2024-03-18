@@ -40,8 +40,8 @@ logging="""{
       "name": "net",
       "type": "gelf",
       "args": {
-        "endpoint": "localhost:GELF_PORT",
-        "host": "localhost",
+        "endpoint": "127.0.0.1:GELF_PORT",
+        "host": "127.0.0.1",
         "_network": "testnet"
       },
       "enabled": true
