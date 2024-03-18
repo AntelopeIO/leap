@@ -215,7 +215,7 @@ namespace eosio::chain {
 
       /// Apply for when only need lambda executed when in legacy mode
       template <class R, class F>
-      R apply_l(const F& f) {
+      R apply_l(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
             if (auto in_use_value = in_use.load();
                 in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {

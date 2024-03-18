@@ -1249,16 +1249,16 @@ struct controller_impl {
       return false;
    }
    bool should_transition_to_savanna(const block_state_legacy_ptr& bsp) {
-      std::optional<block_header_extension> ext = bsp->block->extract_header_extension(instant_finality_extension::extension_id());
-      return !!ext;
+      return bsp->header.contains_header_extension(instant_finality_extension::extension_id());
    }
 
    void transition_to_savanna() {
+      assert(chain_head.header().contains_header_extension(instant_finality_extension::extension_id()));
       fork_db.switch_from_legacy(); // create savanna forkdb if not already created
       // copy head branch branch from legacy forkdb legacy to savanna forkdb
       fork_database_legacy_t::branch_t legacy_branch;
       block_state_legacy_ptr legacy_root;
-      fork_db.apply_l<void>([&](auto& forkdb) {
+      fork_db.apply_l<void>([&](const auto& forkdb) {
          legacy_root = forkdb.root();
          legacy_branch = forkdb.fetch_branch(forkdb.head()->id());
       });
@@ -1267,13 +1267,15 @@ struct controller_impl {
       assert(read_mode == db_read_mode::IRREVERSIBLE || !legacy_branch.empty());
       ilog("Transitioning to savanna, IF Genesis Block ${gb}, IF Critical Block ${cb}", ("gb", legacy_root->block_num())("cb", chain_head.block_num()));
       fork_db.apply_s<void>([&](auto& forkdb) {
-         if (!forkdb.root() || forkdb.root()->id() != legacy_root->id()) {
+         if (!forkdb.root()) {
             auto new_root = block_state::create_if_genesis_block(*legacy_root);
             forkdb.reset_root(new_root);
+         } else {
+            assert(forkdb.root()->id() == legacy_root->id());
          }
          block_state_ptr prev = forkdb.root();
          for (auto bitr = legacy_branch.rbegin(); bitr != legacy_branch.rend(); ++bitr) {
-            const bool skip_validate_signee = true;
+            const bool skip_validate_signee = true; // validated already
             auto new_bsp = std::make_shared<block_state>(
                   *prev,
                   (*bitr)->block,
@@ -1284,7 +1286,7 @@ struct controller_impl {
             auto action_mroot = calculate_merkle(*(*bitr)->action_receipt_digests);
             // Create the valid structure for producing
             new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
-            forkdb.add(new_bsp, (*bitr)->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::no);
+            forkdb.add(new_bsp, (*bitr)->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
             prev = new_bsp;
          }
          assert(read_mode == db_read_mode::IRREVERSIBLE || forkdb.head()->id() == legacy_branch.front()->id());
@@ -1449,7 +1451,7 @@ struct controller_impl {
             while( auto next = blog.read_block_by_num( chain_head.block_num() + 1 ) ) {
                apply_l<void>(chain_head, [&](const auto& head) {
                   if (next->is_proper_svnn_block()) {
-                     const bool skip_validate_signee = !conf.force_all_checks;
+                     const bool skip_validate_signee = true; // validated already or not in replay_push_block according to conf.force_all_checks;
                      assert(!legacy_branch.empty()); // should have started with a block_state chain_head or we transition during replay
                      // transition to savanna
                      block_state_ptr prev;
@@ -1471,17 +1473,18 @@ struct controller_impl {
                            prev = new_bsp;
                         }
                      }
-                     chain_head = block_handle{ prev };
+                     chain_head = block_handle{ prev }; // apply_l will not execute again after this
                   }
                });
                apply<void>(chain_head, [&](const auto& head) {
                   replay_push_block<std::decay_t<decltype(head)>>( next, controller::block_status::irreversible );
                });
-               apply_l<void>(chain_head, [&](const auto& head) {
+               apply_l<void>(chain_head, [&](const auto& head) { // chain_head is updated via replay_push_block
                   assert(!next->is_proper_svnn_block());
                   if (next->contains_header_extension(instant_finality_extension::extension_id())) {
                      assert(legacy_branch.empty() || head->block->previous == legacy_branch.back()->block->calculate_id());
                      legacy_branch.push_back(head);
+                     // note if is_proper_svnn_block is not reached then transistion will happen live
                   }
                });
                if( check_shutdown() ) break;
@@ -1977,62 +1980,59 @@ struct controller_impl {
          header.validate();
       });
 
-      auto read_block_state_section = [&](auto& forkdb) { /// load and upgrade the block header state
-         using namespace snapshot_detail;
-         using v7 = snapshot_block_state_data_v7;
+      using namespace snapshot_detail;
+      using v7 = snapshot_block_state_data_v7;
 
-         if (header.version >= v7::minimum_version) {
-            // loading a snapshot saved by Leap 6.0 and above.
-            // -----------------------------------------------
-            if (std::clamp(header.version, v7::minimum_version, v7::maximum_version) == header.version ) {
-               snapshot->read_section("eosio::chain::block_state", [this]( auto &section ){
-                  v7 block_state_data;
-                  section.read_row(block_state_data, db);
-                  assert(block_state_data.bs_l || block_state_data.bs);
-                  // todo: during the transition phase, both may be set. Restore appropriately!
-                  if (block_state_data.bs_l)
-                     chain_head = block_handle{std::make_shared<block_state_legacy>(std::move(*block_state_data.bs_l))};
-                  else
-                     chain_head = block_handle{std::make_shared<block_state>(std::move(*block_state_data.bs))};
-               });
-            } else {
-               EOS_THROW(snapshot_exception, "Unsupported block_state version");
-            }
+      if (header.version >= v7::minimum_version) {
+         // loading a snapshot saved by Leap 6.0 and above.
+         // -----------------------------------------------
+         if (std::clamp(header.version, v7::minimum_version, v7::maximum_version) == header.version ) {
+            snapshot->read_section("eosio::chain::block_state", [this]( auto &section ){
+               v7 block_state_data;
+               section.read_row(block_state_data, db);
+               assert(block_state_data.bs_l || block_state_data.bs);
+               // todo: during the transition phase, both may be set. Restore appropriately!
+               if (block_state_data.bs_l)
+                  chain_head = block_handle{std::make_shared<block_state_legacy>(std::move(*block_state_data.bs_l))};
+               else
+                  chain_head = block_handle{std::make_shared<block_state>(std::move(*block_state_data.bs))};
+            });
          } else {
-            // loading a snapshot saved by Leap up to version 5.
-            // -------------------------------------------------
-            auto head_header_state = std::make_shared<block_state_legacy>();
-            using v2 = snapshot_block_header_state_legacy_v2;
-            using v3 = snapshot_block_header_state_legacy_v3;
-
-            if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
-               snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
-                  v2 legacy_header_state;
-                  section.read_row(legacy_header_state, db);
-                  static_cast<block_header_state_legacy&>(*head_header_state) = block_header_state_legacy(std::move(legacy_header_state));
-               });
-            } else if (std::clamp(header.version, v3::minimum_version, v3::maximum_version) == header.version ) {
-               snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
-                  v3 legacy_header_state;
-                  section.read_row(legacy_header_state, db);
-                  static_cast<block_header_state_legacy&>(*head_header_state) = block_header_state_legacy(std::move(legacy_header_state));
-               });
-            } else {
-               EOS_THROW(snapshot_exception, "Unsupported block_header_state version");
-            }
-            chain_head = block_handle{head_header_state};
+            EOS_THROW(snapshot_exception, "Unsupported block_state version");
          }
+      } else {
+         // loading a snapshot saved by Leap up to version 5.
+         // -------------------------------------------------
+         auto head_header_state = std::make_shared<block_state_legacy>();
+         using v2 = snapshot_block_header_state_legacy_v2;
+         using v3 = snapshot_block_header_state_legacy_v3;
 
-         snapshot_head_block = chain_head.block_num();
-         EOS_ASSERT( blog_start <= (snapshot_head_block + 1) && snapshot_head_block <= blog_end,
-                     block_log_exception,
-                     "Block log is provided with snapshot but does not contain the head block from the snapshot nor a block right after it",
-                     ("snapshot_head_block", snapshot_head_block)
-                     ("block_log_first_num", blog_start)
-                     ("block_log_last_num", blog_end)
-         );
-      };
-      fork_db.apply_l<void>(read_block_state_section);
+         if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
+            snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
+               v2 legacy_header_state;
+               section.read_row(legacy_header_state, db);
+               static_cast<block_header_state_legacy&>(*head_header_state) = block_header_state_legacy(std::move(legacy_header_state));
+            });
+         } else if (std::clamp(header.version, v3::minimum_version, v3::maximum_version) == header.version ) {
+            snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
+               v3 legacy_header_state;
+               section.read_row(legacy_header_state, db);
+               static_cast<block_header_state_legacy&>(*head_header_state) = block_header_state_legacy(std::move(legacy_header_state));
+            });
+         } else {
+            EOS_THROW(snapshot_exception, "Unsupported block_header_state version");
+         }
+         chain_head = block_handle{head_header_state};
+      }
+
+      snapshot_head_block = chain_head.block_num();
+      EOS_ASSERT( blog_start <= (snapshot_head_block + 1) && snapshot_head_block <= blog_end,
+                  block_log_exception,
+                  "Block log is provided with snapshot but does not contain the head block from the snapshot nor a block right after it",
+                  ("snapshot_head_block", snapshot_head_block)
+                  ("block_log_first_num", blog_start)
+                  ("block_log_last_num", blog_end)
+      );
 
       controller_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
          using value_t = typename decltype(utils)::index_t::value_type;
@@ -3570,7 +3570,7 @@ struct controller_impl {
    std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
-      auto f = [&](auto& forkdb) -> std::future<block_handle> {
+      auto f = [&](const auto& forkdb) -> std::future<block_handle> {
          return post_async_task( thread_pool.get_executor(), [b, id, &forkdb, control=this]() {
             // no reason for a block_state if fork_db already knows about block
             auto existing = forkdb.get_block( id );
@@ -3594,7 +3594,7 @@ struct controller_impl {
    std::optional<block_handle> create_block_handle( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
       
-      auto f = [&](auto& forkdb) -> std::optional<block_handle> {
+      auto f = [&](const auto& forkdb) -> std::optional<block_handle> {
          // no reason for a block_state if fork_db already knows about block
          auto existing = forkdb.get_block( id );
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
