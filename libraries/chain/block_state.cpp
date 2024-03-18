@@ -31,7 +31,8 @@ block_state::block_state(const block_header_state&                bhs,
                          const std::optional<valid_t>&            valid,
                          const std::optional<quorum_certificate>& qc,
                          const signer_callback_type&              signer,
-                         const block_signing_authority&           valid_block_signing_authority)
+                         const block_signing_authority&           valid_block_signing_authority,
+                         const digest_type&                       action_mroot)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
    , strong_digest(compute_finality_digest())
@@ -40,6 +41,7 @@ block_state::block_state(const block_header_state&                bhs,
    , valid(valid)
    , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
+   , action_mroot(action_mroot)
 {
    block->transactions = std::move(trx_receipts);
 
@@ -298,10 +300,9 @@ digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) co
 }
 
 finality_data_t block_state::get_finality_data() const {
-   assert(action_mroot.has_value());
    finality_data_t finality_data {
       // other fields take the default values set by finality_data_t definition
-      .action_mroot = *action_mroot,
+      .action_mroot = action_mroot,
       .base_digest  = compute_base_digest()  // from block_header_state
    };
 

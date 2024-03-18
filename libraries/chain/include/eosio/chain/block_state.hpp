@@ -78,7 +78,7 @@ private:
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
-   std::optional<digest_type>      action_mroot{std::nullopt};
+   digest_type                action_mroot;
 
    // ------ private methods -----------------------------------------------------------
    bool                                is_valid() const { return validated; }
@@ -142,7 +142,8 @@ public:
                const std::optional<valid_t>&            valid,
                const std::optional<quorum_certificate>& qc,
                const signer_callback_type&              signer,
-               const block_signing_authority&           valid_block_signing_authority);
+               const block_signing_authority&           valid_block_signing_authority,
+               const digest_type&                       action_mroot);
 
    block_state(const block_state_legacy& bsp, const digest_type& action_mroot_svnn);
 

@@ -241,6 +241,7 @@ struct assembled_block {
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
       std::optional<valid_t>            valid;                     // Comes from assemble_block
       std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
+      digest_type                       action_mroot;
 
       block_header_state& get_bhs() { return bhs; }
    };
@@ -370,7 +371,7 @@ struct assembled_block {
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
                                                                                std::move(ab.trx_receipts), ab.valid, ab.qc, signer,
-                                                                               valid_block_signing_authority);
+                                                                               valid_block_signing_authority, ab.action_mroot);
                                       return completed_block{block_handle{std::move(bsp)}, {}};
                                    }},
                         v);
@@ -766,7 +767,8 @@ struct building_block {
                   std::move(bb.pending_trx_metas),
                   std::move(bb.pending_trx_receipts),
                   valid,
-                  qc_data.qc
+                  qc_data.qc,
+                  action_mroot // caching for constructing finality_data.
                };
 
                return assembled_block{.v = std::move(ab)};
