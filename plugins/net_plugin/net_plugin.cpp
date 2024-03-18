@@ -4005,8 +4005,8 @@ namespace eosio {
                 ("t", exclude_peer ? "received" : "our")("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))
                 ("v", msg.strong ? "strong" : "weak")("k", msg.finalizer_key.to_string().substr(8,16)));
 
-      dispatcher->strand.post( [this, exclude_peer, msg{std::move(send_buffer)}]() mutable {
-         dispatcher->bcast_vote_msg( exclude_peer, std::move(msg) );
+      dispatcher.strand.post( [this, exclude_peer, msg{std::move(send_buffer)}]() mutable {
+         dispatcher.bcast_vote_msg( exclude_peer, std::move(msg) );
       });
    }
 
