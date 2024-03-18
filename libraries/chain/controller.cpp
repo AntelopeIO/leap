@@ -1264,6 +1264,7 @@ struct controller_impl {
       });
 
       assert(!!legacy_root);
+      assert(read_mode == db_read_mode::IRREVERSIBLE || !legacy_branch.empty());
       ilog("Transitioning to savanna, IF Genesis Block ${gb}, IF Critical Block ${cb}", ("gb", legacy_root->block_num())("cb", chain_head.block_num()));
       fork_db.apply_s<void>([&](auto& forkdb) {
          if (!forkdb.root() || forkdb.root()->id() != legacy_root->id()) {
@@ -1286,7 +1287,7 @@ struct controller_impl {
             forkdb.add(new_bsp, (*bitr)->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::no);
             prev = new_bsp;
          }
-         assert(forkdb.head()->id() == legacy_branch.front()->id());
+         assert(read_mode == db_read_mode::IRREVERSIBLE || forkdb.head()->id() == legacy_branch.front()->id());
          chain_head = block_handle{forkdb.head()};
       });
       ilog("Transition to instant finality happening after block ${b}, First IF Proper Block ${pb}", ("b", chain_head.block_num())("pb", chain_head.block_num()+1));
