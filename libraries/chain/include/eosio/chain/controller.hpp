@@ -240,8 +240,9 @@ namespace eosio::chain {
          const signed_block_ptr& head_block()const;
          // returns nullptr after instant finality enabled
          block_state_legacy_ptr head_block_state_legacy()const;
-         // returns finality_data associated with chain head for SHiP
-         finality_data_t      head_finality_data() const;
+         // returns finality_data associated with chain head for SHiP when in Savanna,
+         // std::nullopt in Legacy
+         std::optional<finality_data_t> head_finality_data() const;
 
          uint32_t             fork_db_head_block_num()const;
          block_id_type        fork_db_head_block_id()const;

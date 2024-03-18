@@ -4110,10 +4110,10 @@ struct controller_impl {
       }
    }
 
-   finality_data_t head_finality_data() const {
-      return apply_s<finality_data_t>(chain_head, [&](const auto& head) {
-         return head->get_finality_data();
-      });
+   std::optional<finality_data_t> head_finality_data() const {
+      return apply<std::optional<finality_data_t>>(chain_head,
+         overloaded{ [](const block_state_legacy_ptr& head) { return std::nullopt; },
+                     [](const block_state_ptr&        head) { return head->get_finality_data(); }});
    }
 
    uint32_t earliest_available_block_num() const {
@@ -4639,7 +4639,7 @@ const signed_block_ptr& controller::head_block()const {
    return my->chain_head.block();
 }
 
-finality_data_t controller::head_finality_data() const {
+std::optional<finality_data_t> controller::head_finality_data() const {
    return my->head_finality_data();
 }
 

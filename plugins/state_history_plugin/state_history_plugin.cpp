@@ -283,11 +283,15 @@ public:
       if (!finality_data_log)
          return;
 
+      std::optional<finality_data_t> finality_data = chain_plug->chain().head_finality_data();
+      if (!finality_data)
+         return;
+
       state_history_log_header header{
          .magic = ship_magic(ship_current_version, 0), .block_id = id, .payload_size = 0};
-      finality_data_log->pack_and_write_entry(header, block->previous, [this, id](auto&& buf) {
+      finality_data_log->pack_and_write_entry(header, block->previous, [this, finality_data](auto&& buf) {
          fc::datastream<boost::iostreams::filtering_ostreambuf&> ds{buf};
-         fc::raw::pack(ds, chain_plug->chain().head_finality_data());
+         fc::raw::pack(ds, *finality_data);
       });
    }
 
