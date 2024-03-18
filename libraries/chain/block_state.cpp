@@ -82,10 +82,9 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
       .validation_mroots = { validation_tree.get_root() }
    };
 
-   std::optional<block_header_extension> ext = result.block->extract_header_extension(instant_finality_extension::extension_id());
-   assert(ext); // required by current transition mechanism
-   const auto& if_ext = std::get<instant_finality_extension>(*ext);
-   assert(if_ext.new_finalizer_policy); // required by current transition mechanism
+   assert(result.block->contains_header_extension(instant_finality_extension::extension_id())); // required by transition mechanism
+   instant_finality_extension if_ext = result.block->extract_header_extension<instant_finality_extension>();
+   assert(if_ext.new_finalizer_policy); // required by transition mechanism
    result.active_finalizer_policy = std::make_shared<finalizer_policy>(*if_ext.new_finalizer_policy);
    result.active_proposer_policy = std::make_shared<proposer_policy>();
    result.active_proposer_policy->active_time = bsp.timestamp();
