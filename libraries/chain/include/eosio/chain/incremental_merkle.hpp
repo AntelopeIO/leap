@@ -19,7 +19,7 @@ constexpr uint64_t calculate_max_depth(uint64_t node_count) {
    if (node_count == 0)
       return 0;
    // following is non-floating point equivalent to `std::ceil(std::log2(node_count)) + 1)` (and about 9x faster)
-   return 8*sizeof(node_count) - std::countl_zero(std::bit_ceil(node_count));
+   return std::bit_width(std::bit_ceil(node_count));
 }
 
 template<typename ContainerA, typename ContainerB>
