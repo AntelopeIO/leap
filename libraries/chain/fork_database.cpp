@@ -680,12 +680,21 @@ namespace eosio::chain {
       bool legacy_valid  = fork_db_l.is_valid();
       bool savanna_valid = fork_db_s.is_valid();
 
+      auto in_use_value = in_use.load();
       // check that fork_dbs are in a consistent state
       if (!legacy_valid && !savanna_valid) {
          wlog( "fork_database is in a bad state when closing; not writing out '${filename}', legacy_valid=${l}, savanna_valid=${s}",
                ("filename", fork_db_file)("l", legacy_valid)("s", savanna_valid) );
          return;
+      } else if (legacy_valid && savanna_valid) {
+         // don't write legacy if not needed
+         assert(fork_db_s.root() && fork_db_s.root()->block);
+         legacy_valid = !fork_db_s.root()->block->is_proper_svnn_block();
+         in_use_value = in_use_t::savanna;
       }
+      assert( (legacy_valid  && (in_use_value == in_use_t::legacy))  ||
+              (savanna_valid && (in_use_value == in_use_t::savanna)) ||
+              (legacy_valid && savanna_valid && (in_use_value == in_use_t::both)) );
 
       std::ofstream out( fork_db_file.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
 
@@ -695,7 +704,7 @@ namespace eosio::chain {
                                                    // version == 2 -> savanna (two possible fork_db, one containing `block_state_legacy`,
                                                    //                          one containing `block_state`)
 
-      fc::raw::pack(out, static_cast<uint32_t>(in_use.load()));
+      fc::raw::pack(out, static_cast<uint32_t>(in_use_value));
 
       fc::raw::pack(out, legacy_valid);
       if (legacy_valid)
