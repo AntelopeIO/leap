@@ -200,13 +200,11 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                f(fork_db_s);
             }
          } else {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                return f(fork_db_s);
             }
             return {};
@@ -217,15 +215,13 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_s(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                f(fork_db_s);
-                }
+            }
          } else {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                return f(fork_db_s);
-                }
+            }
             return {};
          }
       }
@@ -234,13 +230,11 @@ namespace eosio::chain {
       template <class R, class F>
       R apply_l(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
                f(fork_db_l);
             }
          } else {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
                return f(fork_db_l);
             }
             return {};
