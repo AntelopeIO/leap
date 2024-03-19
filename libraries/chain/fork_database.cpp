@@ -787,11 +787,20 @@ namespace eosio::chain {
    }
 
    // only called from the main thread
-   void fork_database::switch_from_legacy() {
+   void fork_database::switch_from_legacy(const block_state_ptr& root) {
       // no need to close fork_db because we don't want to write anything out, file is removed on open
       // threads may be accessing (or locked on mutex about to access legacy forkdb) so don't delete it until program exit
       if (in_use == in_use_t::legacy) {
-         in_use = in_use_t::both;
+         fork_db_s.reset_root(root);
+         if (fork_db_l.has_root()) {
+            in_use = in_use_t::both;
+         } else {
+            in_use = in_use_t::savanna;
+         }
+      } else if (in_use == in_use_t::both) {
+         assert(fork_db_s.root()->id() == root->id()); // should always set the same root
+      } else {
+         assert(false);
       }
    }
 

@@ -1254,7 +1254,6 @@ struct controller_impl {
 
    void transition_to_savanna() {
       assert(chain_head.header().contains_header_extension(instant_finality_extension::extension_id()));
-      fork_db.switch_from_legacy(); // create savanna forkdb if not already created
       // copy head branch branch from legacy forkdb legacy to savanna forkdb
       fork_database_legacy_t::branch_t legacy_branch;
       block_state_legacy_ptr legacy_root;
@@ -1266,13 +1265,9 @@ struct controller_impl {
       assert(!!legacy_root);
       assert(read_mode == db_read_mode::IRREVERSIBLE || !legacy_branch.empty());
       ilog("Transitioning to savanna, IF Genesis Block ${gb}, IF Critical Block ${cb}", ("gb", legacy_root->block_num())("cb", chain_head.block_num()));
+      auto new_root = block_state::create_if_genesis_block(*legacy_root);
+      fork_db.switch_from_legacy(new_root);
       fork_db.apply_s<void>([&](auto& forkdb) {
-         if (!forkdb.root()) {
-            auto new_root = block_state::create_if_genesis_block(*legacy_root);
-            forkdb.reset_root(new_root);
-         } else {
-            assert(forkdb.root()->id() == legacy_root->id());
-         }
          block_state_ptr prev = forkdb.root();
          for (auto bitr = legacy_branch.rbegin(); bitr != legacy_branch.rend(); ++bitr) {
             const bool skip_validate_signee = true; // validated already
@@ -1545,10 +1540,7 @@ struct controller_impl {
          if (fork_db.version_in_use() == fork_database::in_use_t::legacy) {
             // switch to savanna if needed
             apply_s<void>(chain_head, [&](const auto& head) {
-               fork_db.switch_from_legacy();
-               fork_db.apply_s<void>([&](auto& forkdb) {
-                  forkdb.reset_root(head);
-               });
+               fork_db.switch_from_legacy(head);
             });
          }
       };
@@ -1653,10 +1645,7 @@ struct controller_impl {
             if (block_states.second && head->header.contains_header_extension(instant_finality_extension::extension_id())) {
                // snapshot generated in transition to savanna
                if (fork_db.version_in_use() == fork_database::in_use_t::legacy) {
-                  fork_db.switch_from_legacy();
-                  fork_db.apply_s<void>([&](auto& forkdb) {
-                     forkdb.reset_root(block_states.second);
-                  });
+                  fork_db.switch_from_legacy(block_states.second);
                }
             }
          });
