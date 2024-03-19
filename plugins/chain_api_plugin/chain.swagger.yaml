@@ -188,7 +188,7 @@ paths:
 
   /get_block_header_state:
     post:
-      description: Retrieves the pre-Savanna block header state; for blocks post-Savanna activation, a fake pre-Savanna block header state is returned with only block_num, id, and header.timestamp filled.
+      description: Retrieves the pre-Savanna block header state; for blocks post-Savanna activation, a fake pre-Savanna block header state is returned with only block_num, id, header, and additional_signatures filled.
       operationId: get_block_header_state
       requestBody:
         content:
