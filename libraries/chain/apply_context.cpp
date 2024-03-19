@@ -184,9 +184,9 @@ void apply_context::exec_one()
       r.auth_sequence[auth.actor] = next_auth_sequence( auth.actor );
    }
 
-   trx_context.executed_action_receipt_digests.emplace_back( r.digest() );
-
    finalize_trace( trace, start );
+
+   trx_context.executed_action_receipt_digests.emplace_back( trace.digest_legacy() );
 
    if ( control.contracts_console() ) {
       print_debug(receiver, trace);

@@ -226,15 +226,17 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    BOOST_CHECK(*trace->receipt == *other_trace->receipt);
    BOOST_CHECK_EQUAL(2u, other_trace->action_traces.size());
 
+   auto check_action_traces = [](const auto& t, const auto& ot) {
+      BOOST_CHECK_EQUAL("", ot.console); // cfa not executed for replay
+      BOOST_CHECK_EQUAL(t.receipt->global_sequence, ot.receipt->global_sequence);
+      BOOST_CHECK_EQUAL(t.digest_legacy(), ot.digest_legacy()); // digest_legacy because test doesn't switch to Savanna
+   };
+
    BOOST_CHECK(other_trace->action_traces.at(0).context_free); // cfa
-   BOOST_CHECK_EQUAL("", other_trace->action_traces.at(0).console); // cfa not executed for replay
-   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->global_sequence, other_trace->action_traces.at(0).receipt->global_sequence);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->digest(), other_trace->action_traces.at(0).receipt->digest());
+   check_action_traces(trace->action_traces.at(0), other_trace->action_traces.at(0));
 
    BOOST_CHECK(!other_trace->action_traces.at(1).context_free); // non-cfa
-   BOOST_CHECK_EQUAL("", other_trace->action_traces.at(1).console);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->global_sequence, other_trace->action_traces.at(1).receipt->global_sequence);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(), other_trace->action_traces.at(1).receipt->digest());
+   check_action_traces(trace->action_traces.at(1), other_trace->action_traces.at(1));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
