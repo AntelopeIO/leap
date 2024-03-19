@@ -1925,11 +1925,15 @@ struct controller_impl {
        return apply<block_state_pair>(chain_head, overloaded{
           [&](const block_state_legacy_ptr& head) {
              if (fork_db.version_in_use() == fork_database::in_use_t::both) {
-                block_state_ptr bsp;
+                block_state_legacy_ptr legacy_head = head;
+                block_state_ptr savanna_head;
                 fork_db.apply_s<void>([&](const auto& forkdb) {
-                   bsp = forkdb.head();
+                   savanna_head = forkdb.head();
+                   if (forkdb.root()->header.is_proper_svnn_block()) {
+                      legacy_head.reset(); // not needed if past transition
+                   }
                 });
-                return block_state_pair{ head,  bsp };
+                return block_state_pair{ legacy_head, savanna_head };
              }
              return block_state_pair{ head, {} };
           },
