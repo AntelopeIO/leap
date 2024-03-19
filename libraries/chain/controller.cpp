@@ -1633,13 +1633,14 @@ struct controller_impl {
       try {
          auto snapshot_load_start_time = fc::time_point::now();
          snapshot->validate();
+         block_state_pair block_states;
          if( auto blog_head = blog.head() ) {
             ilog( "Starting initialization from snapshot and block log ${b}-${e}, this may take a significant amount of time",
                   ("b", blog.first_block_num())("e", blog_head->block_num()) );
-            read_from_snapshot( snapshot, blog.first_block_num(), blog_head->block_num() );
+            block_states = read_from_snapshot( snapshot, blog.first_block_num(), blog_head->block_num() );
          } else {
             ilog( "Starting initialization from snapshot and no block log, this may take a significant amount of time" );
-            read_from_snapshot( snapshot, 0, std::numeric_limits<uint32_t>::max() );
+            block_states = read_from_snapshot( snapshot, 0, std::numeric_limits<uint32_t>::max() );
             EOS_ASSERT( chain_head.block_num() > 0, snapshot_exception,
                         "Snapshot indicates controller head at block number 0, but that is not allowed. "
                         "Snapshot is invalid." );
@@ -1648,6 +1649,17 @@ struct controller_impl {
          ilog( "Snapshot loaded, lib: ${lib}", ("lib", chain_head.block_num()) );
 
          init(std::move(check_shutdown), startup_t::snapshot);
+         apply_l<void>(chain_head, [&](auto& head) {
+            if (block_states.second && head->header.contains_header_extension(instant_finality_extension::extension_id())) {
+               // snapshot generated in transition to savanna
+               if (fork_db.version_in_use() == fork_database::in_use_t::legacy) {
+                  fork_db.switch_from_legacy();
+                  fork_db.apply_s<void>([&](auto& forkdb) {
+                     forkdb.reset_root(block_states.second);
+                  });
+               }
+            }
+         });
          auto snapshot_load_time = (fc::time_point::now() - snapshot_load_start_time).to_seconds();
          ilog( "Finished initialization from snapshot (snapshot load time was ${t}s)", ("t", snapshot_load_time) );
       } catch (boost::interprocess::bad_alloc& e) {
@@ -1912,10 +1924,20 @@ struct controller_impl {
 
    block_state_pair get_block_state_to_snapshot() const
    {
-       return apply<block_state_pair>(
-          chain_head,
-          overloaded{[](const block_state_legacy_ptr& head) { return block_state_pair{ head, {} }; },
-                     [](const block_state_ptr&        head) { return block_state_pair{ {}, head }; }});
+       return apply<block_state_pair>(chain_head, overloaded{
+          [&](const block_state_legacy_ptr& head) {
+             if (fork_db.version_in_use() == fork_database::in_use_t::both) {
+                block_state_ptr bsp;
+                fork_db.apply_s<void>([&](const auto& forkdb) {
+                   bsp = forkdb.head();
+                });
+                return block_state_pair{ head,  bsp };
+             }
+             return block_state_pair{ head, {} };
+          },
+          [](const block_state_ptr& head) {
+             return block_state_pair{ {}, head };
+          }});
    }
 
    void add_to_snapshot( const snapshot_writer_ptr& snapshot ) {
@@ -1973,7 +1995,7 @@ struct controller_impl {
       return genesis;
    }
 
-   void read_from_snapshot( const snapshot_reader_ptr& snapshot, uint32_t blog_start, uint32_t blog_end ) {
+   block_state_pair read_from_snapshot( const snapshot_reader_ptr& snapshot, uint32_t blog_start, uint32_t blog_end ) {
       chain_snapshot_header header;
       snapshot->read_section<chain_snapshot_header>([this, &header]( auto &section ){
          section.read_row(header, db);
@@ -1983,19 +2005,24 @@ struct controller_impl {
       using namespace snapshot_detail;
       using v7 = snapshot_block_state_data_v7;
 
+      block_state_pair result;
       if (header.version >= v7::minimum_version) {
          // loading a snapshot saved by Leap 6.0 and above.
          // -----------------------------------------------
          if (std::clamp(header.version, v7::minimum_version, v7::maximum_version) == header.version ) {
-            snapshot->read_section("eosio::chain::block_state", [this]( auto &section ){
+            snapshot->read_section("eosio::chain::block_state", [this, &result]( auto &section ){
                v7 block_state_data;
                section.read_row(block_state_data, db);
                assert(block_state_data.bs_l || block_state_data.bs);
-               // todo: during the transition phase, both may be set. Restore appropriately!
-               if (block_state_data.bs_l)
-                  chain_head = block_handle{std::make_shared<block_state_legacy>(std::move(*block_state_data.bs_l))};
-               else
-                  chain_head = block_handle{std::make_shared<block_state>(std::move(*block_state_data.bs))};
+               if (block_state_data.bs_l) {
+                  auto legacy_ptr = std::make_shared<block_state_legacy>(std::move(*block_state_data.bs_l));
+                  chain_head = block_handle{legacy_ptr};
+                  result.first = std::move(legacy_ptr);
+               } else {
+                  auto bs_ptr = std::make_shared<block_state>(std::move(*block_state_data.bs));
+                  chain_head = block_handle{bs_ptr};
+                  result.second = std::move(bs_ptr);
+               }
             });
          } else {
             EOS_THROW(snapshot_exception, "Unsupported block_state version");
@@ -2023,6 +2050,7 @@ struct controller_impl {
             EOS_THROW(snapshot_exception, "Unsupported block_header_state version");
          }
          chain_head = block_handle{head_header_state};
+         result.first = head_header_state;
       }
 
       snapshot_head_block = chain_head.block_num();
@@ -2121,6 +2149,8 @@ struct controller_impl {
                   "chain ID in snapshot (${snapshot_chain_id}) does not match the chain ID that controller was constructed with (${controller_chain_id})",
                   ("snapshot_chain_id", gpo.chain_id)("controller_chain_id", chain_id)
       );
+
+      return result;
    }
 
    digest_type get_strong_digest_by_id( const block_id_type& id ) const {

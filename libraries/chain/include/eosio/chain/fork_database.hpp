@@ -196,7 +196,7 @@ namespace eosio::chain {
          }
       }
 
-      /// Apply for when only need lambda executed when in savanna (instant-finality) mode
+      /// Apply for when only need lambda executed on savanna fork db
       template <class R, class F>
       R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
@@ -213,7 +213,24 @@ namespace eosio::chain {
          }
       }
 
-      /// Apply for when only need lambda executed when in legacy mode
+      /// Apply for when only need lambda executed on savanna fork db
+      template <class R, class F>
+      R apply_s(const F& f) const {
+         if constexpr (std::is_same_v<void, R>) {
+            if (auto in_use_value = in_use.load();
+                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+               f(fork_db_s);
+                }
+         } else {
+            if (auto in_use_value = in_use.load();
+                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+               return f(fork_db_s);
+                }
+            return {};
+         }
+      }
+
+      /// Apply for when only need lambda executed on legacy fork db
       template <class R, class F>
       R apply_l(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
