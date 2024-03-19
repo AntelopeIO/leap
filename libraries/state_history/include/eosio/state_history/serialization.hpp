@@ -188,7 +188,6 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.name.to_uint64_t()));
    fc::raw::pack(ds, as_type<eosio::chain::block_timestamp_type>(obj.obj.creation_date));
-   fc::raw::pack(ds, as_type<eosio::chain::shared_string>(obj.obj.abi));
    return ds;
 }
 
@@ -205,6 +204,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper_stat
       fc::raw::pack(ds, as_type<uint8_t>(obj.obj.vm_version));
       fc::raw::pack(ds, as_type<eosio::chain::digest_type>(obj.obj.code_hash));
    }
+   fc::raw::pack(ds, as_type<eosio::chain::shared_string>(obj.obj.abi));
    return ds;
 }
 

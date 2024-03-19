@@ -218,20 +218,24 @@ void apply_eosio_setabi(apply_context& context) {
 
    context.require_authorization(act.account);
 
-   const auto& account = db.get<account_object,by_name>(act.account);
+   db.get<account_object,by_name>(act.account);
+   const auto* account_metadata = db.find<account_metadata_object,by_name>(act.account);
+   int64_t metadata_ram_delta  = 0;
+   if(account_metadata == nullptr){
+      metadata_ram_delta -= config::billable_size_v<account_metadata_object>;
+      account_metadata = &db.create<account_metadata_object>([&](auto& a) {
+         a.name = act.account;
+      });
+   }
 
    int64_t abi_size = act.abi.size();
 
-   int64_t old_size = (int64_t)account.abi.size();
+   int64_t old_size = (int64_t)account_metadata->abi.size();
    int64_t new_size = abi_size;
 
-   db.modify( account, [&]( auto& a ) {
-      a.abi.assign(act.abi.data(), abi_size);
-   });
-
-   const auto& account_metadata = db.get<account_metadata_object, by_name>(act.account);
-   db.modify( account_metadata, [&]( auto& a ) {
+   db.modify( *account_metadata, [&]( auto& a ) {
       a.abi_sequence += 1;
+      a.abi.assign(act.abi.data(), abi_size);
    });
 
    if (new_size != old_size) {
@@ -246,7 +250,7 @@ void apply_eosio_setabi(apply_context& context) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "abi", operation, "setabi");
       }
 
-      context.add_ram_usage( act.account, new_size - old_size );
+      context.add_ram_usage( act.account, new_size - old_size + metadata_ram_delta );
    }
 }
 

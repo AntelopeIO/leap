@@ -196,9 +196,9 @@ public:
        set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
 
        {
-           const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
+           const auto& accnt_metadata = control->db().get<account_metadata_object,by_name>( "eosio.token"_n );
            abi_def abi;
-           BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
+           BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt_metadata.abi, abi), true);
            token_abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 
@@ -215,9 +215,9 @@ public:
                                         ("core", symbol(CORE_SYMBOL).to_string()));
 
        {
-           const auto& accnt = control->db().get<account_object,by_name>( config::system_account_name );
+           const auto& accnt_metadata = control->db().get<account_metadata_object,by_name>( config::system_account_name );
            abi_def abi;
-           BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
+           BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt_metadata.abi, abi), true);
            abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 

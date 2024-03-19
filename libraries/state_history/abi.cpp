@@ -233,11 +233,26 @@ extern const char* const state_history_plugin_abi = R"({
             ]
         },
         {
+            "name": "account_v1", "fields": [
+                { "type": "name", "name": "name" },
+                { "type": "block_timestamp_type", "name": "creation_date" }
+            ]
+        },
+        {
             "name": "account_metadata_v0", "fields": [
                 { "type": "name", "name": "name" },
                 { "type": "bool", "name": "privileged" },
                 { "type": "time_point", "name": "last_code_update" },
                 { "type": "code_id?", "name": "code" }
+            ]
+        },
+        {
+            "name": "account_metadata_v1", "fields": [
+                { "type": "name", "name": "name" },
+                { "type": "bool", "name": "privileged" },
+                { "type": "time_point", "name": "last_code_update" },
+                { "type": "code_id?", "name": "code" },
+                { "type": "bytes", "name": "abi" }
             ]
         },
         {
@@ -562,8 +577,8 @@ extern const char* const state_history_plugin_abi = R"({
         { "name": "transaction_variant", "types": ["transaction_id", "packed_transaction"] },
 
         { "name": "table_delta", "types": ["table_delta_v0"] },
-        { "name": "account", "types": ["account_v0"] },
-        { "name": "account_metadata", "types": ["account_metadata_v0"] },
+        { "name": "account", "types": ["account_v0", "account_v1"] },
+        { "name": "account_metadata", "types": ["account_metadata_v0", "account_metadata_v1"] },
         { "name": "code", "types": ["code_v0"] },
         { "name": "contract_table", "types": ["contract_table_v0"] },
         { "name": "contract_row", "types": ["contract_row_v0"] },
