@@ -1081,12 +1081,12 @@ struct controller_impl {
                return ret;
             } else if(block_num) {
                //only for savanna: look in reversible blocks for block_num too
-               if(std::optional<signed_block_ptr> sb = blog.read_block_by_num(*block_num)) {
+               if(signed_block_ptr sb = blog.read_block_by_num(*block_num)) {
                   block_header_state_legacy ret;
-                  ret.block_num = (*sb)->block_num();
-                  ret.id = (*sb)->calculate_id();
-                  ret.header = **sb;
-                  ret.additional_signatures = detail::extract_additional_signatures(*sb);
+                  ret.block_num = sb->block_num();
+                  ret.id = sb->calculate_id();
+                  ret.header = *sb;
+                  ret.additional_signatures = detail::extract_additional_signatures(sb);
                   return ret;
                }
             }
