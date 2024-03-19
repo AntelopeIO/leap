@@ -689,8 +689,10 @@ namespace eosio::chain {
       } else if (legacy_valid && savanna_valid) {
          // don't write legacy if not needed
          assert(fork_db_s.root() && fork_db_s.root()->block);
-         legacy_valid = !fork_db_s.root()->block->is_proper_svnn_block();
-         in_use_value = in_use_t::savanna;
+         if (fork_db_s.root()->block->is_proper_svnn_block()) {
+            legacy_valid = false;
+            in_use_value = in_use_t::savanna;
+         }
       }
       assert( (legacy_valid  && (in_use_value == in_use_t::legacy))  ||
               (savanna_valid && (in_use_value == in_use_t::savanna)) ||
