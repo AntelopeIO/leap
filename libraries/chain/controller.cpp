@@ -1293,10 +1293,7 @@ struct controller_impl {
          // If Leap started at a block prior to the IF transition, it needs to provide a default safety
          // information for those finalizers that don't already have one. This typically should be done when
          // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
-         // to the IF consensus.
-         // See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
-         // [if todo] set values accurately
-         // -----------------------------------------------------------------------------------------------
+         // to the IF consensus. See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
          auto start_block = chain_head;
          auto lib_block   = chain_head;
          my_finalizers.set_default_safety_information(
@@ -1469,6 +1466,18 @@ struct controller_impl {
                         }
                      }
                      chain_head = block_handle{ prev }; // apply_l will not execute again after this
+                     {
+                        // If Leap started at a block prior to the IF transition, it needs to provide a default safety
+                        // information for those finalizers that don't already have one. This typically should be done when
+                        // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
+                        // to the IF consensus. See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
+                        auto start_block = chain_head;
+                        auto lib_block   = chain_head;
+                        my_finalizers.set_default_safety_information(
+                           finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
+                                                         .last_vote = {start_block.id(), start_block.block_time()},
+                                                         .lock      = {lib_block.id(),   lib_block.block_time()} });
+                     }
                   }
                });
                apply<void>(chain_head, [&](const auto& head) {
