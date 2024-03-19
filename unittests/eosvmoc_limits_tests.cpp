@@ -98,6 +98,8 @@ BOOST_AUTO_TEST_CASE( limits_not_enforced ) { try {
    limit_not_violated_test(eosvmoc_config);
 } FC_LOG_AND_RETHROW() }
 
+// UBSAN & ASAN can add massive virtual memory usage; skip this test when either are enabled
+#if !__has_feature(undefined_behavior_sanitizer) && !__has_feature(address_sanitizer)
 // test VM limit are checked
 BOOST_AUTO_TEST_CASE( vm_limit ) { try {
    eosvmoc::config eosvmoc_config = make_eosvmoc_config_without_limits();
@@ -110,6 +112,14 @@ BOOST_AUTO_TEST_CASE( vm_limit ) { try {
    eosvmoc_config.vm_limit = 128u*1024u*1024u;
    limit_not_violated_test(eosvmoc_config);
 } FC_LOG_AND_RETHROW() }
+
+//make sure vm_limit is populated for a default constructed config (what nodeos will use)
+BOOST_AUTO_TEST_CASE( check_config_default_vm_limit ) { try {
+   eosvmoc::config eosvmoc_config;
+
+   BOOST_REQUIRE(eosvmoc_config.vm_limit);
+} FC_LOG_AND_RETHROW() }
+#endif
 
 // test stack size limit is checked
 BOOST_AUTO_TEST_CASE( stack_limit ) { try {
