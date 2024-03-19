@@ -1080,7 +1080,7 @@ struct controller_impl {
                ret.additional_signatures = detail::extract_additional_signatures(p->block);
                return ret;
             } else if(block_num) {
-               //only for savanna: look in reversible blocks for block_num too
+               //only for savanna: look in irreversible blocks for block_num too
                if(signed_block_ptr sb = blog.read_block_by_num(*block_num)) {
                   block_header_state_legacy ret;
                   ret.block_num = sb->block_num();
