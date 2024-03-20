@@ -40,6 +40,7 @@
 #include <fc/variant_object.hpp>
 #include <bls12-381/bls12-381.hpp>
 
+#include <future>
 #include <new>
 #include <shared_mutex>
 #include <utility>
@@ -3613,10 +3614,20 @@ struct controller_impl {
          } );
       };
 
-      if (b->is_proper_svnn_block()) {
-         return fork_db.apply_s<std::future<block_handle>>(f);
+      // always return a valid future
+      auto unlinkable = [&](const auto&) -> std::future<block_handle> {
+         std::packaged_task<block_handle()> task( [b, id]() -> block_handle {
+            EOS_ASSERT( false, unlinkable_block_exception,
+                        "unlinkable block ${id} previous ${p} not in fork db", ("id", id)("p", b->previous) );
+         } );
+         task();
+         return task.get_future();
+      };
+
+      if (!b->is_proper_svnn_block()) {
+         return fork_db.apply<std::future<block_handle>>(f, unlinkable);
       }
-      return fork_db.apply_l<std::future<block_handle>>(f);
+      return fork_db.apply<std::future<block_handle>>(unlinkable, f);
    }
 
    // thread safe, expected to be called from thread other than the main thread
@@ -3635,10 +3646,10 @@ struct controller_impl {
          return create_block_state_i( id, b, *prev );
       };
 
-      if (b->is_proper_svnn_block()) {
-         return fork_db.apply_s<std::optional<block_handle>>(f);
+      if (!b->is_proper_svnn_block()) {
+         return fork_db.apply_l<std::optional<block_handle>>(f);
       }
-      return fork_db.apply_l<std::optional<block_handle>>(f);
+      return fork_db.apply_s<std::optional<block_handle>>(f);
    }
 
    // expected to be called from application thread as it modifies bsp->valid_qc and if_irreversible_block_id
