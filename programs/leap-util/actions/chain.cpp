@@ -10,7 +10,7 @@
 
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <chainbase/environment.hpp>
+#include <eosio/chain/chainbase_environment.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
@@ -18,15 +18,6 @@
 
 using namespace eosio;
 using namespace eosio::chain;
-
-
-// reflect chainbase::environment for --print-build-info option
-FC_REFLECT_ENUM(chainbase::environment::os_t,
-                (OS_LINUX) (OS_MACOS) (OS_WINDOWS) (OS_OTHER))
-FC_REFLECT_ENUM(chainbase::environment::arch_t,
-                (ARCH_X86_64) (ARCH_ARM) (ARCH_RISCV) (ARCH_OTHER))
-FC_REFLECT(chainbase::environment, (debug) (os) (arch) (boost_version) (compiler))
-
 
 void chain_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("chain-state", "chain utility");

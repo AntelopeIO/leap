@@ -357,7 +357,8 @@ def stepSetSystemContract():
     # THIS DEPENDS ON DISABLE_DEFERRED_TRXS_STAGE_1 
     retry(args.cleos + 'push action eosio activate \'["09e86cb0accf8d81c9e85d34bea4b925ae936626d00c984e4691186891f5bc16"]\' -p eosio@active')
     # INSTANT_FINALITY
-    retry(args.cleos + 'push action eosio activate \'["8cb6dd1e5607208331eb5983141e159c75a597413887e80e8a9a4b715a507eb7"]\' -p eosio@active')
+    # Depends on WTMSIG_BLOCK_SIGNATURES , BLS_PRIMITIVES2 , DISALLOW_EMPTY_PRODUCER_SCHEDULE , ACTION_RETURN_VALUE
+    retry(args.cleos + 'push action eosio activate \'["18b790108f5e277cf7141dc626a98f7edeb776912278e4cd14a50b763d1d6390"]\' -p eosio@active')
     sleep(1)
 
     # install eosio.system latest version
