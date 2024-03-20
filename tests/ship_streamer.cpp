@@ -87,10 +87,17 @@ int main(int argc, char* argv[]) {
       //   bool                        fetch_block            = false;
       //   bool                        fetch_traces           = false;
       //   bool                        fetch_deltas           = false;
+      //};
+      //struct get_blocks_request_v1 : get_blocks_request_v0 {
       //   bool                        fetch_finality_data    = false;
       //};
       request_writer.StartArray();
-         request_writer.String("get_blocks_request_v0");
+
+         if( fetch_finality_data ) {
+            request_writer.String("get_blocks_request_v1");
+         } else {
+            request_writer.String("get_blocks_request_v0");
+         }
          request_writer.StartObject();
          request_writer.Key("start_block_num");
          request_writer.Uint(start_block_num);
@@ -109,14 +116,20 @@ int main(int argc, char* argv[]) {
          request_writer.Bool(fetch_traces);
          request_writer.Key("fetch_deltas");
          request_writer.Bool(fetch_deltas);
-         request_writer.Key("fetch_finality_data");
-         request_writer.Bool(fetch_finality_data);
+         if( fetch_finality_data ) {
+            request_writer.Key("fetch_finality_data");
+            request_writer.Bool(fetch_finality_data);
+         }
          request_writer.EndObject();
       request_writer.EndArray();
+      std::cerr << "01\n";
 
       stream.binary(true);
+      std::cerr << "02\n";
       stream.write(boost::asio::buffer(request_type.json_to_bin(request_sb.GetString(), [](){})));
+      std::cerr << "10\n";
       stream.read_message_max(0);
+      std::cerr << "11\n";
 
       // Each block_num can have multiple block_ids since forks are possible
       //       block_num,         block_id
@@ -125,10 +138,14 @@ int main(int argc, char* argv[]) {
       for(;;) {
          boost::beast::flat_buffer buffer;
          stream.read(buffer);
+         std::cerr << "1\n";
 
          eosio::input_stream is((const char*)buffer.data().data(), buffer.data().size());
+         std::cerr << "2\n";
          rapidjson::Document result_document;
+         //std::cerr << result_type.bin_to_json(is).c_str() << std::endl;
          result_document.Parse(result_type.bin_to_json(is).c_str());
+         std::cerr << "3\n";
 
          eosio::check(!result_document.HasParseError(),                                      "Failed to parse result JSON from abieos");
          eosio::check(result_document.IsArray(),                                             "result should have been an array (variant) but it's not");

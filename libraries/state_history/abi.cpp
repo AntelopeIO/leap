@@ -30,6 +30,18 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "irreversible_only", "type": "bool" },
                 { "name": "fetch_block", "type": "bool" },
                 { "name": "fetch_traces", "type": "bool" },
+                { "name": "fetch_deltas", "type": "bool" }
+            ]
+        },
+        {
+            "name": "get_blocks_request_v1", "fields": [
+                { "name": "start_block_num", "type": "uint32" },
+                { "name": "end_block_num", "type": "uint32" },
+                { "name": "max_messages_in_flight", "type": "uint32" },
+                { "name": "have_positions", "type": "block_position[]" },
+                { "name": "irreversible_only", "type": "bool" },
+                { "name": "fetch_block", "type": "bool" },
+                { "name": "fetch_traces", "type": "bool" },
                 { "name": "fetch_deltas", "type": "bool" },
                 { "name": "fetch_finality_data", "type": "bool" }
             ]
@@ -554,7 +566,7 @@ extern const char* const state_history_plugin_abi = R"({
         { "new_type_name": "transaction_id", "type": "checksum256" }
     ],
     "variants": [
-        { "name": "request", "types": ["get_status_request_v0", "get_blocks_request_v0", "get_blocks_ack_request_v0"] },
+        { "name": "request", "types": ["get_status_request_v0", "get_blocks_request_v0", "get_blocks_request_v1", "get_blocks_ack_request_v0"] },
         { "name": "result", "types": ["get_status_result_v0", "get_blocks_result_v0"] },
 
         { "name": "action_receipt", "types": ["action_receipt_v0"] },
