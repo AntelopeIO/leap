@@ -9,6 +9,10 @@
 
 #include <sys/resource.h>
 
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+
 namespace eosio { namespace chain { namespace eosvmoc {
 
 struct config {
@@ -20,7 +24,11 @@ struct config {
    // libtester disables the limits in all tests, except enforces the limits
    // in the tests in unittests/eosvmoc_limits_tests.cpp.
    std::optional<rlim_t>   cpu_limit {20u};
+#if __has_feature(undefined_behavior_sanitizer) || __has_feature(address_sanitizer)
+   std::optional<rlim_t>   vm_limit; // UBSAN & ASAN can add massive virtual memory usage; don't enforce vm limits when either of them are enabled
+#else
    std::optional<rlim_t>   vm_limit  {512u*1024u*1024u};
+#endif
    std::optional<uint64_t> stack_size_limit {16u*1024u};
    std::optional<size_t>   generated_code_size_limit {16u*1024u*1024u};
 };
