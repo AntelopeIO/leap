@@ -1,5 +1,3 @@
-#include <cmath>
-
 using namespace eosio;
 
 class bitset {
