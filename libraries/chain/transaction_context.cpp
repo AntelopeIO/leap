@@ -709,7 +709,7 @@ namespace eosio { namespace chain {
    {
       uint32_t new_action_ordinal = trace->action_traces.size() + 1;
 
-      trace->action_traces.reserve( std::bit_ceil(new_action_ordinal) ); // bit_ceil to avoid vector copy on every insertion
+      trace->action_traces.reserve( std::bit_ceil(new_action_ordinal) ); // bit_ceil to avoid vector copy on every reserve call.
 
       const action& provided_action = get_action_trace( action_ordinal ).act;
 
