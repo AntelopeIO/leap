@@ -21,11 +21,13 @@ CONTRACT svnn_ibc : public contract {
       const uint32_t POLICY_CACHE_EXPIRY = 600; //10 minutes for testing
       const uint32_t PROOF_CACHE_EXPIRY = 600; //10 minutes for testing
 
-      static uint64_t calculate_max_depth(uint64_t node_count) {
-          if (node_count == 0) return 0;
-          return std::llround(std::log2(node_count)) + 2;
+      //Compute the maximum number of layers of a merkle tree for a given number of leaves
+      uint64_t calculate_max_depth(uint64_t node_count) {
+         if(node_count <= 1)
+            return node_count;
+         return 64 - __builtin_clzll(2 << (64 - 1 - __builtin_clzll ((node_count - 1))));
       }
-
+      
       static uint32_t reverse_bytes(const uint32_t input){
          uint32_t output = (input>>24 & 0xff)|(input>>8 & 0xff00)|(input<<8 & 0xff0000)|(input<<24 & 0xff000000);
          return output;

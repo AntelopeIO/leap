@@ -1,3 +1,5 @@
+#include <cmath>
+
 using namespace eosio;
 
 class bitset {
@@ -6,7 +8,10 @@ public:
         : num_bits(size), data((size + 63) / 64) {}
     
    bitset(size_t size, const std::vector<uint64_t>& raw_bitset)
-       : num_bits(size), data(raw_bitset) {}
+       : num_bits(size), data(raw_bitset) {
+           check(raw_bitset.size() == (size + 63) / 64, "invalid raw bitset size");
+
+       }
 
     // Set a bit to 1
     void set(size_t index) {
