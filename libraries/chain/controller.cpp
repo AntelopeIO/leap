@@ -1371,6 +1371,8 @@ struct controller_impl {
                   savanna_transistion_required = true;
                   // Do not advance irreversible past IF Genesis Block
                   break;
+               } else if ((*bitr)->block->is_proper_svnn_block()) {
+                  fork_db.switch_to_savanna();
                }
             }
          } catch( std::exception& ) {
@@ -1927,9 +1929,6 @@ struct controller_impl {
           [&](const block_state_legacy_ptr& head) -> block_state_pair {
              if (fork_db.version_in_use() == fork_database::in_use_t::both) {
                 return fork_db.apply_s<block_state_pair>([&](const auto& forkdb) -> block_state_pair {
-                   if (forkdb.root()->header.is_proper_svnn_block()) {
-                      return { {}, forkdb.head() }; // legacy not needed past transition
-                   }
                    return { head, forkdb.head() };
                 });
              }

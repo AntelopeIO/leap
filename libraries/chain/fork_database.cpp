@@ -686,13 +686,8 @@ namespace eosio::chain {
          wlog( "fork_database is in a bad state when closing; not writing out '${filename}', legacy_valid=${l}, savanna_valid=${s}",
                ("filename", fork_db_file)("l", legacy_valid)("s", savanna_valid) );
          return;
-      } else if (legacy_valid && savanna_valid) {
-         // don't write legacy if not needed
-         assert(fork_db_s.root() && fork_db_s.root()->block);
-         if (fork_db_s.root()->block->is_proper_svnn_block()) {
-            legacy_valid = false;
-            in_use_value = in_use_t::savanna;
-         }
+      } else if (legacy_valid && savanna_valid && in_use_value == in_use_t::savanna) {
+         legacy_valid = false; // don't write legacy if not needed, we delay 'clear' of legacy until close
       }
       assert( (legacy_valid  && (in_use_value == in_use_t::legacy))  ||
               (savanna_valid && (in_use_value == in_use_t::savanna)) ||
@@ -802,6 +797,11 @@ namespace eosio::chain {
       } else {
          assert(false);
       }
+   }
+
+   // only called from the main thread
+   void fork_database::switch_to_savanna() {
+      in_use = in_use_t::savanna;
    }
 
    block_branch_t fork_database::fetch_branch_from_head() const {
