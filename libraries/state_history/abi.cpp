@@ -560,6 +560,15 @@ extern const char* const state_history_plugin_abi = R"({
                 { "type": "uint32", "name": "account_cpu_usage_average_window" },
                 { "type": "uint32", "name": "account_net_usage_average_window" }
             ]
+        },
+        {
+            "name": "finality_data", "fields": [
+                { "name": "major_version", "type": "uint32" },
+                { "name": "minor_version", "type": "uint32" },
+                { "name": "active_finalizer_policy_generation", "type": "uint32" },
+                { "name": "action_mroot", "type": "checksum256" },
+                { "name": "base_digest", "type": "checksum256" }
+            ]
         }
     ],
     "types": [
