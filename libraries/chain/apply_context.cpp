@@ -186,7 +186,10 @@ void apply_context::exec_one()
 
    finalize_trace( trace, start );
 
-   trx_context.executed_action_receipt_digests.emplace_back( trace.digest_legacy() );
+   if (trx_context.executed_action_receipt_digests_l)
+      trx_context.executed_action_receipt_digests_l->emplace_back( trace.digest_legacy() );
+   if (trx_context.executed_action_receipt_digests_s)
+      trx_context.executed_action_receipt_digests_s->emplace_back( trace.digest_savanna() );
 
    if ( control.contracts_console() ) {
       print_debug(receiver, trace);
@@ -218,17 +221,17 @@ void apply_context::exec()
       exec_one();
    }
 
-   if( _cfa_inline_actions.size() > 0 || _inline_actions.size() > 0 ) {
+   if( !_cfa_inline_actions.empty() || !_inline_actions.empty() ) {
       EOS_ASSERT( recurse_depth < control.get_global_properties().configuration.max_inline_action_depth,
                   transaction_exception, "max inline action depth per transaction reached" );
-   }
 
-   for( uint32_t ordinal : _cfa_inline_actions ) {
-      trx_context.execute_action( ordinal, recurse_depth + 1 );
-   }
+      for( uint32_t ordinal : _cfa_inline_actions ) {
+         trx_context.execute_action( ordinal, recurse_depth + 1 );
+      }
 
-   for( uint32_t ordinal : _inline_actions ) {
-      trx_context.execute_action( ordinal, recurse_depth + 1 );
+      for( uint32_t ordinal : _inline_actions ) {
+         trx_context.execute_action( ordinal, recurse_depth + 1 );
+      }
    }
 
 } /// exec()

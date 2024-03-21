@@ -158,7 +158,7 @@ struct completed_block {
 
    // to be used during Legacy to Savanna transistion where action_mroot
    // needs to be converted from Legacy merkle to Savanna merkle
-   std::optional<digests_t> action_receipt_digests;
+   std::optional<digests_t> action_receipt_digests_savanna;
 
    bool is_legacy() const { return std::holds_alternative<block_state_legacy_ptr>(bsp.internal()); }
 
@@ -229,7 +229,7 @@ struct assembled_block {
       std::optional<producer_authority_schedule> new_producer_authority_cache;
 
       // Passed to completed_block, to be used by Legacy to Savanna transisition
-      std::optional<digests_t>          action_receipt_digests;
+      std::optional<digests_t>          action_receipt_digests_savanna;
    };
 
    // --------------------------------------------------------------------------------
@@ -317,9 +317,9 @@ struct assembled_block {
                         v);
    }
 
-   std::optional<digests_t> get_action_receipt_digests() const {
+   std::optional<digests_t> get_action_receipt_digests_savanna() const {
       return std::visit(
-         overloaded{[](const assembled_block_legacy& ab) -> std::optional<digests_t> { return ab.action_receipt_digests; },
+         overloaded{[](const assembled_block_legacy& ab) -> std::optional<digests_t> { return ab.action_receipt_digests_savanna; },
                     [](const assembled_block_if& ab)     -> std::optional<digests_t> { return {}; }},
          v);
    }
@@ -365,7 +365,7 @@ struct assembled_block {
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
                                          std::move(ab.trx_metas), pfs, validator, signer);
 
-                                      return completed_block{block_handle{std::move(bsp)}, std::move(ab.action_receipt_digests)};
+                                      return completed_block{block_handle{std::move(bsp)}, std::move(ab.action_receipt_digests_savanna)};
                                    },
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
@@ -381,17 +381,26 @@ struct building_block {
    // --------------------------------------------------------------------------------
    struct building_block_common {
       using checksum_or_digests = std::variant<checksum256_type, digests_t>;
+      enum class store_action_digests { legacy, savanna, both };
+
       const vector<digest_type>           new_protocol_feature_activations;
       size_t                              num_new_protocol_features_that_have_activated = 0;
       deque<transaction_metadata_ptr>     pending_trx_metas;
       deque<transaction_receipt>          pending_trx_receipts;
       checksum_or_digests                 trx_mroot_or_receipt_digests {digests_t{}};
-      digests_t                           action_receipt_digests;
+      std::optional<digests_t>            action_receipt_digests_l; // legacy
+      std::optional<digests_t>            action_receipt_digests_s; // savanna
       std::optional<finalizer_policy>     new_finalizer_policy;
 
-      building_block_common(const vector<digest_type>& new_protocol_feature_activations) :
+      building_block_common(const vector<digest_type>& new_protocol_feature_activations, store_action_digests sad) :
          new_protocol_feature_activations(new_protocol_feature_activations)
-      {}
+      {
+         if (sad == store_action_digests::legacy || sad == store_action_digests::both)
+            action_receipt_digests_l = digests_t{};
+
+         if (sad == store_action_digests::savanna || sad == store_action_digests::both)
+            action_receipt_digests_s = digests_t{};
+      }
       
       bool is_protocol_feature_activated(const digest_type& digest, const flat_set<digest_type>& activated_features) const {
          if (activated_features.find(digest) != activated_features.end())
@@ -407,19 +416,38 @@ struct building_block {
          auto orig_trx_metas_size              = pending_trx_metas.size();
          auto orig_trx_receipt_digests_size    = std::holds_alternative<digests_t>(trx_mroot_or_receipt_digests) ?
                                                  std::get<digests_t>(trx_mroot_or_receipt_digests).size() : 0;
-         auto orig_action_receipt_digests_size = action_receipt_digests.size();
+         auto orig_action_receipt_digests_l_size = action_receipt_digests_l ? action_receipt_digests_l->size() : 0;
+         auto orig_action_receipt_digests_s_size = action_receipt_digests_s ? action_receipt_digests_s->size() : 0;
          return [this,
                  orig_trx_receipts_size,
                  orig_trx_metas_size,
                  orig_trx_receipt_digests_size,
-                 orig_action_receipt_digests_size]()
+                 orig_action_receipt_digests_l_size,
+                 orig_action_receipt_digests_s_size]()
          {
             pending_trx_receipts.resize(orig_trx_receipts_size);
             pending_trx_metas.resize(orig_trx_metas_size);
             if (std::holds_alternative<digests_t>(trx_mroot_or_receipt_digests))
                std::get<digests_t>(trx_mroot_or_receipt_digests).resize(orig_trx_receipt_digests_size);
-            action_receipt_digests.resize(orig_action_receipt_digests_size);
+            if (action_receipt_digests_l)
+                action_receipt_digests_l->resize(orig_action_receipt_digests_l_size);
+            if (action_receipt_digests_s)
+                action_receipt_digests_s->resize(orig_action_receipt_digests_s_size);
          };
+      }
+
+      void initialize_action_receipts(transaction_context& trx_context) const {
+         if (action_receipt_digests_l)
+            trx_context.executed_action_receipt_digests_l = digests_t{};
+         if (action_receipt_digests_s)
+            trx_context.executed_action_receipt_digests_s = digests_t{};
+      }
+
+      void store_trx_action_receipts(transaction_context& trx_context) {
+         if (action_receipt_digests_l)
+            fc::move_append( *action_receipt_digests_l, std::move(*trx_context.executed_action_receipt_digests_l) );
+         if (action_receipt_digests_s)
+            fc::move_append( *action_receipt_digests_s, std::move(*trx_context.executed_action_receipt_digests_s) );
       }
    };
    
@@ -429,10 +457,11 @@ struct building_block {
       std::optional<producer_authority_schedule> new_pending_producer_schedule;
 
       building_block_legacy( const block_header_state_legacy& prev,
-                           block_timestamp_type when,
-                           uint16_t num_prev_blocks_to_confirm,
-                           const vector<digest_type>& new_protocol_feature_activations)
-         : building_block_common(new_protocol_feature_activations),
+                             block_timestamp_type when,
+                             uint16_t num_prev_blocks_to_confirm,
+                             const vector<digest_type>& new_protocol_feature_activations,
+                             store_action_digests sad)
+         : building_block_common(new_protocol_feature_activations, sad),
            pending_block_header_state(prev.next(when, num_prev_blocks_to_confirm))
       {}
 
@@ -453,8 +482,8 @@ struct building_block {
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
-      building_block_if(const block_state& parent, const building_block_input& input)
-         : building_block_common(input.new_protocol_feature_activations)
+      building_block_if(const block_state& parent, const building_block_input& input, store_action_digests sad)
+         : building_block_common(input.new_protocol_feature_activations, sad)
          , parent (parent)
          , timestamp(input.timestamp)
          , active_producer_authority{input.producer,
@@ -491,12 +520,13 @@ struct building_block {
    // legacy constructor
    building_block(const block_header_state_legacy& prev, block_timestamp_type when, uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations) :
-      v(building_block_legacy(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations))
+      v(building_block_legacy(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations,
+                              building_block_common::store_action_digests::legacy))
    {}
 
    // if constructor
    building_block(const block_state& prev, const building_block_input& input) :
-      v(building_block_if(prev, input))
+      v(building_block_if(prev, input, building_block_common::store_action_digests::savanna))
    {}
 
    bool is_legacy() const { return std::holds_alternative<building_block_legacy>(v); }
@@ -585,8 +615,20 @@ struct building_block {
          [](auto& bb) -> building_block_common::checksum_or_digests& { return bb.trx_mroot_or_receipt_digests; }, v);
    }
 
-   digests_t& action_receipt_digests() {
-      return std::visit([](auto& bb) -> digests_t& { return bb.action_receipt_digests; }, v);
+   std::optional<digests_t>& action_receipt_digests_l() {
+       return std::visit([](auto& bb) -> std::optional<digests_t>& { return bb.action_receipt_digests_l; }, v);
+   }
+
+   std::optional<digests_t>& action_receipt_digests_s() {
+       return std::visit([](auto& bb) -> std::optional<digests_t>& { return bb.action_receipt_digests_s; }, v);
+   }
+
+   void initialize_action_receipts(transaction_context& trx_context) const {
+      return std::visit([&](const auto& bb) { return bb.initialize_action_receipts(trx_context); }, v);
+   }
+
+   void store_trx_action_receipts(transaction_context& trx_context) {
+      return std::visit([&](auto& bb) { return bb.store_trx_action_receipts(trx_context); }, v);
    }
 
    const producer_authority_schedule& active_producers() const {
@@ -660,7 +702,8 @@ struct building_block {
                                   bool validating,
                                   std::optional<qc_data_t> validating_qc_data,
                                   const block_state_ptr& validating_bsp) {
-      digests_t& action_receipts = action_receipt_digests();
+      auto& action_receipts_l = action_receipt_digests_l();
+      auto& action_receipts_s = action_receipt_digests_s();
       return std::visit(
          overloaded{
             [&](building_block_legacy& bb) -> assembled_block {
@@ -670,11 +713,11 @@ struct building_block {
                                 auto trx_merkle_fut =
                                    post_async_task(ioc, [&]() { return legacy_merkle(std::move(trx_receipts)); });
                                 auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(action_receipts)); });
+                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(*action_receipts_l)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, legacy_merkle(std::move(action_receipts)));
+                                return std::make_pair(trx_checksum, legacy_merkle(std::move(*action_receipts_l)));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -690,7 +733,7 @@ struct building_block {
                                                              std::move(bb.pending_block_header_state),
                                                              std::move(bb.pending_trx_metas), std::move(block_ptr),
                                                              std::move(bb.new_pending_producer_schedule),
-                                                             std::move(bb.action_receipt_digests)}
+                                                             std::move(bb.action_receipt_digests_l)}
                };
             },
             [&](building_block_if& bb) -> assembled_block {
@@ -699,11 +742,11 @@ struct building_block {
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
                                    post_async_task(ioc, [&]() { return calculate_merkle(std::move(trx_receipts)); });
-                                auto action_merkle_fut = post_async_task(ioc, [&]() { return calculate_merkle(std::move(action_receipts)); });
+                                auto action_merkle_fut = post_async_task(ioc, [&]() { return calculate_merkle(std::move(*action_receipts_s)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, calculate_merkle(std::move(action_receipts)));
+                                return std::make_pair(trx_checksum, calculate_merkle(std::move(*action_receipts_s)));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -2174,6 +2217,10 @@ struct controller_impl {
       trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
       trx_context.enforce_whiteblacklist = enforce_whiteblacklist;
+
+      auto& bb = std::get<building_block>(pending->_block_stage);
+      bb.initialize_action_receipts(trx_context);
+
       transaction_trace_ptr trace = trx_context.trace;
 
       auto handle_exception = [&](const auto& e)
@@ -2193,8 +2240,8 @@ struct controller_impl {
          auto restore = make_block_restore_point();
          trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::soft_fail,
                                         trx_context.billed_cpu_time_us, trace->net_usage );
-         auto& bb = std::get<building_block>(pending->_block_stage);
-         fc::move_append( bb.action_receipt_digests(), std::move(trx_context.executed_action_receipt_digests) );
+
+         bb.store_trx_action_receipts(trx_context); // store action_digests for this trx into building_block
 
          trx_context.squash();
          restore.cancel();
@@ -2342,6 +2389,9 @@ struct controller_impl {
       trx_context.enforce_whiteblacklist = gtrx.sender.empty() ? true : !sender_avoids_whitelist_blacklist_enforcement( gtrx.sender );
       trace = trx_context.trace;
 
+      auto& bb = std::get<building_block>(pending->_block_stage);
+      bb.initialize_action_receipts(trx_context);
+
       auto handle_exception = [&](const auto& e)
       {
          cpu_time_to_bill_us = trx_context.update_billed_cpu_time( fc::time_point::now() );
@@ -2379,8 +2429,7 @@ struct controller_impl {
                                         trx_context.billed_cpu_time_us,
                                         trace->net_usage );
 
-         fc::move_append( std::get<building_block>(pending->_block_stage).action_receipt_digests(),
-                          std::move(trx_context.executed_action_receipt_digests) );
+         bb.store_trx_action_receipts(trx_context); // store action_digests for this trx into building_block
 
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
@@ -2554,6 +2603,9 @@ struct controller_impl {
          trx_context.subjective_cpu_bill_us = subjective_cpu_bill_us;
          trace = trx_context.trace;
 
+         auto& bb = std::get<building_block>(pending->_block_stage);
+         bb.initialize_action_receipts(trx_context);
+
          auto handle_exception =[&](const auto& e)
          {
             trace->error_code = controller::convert_exception_to_error_code( e );
@@ -2589,7 +2641,6 @@ struct controller_impl {
 
             auto restore = make_block_restore_point( trx->is_read_only() );
 
-            auto& bb = std::get<building_block>(pending->_block_stage);
             trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
             if (!trx->implicit() && !trx->is_read_only()) {
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
@@ -2606,17 +2657,17 @@ struct controller_impl {
             }
 
             if ( !trx->is_read_only() ) {
-               fc::move_append( bb.action_receipt_digests(),
-                                std::move(trx_context.executed_action_receipt_digests) );
-                if ( !trx->is_dry_run() ) {
-                   // call the accept signal but only once for this transaction
-                   if (!trx->accepted) {
-                       trx->accepted = true;
-                   }
+               bb.store_trx_action_receipts(trx_context); // store action_digests for this trx into building_block
 
-                   dmlog_applied_transaction(trace, &trn);
-                   emit(applied_transaction, std::tie(trace, trx->packed_trx()));
-                }
+               if ( !trx->is_dry_run() ) {
+                  // call the accept signal but only once for this transaction
+                  if (!trx->accepted) {
+                     trx->accepted = true;
+                  }
+
+                  dmlog_applied_transaction(trace, &trn);
+                  emit(applied_transaction, std::tie(trace, trx->packed_trx()));
+               }
             }
 
             if ( trx->is_transient() ) {
@@ -3013,8 +3064,8 @@ struct controller_impl {
 
             // Calculate Merkel tree root in Savanna way so that it is stored in
             // Leaf Node when building block_state.
-            assert(cb.action_receipt_digests);
-            auto action_mroot = calculate_merkle((*cb.action_receipt_digests));
+            assert(cb.action_receipt_digests_savanna);
+            auto action_mroot = calculate_merkle((*cb.action_receipt_digests_savanna));
 
             auto new_head = std::make_shared<block_state>(*head, action_mroot);
 
@@ -3280,7 +3331,7 @@ struct controller_impl {
                bsp->set_trxs_metas( ab.extract_trx_metas(), !skip_auth_checks );
             }
             // create completed_block with the existing block_state as we just verified it is the same as assembled_block
-            pending->_block_stage = completed_block{ block_handle{bsp}, ab.get_action_receipt_digests() };
+            pending->_block_stage = completed_block{ block_handle{bsp}, ab.get_action_receipt_digests_savanna() };
 
             br = pending->_block_report; // copy before commit block destroys pending
             commit_block(s);

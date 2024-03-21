@@ -141,7 +141,8 @@ namespace eosio { namespace chain {
          fc::time_point                published;
 
 
-         deque<digest_type>           executed_action_receipt_digests;
+         std::optional<digests_t>      executed_action_receipt_digests_l;
+         std::optional<digests_t>      executed_action_receipt_digests_s;
          flat_set<account_name>        bill_to_accounts;
          flat_set<account_name>        validate_ram_usage;
 
