@@ -436,14 +436,14 @@ struct building_block {
          };
       }
 
-      void initialize_action_receipts(transaction_context& trx_context) const {
+      void update_transaction_context_to_specify_needed_action_digests(transaction_context& trx_context) const {
          if (action_receipt_digests_l)
             trx_context.executed_action_receipt_digests_l = digests_t{};
          if (action_receipt_digests_s)
             trx_context.executed_action_receipt_digests_s = digests_t{};
       }
 
-      void store_trx_action_receipts(transaction_context& trx_context) {
+      void move_action_digests_from_transaction_context(transaction_context& trx_context) {
          if (action_receipt_digests_l)
             fc::move_append( *action_receipt_digests_l, std::move(*trx_context.executed_action_receipt_digests_l) );
          if (action_receipt_digests_s)
@@ -623,12 +623,12 @@ struct building_block {
        return std::visit([](auto& bb) -> std::optional<digests_t>& { return bb.action_receipt_digests_s; }, v);
    }
 
-   void initialize_action_receipts(transaction_context& trx_context) const {
-      return std::visit([&](const auto& bb) { return bb.initialize_action_receipts(trx_context); }, v);
+   void update_transaction_context_to_specify_needed_action_digests(transaction_context& trx_context) const {
+      return std::visit([&](const auto& bb) { return bb.update_transaction_context_to_specify_needed_action_digests(trx_context); }, v);
    }
 
-   void store_trx_action_receipts(transaction_context& trx_context) {
-      return std::visit([&](auto& bb) { return bb.store_trx_action_receipts(trx_context); }, v);
+   void move_action_digests_from_transaction_context(transaction_context& trx_context) {
+      return std::visit([&](auto& bb) { return bb.move_action_digests_from_transaction_context(trx_context); }, v);
    }
 
    const producer_authority_schedule& active_producers() const {
@@ -2219,7 +2219,7 @@ struct controller_impl {
       trx_context.enforce_whiteblacklist = enforce_whiteblacklist;
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.initialize_action_receipts(trx_context);
+      bb.update_transaction_context_to_specify_needed_action_digests(trx_context);
 
       transaction_trace_ptr trace = trx_context.trace;
 
@@ -2241,7 +2241,7 @@ struct controller_impl {
          trace->receipt = push_receipt( gtrx.trx_id, transaction_receipt::soft_fail,
                                         trx_context.billed_cpu_time_us, trace->net_usage );
 
-         bb.store_trx_action_receipts(trx_context); // store action_digests for this trx into building_block
+         bb.move_action_digests_from_transaction_context(trx_context); // store action_digests for this trx into building_block
 
          trx_context.squash();
          restore.cancel();
@@ -2390,7 +2390,7 @@ struct controller_impl {
       trace = trx_context.trace;
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.initialize_action_receipts(trx_context);
+      bb.update_transaction_context_to_specify_needed_action_digests(trx_context);
 
       auto handle_exception = [&](const auto& e)
       {
@@ -2429,7 +2429,7 @@ struct controller_impl {
                                         trx_context.billed_cpu_time_us,
                                         trace->net_usage );
 
-         bb.store_trx_action_receipts(trx_context); // store action_digests for this trx into building_block
+         bb.move_action_digests_from_transaction_context(trx_context); // store action_digests for this trx into building_block
 
          trace->account_ram_delta = account_delta( gtrx.payer, trx_removal_ram_delta );
 
@@ -2604,7 +2604,7 @@ struct controller_impl {
          trace = trx_context.trace;
 
          auto& bb = std::get<building_block>(pending->_block_stage);
-         bb.initialize_action_receipts(trx_context);
+         bb.update_transaction_context_to_specify_needed_action_digests(trx_context);
 
          auto handle_exception =[&](const auto& e)
          {
@@ -2657,7 +2657,7 @@ struct controller_impl {
             }
 
             if ( !trx->is_read_only() ) {
-               bb.store_trx_action_receipts(trx_context); // store action_digests for this trx into building_block
+               bb.move_action_digests_from_transaction_context(trx_context); // store action_digests for this trx into building_block
 
                if ( !trx->is_dry_run() ) {
                   // call the accept signal but only once for this transaction
