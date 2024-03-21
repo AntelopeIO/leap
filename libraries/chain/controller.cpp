@@ -381,27 +381,22 @@ struct building_block {
    // --------------------------------------------------------------------------------
    struct building_block_common {
       using checksum_or_digests = std::variant<checksum256_type, digests_t>;
-      enum class store_action_digests { legacy, savanna, both };
 
       const vector<digest_type>           new_protocol_feature_activations;
       size_t                              num_new_protocol_features_that_have_activated = 0;
       deque<transaction_metadata_ptr>     pending_trx_metas;
       deque<transaction_receipt>          pending_trx_receipts;
       checksum_or_digests                 trx_mroot_or_receipt_digests {digests_t{}};
+      transaction_context::store_action_digests sad;
       std::optional<digests_t>            action_receipt_digests_l; // legacy
       std::optional<digests_t>            action_receipt_digests_s; // savanna
       std::optional<finalizer_policy>     new_finalizer_policy;
 
-      building_block_common(const vector<digest_type>& new_protocol_feature_activations, store_action_digests sad) :
-         new_protocol_feature_activations(new_protocol_feature_activations)
+      building_block_common(const vector<digest_type>& new_protocol_feature_activations, transaction_context::store_action_digests sad) :
+         new_protocol_feature_activations(new_protocol_feature_activations), sad(sad)
       {
-         if (sad == store_action_digests::legacy || sad == store_action_digests::both)
-            action_receipt_digests_l = digests_t{};
-
-         if (sad == store_action_digests::savanna || sad == store_action_digests::both)
-            action_receipt_digests_s = digests_t{};
       }
-      
+
       bool is_protocol_feature_activated(const digest_type& digest, const flat_set<digest_type>& activated_features) const {
          if (activated_features.find(digest) != activated_features.end())
             return true;
@@ -436,13 +431,6 @@ struct building_block {
          };
       }
 
-      void update_transaction_context_to_specify_needed_action_digests(transaction_context& trx_context) const {
-         if (action_receipt_digests_l)
-            trx_context.executed_action_receipt_digests_l = digests_t{};
-         if (action_receipt_digests_s)
-            trx_context.executed_action_receipt_digests_s = digests_t{};
-      }
-
       void move_action_digests_from_transaction_context(transaction_context& trx_context) {
          if (action_receipt_digests_l)
             fc::move_append( *action_receipt_digests_l, std::move(*trx_context.executed_action_receipt_digests_l) );
@@ -460,7 +448,7 @@ struct building_block {
                              block_timestamp_type when,
                              uint16_t num_prev_blocks_to_confirm,
                              const vector<digest_type>& new_protocol_feature_activations,
-                             store_action_digests sad)
+                             transaction_context::store_action_digests sad)
          : building_block_common(new_protocol_feature_activations, sad),
            pending_block_header_state(prev.next(when, num_prev_blocks_to_confirm))
       {}
@@ -482,7 +470,7 @@ struct building_block {
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
-      building_block_if(const block_state& parent, const building_block_input& input, store_action_digests sad)
+      building_block_if(const block_state& parent, const building_block_input& input, transaction_context::store_action_digests sad)
          : building_block_common(input.new_protocol_feature_activations, sad)
          , parent (parent)
          , timestamp(input.timestamp)
@@ -521,15 +509,19 @@ struct building_block {
    building_block(const block_header_state_legacy& prev, block_timestamp_type when, uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations) :
       v(building_block_legacy(prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations,
-                              building_block_common::store_action_digests::legacy))
+                              transaction_context::store_action_digests::legacy))
    {}
 
    // if constructor
    building_block(const block_state& prev, const building_block_input& input) :
-      v(building_block_if(prev, input, building_block_common::store_action_digests::savanna))
+      v(building_block_if(prev, input, transaction_context::store_action_digests::savanna))
    {}
 
    bool is_legacy() const { return std::holds_alternative<building_block_legacy>(v); }
+
+   transaction_context::store_action_digests get_store_action_digests() const {
+      return  std::visit([&](auto& bb) { return bb.sad; }, v);
+   }
 
    // apply legacy, building_block_legacy
    template <class R, class F>
@@ -621,10 +613,6 @@ struct building_block {
 
    std::optional<digests_t>& action_receipt_digests_s() {
        return std::visit([](auto& bb) -> std::optional<digests_t>& { return bb.action_receipt_digests_s; }, v);
-   }
-
-   void update_transaction_context_to_specify_needed_action_digests(transaction_context& trx_context) const {
-      return std::visit([&](const auto& bb) { return bb.update_transaction_context_to_specify_needed_action_digests(trx_context); }, v);
    }
 
    void move_action_digests_from_transaction_context(transaction_context& trx_context) {
@@ -2219,7 +2207,7 @@ struct controller_impl {
       trx_context.enforce_whiteblacklist = enforce_whiteblacklist;
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.update_transaction_context_to_specify_needed_action_digests(trx_context);
+      trx_context.action_digests_to_store = bb.get_store_action_digests();
 
       transaction_trace_ptr trace = trx_context.trace;
 
@@ -2390,7 +2378,7 @@ struct controller_impl {
       trace = trx_context.trace;
 
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.update_transaction_context_to_specify_needed_action_digests(trx_context);
+      trx_context.action_digests_to_store = bb.get_store_action_digests();
 
       auto handle_exception = [&](const auto& e)
       {
@@ -2604,7 +2592,7 @@ struct controller_impl {
          trace = trx_context.trace;
 
          auto& bb = std::get<building_block>(pending->_block_stage);
-         bb.update_transaction_context_to_specify_needed_action_digests(trx_context);
+         trx_context.action_digests_to_store = bb.get_store_action_digests();
 
          auto handle_exception =[&](const auto& e)
          {

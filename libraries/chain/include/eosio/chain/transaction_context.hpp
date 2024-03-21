@@ -141,8 +141,11 @@ namespace eosio { namespace chain {
          fc::time_point                published;
 
 
+         enum class store_action_digests { legacy, savanna, both };
+         store_action_digests          action_digests_to_store;
          std::optional<digests_t>      executed_action_receipt_digests_l;
          std::optional<digests_t>      executed_action_receipt_digests_s;
+
          flat_set<account_name>        bill_to_accounts;
          flat_set<account_name>        validate_ram_usage;
 
