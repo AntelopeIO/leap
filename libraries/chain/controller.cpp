@@ -224,7 +224,7 @@ struct assembled_block {
       // if the unsigned_block pre-dates block-signing authorities this may be present.
       std::optional<producer_authority_schedule> new_producer_authority_cache;
 
-      // Passed to completed_block, to be used by Legacy to Savanna transition
+      // Used by Legacy to Savanna transition
       std::optional<digests_t>          action_receipt_digests;
    };
 
@@ -1246,13 +1246,6 @@ struct controller_impl {
       }
    }
 
-   bool should_transition_to_savanna(const block_state_ptr&) {
-      return false;
-   }
-   bool should_transition_to_savanna(const block_state_legacy_ptr& bsp) {
-      return bsp->header.contains_header_extension(instant_finality_extension::extension_id());
-   }
-
    void transition_to_savanna() {
       assert(chain_head.header().contains_header_extension(instant_finality_extension::extension_id()));
       // copy head branch branch from legacy forkdb legacy to savanna forkdb
@@ -1367,10 +1360,12 @@ struct controller_impl {
                db.commit( (*bitr)->block_num() );
                root_id = (*bitr)->id();
 
-               if (should_transition_to_savanna(*bitr)) {
-                  savanna_transistion_required = true;
-                  // Do not advance irreversible past IF Genesis Block
-                  break;
+               if constexpr (std::is_same_v<block_state_legacy_ptr, std::decay_t<decltype(*bitr)>>) {
+                  if ((*bitr)->header.contains_header_extension(instant_finality_extension::extension_id())) {
+                     savanna_transistion_required = true;
+                     // Do not advance irreversible past IF Genesis Block
+                     break;
+                  }
                } else if ((*bitr)->block->is_proper_svnn_block()) {
                   fork_db.switch_to_savanna();
                }
