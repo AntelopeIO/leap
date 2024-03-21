@@ -169,9 +169,7 @@ public:
       assert(std::holds_alternative<state_history::get_blocks_request_v0>(*session->current_request) ||
              std::holds_alternative<state_history::get_blocks_request_v1>(*session->current_request));
 
-      std::visit(chain::overloaded{
-                    [&](eosio::state_history::get_blocks_request_v0& request) { request.max_messages_in_flight += req.num_messages;},
-                    [&](eosio::state_history::get_blocks_request_v1& request) { request.max_messages_in_flight += req.num_messages;} },
+      std::visit([&](auto& request) { request.max_messages_in_flight += req.num_messages; },
                  *session->current_request);
       session->send_update(false);
    }
@@ -513,15 +511,8 @@ private:
       assert(std::holds_alternative<state_history::get_blocks_request_v0>(req) ||
              std::holds_alternative<state_history::get_blocks_request_v1>(req));
 
-      std::visit(chain::overloaded{
-                    [&](state_history::get_blocks_request_v0& request) {
-                       update_current_request_impl(request);
-                       current_request = std::move(req);},
-                    [&](state_history::get_blocks_request_v1& request) {
-                       update_current_request_impl(request);
-                       fc_dlog(plugin.get_logger(), "replying get_blocks_request_v1, fetch_finality_data = ${fetch_finality_data}", ("fetch_finality_data", request.fetch_finality_data));
-                       current_request = std::move(req);} },
-                 req);
+      std::visit( [&](auto& request) { update_current_request_impl(request); }, req );
+      current_request = std::move(req);
    }
 
    void send_update(state_history::get_blocks_request_v0& request, bool fetch_finality_data, state_history::get_blocks_result_v0 result, const chain::signed_block_ptr& block, const chain::block_id_type& id) {
@@ -532,7 +523,6 @@ private:
             request.irreversible_only ? result.last_irreversible.block_num : result.head.block_num;
 
       fc_dlog( plugin.get_logger(), "irreversible_only: ${i}, last_irreversible: ${p}, head.block_num: ${h}", ("i", request.irreversible_only)("p", result.last_irreversible.block_num)("h", result.head.block_num));
-      fc_dlog( plugin.get_logger(), "recved result: ${r}", ("r", result));
       if (to_send_block_num > current || to_send_block_num >= request.end_block_num) {
          fc_dlog( plugin.get_logger(), "Not sending, to_send_block_num: ${s}, current: ${c} request.end_block_num: ${b}",
                   ("s", to_send_block_num)("c", current)("b", request.end_block_num) );
@@ -605,11 +595,7 @@ private:
          return true;
 
       uint32_t max_messages_in_flight = std::visit(
-         chain::overloaded{
-            [&](state_history::get_blocks_request_v0& request) -> uint32_t {
-               return request.max_messages_in_flight; },
-            [&](state_history::get_blocks_request_v1& request) -> uint32_t {
-               return request.max_messages_in_flight; }},
+         [&](auto& request) -> uint32_t { return request.max_messages_in_flight; },
          *current_request);
 
       return !max_messages_in_flight;

@@ -78,7 +78,8 @@ private:
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
-   digest_type                action_mroot;
+   digest_type                action_mroot; // For base_digest sent to SHiP
+   digest_type                base_digest;  // For base_digest sent to SHiP
 
    // ------ private methods -----------------------------------------------------------
    bool                                is_valid() const { return validated; }

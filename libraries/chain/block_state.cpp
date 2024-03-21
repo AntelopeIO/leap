@@ -16,6 +16,7 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    , strong_digest(compute_finality_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
+   , base_digest(compute_base_digest())
 {
    // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures pre-validated here
    if( !skip_validate_signee ) {
@@ -42,6 +43,7 @@ block_state::block_state(const block_header_state&                bhs,
    , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
    , action_mroot(action_mroot)
+   , base_digest(compute_base_digest())
 {
    block->transactions = std::move(trx_receipts);
 
@@ -92,6 +94,8 @@ block_state::block_state(const block_state_legacy& bsp, const digest_type& actio
    validated = bsp.is_valid();
    pub_keys_recovered = bsp._pub_keys_recovered;
    cached_trxs = bsp._cached_trxs;
+   action_mroot = action_mroot_svnn;
+   base_digest = compute_base_digest();
 }
 
 block_state::block_state(snapshot_detail::snapshot_block_state_v7&& sbs)

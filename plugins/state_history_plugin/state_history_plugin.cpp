@@ -210,7 +210,7 @@ public:
       try {
          store_traces(block, id);
          store_chain_state(id, block->previous, block->block_num());
-         store_finality_data(block, id);
+         store_finality_data(id, block->previous);
       } catch (const fc::exception& e) {
          fc_elog(_log, "fc::exception: ${details}", ("details", e.to_detail_string()));
          // Both app().quit() and exception throwing are required. Without app().quit(),
@@ -275,7 +275,7 @@ public:
    } // store_chain_state
 
    // called from main thread
-   void store_finality_data(const signed_block_ptr& block, const block_id_type& id) {
+   void store_finality_data(const block_id_type& id, const block_id_type& previous_id) {
       if (!finality_data_log)
          return;
 
@@ -285,7 +285,7 @@ public:
 
       state_history_log_header header{
          .magic = ship_magic(ship_current_version, 0), .block_id = id, .payload_size = 0};
-      finality_data_log->pack_and_write_entry(header, block->previous, [finality_data](auto&& buf) {
+      finality_data_log->pack_and_write_entry(header, previous_id, [finality_data](auto&& buf) {
          fc::datastream<boost::iostreams::filtering_ostreambuf&> ds{buf};
          fc::raw::pack(ds, *finality_data);
       });
