@@ -39,6 +39,7 @@ namespace eosio { namespace chain {
                                              const packed_transaction& t,
                                              const transaction_id_type& trx_id,
                                              transaction_checktime_timer&& tmr,
+                                             action_digests_t::store_which_t sad,
                                              fc::time_point s,
                                              transaction_metadata::trx_type type)
    :control(c)
@@ -47,6 +48,7 @@ namespace eosio { namespace chain {
    ,undo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
+   ,executed_action_receipts(sad)
    ,transaction_timer(std::move(tmr))
    ,trx_type(type)
    ,net_usage(trace->net_usage)
