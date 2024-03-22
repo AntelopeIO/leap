@@ -391,9 +391,9 @@ struct building_block {
       std::optional<finalizer_policy>     new_finalizer_policy;
 
       building_block_common(const vector<digest_type>& new_protocol_feature_activations,
-                            action_digests_t::store_which_t sad) :
+                            action_digests_t::store_which_t store_which) :
          new_protocol_feature_activations(new_protocol_feature_activations),
-         action_receipt_digests(sad)
+         action_receipt_digests(store_which)
       {
       }
       
@@ -436,8 +436,8 @@ struct building_block {
                              block_timestamp_type when,
                              uint16_t num_prev_blocks_to_confirm,
                              const vector<digest_type>& new_protocol_feature_activations,
-                             action_digests_t::store_which_t sad)
-         : building_block_common(new_protocol_feature_activations, sad),
+                             action_digests_t::store_which_t store_which)
+         : building_block_common(new_protocol_feature_activations, store_which),
            pending_block_header_state(prev.next(when, num_prev_blocks_to_confirm))
       {}
 
@@ -458,8 +458,8 @@ struct building_block {
       const proposer_policy_ptr                  active_proposer_policy;           // Cached: parent.get_next_active_proposer_policy(timestamp)
       const uint32_t                             block_num;                        // Cached: parent.block_num() + 1
 
-      building_block_if(const block_state& parent, const building_block_input& input, action_digests_t::store_which_t sad)
-         : building_block_common(input.new_protocol_feature_activations, sad)
+      building_block_if(const block_state& parent, const building_block_input& input, action_digests_t::store_which_t store_which)
+         : building_block_common(input.new_protocol_feature_activations, store_which)
          , parent (parent)
          , timestamp(input.timestamp)
          , active_producer_authority{input.producer,
