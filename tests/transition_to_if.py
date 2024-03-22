@@ -22,7 +22,7 @@ delay=args.d
 topo=args.s
 debug=args.v
 prod_count = 1 # per node prod count
-total_nodes=pnodes
+total_nodes=pnodes+1
 dumpErrorDetails=args.dump_error_details
 
 Utils.Debug=debug
@@ -41,8 +41,9 @@ try:
     numTrxGenerators=2
     Print("Stand up cluster")
     # For now do not load system contract as it does not support setfinalizer
+    specificExtraNodeosArgs = { 4: "--read-mode irreversible"}
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, prodCount=prod_count, maximumP2pPerHost=total_nodes+numTrxGenerators, topo=topo, delay=delay, loadSystemContract=False,
-                      activateIF=False) is False:
+                      activateIF=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] != "eosio", "launch should have waited for production to change"
@@ -63,7 +64,9 @@ try:
     assert cluster.biosNode.waitForLibToAdvance(), "Lib should advance after instant finality activated"
     assert cluster.biosNode.waitForProducer("defproducera"), "Did not see defproducera"
     assert cluster.biosNode.waitForHeadToAdvance(blocksToAdvance=13) # into next producer
-    assert cluster.biosNode.waitForLibToAdvance(), "Lib stopped advancing"
+    assert cluster.biosNode.waitForLibToAdvance(), "Lib stopped advancing on biosNode"
+    assert cluster.getNode(1).waitForLibToAdvance(), "Lib stopped advancing on Node 1"
+    assert cluster.getNode(4).waitForLibToAdvance(), "Lib stopped advancing on Node 4, irreversible node"
 
     info = cluster.biosNode.getInfo(exitOnError=True)
     assert (info["head_block_num"] - info["last_irreversible_block_num"]) < 9, "Instant finality enabled LIB diff should be small"
@@ -76,8 +79,9 @@ try:
     # should take effect in first block of defproducerg slot (so defproducerh)
     assert cluster.setProds(["defproducerb", "defproducerh", "defproducerm", "defproducerr"]), "setprods failed"
     setProdsBlockNum = cluster.biosNode.getBlockNum()
-    cluster.biosNode.waitForBlock(setProdsBlockNum+12+12+1)
+    assert cluster.biosNode.waitForBlock(setProdsBlockNum+12+12+1), "Block of new producers not reached"
     assert cluster.biosNode.getInfo(exitOnError=True)["head_block_producer"] == "defproducerh", "setprods should have taken effect"
+    assert cluster.getNode(4).waitForBlock(setProdsBlockNum + 12 + 12 + 1), "Block of new producers not reached on irreversible node"
 
     testSuccessful=True
 finally:
