@@ -3854,7 +3854,7 @@ namespace eosio {
 
       fc::microseconds age( fc::time_point::now() - block->timestamp);
       fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection ${cid}, ${v}, lib #${lib}",
-               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", obt ? "pre-validated" : "validation pending")("lib", lib) );
+               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", obt ? "header validated" : "header validation pending")("lib", lib) );
 
       go_away_reason reason = no_reason;
       bool accepted = false;
