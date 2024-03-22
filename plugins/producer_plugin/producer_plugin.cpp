@@ -1347,6 +1347,9 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
                     "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"");
 
+         EOS_ASSERT(_finalizer_keys.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
+                    "node cannot have any finalizers configured because finalization is impossible when read_mode is \"irreversible\"");
+
          EOS_ASSERT(_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
                     "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"");
 

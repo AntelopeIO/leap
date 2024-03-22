@@ -1246,6 +1246,41 @@ struct controller_impl {
       }
    }
 
+   template<typename ForkDB, typename BSP>
+   void apply_irreversible_block(ForkDB& forkdb, const BSP& bsp) {
+      if( read_mode == db_read_mode::IRREVERSIBLE ) {
+         controller::block_report br;
+         if constexpr (std::is_same_v<block_state_legacy_ptr, std::decay_t<decltype(bsp)>>) {
+            // before transition to savanna
+            apply_block(br, bsp, controller::block_status::complete, trx_meta_cache_lookup{});
+         } else {
+            if (bsp->block->is_proper_svnn_block()) {
+               // if chain_head is legacy, update to non-legacy chain_head, this is needed so that the correct block_state is created in apply_block
+               if (std::holds_alternative<block_state_legacy_ptr>(chain_head.internal())) {
+                  chain_head = block_handle{forkdb.get_block(bsp->previous(), include_root_t::yes)};
+               }
+               apply_block(br, bsp, controller::block_status::complete, trx_meta_cache_lookup{});
+            } else {
+               // only called during transition when not a proper savanna block
+               fork_db.apply_l<void>([&](const auto& forkdb_l) {
+                  block_state_legacy_ptr legacy = forkdb_l.get_block(bsp->id());
+                  fork_db.switch_to_legacy(); // apply block uses to know what types to create
+                  fc::scoped_exit<std::function<void()>> e([&]{fork_db.switch_to_both();});
+                  apply_block(br, legacy, controller::block_status::complete, trx_meta_cache_lookup{});
+                  // irreversible apply was just done, calculate new_valid here instead of in transition_to_savanna()
+                  assert(legacy->action_receipt_digests);
+                  auto action_mroot = calculate_merkle(*legacy->action_receipt_digests);
+                  // Create the valid structure for producing
+                  auto prev = forkdb.get_block(legacy->previous(), include_root_t::yes);
+                  assert(prev);
+                  bsp->valid = prev->new_valid(*bsp, action_mroot);
+                  forkdb.add(bsp, bsp->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
+               });
+            }
+         }
+      }
+   }
+
    void transition_to_savanna() {
       assert(chain_head.header().contains_header_extension(instant_finality_extension::extension_id()));
       // copy head branch branch from legacy forkdb legacy to savanna forkdb
@@ -1253,7 +1288,7 @@ struct controller_impl {
       block_state_legacy_ptr legacy_root;
       fork_db.apply_l<void>([&](const auto& forkdb) {
          legacy_root = forkdb.root();
-         legacy_branch = forkdb.fetch_branch(forkdb.head()->id());
+         legacy_branch = forkdb.fetch_branch(fork_db_head(forkdb, irreversible_mode())->id());
       });
 
       assert(!!legacy_root);
@@ -1263,6 +1298,7 @@ struct controller_impl {
       fork_db.switch_from_legacy(new_root);
       fork_db.apply_s<void>([&](auto& forkdb) {
          block_state_ptr prev = forkdb.root();
+         assert(prev);
          for (auto bitr = legacy_branch.rbegin(); bitr != legacy_branch.rend(); ++bitr) {
             const bool skip_validate_signee = true; // validated already
             auto new_bsp = std::make_shared<block_state>(
@@ -1270,25 +1306,29 @@ struct controller_impl {
                   (*bitr)->block,
                   protocol_features.get_protocol_feature_set(),
                   validator_t{}, skip_validate_signee);
-            // legacy_branch is from head, all should be validated
-            assert((*bitr)->action_receipt_digests);
-            auto action_mroot = calculate_merkle(*(*bitr)->action_receipt_digests);
-            // Create the valid structure for producing
-            new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
+            // legacy_branch is from head, all will be validated unless irreversible_mode(),
+            // IRREVERSIBLE applies (validates) blocks when irreversible, new_valid will be done after apply in log_irreversible
+            assert(read_mode == db_read_mode::IRREVERSIBLE || (*bitr)->action_receipt_digests);
+            if ((*bitr)->action_receipt_digests) {
+               auto action_mroot = calculate_merkle(*(*bitr)->action_receipt_digests);
+               // Create the valid structure for producing
+               new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
+            }
             forkdb.add(new_bsp, (*bitr)->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
             prev = new_bsp;
          }
          assert(read_mode == db_read_mode::IRREVERSIBLE || forkdb.head()->id() == legacy_branch.front()->id());
-         chain_head = block_handle{forkdb.head()};
+         if (read_mode != db_read_mode::IRREVERSIBLE)
+            chain_head = block_handle{forkdb.head()};
+         ilog("Transition to instant finality happening after block ${b}, First IF Proper Block ${pb}", ("b", prev->block_num())("pb", prev->block_num()+1));
       });
-      ilog("Transition to instant finality happening after block ${b}, First IF Proper Block ${pb}", ("b", chain_head.block_num())("pb", chain_head.block_num()+1));
 
       {
          // If Leap started at a block prior to the IF transition, it needs to provide a default safety
          // information for those finalizers that don't already have one. This typically should be done when
          // we create the non-legacy fork_db, as from this point we may need to cast votes to participate
          // to the IF consensus. See https://github.com/AntelopeIO/leap/issues/2070#issuecomment-1941901836
-         auto start_block = chain_head;
+         auto start_block = chain_head; // doesn't matter this is not updated for IRREVERSIBLE, can be in irreversible mode and be a finalizer
          auto lib_block   = chain_head;
          my_finalizers.set_default_safety_information(
             finalizer_safety_information{ .last_vote_range_start = block_timestamp_type(0),
@@ -1345,10 +1385,7 @@ struct controller_impl {
             auto it = v.begin();
 
             for( auto bitr = branch.rbegin(); bitr != branch.rend() && should_process(*bitr); ++bitr ) {
-               if( read_mode == db_read_mode::IRREVERSIBLE ) {
-                  controller::block_report br;
-                  apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
-               }
+               apply_irreversible_block(forkdb, *bitr);
 
                emit( irreversible_block, std::tie((*bitr)->block, (*bitr)->id()) );
 
@@ -1366,8 +1403,9 @@ struct controller_impl {
                      // Do not advance irreversible past IF Genesis Block
                      break;
                   }
-               } else if ((*bitr)->block->is_proper_svnn_block()) {
+               } else if ((*bitr)->block->is_proper_svnn_block() && fork_db.version_in_use() == fork_database::in_use_t::both) {
                   fork_db.switch_to_savanna();
+                  break;
                }
             }
          } catch( std::exception& ) {
@@ -3057,6 +3095,7 @@ struct controller_impl {
 
          if (s != controller::block_status::irreversible) {
             auto add_completed_block = [&](auto& forkdb) {
+               assert(std::holds_alternative<std::decay_t<decltype(forkdb.head())>>(cb.bsp.internal()));
                const auto& bsp = std::get<std::decay_t<decltype(forkdb.head())>>(cb.bsp.internal());
                if( s == controller::block_status::incomplete ) {
                   forkdb.add( bsp, mark_valid_t::yes, ignore_duplicate_t::no );
@@ -3084,6 +3123,7 @@ struct controller_impl {
 
          if( s == controller::block_status::incomplete ) {
             fork_db.apply_s<void>([&](auto& forkdb) {
+               assert(std::holds_alternative<std::decay_t<decltype(forkdb.head())>>(cb.bsp.internal()));
                const auto& bsp = std::get<std::decay_t<decltype(forkdb.head())>>(cb.bsp.internal());
 
                uint16_t if_ext_id = instant_finality_extension::extension_id();
