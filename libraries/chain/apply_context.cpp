@@ -14,7 +14,7 @@
 
 using boost::container::flat_set;
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 static inline void print_debug(account_name receiver, const action_trace& ar) {
    if (!ar.console.empty()) {
@@ -1108,4 +1108,4 @@ bool apply_context::should_use_eos_vm_oc()const {
 }
 
 
-} } /// eosio::chain
+} /// eosio::chain

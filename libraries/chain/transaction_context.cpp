@@ -11,7 +11,7 @@
 
 #include <chrono>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    transaction_checktime_timer::transaction_checktime_timer(platform_timer& timer)
          : expired(timer.expired), _timer(timer) {
@@ -830,4 +830,4 @@ namespace eosio { namespace chain {
    }
 
 
-} } /// eosio::chain
+} /// eosio::chain
