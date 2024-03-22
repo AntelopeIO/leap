@@ -53,6 +53,13 @@ namespace eosio { namespace chain {
             fc::move_append(*digests_s, std::move(*o.digests_s));
       }
 
+      void compute_and_append_digests_from(action_trace& trace) {
+         if (digests_l)
+            digests_l->emplace_back(trace.digest_legacy());
+         if (digests_s)
+            digests_s->emplace_back(trace.digest_savanna());
+      }
+
       store_which_t store_which() const {
          if (digests_l && digests_s)
             return store_which_t::both;

@@ -186,10 +186,7 @@ void apply_context::exec_one()
 
    finalize_trace( trace, start );
 
-   if (trx_context.executed_action_receipts.digests_l)
-      trx_context.executed_action_receipts.digests_l->emplace_back( trace.digest_legacy() );
-   if (trx_context.executed_action_receipts.digests_s)
-      trx_context.executed_action_receipts.digests_s->emplace_back( trace.digest_savanna() );
+   trx_context.executed_action_receipts.compute_and_append_digests_from(trace);
 
    if ( control.contracts_console() ) {
       print_debug(receiver, trace);
