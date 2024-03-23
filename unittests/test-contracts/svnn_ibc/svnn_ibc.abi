@@ -1,0 +1,366 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.2",
+    "types": [
+        {
+            "new_type_name": "bls_public_key",
+            "type": "bytes"
+        },
+        {
+            "new_type_name": "bls_signature",
+            "type": "bytes"
+        },
+        {
+            "new_type_name": "target_data",
+            "type": "variant_block_data_action_data"
+        }
+    ],
+    "structs": [
+        {
+            "name": "action_data",
+            "base": "",
+            "fields": [
+                {
+                    "name": "action",
+                    "type": "r_action"
+                },
+                {
+                    "name": "action_receipt_digest",
+                    "type": "checksum256"
+                },
+                {
+                    "name": "return_value",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "block_data",
+            "base": "",
+            "fields": [
+                {
+                    "name": "finality_data",
+                    "type": "block_finality_data"
+                },
+                {
+                    "name": "dynamic_data",
+                    "type": "dynamic_data_v0"
+                }
+            ]
+        },
+        {
+            "name": "block_finality_data",
+            "base": "",
+            "fields": [
+                {
+                    "name": "major_version",
+                    "type": "uint32"
+                },
+                {
+                    "name": "minor_version",
+                    "type": "uint32"
+                },
+                {
+                    "name": "finalizer_policy_generation",
+                    "type": "uint32"
+                },
+                {
+                    "name": "active_finalizer_policy",
+                    "type": "fpolicy?"
+                },
+                {
+                    "name": "witness_hash",
+                    "type": "checksum256"
+                },
+                {
+                    "name": "finality_mroot",
+                    "type": "checksum256"
+                }
+            ]
+        },
+        {
+            "name": "checkproof",
+            "base": "",
+            "fields": [
+                {
+                    "name": "proof",
+                    "type": "proof"
+                }
+            ]
+        },
+        {
+            "name": "clear",
+            "base": "",
+            "fields": []
+        },
+        {
+            "name": "dynamic_data_v0",
+            "base": "",
+            "fields": [
+                {
+                    "name": "block_num",
+                    "type": "uint32"
+                },
+                {
+                    "name": "action_proofs",
+                    "type": "proof_of_inclusion[]"
+                },
+                {
+                    "name": "action_mroot",
+                    "type": "checksum256?"
+                }
+            ]
+        },
+        {
+            "name": "finality_proof",
+            "base": "",
+            "fields": [
+                {
+                    "name": "qc_block",
+                    "type": "block_finality_data"
+                },
+                {
+                    "name": "qc",
+                    "type": "quorum_certificate"
+                }
+            ]
+        },
+        {
+            "name": "finalizer_authority",
+            "base": "",
+            "fields": [
+                {
+                    "name": "description",
+                    "type": "string"
+                },
+                {
+                    "name": "fweight",
+                    "type": "uint64"
+                },
+                {
+                    "name": "public_key",
+                    "type": "bls_public_key"
+                }
+            ]
+        },
+        {
+            "name": "fpolicy",
+            "base": "",
+            "fields": [
+                {
+                    "name": "generation",
+                    "type": "uint32"
+                },
+                {
+                    "name": "fthreshold",
+                    "type": "uint64"
+                },
+                {
+                    "name": "finalizers",
+                    "type": "finalizer_authority[]"
+                }
+            ]
+        },
+        {
+            "name": "lastproof",
+            "base": "",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "uint64"
+                },
+                {
+                    "name": "block_num",
+                    "type": "uint32"
+                },
+                {
+                    "name": "finality_mroot",
+                    "type": "checksum256"
+                },
+                {
+                    "name": "cache_expiry",
+                    "type": "time_point"
+                }
+            ]
+        },
+        {
+            "name": "merkle_branch",
+            "base": "",
+            "fields": [
+                {
+                    "name": "direction",
+                    "type": "uint8"
+                },
+                {
+                    "name": "hash",
+                    "type": "checksum256"
+                }
+            ]
+        },
+        {
+            "name": "permission_level",
+            "base": "",
+            "fields": [
+                {
+                    "name": "actor",
+                    "type": "name"
+                },
+                {
+                    "name": "permission",
+                    "type": "name"
+                }
+            ]
+        },
+        {
+            "name": "proof",
+            "base": "",
+            "fields": [
+                {
+                    "name": "finality_proof",
+                    "type": "finality_proof?"
+                },
+                {
+                    "name": "target_block_proof_of_inclusion",
+                    "type": "proof_of_inclusion"
+                }
+            ]
+        },
+        {
+            "name": "proof_of_inclusion",
+            "base": "",
+            "fields": [
+                {
+                    "name": "target_node_index",
+                    "type": "uint64"
+                },
+                {
+                    "name": "last_node_index",
+                    "type": "uint64"
+                },
+                {
+                    "name": "target",
+                    "type": "target_data"
+                },
+                {
+                    "name": "merkle_branches",
+                    "type": "merkle_branch[]"
+                }
+            ]
+        },
+        {
+            "name": "quorum_certificate",
+            "base": "",
+            "fields": [
+                {
+                    "name": "finalizers",
+                    "type": "uint64[]"
+                },
+                {
+                    "name": "signature",
+                    "type": "bls_signature"
+                }
+            ]
+        },
+        {
+            "name": "r_action",
+            "base": "r_action_base",
+            "fields": [
+                {
+                    "name": "data",
+                    "type": "bytes"
+                },
+                {
+                    "name": "returnvalue",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "r_action_base",
+            "base": "",
+            "fields": [
+                {
+                    "name": "account",
+                    "type": "name"
+                },
+                {
+                    "name": "name",
+                    "type": "name"
+                },
+                {
+                    "name": "authorization",
+                    "type": "permission_level[]"
+                }
+            ]
+        },
+        {
+            "name": "setfpolicy",
+            "base": "",
+            "fields": [
+                {
+                    "name": "policy",
+                    "type": "fpolicy"
+                },
+                {
+                    "name": "from_block_num",
+                    "type": "uint32"
+                }
+            ]
+        },
+        {
+            "name": "storedpolicy",
+            "base": "fpolicy",
+            "fields": [
+                {
+                    "name": "last_block_num",
+                    "type": "uint32"
+                },
+                {
+                    "name": "cache_expiry",
+                    "type": "time_point"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "checkproof",
+            "type": "checkproof",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "clear",
+            "type": "clear",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "setfpolicy",
+            "type": "setfpolicy",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [
+        {
+            "name": "lastproofs",
+            "type": "lastproof",
+            "index_type": "i64",
+            "key_names": [],
+            "key_types": []
+        },
+        {
+            "name": "policies",
+            "type": "storedpolicy",
+            "index_type": "i64",
+            "key_names": [],
+            "key_types": []
+        }
+    ],
+    "ricardian_clauses": [],
+    "variants": [
+        {
+            "name": "variant_block_data_action_data",
+            "types": ["block_data","action_data"]
+        }
+    ],
+    "action_results": []
+}

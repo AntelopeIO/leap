@@ -122,7 +122,8 @@ void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code, uint64_t st
 
       if(base_offset + data_segment.data.size() > initial_mem.size())
          initial_mem.resize(base_offset + data_segment.data.size(), 0x00);
-      memcpy(initial_mem.data() + base_offset, data_segment.data.data(), data_segment.data.size());
+      if(data_segment.data.size())
+         memcpy(initial_mem.data() + base_offset, data_segment.data.data(), data_segment.data.size());
    }
 
    result_message.initdata_prologue_size = prologue.end() - prologue_it;

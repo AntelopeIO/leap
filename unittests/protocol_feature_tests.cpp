@@ -1074,13 +1074,7 @@ BOOST_AUTO_TEST_CASE( get_sender_test ) { try {
 BOOST_AUTO_TEST_CASE( protocol_activatation_works_after_transition_to_savanna ) { try {
    validating_tester c({}, {}, setup_policy::preactivate_feature_and_new_bios );
 
-   const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::instant_finality);
-   // needed for bios contract
-   const auto& dp = pfm.get_builtin_digest(builtin_protocol_feature_t::bls_primitives);
-   const auto& dw = pfm.get_builtin_digest(builtin_protocol_feature_t::wtmsig_block_signatures);
-   const auto& dwk = pfm.get_builtin_digest(builtin_protocol_feature_t::webauthn_key);
-   c.preactivate_protocol_features( {*d, *dp, *dw, *dwk} );
+   c.preactivate_savanna_protocol_features();
    c.produce_block();
 
    c.set_bios_contract();
@@ -1143,6 +1137,7 @@ BOOST_AUTO_TEST_CASE( protocol_activatation_works_after_transition_to_savanna ) 
                            wasm_exception,
                            fc_exception_message_is( "env.get_sender unresolveable" ) );
 
+   const auto& pfm = c.control->get_protocol_feature_manager();
    const auto& d2 = pfm.get_builtin_digest( builtin_protocol_feature_t::get_sender );
    BOOST_REQUIRE( d2 );
 
@@ -2385,15 +2380,11 @@ BOOST_AUTO_TEST_CASE( set_finalizers_test ) { try {
    c.create_accounts( {alice_account} );
    c.produce_block();
 
-   const auto& pfm = c.control->get_protocol_feature_manager();
-   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::instant_finality);
-   BOOST_REQUIRE(d);
-
    BOOST_CHECK_EXCEPTION(  c.set_code( config::system_account_name, import_set_finalizers_wast ),
                            wasm_exception,
                            fc_exception_message_is( "env.set_finalizers unresolveable" ) );
 
-   c.preactivate_protocol_features( {*d} );
+   c.preactivate_savanna_protocol_features();
    c.produce_block();
 
    // ensure it now resolves

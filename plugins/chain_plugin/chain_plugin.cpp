@@ -15,10 +15,9 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
+#include <eosio/chain/chainbase_environment.hpp>
 
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
-
-#include <chainbase/environment.hpp>
 
 #include <boost/signals2/connection.hpp>
 #include <boost/algorithm/string.hpp>
@@ -27,13 +26,6 @@
 #include <fc/io/json.hpp>
 #include <fc/variant.hpp>
 #include <cstdlib>
-
-// reflect chainbase::environment for --print-build-info option
-FC_REFLECT_ENUM( chainbase::environment::os_t,
-                 (OS_LINUX)(OS_MACOS)(OS_WINDOWS)(OS_OTHER) )
-FC_REFLECT_ENUM( chainbase::environment::arch_t,
-                 (ARCH_X86_64)(ARCH_ARM)(ARCH_RISCV)(ARCH_OTHER) )
-FC_REFLECT(chainbase::environment, (debug)(os)(arch)(boost_version)(compiler) )
 
 const std::string deep_mind_logger_name("deep-mind");
 eosio::chain::deep_mind_handler _deep_mind_log;
