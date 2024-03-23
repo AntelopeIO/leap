@@ -90,9 +90,9 @@ namespace eosio { namespace chain {
    }
 
    bool block_header::contains_header_extension(uint16_t extension_id)const {
-      return std::find_if(header_extensions.cbegin(), header_extensions.cend(), [&](const auto& p) {
+      return std::any_of(header_extensions.cbegin(), header_extensions.cend(), [&](const auto& p) {
          return p.first == extension_id;
-      }) != header_extensions.cend();
+      });
    }
 
 } }
