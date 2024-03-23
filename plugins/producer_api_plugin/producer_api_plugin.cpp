@@ -23,7 +23,7 @@ using namespace eosio;
 #define CALL_WITH_400(api_name, category, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
    api_category::category, \
-   [&](string&&, string&& body, url_response_callback&& cb) mutable { \
+   [&http, &producer](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              INVOKE \
              cb(http_response_code, fc::variant(result)); \
@@ -63,6 +63,7 @@ using namespace eosio;
      auto result = api_handle.call_name(std::move(params));
 
 #define INVOKE_R_R_D(api_handle, call_name, in_param) \
+     const fc::microseconds http_max_response_time = http.get_max_response_time(); \
      auto deadline = http_max_response_time == fc::microseconds::maximum() ? fc::time_point::maximum() \
                                                                            : fc::time_point::now() + http_max_response_time; \
      auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
@@ -91,7 +92,6 @@ void producer_api_plugin::plugin_startup() {
    // lifetime of plugin is lifetime of application
    auto& producer = app().get_plugin<producer_plugin>();
    auto& http = app().get_plugin<http_plugin>();
-   fc::microseconds http_max_response_time = http.get_max_response_time();
 
    app().get_plugin<http_plugin>().add_api({
        CALL_WITH_400(producer, producer_ro, producer, paused,
