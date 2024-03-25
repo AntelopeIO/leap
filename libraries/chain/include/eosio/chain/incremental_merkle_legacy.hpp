@@ -188,7 +188,7 @@ class incremental_merkle_impl {
                // calculate the partially realized node value by implying the "right" value is identical
                // to the "left" value
                if constexpr (canonical) {
-                  top = DigestType::hash(make_canonical_pair(top, top));
+                  top = DigestType::hash(detail::make_legacy_digest_pair(top, top));
                } else {
                   top = DigestType::hash(std::make_pair(std::cref(top), std::cref(top)));
                }
@@ -208,7 +208,7 @@ class incremental_merkle_impl {
 
                // calculate the node
                if constexpr (canonical) {
-                  top = DigestType::hash(make_canonical_pair(left_value, top));
+                  top = DigestType::hash(detail::make_legacy_digest_pair(left_value, top));
                } else {
                   top = DigestType::hash(std::make_pair(std::cref(left_value), std::cref(top)));
                }
@@ -249,11 +249,10 @@ class incremental_merkle_impl {
       Container<DigestType, Args...>   _active_nodes;
 };
 
-typedef incremental_merkle_impl<digest_type, true>                incremental_legacy_merkle_tree;
-typedef incremental_merkle_impl<digest_type, true, shared_vector> shared_incremental_legacy_merkle_tree;
-typedef incremental_merkle_impl<digest_type>                      incremental_merkle_tree;
+typedef incremental_merkle_impl<digest_type, true>   incremental_merkle_tree_legacy;
+typedef incremental_merkle_impl<digest_type>         incremental_merkle_tree;
 
 } /// eosio::chain
 
-FC_REFLECT( eosio::chain::incremental_legacy_merkle_tree, (_active_nodes)(_node_count) );
+FC_REFLECT( eosio::chain::incremental_merkle_tree_legacy, (_active_nodes)(_node_count) );
 FC_REFLECT( eosio::chain::incremental_merkle_tree, (_active_nodes)(_node_count) );

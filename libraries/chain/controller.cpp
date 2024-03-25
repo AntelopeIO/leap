@@ -668,13 +668,13 @@ struct building_block {
                auto [transaction_mroot, action_mroot] = std::visit(
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
-                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(trx_receipts)); });
+                                   post_async_task(ioc, [&]() { return calculate_merkle_legacy(std::move(trx_receipts)); });
                                 auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(action_receipts)); });
+                                   post_async_task(ioc, [&]() { return calculate_merkle_legacy(std::move(action_receipts)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, legacy_merkle(std::move(action_receipts)));
+                                return std::make_pair(trx_checksum, calculate_merkle_legacy(std::move(action_receipts)));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -3858,7 +3858,7 @@ struct controller_impl {
       if (if_active) {
          return calculate_merkle( std::move(digests) );
       } else {
-         return legacy_merkle( std::move(digests) );
+         return calculate_merkle_legacy( std::move(digests) );
       }
    }
 
