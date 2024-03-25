@@ -1,6 +1,6 @@
 #pragma once
 #include <eosio/chain/block_header.hpp>
-#include <eosio/chain/incremental_merkle.hpp>
+#include <eosio/chain/incremental_merkle_legacy.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
 #include <future>

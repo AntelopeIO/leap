@@ -90,7 +90,6 @@ target_include_directories(eosio_rapidjson INTERFACE ../rapidjson/include)
 
 ## SORT .cpp by most likely to change / break compile
 add_library( eosio_chain
-             merkle.cpp
              name.cpp
              transaction.cpp
              block.cpp

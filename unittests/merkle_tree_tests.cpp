@@ -1,4 +1,5 @@
 #include <eosio/chain/incremental_merkle.hpp>
+#include <eosio/chain/incremental_merkle_legacy.hpp>
 #include <eosio/chain/merkle.hpp>
 #include <boost/test/unit_test.hpp>
 #include <fc/crypto/sha256.hpp>
