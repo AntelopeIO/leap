@@ -3,7 +3,7 @@
 #include <eosio/chain/merkle.hpp>
 #include <fc/io/raw.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 namespace detail {
 
@@ -27,15 +27,15 @@ constexpr uint64_t next_power_of_2(uint64_t value) {
 }
 
 /**
- * Given a power-of-2 (assumed correct) return the number of leading zeros
+ * Given a power-of-2 (assumed correct) return the number of trailing zeros
  *
- * This is a classic count-leading-zeros in parallel without the necessary
+ * This is a classic count-trailing-zeros in parallel without the necessary
  * math to make it safe for anything that is not already a power-of-2
  *
  * @param value - and integral power-of-2
- * @return the number of leading zeros
+ * @return the number of trailing zeros
  */
-constexpr int clz_power_2(uint64_t value) {
+constexpr int ctz_power_2(uint64_t value) {
    int lz = 64;
 
    if (value) lz--;
@@ -56,12 +56,12 @@ constexpr int clz_power_2(uint64_t value) {
  * @param node_count - the number of nodes in the implied tree
  * @return the max depth of the minimal tree that stores them
  */
-constexpr int calcluate_max_depth(uint64_t node_count) {
+constexpr int calculate_max_depth(uint64_t node_count) {
    if (node_count == 0) {
       return 0;
    }
    auto implied_count = next_power_of_2(node_count);
-   return clz_power_2(implied_count) + 1;
+   return ctz_power_2(implied_count) + 1;
 }
 
 template<typename ContainerA, typename ContainerB>
@@ -166,7 +166,7 @@ class incremental_merkle_impl {
        */
       const DigestType& append(const DigestType& digest) {
          bool partial = false;
-         auto max_depth = detail::calcluate_max_depth(_node_count + 1);
+         auto max_depth = detail::calculate_max_depth(_node_count + 1);
          auto current_depth = max_depth - 1;
          auto index = _node_count;
          auto top = digest;
@@ -253,7 +253,7 @@ typedef incremental_merkle_impl<digest_type, true>                incremental_le
 typedef incremental_merkle_impl<digest_type, true, shared_vector> shared_incremental_legacy_merkle_tree;
 typedef incremental_merkle_impl<digest_type>                      incremental_merkle_tree;
 
-} } /// eosio::chain
+} /// eosio::chain
 
 FC_REFLECT( eosio::chain::incremental_legacy_merkle_tree, (_active_nodes)(_node_count) );
 FC_REFLECT( eosio::chain::incremental_merkle_tree, (_active_nodes)(_node_count) );
