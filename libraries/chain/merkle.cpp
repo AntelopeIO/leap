@@ -32,7 +32,7 @@ bool is_canonical_right(const digest_type& val) {
 }
 
 
-digest_type legacy_merkle(deque<digest_type> ids) {
+digest_type legacy_merkle(deque<digest_type>&& ids) {
    if( 0 == ids.size() ) { return digest_type(); }
 
    while( ids.size() > 1 ) {
@@ -49,7 +49,7 @@ digest_type legacy_merkle(deque<digest_type> ids) {
    return ids.front();
 }
 
-digest_type calculate_merkle( deque<digest_type> ids ) {
+digest_type calculate_merkle( deque<digest_type>&& ids ) {
    if( 0 == ids.size() ) { return digest_type(); }
 
    while( ids.size() > 1 ) {
