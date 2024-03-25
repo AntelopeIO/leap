@@ -12,5 +12,8 @@ namespace detail {
 
 } /// detail
 
+typedef incremental_merkle_impl<digest_type> incremental_merkle_tree;
 
 } /// eosio::chain
+
+FC_REFLECT( eosio::chain::incremental_merkle_tree, (_active_nodes)(_node_count) );

@@ -249,10 +249,8 @@ class incremental_merkle_impl {
       Container<DigestType, Args...>   _active_nodes;
 };
 
-typedef incremental_merkle_impl<digest_type, true>   incremental_merkle_tree_legacy;
-typedef incremental_merkle_impl<digest_type>         incremental_merkle_tree;
+typedef incremental_merkle_impl<digest_type, true> incremental_merkle_tree_legacy;
 
 } /// eosio::chain
 
 FC_REFLECT( eosio::chain::incremental_merkle_tree_legacy, (_active_nodes)(_node_count) );
-FC_REFLECT( eosio::chain::incremental_merkle_tree, (_active_nodes)(_node_count) );
