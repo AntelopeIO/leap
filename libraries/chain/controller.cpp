@@ -1248,37 +1248,51 @@ struct controller_impl {
 
    template<typename ForkDB, typename BSP>
    void apply_irreversible_block(ForkDB& forkdb, const BSP& bsp) {
-      if( read_mode == db_read_mode::IRREVERSIBLE ) {
-         controller::block_report br;
-         if constexpr (std::is_same_v<block_state_legacy_ptr, std::decay_t<decltype(bsp)>>) {
-            // before transition to savanna
+      if (read_mode != db_read_mode::IRREVERSIBLE)
+         return;
+      controller::block_report br;
+      if constexpr (std::is_same_v<block_state_legacy_ptr, std::decay_t<decltype(bsp)>>) {
+         // before transition to savanna
+         apply_block(br, bsp, controller::block_status::complete, trx_meta_cache_lookup{});
+      } else {
+         assert(bsp->block);
+         if (bsp->block->is_proper_svnn_block()) {
+            // if chain_head is legacy, update to non-legacy chain_head, this is needed so that the correct block_state is created in apply_block
+            if (std::holds_alternative<block_state_legacy_ptr>(chain_head.internal())) {
+               auto prev = forkdb.get_block(bsp->previous(), include_root_t::yes);
+               assert(prev);
+               chain_head = block_handle{prev};
+            }
             apply_block(br, bsp, controller::block_status::complete, trx_meta_cache_lookup{});
          } else {
-            if (bsp->block->is_proper_svnn_block()) {
-               // if chain_head is legacy, update to non-legacy chain_head, this is needed so that the correct block_state is created in apply_block
-               if (std::holds_alternative<block_state_legacy_ptr>(chain_head.internal())) {
-                  chain_head = block_handle{forkdb.get_block(bsp->previous(), include_root_t::yes)};
-               }
-               apply_block(br, bsp, controller::block_status::complete, trx_meta_cache_lookup{});
-            } else {
-               // only called during transition when not a proper savanna block
-               fork_db.apply_l<void>([&](const auto& forkdb_l) {
-                  block_state_legacy_ptr legacy = forkdb_l.get_block(bsp->id());
-                  fork_db.switch_to_legacy(); // apply block uses to know what types to create
-                  fc::scoped_exit<std::function<void()>> e([&]{fork_db.switch_to_both();});
-                  apply_block(br, legacy, controller::block_status::complete, trx_meta_cache_lookup{});
-                  // irreversible apply was just done, calculate new_valid here instead of in transition_to_savanna()
-                  assert(legacy->action_receipt_digests);
-                  auto action_mroot = calculate_merkle(*legacy->action_receipt_digests);
-                  // Create the valid structure for producing
-                  auto prev = forkdb.get_block(legacy->previous(), include_root_t::yes);
-                  assert(prev);
-                  bsp->valid = prev->new_valid(*bsp, action_mroot);
-                  forkdb.add(bsp, bsp->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
-               });
-            }
+            // only called during transition when not a proper savanna block
+            fork_db.apply_l<void>([&](const auto& forkdb_l) {
+               block_state_legacy_ptr legacy = forkdb_l.get_block(bsp->id());
+               fork_db.switch_to_legacy(); // apply block uses to know what types to create
+               fc::scoped_exit<std::function<void()>> e([&]{fork_db.switch_to_both();});
+               apply_block(br, legacy, controller::block_status::complete, trx_meta_cache_lookup{});
+               // irreversible apply was just done, calculate new_valid here instead of in transition_to_savanna()
+               assert(legacy->action_receipt_digests);
+               auto prev = forkdb.get_block(legacy->previous(), include_root_t::yes);
+               assert(prev);
+               transition_add_to_savanna_fork_db(forkdb, legacy, bsp, prev);
+            });
          }
       }
+   }
+
+   void transition_add_to_savanna_fork_db(fork_database_if_t& forkdb,
+                                          const block_state_legacy_ptr& legacy, const block_state_ptr& new_bsp,
+                                          const block_state_ptr& prev) {
+      // legacy_branch is from head, all will be validated unless irreversible_mode(),
+      // IRREVERSIBLE applies (validates) blocks when irreversible, new_valid will be done after apply in log_irreversible
+      assert(read_mode == db_read_mode::IRREVERSIBLE || legacy->action_receipt_digests);
+      if (legacy->action_receipt_digests) {
+         auto action_mroot = calculate_merkle(*legacy->action_receipt_digests);
+         // Create the valid structure for producing
+         new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
+      }
+      forkdb.add(new_bsp, legacy->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
    }
 
    void transition_to_savanna() {
@@ -1306,15 +1320,7 @@ struct controller_impl {
                   (*bitr)->block,
                   protocol_features.get_protocol_feature_set(),
                   validator_t{}, skip_validate_signee);
-            // legacy_branch is from head, all will be validated unless irreversible_mode(),
-            // IRREVERSIBLE applies (validates) blocks when irreversible, new_valid will be done after apply in log_irreversible
-            assert(read_mode == db_read_mode::IRREVERSIBLE || (*bitr)->action_receipt_digests);
-            if ((*bitr)->action_receipt_digests) {
-               auto action_mroot = calculate_merkle(*(*bitr)->action_receipt_digests);
-               // Create the valid structure for producing
-               new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
-            }
-            forkdb.add(new_bsp, (*bitr)->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
+            transition_add_to_savanna_fork_db(forkdb, *bitr, new_bsp, prev);
             prev = new_bsp;
          }
          assert(read_mode == db_read_mode::IRREVERSIBLE || forkdb.head()->id() == legacy_branch.front()->id());
