@@ -63,7 +63,7 @@ try:
 
     assert cluster.biosNode.waitForLibToAdvance(), "Lib should advance after instant finality activated"
     assert cluster.biosNode.waitForProducer("defproducera"), "Did not see defproducera"
-    assert cluster.biosNode.waitForHeadToAdvance(blocksToAdvance=13) # into next producer
+    assert cluster.biosNode.waitForHeadToAdvance(blocksToAdvance=13), "Head did not advance 13 blocks to next producer"
     assert cluster.biosNode.waitForLibToAdvance(), "Lib stopped advancing on biosNode"
     assert cluster.getNode(1).waitForLibToAdvance(), "Lib stopped advancing on Node 1"
     assert cluster.getNode(4).waitForLibToAdvance(), "Lib stopped advancing on Node 4, irreversible node"
