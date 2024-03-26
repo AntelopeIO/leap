@@ -27,7 +27,7 @@ void limit_violated_test(const eosvmoc::config& eosvmoc_config) {
 
    chain.create_accounts({"eosio.token"_n});
    chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi().data());
 
    if (chain.control->is_eos_vm_oc_enabled()) {
       BOOST_CHECK_EXCEPTION(
@@ -63,7 +63,7 @@ void limit_not_violated_test(const eosvmoc::config& eosvmoc_config) {
 
    chain.create_accounts({"eosio.token"_n});
    chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi().data());
 
    chain.push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
       ( "issuer", "eosio.token" )

@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE( activate_preactivate_feature ) try {
 
    // But the old bios contract can still be set.
    c.set_code( config::system_account_name, contracts::before_preactivate_eosio_bios_wasm() );
-   c.set_abi( config::system_account_name, contracts::before_preactivate_eosio_bios_abi() );
+   c.set_abi( config::system_account_name, contracts::before_preactivate_eosio_bios_abi().data() );
 
    auto t = c.control->pending_block_time();
    c.control->abort_block();
@@ -378,7 +378,7 @@ BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
    c.produce_block();
    c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
    c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
-   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi().data() );
    c.produce_block();
 
    auto alice_ram_usage0 = c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n );
@@ -535,7 +535,7 @@ BOOST_AUTO_TEST_CASE( no_duplicate_deferred_id_test ) try {
    c.produce_block();
    c.create_accounts( {"alice"_n, "test"_n} );
    c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
-   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi().data() );
    c.produce_block();
 
    push_blocks( c, c2 );
@@ -800,10 +800,10 @@ BOOST_AUTO_TEST_CASE( restrict_action_to_self_test ) { try {
 
    c.create_accounts( {"testacc"_n, "acctonotify"_n, "alice"_n} );
    c.set_code( "testacc"_n, test_contracts::restrict_action_test_wasm() );
-   c.set_abi( "testacc"_n, test_contracts::restrict_action_test_abi() );
+   c.set_abi( "testacc"_n, test_contracts::restrict_action_test_abi().data() );
 
    c.set_code( "acctonotify"_n, test_contracts::restrict_action_test_wasm() );
-   c.set_abi( "acctonotify"_n, test_contracts::restrict_action_test_abi() );
+   c.set_abi( "acctonotify"_n, test_contracts::restrict_action_test_abi().data() );
 
    // Before the protocol feature is preactivated
    // - Sending inline action to self = no problem
@@ -1038,9 +1038,9 @@ BOOST_AUTO_TEST_CASE( get_sender_test ) { try {
    c.produce_block();
 
    c.set_code( tester1_account, test_contracts::get_sender_test_wasm() );
-   c.set_abi( tester1_account, test_contracts::get_sender_test_abi() );
+   c.set_abi( tester1_account, test_contracts::get_sender_test_abi().data() );
    c.set_code( tester2_account, test_contracts::get_sender_test_wasm() );
-   c.set_abi( tester2_account, test_contracts::get_sender_test_abi() );
+   c.set_abi( tester2_account, test_contracts::get_sender_test_abi().data() );
    c.produce_block();
 
    BOOST_CHECK_EXCEPTION(  c.push_action( tester1_account, "sendinline"_n, tester1_account, mutable_variant_object()
@@ -1081,10 +1081,10 @@ BOOST_AUTO_TEST_CASE( ram_restrictions_test ) { try {
    c.create_accounts( {tester1_account, tester2_account, alice_account, bob_account} );
    c.produce_block();
    c.set_code( tester1_account, test_contracts::ram_restrictions_test_wasm() );
-   c.set_abi( tester1_account, test_contracts::ram_restrictions_test_abi() );
+   c.set_abi( tester1_account, test_contracts::ram_restrictions_test_abi().data() );
    c.produce_block();
    c.set_code( tester2_account, test_contracts::ram_restrictions_test_wasm() );
-   c.set_abi( tester2_account, test_contracts::ram_restrictions_test_abi() );
+   c.set_abi( tester2_account, test_contracts::ram_restrictions_test_abi().data() );
    c.produce_block();
 
    // Basic setup
@@ -1927,7 +1927,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
    c.produce_block();
    c.create_accounts( {"alice"_n, "bob"_n, "test"_n, "payloadless"_n} );
    c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
-   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi().data() );
    c.set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
    c.set_abi( "payloadless"_n, test_contracts::payloadless_abi().data() );
    c.produce_block();
@@ -2049,7 +2049,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_retire_test ) { try {
    c.produce_block();
    c.create_accounts( {"alice"_n, "test"_n} );
    c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
-   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi().data() );
    c.produce_block();
 
    // verify number of deferred trxs is 0
@@ -2114,7 +2114,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_test ) { try {
    c.produce_block();
    c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
    c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
-   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi().data() );
    c.produce_block();
 
    // verify number of deferred trxs starts at 0

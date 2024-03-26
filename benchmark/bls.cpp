@@ -42,7 +42,7 @@ struct interface_in_benchmark {
       // create account and deploy contract for a temp transaction
       chain->create_accounts( {"payloadless"_n} );
       chain->set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
-      chain->set_abi( "payloadless"_n, test_contracts::payloadless_abi() );
+      chain->set_abi( "payloadless"_n, test_contracts::payloadless_abi().data() );
 
       // construct a signed transaction
       fc::variant pretty_trx = fc::mutable_variant_object()

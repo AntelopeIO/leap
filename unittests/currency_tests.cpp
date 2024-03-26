@@ -64,7 +64,7 @@ class currency_tester : public validating_tester {
       }
 
       currency_tester(setup_policy p = setup_policy::full)
-         :validating_tester({}, nullptr, p), abi_ser(json::from_string(test_contracts::eosio_token_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
+         :validating_tester({}, nullptr, p), abi_ser(json::from_string(test_contracts::eosio_token_abi().data()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
       {
          create_account( "eosio.token"_n);
          set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
@@ -403,7 +403,7 @@ BOOST_FIXTURE_TEST_CASE( test_proxy_deferred, pre_disable_deferred_trx_currency_
    set_code("proxy"_n, test_contracts::proxy_wasm());
    produce_blocks(1);
 
-   abi_serializer proxy_abi_ser(json::from_string(test_contracts::proxy_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
+   abi_serializer proxy_abi_ser(json::from_string(test_contracts::proxy_abi().data()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
 
    // set up proxy owner
    {
@@ -459,7 +459,7 @@ BOOST_FIXTURE_TEST_CASE( test_deferred_failure, pre_disable_deferred_trx_currenc
    set_code("bob"_n, test_contracts::proxy_wasm());
    produce_blocks(1);
 
-   abi_serializer proxy_abi_ser(json::from_string(test_contracts::proxy_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
+   abi_serializer proxy_abi_ser(json::from_string(test_contracts::proxy_abi().data()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
 
    // set up proxy owner
    {

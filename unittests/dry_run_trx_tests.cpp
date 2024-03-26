@@ -20,7 +20,7 @@ struct dry_run_trx_tester : validating_tester {
    void set_up_test_contract() {
       create_accounts( {"noauthtable"_n, "alice"_n} );
       set_code( "noauthtable"_n, test_contracts::no_auth_table_wasm() );
-      set_abi( "noauthtable"_n, test_contracts::no_auth_table_abi() );
+      set_abi( "noauthtable"_n, test_contracts::no_auth_table_abi().data() );
       produce_block();
 
       insert_data = abi_ser.variant_to_binary( "insert", mutable_variant_object()
@@ -67,7 +67,7 @@ struct dry_run_trx_tester : validating_tester {
       produce_block();
    }
 
-   abi_serializer abi_ser{ json::from_string(test_contracts::no_auth_table_abi()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time )};
+   abi_serializer abi_ser{ json::from_string(test_contracts::no_auth_table_abi().data()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time )};
    bytes insert_data;
    bytes getage_data;
 };
@@ -206,7 +206,7 @@ BOOST_FIXTURE_TEST_CASE(linkauth_test, dry_run_trx_tester) { try {
 
    create_account("eosio.token"_n);
    set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   set_abi("eosio.token"_n, test_contracts::eosio_token_abi().data());
 
    create_accounts( {"alice"_n} );
 
@@ -236,7 +236,7 @@ BOOST_FIXTURE_TEST_CASE(unlinkauth_test, dry_run_trx_tester) { try {
 
    create_account("eosio.token"_n);
    set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   set_abi("eosio.token"_n, test_contracts::eosio_token_abi().data());
 
    create_accounts( {"alice"_n} );
 

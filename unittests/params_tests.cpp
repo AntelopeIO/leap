@@ -20,7 +20,7 @@ public:
    void setup(){
       //set parameters intrinsics are priviledged so we need system account here
       set_code(config::system_account_name, eosio::testing::test_contracts::params_test_wasm());
-      set_abi(config::system_account_name, eosio::testing::test_contracts::params_test_abi());
+      set_abi(config::system_account_name, eosio::testing::test_contracts::params_test_abi().data());
       produce_block();
    }
 

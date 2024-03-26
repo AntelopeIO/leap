@@ -562,7 +562,7 @@ BOOST_AUTO_TEST_CASE(delete_auth) { try {
    chain.produce_blocks(10);
 
    chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi().data());
 
    chain.produce_blocks();
    chain.create_account("tester"_n);
