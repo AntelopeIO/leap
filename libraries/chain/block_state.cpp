@@ -187,21 +187,24 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
                   ("s", strong_weights)("w", weak_weights)("t", active_finalizer_policy->threshold) );
    }
 
-   std::vector<bls_public_key> pubkeys;
+   // no reason to use bls_public_key wrapper
+   std::vector<bls12_381::g1> pubkeys;
+   pubkeys.reserve(2);
    std::vector<std::vector<uint8_t>> digests;
+   digests.reserve(2);
 
    // utility to aggregate public keys for verification
-   auto aggregate_pubkeys = [&](const auto& votes_bitset) -> bls_public_key {
+   auto aggregate_pubkeys = [&](const auto& votes_bitset) -> bls12_381::g1 {
       const auto n = std::min(num_finalizers, votes_bitset.size());
-      std::vector<bls_public_key> pubkeys_to_aggregate;
+      std::vector<bls12_381::g1> pubkeys_to_aggregate;
       pubkeys_to_aggregate.reserve(n);
       for(auto i = 0u; i < n; ++i) {
          if (votes_bitset[i]) { // ith finalizer voted
-            pubkeys_to_aggregate.emplace_back(finalizers[i].public_key);
+            pubkeys_to_aggregate.emplace_back(finalizers[i].public_key.jacobian_montgomery_le());
          }
       }
 
-      return fc::crypto::blslib::aggregate(pubkeys_to_aggregate);
+      return bls12_381::aggregate_public_keys(pubkeys_to_aggregate);
    };
 
    // aggregate public keys and digests for strong and weak votes
@@ -216,7 +219,7 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    }
 
    // validate aggregated signature
-   EOS_ASSERT( fc::crypto::blslib::aggregate_verify( pubkeys, digests, qc._sig ),
+   EOS_ASSERT( bls12_381::aggregate_verify(pubkeys, digests, qc._sig._sig), //jacobian_montgomery_le()),
                invalid_qc_claim, "signature validation failed" );
 }
 

@@ -1209,7 +1209,7 @@ namespace eosio { namespace testing {
             fc::mutable_variant_object()
                ("description", f.name.to_string() + " description")
                ("weight", f.weight)
-               ("public_key", pubkey.to_string({}))
+               ("public_key", pubkey.to_string())
                ("pop", pop.to_string({})));
       }
 
