@@ -93,7 +93,6 @@ block_state::block_state(const block_state_legacy& bsp, const digest_type& actio
    pub_keys_recovered = bsp._pub_keys_recovered;
    cached_trxs = bsp._cached_trxs;
    action_mroot = action_mroot_svnn;
-   base_digest = compute_base_digest();
 }
 
 block_state::block_state(snapshot_detail::snapshot_block_state_v7&& sbs)
