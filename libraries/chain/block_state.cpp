@@ -16,7 +16,6 @@ block_state::block_state(const block_header_state& prev, signed_block_ptr b, con
    , strong_digest(compute_finality_digest())
    , weak_digest(create_weak_digest(strong_digest))
    , pending_qc(prev.active_finalizer_policy->finalizers.size(), prev.active_finalizer_policy->threshold, prev.active_finalizer_policy->max_weak_sum_before_weak_final())
-   , base_digest(compute_base_digest())
 {
    // ASSUMPTION FROM controller_impl::apply_block = all untrusted blocks will have their signatures pre-validated here
    if( !skip_validate_signee ) {
@@ -43,7 +42,6 @@ block_state::block_state(const block_header_state&                bhs,
    , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
    , action_mroot(action_mroot)
-   , base_digest(compute_base_digest())
 {
    block->transactions = std::move(trx_receipts);
 
@@ -303,11 +301,14 @@ digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) co
    return get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
 }
 
-finality_data_t block_state::get_finality_data() const {
+finality_data_t block_state::get_finality_data() {
+   if (!base_digest) {
+      base_digest = compute_base_digest(); // cache it
+   }
    return {
       // other fields take the default values set by finality_data_t definition
       .action_mroot = action_mroot,
-      .base_digest  = base_digest
+      .base_digest  = *base_digest
    };
 }
 
