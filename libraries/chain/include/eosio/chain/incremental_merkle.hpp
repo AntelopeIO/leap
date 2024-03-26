@@ -56,7 +56,7 @@ constexpr int clz_power_2(uint64_t value) {
  * @param node_count - the number of nodes in the implied tree
  * @return the max depth of the minimal tree that stores them
  */
-constexpr int calcluate_max_depth(uint64_t node_count) {
+constexpr int calculate_max_depth(uint64_t node_count) {
    if (node_count == 0) {
       return 0;
    }
@@ -166,7 +166,7 @@ class incremental_merkle_impl {
        */
       const DigestType& append(const DigestType& digest) {
          bool partial = false;
-         auto max_depth = detail::calcluate_max_depth(_node_count + 1);
+         auto max_depth = detail::calculate_max_depth(_node_count + 1);
          auto current_depth = max_depth - 1;
          auto index = _node_count;
          auto top = digest;
