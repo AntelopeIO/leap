@@ -4126,9 +4126,7 @@ struct controller_impl {
       // We cannot use apply_s here as it returns an empty `finality_data_t` in
       // Legacy, which causes SHiP to generate a null `finality_data` log
       // (we want no `finality_data` is generated at all).
-      return apply<std::optional<finality_data_t>>(chain_head,
-         overloaded{ [](const block_state_legacy_ptr& head) { return std::nullopt; },
-                     [](const block_state_ptr&        head) { return head->get_finality_data(); }});
+      return apply_s<std::optional<finality_data_t>>(chain_head, [](const block_state_ptr& head) { return head->get_finality_data(); });
    }
 
    uint32_t earliest_available_block_num() const {
