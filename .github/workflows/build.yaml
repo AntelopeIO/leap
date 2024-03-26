@@ -137,6 +137,7 @@ jobs:
           - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
           - cfg: {name: 'asserton',      base: 'asserton', builddir: 'asserton'}
           - cfg: {name: 'ubsan',         base: 'ubsan',    builddir: 'ubsan'}
+          - cfg: {name: 'asan',          base: 'asan',     builddir: 'asan'}
           - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
           - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-hightier"]
