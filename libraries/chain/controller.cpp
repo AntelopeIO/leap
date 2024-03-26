@@ -1257,23 +1257,23 @@ struct controller_impl {
       } else {
          assert(bsp->block);
          if (bsp->block->is_proper_svnn_block()) {
-            // if chain_head is legacy, update to non-legacy chain_head, this is needed so that the correct block_state is created in apply_block
-            if (std::holds_alternative<block_state_legacy_ptr>(chain_head.internal())) {
-               auto prev = forkdb.get_block(bsp->previous(), include_root_t::yes);
+            apply_l<void>(chain_head, [&](const auto&) {
+               // if chain_head is legacy, update to non-legacy chain_head, this is needed so that the correct block_state is created in apply_block
+               block_state_ptr prev = forkdb.get_block(bsp->previous(), include_root_t::yes);
                assert(prev);
                chain_head = block_handle{prev};
-            }
+            });
             apply_block(br, bsp, controller::block_status::complete, trx_meta_cache_lookup{});
          } else {
             // only called during transition when not a proper savanna block
             fork_db.apply_l<void>([&](const auto& forkdb_l) {
                block_state_legacy_ptr legacy = forkdb_l.get_block(bsp->id());
-               fork_db.switch_to_legacy(); // apply block uses to know what types to create
-               fc::scoped_exit<std::function<void()>> e([&]{fork_db.switch_to_both();});
+               fork_db.switch_to(fork_database::in_use_t::legacy); // apply block uses to know what types to create
+               fc::scoped_exit<std::function<void()>> e([&]{fork_db.switch_to(fork_database::in_use_t::both);});
                apply_block(br, legacy, controller::block_status::complete, trx_meta_cache_lookup{});
                // irreversible apply was just done, calculate new_valid here instead of in transition_to_savanna()
                assert(legacy->action_receipt_digests);
-               auto prev = forkdb.get_block(legacy->previous(), include_root_t::yes);
+               block_state_ptr prev = forkdb.get_block(legacy->previous(), include_root_t::yes);
                assert(prev);
                transition_add_to_savanna_fork_db(forkdb, legacy, bsp, prev);
             });
@@ -1410,7 +1410,7 @@ struct controller_impl {
                      break;
                   }
                } else if ((*bitr)->block->is_proper_svnn_block() && fork_db.version_in_use() == fork_database::in_use_t::both) {
-                  fork_db.switch_to_savanna();
+                  fork_db.switch_to(fork_database::in_use_t::savanna);
                   break;
                }
             }

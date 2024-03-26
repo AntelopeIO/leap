@@ -156,11 +156,7 @@ namespace eosio::chain {
 
       // switches to using both legacy and savanna during transition
       void switch_from_legacy(const block_state_ptr& root);
-      void switch_to_savanna();
-      // used in irreversible mode
-      void switch_to_legacy();
-      // used in irreversible mode
-      void switch_to_both();
+      void switch_to(in_use_t v) { in_use = v; }
 
       in_use_t version_in_use() const { return in_use.load(); }
 
