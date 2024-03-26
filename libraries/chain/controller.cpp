@@ -984,8 +984,8 @@ struct controller_impl {
    }
 
    template <typename ForkDB>
-   typename ForkDB::bsp_t fork_db_head(const ForkDB& forkdb, bool irreversible_mode) const {
-      if (irreversible_mode) {
+   typename ForkDB::bsp_t fork_db_head_or_pending(const ForkDB& forkdb) const {
+      if (irreversible_mode()) {
          // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
          // fork_db.head() returns irreversible block
          // Use pending_head since this method should return the chain head and not last irreversible.
@@ -997,17 +997,17 @@ struct controller_impl {
 
    uint32_t fork_db_head_block_num() const {
       return fork_db.apply<uint32_t>(
-         [&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->block_num(); });
+         [&](const auto& forkdb) { return fork_db_head_or_pending(forkdb)->block_num(); });
    }
 
    block_id_type fork_db_head_block_id() const {
       return fork_db.apply<block_id_type>(
-         [&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->id(); });
+         [&](const auto& forkdb) { return fork_db_head_or_pending(forkdb)->id(); });
    }
 
    uint32_t fork_db_head_irreversible_blocknum() const {
       return fork_db.apply<uint32_t>(
-         [&](const auto& forkdb) { return fork_db_head(forkdb, irreversible_mode())->irreversible_blocknum(); });
+         [&](const auto& forkdb) { return fork_db_head_or_pending(forkdb)->irreversible_blocknum(); });
    }
 
    // --------------- access fork_db root ----------------------------------------------------------------------
@@ -1302,7 +1302,7 @@ struct controller_impl {
       block_state_legacy_ptr legacy_root;
       fork_db.apply_l<void>([&](const auto& forkdb) {
          legacy_root = forkdb.root();
-         legacy_branch = forkdb.fetch_branch(fork_db_head(forkdb, irreversible_mode())->id());
+         legacy_branch = forkdb.fetch_branch(fork_db_head_or_pending(forkdb)->id());
       });
 
       assert(!!legacy_root);
@@ -1371,7 +1371,7 @@ struct controller_impl {
       bool savanna_transistion_required = false;
       auto mark_branch_irreversible = [&, this](auto& forkdb) {
          auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( if_irreversible_block_id, new_lib_num)
-                                        : forkdb.fetch_branch( fork_db_head(forkdb, irreversible_mode())->id(), new_lib_num );
+                                        : forkdb.fetch_branch( fork_db_head_or_pending(forkdb)->id(), new_lib_num );
          try {
             auto should_process = [&](auto& bsp) {
                // Only make irreversible blocks that have been validated. Blocks in the fork database may not be on our current best head
