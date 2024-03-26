@@ -17,13 +17,15 @@ namespace fc::crypto::blslib {
    bls_signature bls_private_key::proof_of_possession() const
    {
       bls12_381::g2 proof = bls12_381::pop_prove(_sk);
-      return bls_signature(proof);
+      constexpr bool raw = false;
+      return bls_signature(proof.toAffineBytesLE(raw));
    }
 
    bls_signature bls_private_key::sign( std::span<const uint8_t> message ) const
    {
       bls12_381::g2 sig = bls12_381::sign(_sk, message);
-      return bls_signature(sig);
+      constexpr bool raw = false;
+      return bls_signature(sig.toAffineBytesLE(raw));
    }
 
    bls_private_key bls_private_key::generate() {

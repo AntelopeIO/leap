@@ -1210,7 +1210,7 @@ namespace eosio { namespace testing {
                ("description", f.name.to_string() + " description")
                ("weight", f.weight)
                ("public_key", pubkey.to_string())
-               ("pop", pop.to_string({})));
+               ("pop", pop.to_string()));
       }
 
       control->set_node_finalizer_keys(local_finalizer_keys);

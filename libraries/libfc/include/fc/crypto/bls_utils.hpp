@@ -9,6 +9,4 @@ namespace fc::crypto::blslib {
                std::span<const uint8_t> message,
                const bls_signature& signature);
 
-   bls_signature aggregate(std::span<const bls_signature> signatures);
-
 } // fc::crypto::blslib

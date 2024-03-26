@@ -30,7 +30,7 @@ vote_status pending_quorum_certificate::votes_t::add_vote(std::span<const uint8_
       return vote_status::invalid_signature;
    }
    _bitset.set(index);
-   _sig = fc::crypto::blslib::aggregate(std::array{_sig, new_sig}); // works even if _sig is default initialized (fp2::zero())
+   _sig.aggregate(new_sig); // works even if _sig is default initialized (fp2::zero())
    return vote_status::success;
 }
 
@@ -38,7 +38,7 @@ void pending_quorum_certificate::votes_t::reset(size_t num_finalizers) {
    if (num_finalizers != _bitset.size())
       _bitset.resize(num_finalizers);
    _bitset.reset();
-   _sig = bls_signature();
+   _sig = bls_aggregate_signature();
 }
 
 pending_quorum_certificate::pending_quorum_certificate()
@@ -149,7 +149,8 @@ valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate
    } else if (is_quorum_met_no_lock()) {
       valid_qc._strong_votes = _strong_votes._bitset;
       valid_qc._weak_votes   = _weak_votes._bitset;
-      valid_qc._sig          = fc::crypto::blslib::aggregate(std::array{_strong_votes._sig, _weak_votes._sig});
+      valid_qc._sig          = _strong_votes._sig;
+      valid_qc._sig.aggregate(_weak_votes._sig);
    } else
       assert(0); // this should be called only when we have a valid qc.
 
@@ -158,17 +159,6 @@ valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate
 
 bool pending_quorum_certificate::is_quorum_met_no_lock() const {
    return is_quorum_met(_state);
-}
-
-valid_quorum_certificate::valid_quorum_certificate(
-   const std::vector<uint32_t>& strong_votes, // bitset encoding, following canonical order
-   const std::vector<uint32_t>& weak_votes,   // bitset encoding, following canonical order
-   const bls_signature&         sig)
-   : _sig(sig) {
-   if (!strong_votes.empty())
-      _strong_votes = vector_to_bitset(strong_votes);
-   if (!weak_votes.empty())
-      _weak_votes = vector_to_bitset(weak_votes);
 }
 
 } // namespace eosio::chain

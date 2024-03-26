@@ -7,6 +7,7 @@
 #include <fc/crypto/bls_signature.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
+#include <fc/io/raw.hpp>
 #include <fc/crypto/sha256.hpp>
 #include <fc/io/json.hpp>
 #include <fc/variant.hpp>
@@ -92,15 +93,15 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
   bls_signature signature = sk.sign(v);
 
   bls12_381::g1 agg_pk = pk.jacobian_montgomery_le();
-  bls_signature agg_signature = signature;
+  bls_aggregate_signature agg_signature{signature};
    
   for (int i = 1 ; i< 21 ;i++){
     agg_pk = bls12_381::aggregate_public_keys(std::array{agg_pk, pk.jacobian_montgomery_le()});
-    agg_signature = aggregate(std::array{agg_signature, signature});
+    agg_signature.aggregate(signature);
   }
 
   // Verify the signature
-  bool ok = bls12_381::verify(agg_pk, v, agg_signature._sig); //jacobian_montgomery_le());
+  bool ok = bls12_381::verify(agg_pk, v, agg_signature.jacobian_montgomery_le());
 
   BOOST_CHECK_EQUAL(ok, true);
 
@@ -121,10 +122,12 @@ BOOST_AUTO_TEST_CASE(bls_agg_sig_verif) try {
   bls_signature sig2 = sk2.sign(message_1);
 
   bls12_381::g1 agg_key = bls12_381::aggregate_public_keys(std::array{pk1.jacobian_montgomery_le(), pk2.jacobian_montgomery_le()});
-  bls_signature agg_sig = aggregate(std::array{sig1, sig2});
+  bls_aggregate_signature agg_sig;
+  agg_sig.aggregate(sig1);
+  agg_sig.aggregate(sig2);
 
   // Verify the signature
-  bool ok = bls12_381::verify(agg_key, message_1, agg_sig._sig);//.jacobian_montgomery_le());
+  bool ok = bls12_381::verify(agg_key, message_1, agg_sig.jacobian_montgomery_le());
 
   BOOST_CHECK_EQUAL(ok, true);
 
@@ -144,13 +147,15 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 
   bls_signature sig2 = sk2.sign(message_2);
 
-  bls_signature aggSig = aggregate(std::array{sig1, sig2});
+  bls_aggregate_signature agg_sig;
+  agg_sig.aggregate(sig1);
+  agg_sig.aggregate(sig2);
 
   std::vector<bls12_381::g1> pubkeys = {pk1.jacobian_montgomery_le(), pk2.jacobian_montgomery_le()};
   std::vector<std::vector<uint8_t>> messages = {message_1, message_2};
-  
+
   // Verify the signature
-  bool ok = bls12_381::aggregate_verify(pubkeys, messages, aggSig._sig); //jacobian_montgomery_le());
+  bool ok = bls12_381::aggregate_verify(pubkeys, messages, agg_sig.jacobian_montgomery_le());
 
   BOOST_CHECK_EQUAL(ok, true);
 
@@ -355,7 +360,7 @@ BOOST_AUTO_TEST_CASE(bls_variant) try {
 
       v = sig;
       s = fc::json::to_string(v, {});
-      BOOST_CHECK_EQUAL(s, "\"" + sig.to_string({}) + "\"");
+      BOOST_CHECK_EQUAL(s, "\"" + sig.to_string() + "\"");
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_SUITE_END()

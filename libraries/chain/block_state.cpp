@@ -219,7 +219,7 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    }
 
    // validate aggregated signature
-   EOS_ASSERT( bls12_381::aggregate_verify(pubkeys, digests, qc._sig._sig), //jacobian_montgomery_le()),
+   EOS_ASSERT( bls12_381::aggregate_verify(pubkeys, digests, qc._sig.jacobian_montgomery_le()),
                invalid_qc_claim, "signature validation failed" );
 }
 

@@ -124,11 +124,10 @@ void finality_test_cluster::node1_corrupt_vote_signature() {
    node1_orig_vote = node1.votes[0];
 
    // corrupt the signature
-   if( node1.votes[0].sig._sig.x.c0.d[0] == 1 ) {
-      node1.votes[0].sig._sig.x.c0.d[0] = 2;
-   } else {
-      node1.votes[0].sig._sig.x.c0.d[0] = 1;
-   }
+   auto g2 = node1.votes[0].sig.jacobian_montgomery_le();
+   g2 = bls12_381::aggregate_signatures(std::array{g2, g2});
+   auto affine = g2.toAffineBytesLE(false);
+   node1.votes[0].sig = fc::crypto::blslib::bls_signature(affine);
 }
 
 void finality_test_cluster::node1_restore_to_original_vote() {

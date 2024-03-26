@@ -25,7 +25,7 @@ namespace fc::crypto::blslib {
       bls_public_key& operator=(const bls_public_key&) = default;
       bls_public_key& operator=(bls_public_key&&) = default;
 
-      // throws if unable to convert to valie bls12_381::g1
+      // throws if unable to convert to valid bls12_381::g1
       explicit bls_public_key(std::span<const uint8_t, 96> affine_non_montgomery_le);
 
       // affine non-montgomery base64url with bls_public_key_prefix
