@@ -307,13 +307,11 @@ digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) co
 }
 
 finality_data_t block_state::get_finality_data() const {
-   finality_data_t finality_data {
+   return {
       // other fields take the default values set by finality_data_t definition
       .action_mroot = action_mroot,
-      .base_digest  = compute_base_digest()  // from block_header_state
+      .base_digest  = base_digest
    };
-
-   return finality_data;
 }
 
 void inject_additional_signatures( signed_block& b, const std::vector<signature_type>& additional_signatures)
