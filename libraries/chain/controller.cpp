@@ -1478,8 +1478,8 @@ struct controller_impl {
                      }
                   }
                });
-               apply<void>(chain_head, [&](const auto& head) {
-                  replay_push_block<std::decay_t<decltype(head)>>( next, controller::block_status::irreversible );
+               apply<void>(chain_head, [&]<typename T>(const T&) {
+                  replay_push_block<T>( next, controller::block_status::irreversible );
                });
                apply_l<void>(chain_head, [&](const auto& head) { // chain_head is updated via replay_push_block
                   assert(!next->is_proper_svnn_block());

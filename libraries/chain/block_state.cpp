@@ -65,7 +65,7 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    result.activated_protocol_features = bsp.activated_protocol_features;
    result.core = finality_core::create_core_for_genesis_block(bsp.block_num());
 
-   // Calculate Merkel tree root in Savanna way so that it is stored in Leaf Node when building block_state.
+   // Calculate Merkle tree root in Savanna way so that it is stored in Leaf Node when building block_state.
    auto action_mroot_svnn = calculate_merkle(*bsp.action_receipt_digests);
    // built leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {
