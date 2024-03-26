@@ -81,7 +81,7 @@ block_header_state block_header_state::next(block_header_state_input& input) con
    // header
    // ------
    result.header = {
-      .timestamp         = input.timestamp, // [greg todo] do we have to do the slot++ stuff from the legacy version?
+      .timestamp         = input.timestamp,
       .producer          = input.producer,
       .confirmed         = 0,
       .previous          = input.parent_id,

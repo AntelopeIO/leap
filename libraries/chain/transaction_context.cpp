@@ -11,7 +11,7 @@
 
 #include <chrono>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    transaction_checktime_timer::transaction_checktime_timer(platform_timer& timer)
          : expired(timer.expired), _timer(timer) {
@@ -39,6 +39,7 @@ namespace eosio { namespace chain {
                                              const packed_transaction& t,
                                              const transaction_id_type& trx_id,
                                              transaction_checktime_timer&& tmr,
+                                             action_digests_t::store_which_t store_which,
                                              fc::time_point s,
                                              transaction_metadata::trx_type type)
    :control(c)
@@ -47,6 +48,7 @@ namespace eosio { namespace chain {
    ,undo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
+   ,executed_action_receipts(store_which)
    ,transaction_timer(std::move(tmr))
    ,trx_type(type)
    ,net_usage(trace->net_usage)
@@ -828,4 +830,4 @@ namespace eosio { namespace chain {
    }
 
 
-} } /// eosio::chain
+} /// eosio::chain

@@ -33,6 +33,52 @@ namespace eosio { namespace chain {
          friend controller_impl;
    };
 
+   struct action_digests_t {
+      enum class store_which_t { legacy, savanna, both };
+
+      std::optional<digests_t> digests_l; // legacy
+      std::optional<digests_t> digests_s; // savanna
+
+      action_digests_t(store_which_t sw) {
+         if (sw == store_which_t::legacy || sw == store_which_t::both)
+            digests_l = digests_t{};
+         if (sw == store_which_t::savanna || sw == store_which_t::both)
+            digests_s = digests_t{};
+      }
+
+      void append(action_digests_t&& o) {
+         if (digests_l)
+            fc::move_append(*digests_l, std::move(*o.digests_l));
+         if (digests_s)
+            fc::move_append(*digests_s, std::move(*o.digests_s));
+      }
+
+      void compute_and_append_digests_from(action_trace& trace) {
+         if (digests_l)
+            digests_l->emplace_back(trace.digest_legacy());
+         if (digests_s)
+            digests_s->emplace_back(trace.digest_savanna());
+      }
+
+      store_which_t store_which() const {
+         if (digests_l && digests_s)
+            return store_which_t::both;
+         if (digests_l)
+            return store_which_t::legacy;
+         assert(digests_s);
+         return store_which_t::savanna;
+      }
+
+      std::pair<size_t, size_t> size() const {
+         return { digests_l ? digests_l->size() : 0, digests_s ? digests_s->size() : 0 };
+      }
+
+      void resize(std::pair<size_t, size_t> sz) {
+         if (digests_l) digests_l->resize(sz.first);
+         if (digests_s) digests_s->resize(sz.second);
+      }
+   };
+
    class transaction_context {
       private:
          void init( uint64_t initial_net_usage);
@@ -43,6 +89,7 @@ namespace eosio { namespace chain {
                               const packed_transaction& t,
                               const transaction_id_type& trx_id, // trx_id diff than t.id() before replace_deferred
                               transaction_checktime_timer&& timer,
+                              action_digests_t::store_which_t sad,
                               fc::time_point start = fc::time_point::now(),
                               transaction_metadata::trx_type type = transaction_metadata::trx_type::input);
          ~transaction_context();
@@ -140,8 +187,7 @@ namespace eosio { namespace chain {
 
          fc::time_point                published;
 
-
-         deque<digest_type>           executed_action_receipt_digests;
+         action_digests_t              executed_action_receipts;
          flat_set<account_name>        bill_to_accounts;
          flat_set<account_name>        validate_ram_usage;
 
