@@ -267,7 +267,6 @@ namespace eosio { namespace testing {
                                                bool multisig = false,
                                                bool include_code = true
                                              );
-
          transaction_trace_ptr push_reqauth( account_name from, const vector<permission_level>& auths, const vector<private_key_type>& keys );
          transaction_trace_ptr push_reqauth(account_name from, string role, bool multi_sig = false);
          // use when just want any old non-context free action

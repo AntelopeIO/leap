@@ -2271,4 +2271,42 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    );
 } FC_LOG_AND_RETHROW() } /// block_validation_after_stage_1_test
 
+BOOST_AUTO_TEST_CASE( slim_account_test ) { try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::slim_account);
+   BOOST_REQUIRE(d);
+
+   BOOST_CHECK_EXCEPTION(  c.set_code( config::system_account_name, test_contracts::create_slim_account_test_wasm() ),
+                           wasm_exception,
+                           fc_exception_message_is( "env.create_slim_account unresolveable" ) );
+
+   c.preactivate_protocol_features( {*d} );
+   const auto bob_account = account_name("bob");
+   c.create_accounts( {bob_account} );
+   c.produce_block();
+
+   // ensure it now resolves
+   c.set_code( config::system_account_name, test_contracts::create_slim_account_test_wasm() );
+   c.set_abi( config::system_account_name, test_contracts::create_slim_account_test_abi().data());
+   c.push_action( config::system_account_name, "testcreate"_n, bob_account, fc::mutable_variant_object()
+         ("creator", bob_account.to_string())
+         ("account", "alice")
+         ("active_auth", authority(get_public_key(name("alice"), "active")))
+      );
+
+   const auto test_account = account_name("test");
+   c.create_accounts( {test_account} );
+   c.produce_block();
+   // shoudl throw
+   c.set_code( test_account, test_contracts::create_slim_account_test_wasm() );
+   c.set_abi( test_account, test_contracts::create_slim_account_test_abi().data());
+   BOOST_CHECK_THROW(c.push_action( test_account, "testcreate"_n, bob_account, fc::mutable_variant_object()
+                                 ("creator", bob_account.to_string())
+                                 ("account", "hello")
+                                 ("active_auth", authority(get_public_key(name("hello"), "active")))
+                              ), unaccessible_api);
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()

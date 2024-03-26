@@ -12,6 +12,7 @@ namespace eosio { namespace chain {
     */
    ///@{
    void apply_eosio_newaccount(apply_context&);
+   void apply_eosio_newslimacc(apply_context&);
    void apply_eosio_updateauth(apply_context&);
    void apply_eosio_deleteauth(apply_context&);
    void apply_eosio_linkauth(apply_context&);

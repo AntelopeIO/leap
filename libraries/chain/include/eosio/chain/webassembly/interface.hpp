@@ -249,6 +249,17 @@ namespace webassembly {
          */
          void set_privileged(account_name account, bool is_priv);
 
+         /**
+          * create a slim account.
+          *
+          * @ingroup privileged
+          *
+          * @param account - account creator.
+          * @param name - new slim account name.
+          * @param pubkey - publickey.
+         */
+         void create_slim_account(account_name creator, account_name name, legacy_span<const char> packed_authority);
+
          // softfloat api
          float _eosio_f32_add(float, float) const;
          float _eosio_f32_sub(float, float) const;

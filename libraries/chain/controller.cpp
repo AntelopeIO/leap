@@ -347,6 +347,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
       set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
+      set_activation_handler<builtin_protocol_feature_t::slim_account>();
 
       self.irreversible_block.connect([this](const block_signal_params& t) {
          const auto& [ block, id] = t;
@@ -876,7 +877,6 @@ struct controller_impl {
          }
 
          snapshot->write_section<value_t>([this]( auto& section ){
-            auto section_name = boost::core::demangle(typeid(value_t).name());
             decltype(utils)::walk(db, [this, &section]( const auto &row ) {
                section.add_row(row, db);
             });
@@ -3933,6 +3933,13 @@ void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred
    for( auto itr = idx.begin(); itr != idx.end(); itr = idx.begin() ) {
       remove_scheduled_transaction(*itr);
    }
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::slim_account>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "create_slim_account" );
+   } );
 }
 
 /// End of protocol feature activation handlers
