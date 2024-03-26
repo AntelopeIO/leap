@@ -19,11 +19,11 @@ namespace eosio { namespace chain {
     *  Uses make_canonical_pair which before hashing sets the first bit of the previous hashes
     *  to 0 or 1 to indicate the side it is on.
     */
-   digest_type legacy_merkle( deque<digest_type> ids );
+   digest_type legacy_merkle( deque<digest_type>&& ids );
 
    /**
     * Calculates the merkle root of a set of digests. Does not manipulate the digests.
     */
-   digest_type calculate_merkle( deque<digest_type> ids );
+   digest_type calculate_merkle( deque<digest_type>&& ids );
 
 } } /// eosio::chain
