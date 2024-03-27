@@ -105,7 +105,7 @@ struct get_blocks_request_v0 {
 };
 
 struct get_blocks_request_v1 : get_blocks_request_v0 {
-   bool                        fetch_finality_data    = false;;
+   bool                        fetch_finality_data    = false;
 };
 
 struct get_blocks_ack_request_v0 {

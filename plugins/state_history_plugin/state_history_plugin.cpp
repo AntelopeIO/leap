@@ -118,15 +118,15 @@ public:
    // thread-safe
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
       if( trace_log ) {
-         if ( auto id = trace_log->get_block_id( block_num ); id )
+         if ( auto id = trace_log->get_block_id( block_num ) )
             return id;
       }
       if( chain_state_log ) {
-         if( auto id = chain_state_log->get_block_id( block_num ); id )
+         if( auto id = chain_state_log->get_block_id( block_num ) )
             return id;
       }
       if( finality_data_log ) {
-         if( auto id = finality_data_log->get_block_id( block_num ); id )
+         if( auto id = finality_data_log->get_block_id( block_num ) )
             return id;
       }
       try {

@@ -78,8 +78,8 @@ private:
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
-   digest_type                action_mroot; // For base_digest sent to SHiP
-   digest_type                base_digest;  // For base_digest sent to SHiP
+   digest_type                action_mroot; // For finality_data sent to SHiP
+   std::optional<digest_type> base_digest;  // For finality_data sent to SHiP
 
    // ------ private methods -----------------------------------------------------------
    bool                                is_valid() const { return validated; }
@@ -120,7 +120,7 @@ public:
    digest_type get_finality_mroot_claim(const qc_claim_t& qc_claim) const;
 
    // Returns finality_data of the current block
-   finality_data_t get_finality_data() const;
+   finality_data_t get_finality_data();
 
    // vote_status
    vote_status aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
