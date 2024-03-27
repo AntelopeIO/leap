@@ -2,52 +2,11 @@
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/merkle.hpp>
 #include <fc/io/raw.hpp>
+#include <bit>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 namespace detail {
-
-/**
- * given an unsigned integral number return the smallest
- * power-of-2 which is greater than or equal to the given number
- *
- * @param value - an unsigned integral
- * @return - the minimum power-of-2 which is >= value
- */
-constexpr uint64_t next_power_of_2(uint64_t value) {
-   value -= 1;
-   value |= value >> 1;
-   value |= value >> 2;
-   value |= value >> 4;
-   value |= value >> 8;
-   value |= value >> 16;
-   value |= value >> 32;
-   value += 1;
-   return value;
-}
-
-/**
- * Given a power-of-2 (assumed correct) return the number of leading zeros
- *
- * This is a classic count-leading-zeros in parallel without the necessary
- * math to make it safe for anything that is not already a power-of-2
- *
- * @param value - and integral power-of-2
- * @return the number of leading zeros
- */
-constexpr int clz_power_2(uint64_t value) {
-   int lz = 64;
-
-   if (value) lz--;
-   if (value & 0x00000000FFFFFFFFULL) lz -= 32;
-   if (value & 0x0000FFFF0000FFFFULL) lz -= 16;
-   if (value & 0x00FF00FF00FF00FFULL) lz -= 8;
-   if (value & 0x0F0F0F0F0F0F0F0FULL) lz -= 4;
-   if (value & 0x3333333333333333ULL) lz -= 2;
-   if (value & 0x5555555555555555ULL) lz -= 1;
-
-   return lz;
-}
 
 /**
  * Given a number of nodes return the depth required to store them
@@ -56,12 +15,11 @@ constexpr int clz_power_2(uint64_t value) {
  * @param node_count - the number of nodes in the implied tree
  * @return the max depth of the minimal tree that stores them
  */
-constexpr int calculate_max_depth(uint64_t node_count) {
-   if (node_count == 0) {
+constexpr uint64_t calculate_max_depth(uint64_t node_count) {
+   if (node_count == 0)
       return 0;
-   }
-   auto implied_count = next_power_of_2(node_count);
-   return clz_power_2(implied_count) + 1;
+   // following is non-floating point equivalent to `std::ceil(std::log2(node_count)) + 1)` (and about 9x faster)
+   return std::bit_width(std::bit_ceil(node_count));
 }
 
 template<typename ContainerA, typename ContainerB>
@@ -253,7 +211,7 @@ typedef incremental_merkle_impl<digest_type, true>                incremental_le
 typedef incremental_merkle_impl<digest_type, true, shared_vector> shared_incremental_legacy_merkle_tree;
 typedef incremental_merkle_impl<digest_type>                      incremental_merkle_tree;
 
-} } /// eosio::chain
+} /// eosio::chain
 
 FC_REFLECT( eosio::chain::incremental_legacy_merkle_tree, (_active_nodes)(_node_count) );
 FC_REFLECT( eosio::chain::incremental_merkle_tree, (_active_nodes)(_node_count) );
