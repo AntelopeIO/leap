@@ -57,10 +57,8 @@ namespace fc::crypto::blslib {
          return ds;
       }
 
-   private:
-      friend class bls_aggregate_signature;
       static bls12_381::g2 to_jacobian_montgomery_le(const std::array<uint8_t, 192>& affine_non_montgomery_le);
-
+   private:
       std::array<uint8_t, 192> _affine_non_montgomery_le{};
       bls12_381::g2            _jacobian_montgomery_le; // cached g2
    };
