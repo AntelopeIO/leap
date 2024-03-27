@@ -64,10 +64,12 @@ auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    producer_authority_schedule schedule = { 0, { producer_authority{block->producer, block_signing_authority_v0{ 1, {{pub_key, 1}} } } } };
    pbhs.active_schedule = schedule;
    pbhs.valid_block_signing_authority = block_signing_authority_v0{ 1, {{pub_key, 1}} };
+   std::optional<digests_t> action_receipt_digests;
    auto bsp = std::make_shared<block_state_legacy>(
          std::move( pbhs ),
          std::move( block ),
          std::move( trx_metas ),
+         std::move( action_receipt_digests ),
          protocol_feature_set(),
          []( block_timestamp_type timestamp,
              const flat_set<digest_type>& cur_features,

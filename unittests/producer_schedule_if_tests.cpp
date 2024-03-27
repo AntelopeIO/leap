@@ -64,8 +64,11 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activat
 
    // enable instant_finality
    set_finalizers(producers);
-   auto block = produce_block(); // this block contains the header extension of the finalizer set
-   BOOST_TEST(lib == 4u); // TODO: currently lib advances immediately on set_finalizers
+   auto setfin_block = produce_block(); // this block contains the header extension of the finalizer set
+
+   for (block_num_type active_block_num = setfin_block->block_num(); active_block_num > lib; produce_block()) {
+      (void)active_block_num; // avoid warning
+   };
 
    // ---- Test first set of producers ----
    // Send set prods action and confirm schedule correctness
@@ -118,6 +121,7 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
    // activate instant_finality
    set_finalizers({"alice"_n,"bob"_n,"carol"_n});
    produce_block(); // this block contains the header extension of the finalizer set
+   produce_block(); // one producer, lib here
 
    // current proposer schedule stays the same as the one prior to IF transition
    vector<producer_authority> prev_sch = {
@@ -168,6 +172,7 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_misc_tests, validating_tester ) try {
    // activate instant_finality
    set_finalizers({"alice"_n,"bob"_n});
    produce_block(); // this block contains the header extension of the finalizer set
+   produce_block(); // one producer, lib here
 
    { // set multiple policies in the same block. The last one will be chosen
       set_producers( {"alice"_n} );
