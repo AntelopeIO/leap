@@ -11,13 +11,16 @@ namespace fc::crypto::blslib {
       const std::string bls_public_key_prefix = "PUB_BLS_";
    };
 
-   // Immutable after construction (although operator= is provided)
+   // Immutable after construction (although operator= is provided).
    //   Atributes are not const because FC_REFLECT only works for non-const members.
    // Provides an efficient wrapper around bls12_381::g1.
    // Serialization form:
    //   Non-Montgomery form and little-endian encoding for the field elements.
    //   Affine form for the group element (the z component is 1 and not included in the serialization).
    //   Binary serialization encodes x component first followed by y component.
+   // Cached g1 in Jacobian Montgomery is used for efficient BLS math.
+   // Keeping the serialized data allows for efficient serialization without the expensive conversion
+   // from Jacobian Montgomery to Affine Non-Montgomery.
    class bls_public_key : fc::reflect_init {
    public:
       bls_public_key() = default;

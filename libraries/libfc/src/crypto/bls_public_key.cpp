@@ -6,12 +6,9 @@
 namespace fc::crypto::blslib {
 
    inline std::array<uint8_t, 96> deserialize_base64url(const std::string& base64urlstr) {
-      auto res = std::mismatch(config::bls_public_key_prefix.begin(), config::bls_public_key_prefix.end(),
-                               base64urlstr.begin());
+      auto res = std::mismatch(config::bls_public_key_prefix.begin(), config::bls_public_key_prefix.end(), base64urlstr.begin());
       FC_ASSERT(res.first == config::bls_public_key_prefix.end(), "BLS Public Key has invalid format : ${str}", ("str", base64urlstr));
-
       auto data_str = base64urlstr.substr(config::bls_public_key_prefix.size());
-
       return fc::crypto::blslib::deserialize_base64url<std::array<uint8_t, 96>>(data_str);
    }
 
@@ -47,7 +44,7 @@ namespace fc::crypto::blslib {
    void bls_public_key::reflector_init() {
       // called after construction, but always on the same thread and before bls_public_key passed to any other threads
       static_assert(fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
-                    "FC unpack needs to call reflector_init otherwise unpacked_trx will not be initialized");
+                    "FC unpack needs to call reflector_init otherwise _jacobian_montgomery_le will not be initialized");
       std::optional<bls12_381::g1> g1 = bls12_381::g1::fromAffineBytesLE(_affine_non_montgomery_le);
       FC_ASSERT(g1, "Invalid bls public key ${k}", ("k", _affine_non_montgomery_le));
       // reflector_init is private and only called during construction
