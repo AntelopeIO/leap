@@ -39,12 +39,6 @@ namespace fc::crypto::blslib {
       , _jacobian_montgomery_le(from_affine_bytes_le(_affine_non_montgomery_le)) {
    }
 
-   bls_public_key& bls_public_key::operator=(const bls_public_key& rhs) {
-      const_cast<std::array<uint8_t, 96>&>(_affine_non_montgomery_le) = rhs._affine_non_montgomery_le;
-      const_cast<bls12_381::g1&>(_jacobian_montgomery_le) = rhs._jacobian_montgomery_le;
-      return *this;
-   }
-
    std::string bls_public_key::to_string() const {
       std::string data_str = fc::crypto::blslib::serialize_base64url<std::array<uint8_t, 96>>(_affine_non_montgomery_le);
       return config::bls_public_key_prefix + data_str;
@@ -57,7 +51,7 @@ namespace fc::crypto::blslib {
       std::optional<bls12_381::g1> g1 = bls12_381::g1::fromAffineBytesLE(_affine_non_montgomery_le);
       FC_ASSERT(g1, "Invalid bls public key ${k}", ("k", _affine_non_montgomery_le));
       // reflector_init is private and only called during construction
-      const_cast<bls12_381::g1&>(_jacobian_montgomery_le) = *g1;
+      _jacobian_montgomery_le = *g1;
    }
 
 } // fc::crypto::blslib

@@ -11,7 +11,8 @@ namespace fc::crypto::blslib {
       const std::string bls_public_key_prefix = "PUB_BLS_";
    };
 
-   // Immutable after construction.
+   // Immutable after construction (although operator= is provided)
+   //   Atributes are not const because FC_REFLECT only works for non-const members.
    // Provides an efficient wrapper around bls12_381::g1.
    // Serialization form:
    //   Non-Montgomery form and little-endian encoding for the field elements.
@@ -22,9 +23,8 @@ namespace fc::crypto::blslib {
       bls_public_key() = default;
       bls_public_key(bls_public_key&&) = default;
       bls_public_key(const bls_public_key&) = default;
-
-      // Would prefer to not have this to enforce immutablity. Needed so keys can be copied around.
-      bls_public_key& operator=(const bls_public_key& rhs);
+      bls_public_key& operator=(const bls_public_key& rhs) = default;
+      bls_public_key& operator=(bls_public_key&& rhs) = default;
 
       // throws if unable to convert to valid bls12_381::g1
       explicit bls_public_key(std::span<const uint8_t, 96> affine_non_montgomery_le);
@@ -55,8 +55,8 @@ namespace fc::crypto::blslib {
       friend struct fc::has_reflector_init<bls_public_key>;
       void reflector_init();
 
-      const std::array<uint8_t, 96> _affine_non_montgomery_le{};
-      const bls12_381::g1           _jacobian_montgomery_le; // cached g1
+      std::array<uint8_t, 96> _affine_non_montgomery_le{};
+      bls12_381::g1           _jacobian_montgomery_le; // cached g1
    };
 
 }  // fc::crypto::blslib
