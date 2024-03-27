@@ -31,7 +31,8 @@ block_state::block_state(const block_header_state&                bhs,
                          const std::optional<valid_t>&            valid,
                          const std::optional<quorum_certificate>& qc,
                          const signer_callback_type&              signer,
-                         const block_signing_authority&           valid_block_signing_authority)
+                         const block_signing_authority&           valid_block_signing_authority,
+                         const digest_type&                       action_mroot)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
    , strong_digest(compute_finality_digest())
@@ -40,6 +41,7 @@ block_state::block_state(const block_header_state&                bhs,
    , valid(valid)
    , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
+   , action_mroot(action_mroot)
 {
    block->transactions = std::move(trx_receipts);
 
@@ -96,6 +98,7 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    result.validated = bsp.is_valid();
    result.pub_keys_recovered = bsp._pub_keys_recovered;
    result.cached_trxs = bsp._cached_trxs;
+   result.action_mroot = action_mroot_svnn;
 
    return result_ptr;
 }
@@ -303,6 +306,17 @@ digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) co
    }
 
    return get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
+}
+
+finality_data_t block_state::get_finality_data() {
+   if (!base_digest) {
+      base_digest = compute_base_digest(); // cache it
+   }
+   return {
+      // other fields take the default values set by finality_data_t definition
+      .action_mroot = action_mroot,
+      .base_digest  = *base_digest
+   };
 }
 
 void inject_additional_signatures( signed_block& b, const std::vector<signature_type>& additional_signatures)

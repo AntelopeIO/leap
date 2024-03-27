@@ -237,6 +237,7 @@ struct assembled_block {
       deque<transaction_receipt>        trx_receipts;              // Comes from building_block::pending_trx_receipts
       std::optional<valid_t>            valid;                     // Comes from assemble_block
       std::optional<quorum_certificate> qc;                        // QC to add as block extension to new block
+      digest_type                       action_mroot;
 
       block_header_state& get_bhs() { return bhs; }
    };
@@ -365,7 +366,7 @@ struct assembled_block {
                                    [&](assembled_block_if& ab) {
                                       auto bsp = std::make_shared<block_state>(ab.bhs, std::move(ab.trx_metas),
                                                                                std::move(ab.trx_receipts), ab.valid, ab.qc, signer,
-                                                                               valid_block_signing_authority);
+                                                                               valid_block_signing_authority, ab.action_mroot);
                                       return completed_block{block_handle{std::move(bsp)}};
                                    }},
                         v);
@@ -759,6 +760,7 @@ struct building_block {
                   // have one.
                   if (!validating_bsp->valid) {
                      validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot);
+                     validating_bsp->action_mroot = action_mroot; // caching for constructing finality_data. Only needed when block is commited.
                   }
                } else {
                   // Create the valid structure for producing
@@ -771,7 +773,8 @@ struct building_block {
                   std::move(bb.pending_trx_metas),
                   std::move(bb.pending_trx_receipts),
                   valid,
-                  qc_data.qc
+                  qc_data.qc,
+                  action_mroot // caching for constructing finality_data.
                };
 
                return assembled_block{.v = std::move(ab)};
@@ -4245,6 +4248,10 @@ struct controller_impl {
       }
    }
 
+   std::optional<finality_data_t> head_finality_data() const {
+      return apply_s<std::optional<finality_data_t>>(chain_head, [](const block_state_ptr& head) { return head->get_finality_data(); });
+   }
+
    uint32_t earliest_available_block_num() const {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db_root_block_num();
    }
@@ -4768,6 +4775,10 @@ const signed_block_ptr& controller::head_block()const {
    return my->chain_head.block();
 }
 
+std::optional<finality_data_t> controller::head_finality_data() const {
+   return my->head_finality_data();
+}
+
 uint32_t controller::fork_db_head_block_num()const {
    return my->fork_db_head_block_num();
 }
@@ -4822,7 +4833,6 @@ block_id_type controller::last_irreversible_block_id() const {
 time_point controller::last_irreversible_block_time() const {
    return my->fork_db_root_timestamp().to_time_point();
 }
-
 
 const dynamic_global_property_object& controller::get_dynamic_global_properties()const {
   return my->db.get<dynamic_global_property_object>();

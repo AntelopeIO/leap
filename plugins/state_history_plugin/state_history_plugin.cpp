@@ -54,6 +54,7 @@ private:
    chain_plugin*                    chain_plug = nullptr;
    std::optional<state_history_log> trace_log;
    std::optional<state_history_log> chain_state_log;
+   std::optional<state_history_log> finality_data_log;
    uint32_t                         first_available_block = 0;
    bool                             trace_debug_mode = false;
    std::optional<scoped_connection> applied_transaction_connection;
@@ -84,6 +85,7 @@ public:
 
    std::optional<state_history_log>& get_trace_log() { return trace_log; }
    std::optional<state_history_log>& get_chain_state_log(){ return chain_state_log; }
+   std::optional<state_history_log>& get_finality_data_log(){ return finality_data_log; }
 
    boost::asio::io_context& get_ship_executor() { return thread_pool.get_executor(); }
 
@@ -115,15 +117,16 @@ public:
 
    // thread-safe
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
-      std::optional<chain::block_id_type> id;
       if( trace_log ) {
-         id = trace_log->get_block_id( block_num );
-         if( id )
+         if ( auto id = trace_log->get_block_id( block_num ) )
             return id;
       }
       if( chain_state_log ) {
-         id = chain_state_log->get_block_id( block_num );
-         if( id )
+         if( auto id = chain_state_log->get_block_id( block_num ) )
+            return id;
+      }
+      if( finality_data_log ) {
+         if( auto id = finality_data_log->get_block_id( block_num ) )
             return id;
       }
       try {
@@ -207,6 +210,7 @@ public:
       try {
          store_traces(block, id);
          store_chain_state(id, block->previous, block->block_num());
+         store_finality_data(id, block->previous);
       } catch (const fc::exception& e) {
          fc_elog(_log, "fc::exception: ${details}", ("details", e.to_detail_string()));
          // Both app().quit() and exception throwing are required. Without app().quit(),
@@ -264,11 +268,28 @@ public:
          fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_num));
 
       state_history_log_header header{
-          .magic = ship_magic(ship_current_version, 0), .block_id = id, .payload_size = 0};
+         .magic = ship_magic(ship_current_version, 0), .block_id = id, .payload_size = 0};
       chain_state_log->pack_and_write_entry(header, previous_id, [this, fresh](auto&& buf) {
          pack_deltas(buf, chain_plug->chain().db(), fresh);
       });
    } // store_chain_state
+
+   // called from main thread
+   void store_finality_data(const block_id_type& id, const block_id_type& previous_id) {
+      if (!finality_data_log)
+         return;
+
+      std::optional<finality_data_t> finality_data = chain_plug->chain().head_finality_data();
+      if (!finality_data.has_value())
+         return;
+
+      state_history_log_header header{
+         .magic = ship_magic(ship_current_version, 0), .block_id = id, .payload_size = 0};
+      finality_data_log->pack_and_write_entry(header, previous_id, [finality_data](auto&& buf) {
+         fc::datastream<boost::iostreams::filtering_ostreambuf&> ds{buf};
+         fc::raw::pack(ds, *finality_data);
+      });
+   }
 
    ~state_history_plugin_impl() {
    }
@@ -302,6 +323,7 @@ void state_history_plugin::set_program_options(options_description& cli, options
    cli.add_options()("delete-state-history", bpo::bool_switch()->default_value(false), "clear state history files");
    options("trace-history", bpo::bool_switch()->default_value(false), "enable trace history");
    options("chain-state-history", bpo::bool_switch()->default_value(false), "enable chain state history");
+   options("finality-data-history", bpo::bool_switch()->default_value(false), "enable finality data history");
    options("state-history-endpoint", bpo::value<string>()->default_value("127.0.0.1:8080"),
            "the endpoint upon which to listen for incoming connections. Caution: only expose this port to "
            "your internal network.");
@@ -393,6 +415,8 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
          trace_log.emplace("trace_history", state_history_dir , ship_log_conf);
       if (options.at("chain-state-history").as<bool>())
          chain_state_log.emplace("chain_state_history", state_history_dir, ship_log_conf);
+      if (options.at("finality-data-history").as<bool>())
+         finality_data_log.emplace("finality_data_history", state_history_dir, ship_log_conf);
    }
    FC_LOG_AND_RETHROW()
 } // state_history_plugin::plugin_initialize
@@ -420,6 +444,11 @@ void state_history_plugin_impl::plugin_startup() {
       }
       if (chain_state_log) {
          auto first_state_block = chain_state_log->block_range().first;
+         if( first_state_block > 0 )
+            first_available_block = std::min( first_available_block, first_state_block );
+      }
+      if (finality_data_log) {
+         auto first_state_block = finality_data_log->block_range().first;
          if( first_state_block > 0 )
             first_available_block = std::min( first_available_block, first_state_block );
       }
@@ -462,6 +491,11 @@ const state_history_log* state_history_plugin::trace_log() const {
 
 const state_history_log* state_history_plugin::chain_state_log() const {
    const auto& log = my->get_chain_state_log();
+   return log ? std::addressof(*log) : nullptr;
+}
+
+const state_history_log* state_history_plugin::finality_data_log() const {
+   const auto& log = my->get_finality_data_log();
    return log ? std::addressof(*log) : nullptr;
 }
 
