@@ -479,6 +479,10 @@ struct building_block {
 
       uint32_t get_next_proposer_schedule_version() const {
          if (!parent.proposer_policies.empty()) {
+            block_timestamp_type active_time = detail::get_next_next_round_block_time(timestamp);
+            if (auto itr = parent.proposer_policies.find(active_time); itr != parent.proposer_policies.cend()) {
+               return itr->second->proposer_schedule.version; // will replace so retrun same version
+            }
             return (--parent.proposer_policies.end())->second->proposer_schedule.version + 1;
          }
          assert(active_proposer_policy);
