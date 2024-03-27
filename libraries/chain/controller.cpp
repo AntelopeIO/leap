@@ -1090,6 +1090,38 @@ struct controller_impl {
       });
    }
 
+   template <typename F>
+   std::optional<block_header_state_legacy> fetch_bhs_for_legacy_rpc_by_x(F&& f, const std::optional<block_num_type> block_num = std::nullopt) const {
+      return fork_db.apply<std::optional<block_header_state_legacy>>(overloaded{
+         [&](const fork_database_legacy_t& forkdb) -> std::optional<block_header_state_legacy> {
+            if(block_state_legacy_ptr p = f(forkdb))
+               return *p;
+            return std::nullopt;
+         },
+         [&](const fork_database_if_t& forkdb) -> std::optional<block_header_state_legacy> {
+            if(block_state_ptr p = f(forkdb)) {
+               block_header_state_legacy ret;
+               ret.block_num = p->block_num();
+               ret.id = p->id();
+               ret.header = *p->block;
+               ret.additional_signatures = detail::extract_additional_signatures(p->block);
+               return ret;
+            } else if(block_num) {
+               //only for savanna: look in irreversible blocks for block_num too
+               if(signed_block_ptr sb = blog.read_block_by_num(*block_num)) {
+                  block_header_state_legacy ret;
+                  ret.block_num = sb->block_num();
+                  ret.id = sb->calculate_id();
+                  ret.header = *sb;
+                  ret.additional_signatures = detail::extract_additional_signatures(sb);
+                  return ret;
+               }
+            }
+            return std::nullopt;
+         }
+      });
+   }
+
    // search on the branch of head
    block_state_ptr fetch_bsp_on_head_branch_by_num(uint32_t block_num) const {
       return fork_db.apply<block_state_ptr>(
@@ -4881,6 +4913,13 @@ std::optional<signed_block_header> controller::fetch_block_header_by_number( uin
    return my->blog.read_block_header_by_num(block_num);
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
+std::optional<block_header_state_legacy> controller::fetch_bhs_for_legacy_rpc_by_num(uint32_t block_num) const {
+   return my->fetch_bhs_for_legacy_rpc_by_x([&](auto& forkdb) {return forkdb.search_on_head_branch(block_num);}, block_num);
+}
+
+std::optional<block_header_state_legacy> controller::fetch_bhs_for_legacy_rpc_by_id(block_id_type id) const {
+   return my->fetch_bhs_for_legacy_rpc_by_x([&](auto& forkdb) {return forkdb.get_block(id);});
+}
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
    const auto& blog_head = my->blog.head();
