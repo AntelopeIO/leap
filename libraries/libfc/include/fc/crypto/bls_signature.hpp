@@ -10,12 +10,15 @@ namespace fc::crypto::blslib {
       const std::string bls_signature_prefix = "SIG_BLS_";
    };
 
-   // Immutable after construction.
+   // Immutable after construction (although operator= is provided).
    // Provides an efficient wrapper around bls12_381::g2.
    // Serialization form:
    //   Non-Montgomery form and little-endian encoding for the field elements.
    //   Affine form for the group element (the z component is 1 and not included in the serialization).
    //   Binary serialization encodes x component first followed by y component.
+   // Cached g2 in Jacobian Montgomery is used for efficient BLS math.
+   // Keeping the serialized data allows for efficient serialization without the expensive conversion
+   // from Jacobian Montgomery to Affine Non-Montgomery.
    class bls_signature {
    public:
       bls_signature() = default;
@@ -50,23 +53,19 @@ namespace fc::crypto::blslib {
       template<typename T>
       friend T& operator>>(T& ds, bls_signature& sig) {
          ds.read(reinterpret_cast<char*>(sig._affine_non_montgomery_le.data()), sig._affine_non_montgomery_le.size()*sizeof(uint8_t));
-         constexpr bool check = true;  // check if invalid
-         constexpr bool raw   = false; // non-montgomery
-         std::optional<bls12_381::g2> g2 = bls12_381::g2::fromAffineBytesLE(sig._affine_non_montgomery_le, check, raw);
-         FC_ASSERT(g2, "Invalid bls signature ${k}", ("k", sig._affine_non_montgomery_le));
-         sig._jacobian_montgomery_le = *g2;
+         sig._jacobian_montgomery_le = to_jacobian_montgomery_le(sig._affine_non_montgomery_le);
          return ds;
       }
 
    private:
+      friend class bls_aggregate_signature;
+      static bls12_381::g2 to_jacobian_montgomery_le(const std::array<uint8_t, 192>& affine_non_montgomery_le);
+
       std::array<uint8_t, 192> _affine_non_montgomery_le{};
       bls12_381::g2            _jacobian_montgomery_le; // cached g2
    };
 
-   // Serialization form:
-   //   Non-Montgomery form and little-endian encoding for the field elements.
-   //   Affine form for the group element (the z component is 1 and not included in the serialization).
-   //   Binary serialization encodes x component first followed by y component.
+   // See bls_signature comment above
    class bls_aggregate_signature {
    public:
       bls_aggregate_signature() = default;
@@ -91,6 +90,7 @@ namespace fc::crypto::blslib {
       }
 
       // affine non-montgomery base64url with bls_signature_prefix
+      // Expensive as conversion from Jacobian Montgomery to Affine Non-Montgomery needed
       std::string to_string() const;
 
       const bls12_381::g2& jacobian_montgomery_le() const { return _jacobian_montgomery_le; }
@@ -112,11 +112,7 @@ namespace fc::crypto::blslib {
       friend T& operator>>(T& ds, bls_aggregate_signature& sig) {
          std::array<uint8_t, 192> affine_non_montgomery_le;
          ds.read(reinterpret_cast<char*>(affine_non_montgomery_le.data()), affine_non_montgomery_le.size()*sizeof(uint8_t));
-         constexpr bool check = true; // check if invalid
-         constexpr bool raw = false;  // non-montgomery
-         std::optional<bls12_381::g2> g2 = bls12_381::g2::fromAffineBytesLE(affine_non_montgomery_le, check, raw);
-         FC_ASSERT(g2, "Invalid bls aggregate signature ${k}", ("k", affine_non_montgomery_le));
-         sig._jacobian_montgomery_le = *g2;
+         sig._jacobian_montgomery_le = bls_signature::to_jacobian_montgomery_le(affine_non_montgomery_le);
          return ds;
       }
 
