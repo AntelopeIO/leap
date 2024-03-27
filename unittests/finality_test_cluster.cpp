@@ -8,6 +8,8 @@ finality_test_cluster::finality_test_cluster() {
    setup_node(node1, "node1"_n);
    setup_node(node2, "node2"_n);
 
+   produce_and_push_block(); // make setfinalizer irreversible
+
    // collect node1's votes
    node1.node.control->voted_block().connect( [&]( const eosio::chain::vote_message& vote ) {
       node1.votes.emplace_back(vote);

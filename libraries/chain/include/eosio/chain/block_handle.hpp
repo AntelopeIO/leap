@@ -9,15 +9,13 @@ namespace eosio::chain {
 // Valid to request id and signed_block_ptr it was created from.
 struct block_handle {
 private:
-   block_state_variant_t _bsp;
+   std::variant<block_state_legacy_ptr, block_state_ptr> _bsp;
 
 public:
    block_handle() = default;
    explicit block_handle(block_state_legacy_ptr bsp) : _bsp(std::move(bsp)) {}
    explicit block_handle(block_state_ptr bsp) : _bsp(std::move(bsp)) {}
 
-   void set_internal(block_state_legacy_ptr bsp) { _bsp = std::move(bsp); }
-   void set_internal(block_state_ptr bsp) { _bsp = std::move(bsp); }
    // Avoid using internal block_state/block_state_legacy as those types are internal to controller.
    const auto& internal() const { return _bsp; }
 

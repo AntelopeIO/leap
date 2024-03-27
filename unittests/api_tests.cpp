@@ -3864,9 +3864,11 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    validating_tester t;
 
    uint32_t lib = 0;
+   signed_block_ptr lib_block;
    t.control->irreversible_block().connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
       lib = block->block_num();
+      lib_block = block;
    });
 
    t.produce_block();
@@ -3881,9 +3883,10 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    t.create_accounts(finalizers);
    t.produce_block();
 
-   // activate hotstuff
+   // activate savanna
    t.set_finalizers(finalizers);
-   auto block = t.produce_block(); // this block contains the header extension for the instant finality
+   // this block contains the header extension for the instant finality, savanna activated when it is LIB
+   auto block = t.produce_block();
 
    std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
    BOOST_TEST(!!ext);
@@ -3892,26 +3895,24 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    BOOST_TEST(fin_policy->finalizers.size() == finalizers.size());
    BOOST_TEST(fin_policy->generation == 1);
    BOOST_TEST(fin_policy->threshold == finalizers.size() / 3 * 2 + 1);
-   // currently transition happens immediately after set_finalizer block
-   // Need to update after https://github.com/AntelopeIO/leap/issues/2057
+   block_id_type if_genesis_block_id = block->calculate_id();
 
-   block = t.produce_block(); // hotstuff now active
-   BOOST_TEST(block->confirmed == 0);
-   auto fb = t.control->fetch_block_by_id(block->calculate_id());
+   for (block_num_type active_block_num = block->block_num(); active_block_num > lib; t.produce_block()) {
+      (void)active_block_num; // avoid warning
+   };
+
+   // lib_block is IF Genesis Block
+   // block is IF Critical Block
+   auto fb = t.control->fetch_block_by_id(lib_block->calculate_id());
    BOOST_REQUIRE(!!fb);
-   BOOST_TEST(fb == block);
+   BOOST_TEST(fb->calculate_id() == lib_block->calculate_id());
    ext = fb->extract_header_extension(instant_finality_extension::extension_id());
-   BOOST_REQUIRE(ext);
+   BOOST_REQUIRE(!!ext);
+   BOOST_TEST(if_genesis_block_id == fb->calculate_id());
 
-   // and another on top of a instant-finality block
-   block = t.produce_block();
    auto lib_after_transition = lib;
-   BOOST_TEST(block->confirmed == 0);
-   fb = t.control->fetch_block_by_id(block->calculate_id());
-   BOOST_REQUIRE(!!fb);
-   BOOST_TEST(fb == block);
-   ext = fb->extract_header_extension(instant_finality_extension::extension_id());
-   BOOST_REQUIRE(ext);
+   // block after IF Critical Block is IF Proper Block
+   block = t.produce_block();
 
    // lib must advance after 3 blocks
    t.produce_blocks(3);
@@ -3922,9 +3923,11 @@ void test_finality_transition(const vector<account_name>& accounts, const base_t
    validating_tester t;
 
    uint32_t lib = 0;
+   signed_block_ptr lib_block;
    t.control->irreversible_block().connect([&](const block_signal_params& t) {
       const auto& [ block, id ] = t;
       lib = block->block_num();
+      lib_block = block;
    });
 
    t.produce_block();
@@ -3933,9 +3936,10 @@ void test_finality_transition(const vector<account_name>& accounts, const base_t
    t.create_accounts(accounts);
    t.produce_block();
 
-   // activate hotstuff
+   // activate savanna
    t.set_finalizers(input);
-   auto block = t.produce_block(); // this block contains the header extension for the instant finality
+   // this block contains the header extension for the instant finality, savanna activated when it is LIB
+   auto block = t.produce_block();
 
    std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
    BOOST_TEST(!!ext);
@@ -3943,16 +3947,24 @@ void test_finality_transition(const vector<account_name>& accounts, const base_t
    BOOST_TEST(!!fin_policy);
    BOOST_TEST(fin_policy->finalizers.size() == accounts.size());
    BOOST_TEST(fin_policy->generation == 1);
+   block_id_type if_genesis_block_id = block->calculate_id();
 
-   block = t.produce_block(); // hotstuff now active
-   BOOST_TEST(block->confirmed == 0);
-   auto fb = t.control->fetch_block_by_id(block->calculate_id());
+   block_num_type active_block_num = block->block_num();
+   while (active_block_num > lib) {
+      block = t.produce_block();
+   }
+   // lib_block is IF Genesis Block
+   // block is IF Critical Block
+   auto fb = t.control->fetch_block_by_id(lib_block->calculate_id());
    BOOST_REQUIRE(!!fb);
-   BOOST_TEST(fb == block);
+   BOOST_TEST(fb->calculate_id() == lib_block->calculate_id());
    ext = fb->extract_header_extension(instant_finality_extension::extension_id());
-   BOOST_REQUIRE(ext);
+   BOOST_REQUIRE(!!ext);
+   BOOST_TEST(if_genesis_block_id == fb->calculate_id());
 
    auto lib_after_transition = lib;
+   // block after IF Critical Block is IF Proper Block
+   block = t.produce_block();
 
    t.produce_blocks(4);
    if( lib_advancing_expected ) {
