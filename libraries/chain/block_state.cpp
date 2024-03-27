@@ -31,7 +31,8 @@ block_state::block_state(const block_header_state&                bhs,
                          const std::optional<valid_t>&            valid,
                          const std::optional<quorum_certificate>& qc,
                          const signer_callback_type&              signer,
-                         const block_signing_authority&           valid_block_signing_authority)
+                         const block_signing_authority&           valid_block_signing_authority,
+                         const digest_type&                       action_mroot)
    : block_header_state(bhs)
    , block(std::make_shared<signed_block>(signed_block_header{bhs.header}))
    , strong_digest(compute_finality_digest())
@@ -40,6 +41,7 @@ block_state::block_state(const block_header_state&                bhs,
    , valid(valid)
    , pub_keys_recovered(true) // called by produce_block so signature recovery of trxs must have been done
    , cached_trxs(std::move(trx_metas))
+   , action_mroot(action_mroot)
 {
    block->transactions = std::move(trx_receipts);
 
@@ -52,12 +54,22 @@ block_state::block_state(const block_header_state&                bhs,
 }
 
 // Used for transition from dpos to Savanna.
-block_state::block_state(const block_state_legacy& bsp, const digest_type& action_mroot_svnn) {
-   block_header_state::block_id = bsp.id();
-   header = bsp.header;
-   core = finality_core::create_core_for_genesis_block(bsp.block_num()); // [if todo] instant transition is not acceptable
-   activated_protocol_features = bsp.activated_protocol_features;
+block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& bsp) {
+   assert(bsp.action_receipt_digests_savanna);
 
+   auto result_ptr = std::make_shared<block_state>();
+   auto &result = *result_ptr;
+
+   result.block_id = bsp.id();
+   result.header = bsp.header;
+   result.header_exts = bsp.header_exts;
+   result.block = bsp.block;
+   result.activated_protocol_features = bsp.activated_protocol_features;
+   result.core = finality_core::create_core_for_genesis_block(bsp.block_num());
+
+   // Calculate Merkle tree root in Savanna way so that it is stored in Leaf Node when building block_state.
+   auto digests = *bsp.action_receipt_digests_savanna;
+   auto action_mroot_svnn = calculate_merkle(std::move(digests));
    // built leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {
       .block_num       = bsp.block_num(),
@@ -68,28 +80,27 @@ block_state::block_state(const block_state_legacy& bsp, const digest_type& actio
    validation_tree.append(fc::sha256::hash(leaf_node));
 
    // construct valid structure
-   valid = valid_t {
+   result.valid = valid_t {
       .validation_tree   = validation_tree,
       .validation_mroots = { validation_tree.get_root() }
    };
 
-   auto if_ext_id = instant_finality_extension::extension_id();
-   std::optional<block_header_extension> ext = bsp.block->extract_header_extension(if_ext_id);
-   assert(ext); // required by current transition mechanism
-   const auto& if_extension = std::get<instant_finality_extension>(*ext);
-   assert(if_extension.new_finalizer_policy); // required by current transition mechanism
-   active_finalizer_policy = std::make_shared<finalizer_policy>(*if_extension.new_finalizer_policy);
+   assert(result.block->contains_header_extension(instant_finality_extension::extension_id())); // required by transition mechanism
+   instant_finality_extension if_ext = result.block->extract_header_extension<instant_finality_extension>();
+   assert(if_ext.new_finalizer_policy); // required by transition mechanism
+   result.active_finalizer_policy = std::make_shared<finalizer_policy>(*if_ext.new_finalizer_policy);
+   result.active_proposer_policy = std::make_shared<proposer_policy>();
+   result.active_proposer_policy->active_time = bsp.timestamp();
+   result.active_proposer_policy->proposer_schedule = bsp.active_schedule;
    // TODO: https://github.com/AntelopeIO/leap/issues/2057
    // TODO: Do not aggregate votes on blocks created from block_state_legacy. This can be removed when #2057 complete.
-   pending_qc = pending_quorum_certificate{active_finalizer_policy->finalizers.size(), active_finalizer_policy->threshold, active_finalizer_policy->max_weak_sum_before_weak_final()};
-   active_proposer_policy = std::make_shared<proposer_policy>();
-   active_proposer_policy->active_time = bsp.timestamp();
-   active_proposer_policy->proposer_schedule = bsp.active_schedule;
-   header_exts = bsp.header_exts;
-   block = bsp.block;
-   validated = bsp.is_valid();
-   pub_keys_recovered = bsp._pub_keys_recovered;
-   cached_trxs = bsp._cached_trxs;
+   result.pending_qc = pending_quorum_certificate{result.active_finalizer_policy->finalizers.size(), result.active_finalizer_policy->threshold, result.active_finalizer_policy->max_weak_sum_before_weak_final()};
+   result.validated = bsp.is_valid();
+   result.pub_keys_recovered = bsp._pub_keys_recovered;
+   result.cached_trxs = bsp._cached_trxs;
+   result.action_mroot = action_mroot_svnn;
+
+   return result_ptr;
 }
 
 block_state::block_state(snapshot_detail::snapshot_block_state_v7&& sbs)
@@ -295,6 +306,17 @@ digest_type block_state::get_finality_mroot_claim(const qc_claim_t& qc_claim) co
    }
 
    return get_validation_mroot(next_core_metadata.final_on_strong_qc_block_num);
+}
+
+finality_data_t block_state::get_finality_data() {
+   if (!base_digest) {
+      base_digest = compute_base_digest(); // cache it
+   }
+   return {
+      // other fields take the default values set by finality_data_t definition
+      .action_mroot = action_mroot,
+      .base_digest  = *base_digest
+   };
 }
 
 void inject_additional_signatures( signed_block& b, const std::vector<signature_type>& additional_signatures)

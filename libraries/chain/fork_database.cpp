@@ -50,10 +50,6 @@ namespace eosio::chain {
       return r;
    }
 
-   std::string log_fork_comparison(const block_state_variant_t& bhv) {
-      return std::visit([](const auto& bsp) { return log_fork_comparison(*bsp); }, bhv);
-   }
-
    struct by_block_id;
    struct by_best_branch;
    struct by_prev;
@@ -684,12 +680,18 @@ namespace eosio::chain {
       bool legacy_valid  = fork_db_l.is_valid();
       bool savanna_valid = fork_db_s.is_valid();
 
+      auto in_use_value = in_use.load();
       // check that fork_dbs are in a consistent state
       if (!legacy_valid && !savanna_valid) {
          wlog( "fork_database is in a bad state when closing; not writing out '${filename}', legacy_valid=${l}, savanna_valid=${s}",
                ("filename", fork_db_file)("l", legacy_valid)("s", savanna_valid) );
          return;
+      } else if (legacy_valid && savanna_valid && in_use_value == in_use_t::savanna) {
+         legacy_valid = false; // don't write legacy if not needed, we delay 'clear' of legacy until close
       }
+      assert( (legacy_valid  && (in_use_value == in_use_t::legacy))  ||
+              (savanna_valid && (in_use_value == in_use_t::savanna)) ||
+              (legacy_valid && savanna_valid && (in_use_value == in_use_t::both)) );
 
       std::ofstream out( fork_db_file.generic_string().c_str(), std::ios::out | std::ios::binary | std::ofstream::trunc );
 
@@ -699,7 +701,7 @@ namespace eosio::chain {
                                                    // version == 2 -> savanna (two possible fork_db, one containing `block_state_legacy`,
                                                    //                          one containing `block_state`)
 
-      fc::raw::pack(out, static_cast<uint32_t>(in_use.load()));
+      fc::raw::pack(out, static_cast<uint32_t>(in_use_value));
 
       fc::raw::pack(out, legacy_valid);
       if (legacy_valid)
@@ -779,31 +781,33 @@ namespace eosio::chain {
       }
    }
 
-   void fork_database::switch_from_legacy(const block_state_variant_t& bhv) {
+   // only called from the main thread
+   void fork_database::switch_from_legacy(const block_state_ptr& root) {
       // no need to close fork_db because we don't want to write anything out, file is removed on open
       // threads may be accessing (or locked on mutex about to access legacy forkdb) so don't delete it until program exit
-      assert(in_use == in_use_t::legacy);
-      assert(std::holds_alternative<block_state_ptr>(bhv));
-      block_state_ptr new_head = std::get<block_state_ptr>(bhv);
-      assert(!fork_db_s.is_valid());
+      if (in_use == in_use_t::legacy) {
+         fork_db_s.reset_root(root);
+         if (fork_db_l.has_root()) {
+            in_use = in_use_t::both;
+         } else {
+            in_use = in_use_t::savanna;
+         }
+      } else if (in_use == in_use_t::both) {
+         assert(fork_db_s.root()->id() == root->id()); // should always set the same root
+      } else {
+         assert(false);
+      }
+   }
+
+   // only called from the main thread
+   void fork_database::switch_to_savanna() {
       in_use = in_use_t::savanna;
-      fork_db_s.reset_root(new_head);
    }
 
    block_branch_t fork_database::fetch_branch_from_head() const {
       return apply<block_branch_t>([&](auto& forkdb) {
          return forkdb.fetch_block_branch(forkdb.head()->id());
       });
-   }
-
-   void fork_database::reset_root(const block_state_variant_t& v) {
-       std::visit(overloaded{ [&](const block_state_legacy_ptr& bsp) { fork_db_l.reset_root(bsp); },
-                              [&](const block_state_ptr& bsp) {
-                                  if (in_use == in_use_t::legacy)
-                                     in_use = in_use_t::savanna;
-                                  fork_db_s.reset_root(bsp);
-                              } },
-                  v);
    }
 
    // do class instantiations

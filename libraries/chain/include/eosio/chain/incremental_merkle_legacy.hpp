@@ -8,60 +8,17 @@ namespace eosio::chain {
 namespace detail {
 
 /**
- * given an unsigned integral number return the smallest
- * power-of-2 which is greater than or equal to the given number
- *
- * @param value - an unsigned integral
- * @return - the minimum power-of-2 which is >= value
- */
-constexpr uint64_t next_power_of_2(uint64_t value) {
-   value -= 1;
-   value |= value >> 1;
-   value |= value >> 2;
-   value |= value >> 4;
-   value |= value >> 8;
-   value |= value >> 16;
-   value |= value >> 32;
-   value += 1;
-   return value;
-}
-
-/**
- * Given a power-of-2 (assumed correct) return the number of trailing zeros
- *
- * This is a classic count-trailing-zeros in parallel without the necessary
- * math to make it safe for anything that is not already a power-of-2
- *
- * @param value - and integral power-of-2
- * @return the number of trailing zeros
- */
-constexpr int ctz_power_2(uint64_t value) {
-   int lz = 64;
-
-   if (value) lz--;
-   if (value & 0x00000000FFFFFFFFULL) lz -= 32;
-   if (value & 0x0000FFFF0000FFFFULL) lz -= 16;
-   if (value & 0x00FF00FF00FF00FFULL) lz -= 8;
-   if (value & 0x0F0F0F0F0F0F0F0FULL) lz -= 4;
-   if (value & 0x3333333333333333ULL) lz -= 2;
-   if (value & 0x5555555555555555ULL) lz -= 1;
-
-   return lz;
-}
-
-/**
  * Given a number of nodes return the depth required to store them
  * in a fully balanced binary tree.
  *
  * @param node_count - the number of nodes in the implied tree
  * @return the max depth of the minimal tree that stores them
  */
-constexpr int calculate_max_depth(uint64_t node_count) {
-   if (node_count == 0) {
+constexpr uint64_t calculate_max_depth(uint64_t node_count) {
+   if (node_count == 0)
       return 0;
-   }
-   auto implied_count = next_power_of_2(node_count);
-   return ctz_power_2(implied_count) + 1;
+   // following is non-floating point equivalent to `std::ceil(std::log2(node_count)) + 1)` (and about 9x faster)
+   return std::bit_width(std::bit_ceil(node_count));
 }
 
 template<typename ContainerA, typename ContainerB>

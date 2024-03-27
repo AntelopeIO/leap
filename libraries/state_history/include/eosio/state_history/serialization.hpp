@@ -716,6 +716,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::get_b
    history_pack_big_bytes(ds, obj.block);
    history_pack_big_bytes(ds, obj.traces);
    history_pack_big_bytes(ds, obj.deltas);
+   history_pack_big_bytes(ds, obj.finality_data);
    return ds;
 }
 

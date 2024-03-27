@@ -31,6 +31,7 @@ Print=Utils.Print
 
 appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-clients", type=int, help="How many ship_streamers should be started", default=1)
+extraArgs = appArgs.add_bool(flag="--finality-data-history", help="Enable finality data history", action='store_true')
 args = TestHelper.parse_args({"--activate-if","--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
@@ -72,6 +73,8 @@ try:
     shipNodeNum = 3
     specificExtraNodeosArgs={}
     specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --trace-history --chain-state-history --state-history-stride 200 --plugin eosio::net_api_plugin --plugin eosio::producer_api_plugin "
+    if args.finality_data_history:
+        specificExtraNodeosArgs[shipNodeNum]+=" --finality-data-history"
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin  "
 
@@ -135,6 +138,8 @@ try:
 
     shipClient = "tests/ship_streamer"
     cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas"
+    if args.finality_data_history:
+        cmd += "  --fetch-finality-data"
     if Utils.Debug: Utils.Print(f"cmd: {cmd}")
     clients = []
     files = []
@@ -235,6 +240,8 @@ try:
     block_range = 0
     end_block_num = start_block_num + block_range
     cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas"
+    if args.finality_data_history:
+        cmd += "  --fetch-finality-data"
     if Utils.Debug: Utils.Print(f"cmd: {cmd}")
     clients = []
     files = []

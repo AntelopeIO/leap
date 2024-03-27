@@ -70,7 +70,8 @@ struct interface_in_benchmark {
       // build transaction context from the packed transaction
       timer = std::make_unique<platform_timer>();
       trx_timer = std::make_unique<transaction_checktime_timer>(*timer);
-      trx_ctx = std::make_unique<transaction_context>(*chain->control.get(), *ptrx, ptrx->id(), std::move(*trx_timer));
+      trx_ctx = std::make_unique<transaction_context>(*chain->control.get(), *ptrx, ptrx->id(), std::move(*trx_timer),
+                                                      action_digests_t::store_which_t::legacy);
       trx_ctx->max_transaction_time_subjective = fc::microseconds::maximum();
       trx_ctx->init_for_input_trx( ptrx->get_unprunable_size(), ptrx->get_prunable_size() );
       trx_ctx->exec(); // this is required to generate action traces to be used by apply_context constructor

@@ -10,8 +10,9 @@
 #include <eosio/chain/deep_mind.hpp>
 
 #include <chrono>
+#include <bit>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    transaction_checktime_timer::transaction_checktime_timer(platform_timer& timer)
          : expired(timer.expired), _timer(timer) {
@@ -39,6 +40,7 @@ namespace eosio { namespace chain {
                                              const packed_transaction& t,
                                              const transaction_id_type& trx_id,
                                              transaction_checktime_timer&& tmr,
+                                             action_digests_t::store_which_t store_which,
                                              fc::time_point s,
                                              transaction_metadata::trx_type type)
    :control(c)
@@ -47,6 +49,7 @@ namespace eosio { namespace chain {
    ,undo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
+   ,executed_action_receipts(store_which)
    ,transaction_timer(std::move(tmr))
    ,trx_type(type)
    ,net_usage(trace->net_usage)
@@ -708,11 +711,12 @@ namespace eosio { namespace chain {
    {
       uint32_t new_action_ordinal = trace->action_traces.size() + 1;
 
-      trace->action_traces.reserve( new_action_ordinal );
+      trace->action_traces.reserve( std::bit_ceil(new_action_ordinal) ); // bit_ceil to avoid vector copy on every reserve call.
 
       const action& provided_action = get_action_trace( action_ordinal ).act;
 
-      // The reserve above is required so that the emplace_back below does not invalidate the provided_action reference.
+      // The reserve above is required so that the emplace_back below does not invalidate the provided_action reference,
+      // which references an action within the `trace->action_traces` vector we are appending to.
 
       trace->action_traces.emplace_back( *trace, provided_action, receiver, context_free,
                                          new_action_ordinal, creator_action_ordinal,
@@ -828,4 +832,4 @@ namespace eosio { namespace chain {
    }
 
 
-} } /// eosio::chain
+} /// eosio::chain
