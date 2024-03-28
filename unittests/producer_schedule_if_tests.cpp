@@ -127,6 +127,7 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
    vector<producer_authority> prev_sch = {
                                  producer_authority{"eosio"_n, block_signing_authority_v0{1, {{get_public_key("eosio"_n, "active"), 1}}}}};
    BOOST_CHECK_EQUAL( true, compare_schedules( prev_sch, control->active_producers() ) );
+   BOOST_CHECK_EQUAL( 0, control->active_producers().version );
 
    // set a new proposer policy sch1
    set_producers( {"alice"_n} );
@@ -138,6 +139,7 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
    produce_blocks(config::producer_repetitions);
 
    // sch1 cannot become active before one round of production
+   BOOST_CHECK_EQUAL( 0, control->active_producers().version );
    BOOST_CHECK_EQUAL( true, compare_schedules( prev_sch, control->active_producers() ) );
 
    // set another ploicy to have multiple pending different active time policies
@@ -146,9 +148,17 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
                                  producer_authority{"bob"_n,   block_signing_authority_v0{ 1, {{get_public_key("bob"_n,   "active"),1}}}},
                                  producer_authority{"carol"_n, block_signing_authority_v0{ 1, {{get_public_key("carol"_n, "active"),1}}}}
                                };
+   produce_block();
+
+   // set another ploicy should replace sch2
+   set_producers( {"bob"_n,"alice"_n} );
+   vector<producer_authority> sch3 = {
+      producer_authority{"bob"_n,   block_signing_authority_v0{ 1, {{get_public_key("bob"_n,   "active"),1}}}},
+      producer_authority{"alice"_n, block_signing_authority_v0{ 1, {{get_public_key("alice"_n, "active"),1}}}}
+   };
 
    // another round
-   produce_blocks(config::producer_repetitions);
+   produce_blocks(config::producer_repetitions-1); // -1, already produced one of the round above
 
    // sch1  must become active no later than 2 rounds but sch2 cannot become active yet
    BOOST_CHECK_EQUAL( control->active_producers().version, 1u );
@@ -156,9 +166,9 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
 
    produce_blocks(config::producer_repetitions);
 
-   // sch2 becomes active
-   BOOST_CHECK_EQUAL( control->active_producers().version, 2u );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, control->active_producers() ) );
+   // sch3 becomes active
+   BOOST_CHECK_EQUAL( 2u, control->active_producers().version ); // should be 2 as sch2 was replaced by sch3
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch3, control->active_producers() ) );
 } FC_LOG_AND_RETHROW()
 
 
