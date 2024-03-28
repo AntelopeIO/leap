@@ -166,6 +166,7 @@ try:
       totalNodes=totalNodes,
       pnodes=1,
       activateIF=activateIF,
+      biosFinalizer=False,
       topo="mesh",
       specificExtraNodeosArgs={
          0:"--enable-stale-production",
