@@ -67,24 +67,6 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    result.activated_protocol_features = bsp.activated_protocol_features;
    result.core = finality_core::create_core_for_genesis_block(bsp.block_num());
 
-   // Calculate Merkle tree root in Savanna way so that it is stored in Leaf Node when building block_state.
-   auto digests = *bsp.action_receipt_digests_savanna;
-   auto action_mroot_svnn = calculate_merkle(std::move(digests));
-   // built leaf_node and validation_tree
-   valid_t::finality_leaf_node_t leaf_node {
-      .block_num       = bsp.block_num(),
-      .finality_digest = digest_type{},
-      .action_mroot    = action_mroot_svnn
-   };
-   incremental_merkle_tree validation_tree;
-   validation_tree.append(fc::sha256::hash(leaf_node));
-
-   // construct valid structure
-   result.valid = valid_t {
-      .validation_tree   = validation_tree,
-      .validation_mroots = { validation_tree.get_root() }
-   };
-
    assert(result.block->contains_header_extension(instant_finality_extension::extension_id())); // required by transition mechanism
    instant_finality_extension if_ext = result.block->extract_header_extension<instant_finality_extension>();
    assert(if_ext.new_finalizer_policy); // required by transition mechanism
@@ -98,7 +80,25 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    result.validated = bsp.is_valid();
    result.pub_keys_recovered = bsp._pub_keys_recovered;
    result.cached_trxs = bsp._cached_trxs;
+
+   // Calculate Merkle tree root in Savanna way so that it is stored in Leaf Node when building block_state.
+   auto digests = *bsp.action_receipt_digests_savanna;
+   auto action_mroot_svnn = calculate_merkle(std::move(digests));
    result.action_mroot = action_mroot_svnn;
+   // built leaf_node and validation_tree
+   valid_t::finality_leaf_node_t leaf_node {
+      .block_num       = bsp.block_num(),
+      .finality_digest = result.compute_finality_digest(),
+      .action_mroot    = action_mroot_svnn
+   };
+   incremental_merkle_tree validation_tree;
+   validation_tree.append(fc::sha256::hash(leaf_node));
+
+   // construct valid structure
+   result.valid = valid_t {
+      .validation_tree   = validation_tree,
+      .validation_mroots = { validation_tree.get_root() }
+   };
 
    return result_ptr;
 }
