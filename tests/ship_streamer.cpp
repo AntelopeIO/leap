@@ -138,9 +138,7 @@ int main(int argc, char* argv[]) {
          eosio::check(!result_document.HasParseError(),                                      "Failed to parse result JSON from abieos");
          eosio::check(result_document.IsArray(),                                             "result should have been an array (variant) but it's not");
          eosio::check(result_document.Size() == 2,                                           "result was an array but did not contain 2 items like a variant should");
-         if( fetch_finality_data ) {
-            eosio::check(std::string(result_document[0].GetString()) == "get_blocks_result_v1", "result type doesn't look like get_blocks_result_v1");
-         }
+         eosio::check(std::string(result_document[0].GetString()) == "get_blocks_result_v1", "result type doesn't look like get_blocks_result_v1");
          eosio::check(result_document[1].IsObject(),                                         "second item in result array is not an object");
          eosio::check(result_document[1].HasMember("head"),                                  "cannot find 'head' in result");
          eosio::check(result_document[1]["head"].IsObject(),                                 "'head' is not an object");
