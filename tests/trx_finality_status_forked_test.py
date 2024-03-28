@@ -116,7 +116,7 @@ try:
     def getState(status):
         assert status is not None, "ERROR: getTransactionStatus failed to return any status"
         assert "state" in status, \
-            f"ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {json.dumps(status, indent=1)}"
+            f"ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. status: {json.dumps(status, indent=1)}"
         return status["state"]
 
     def getBlockNum(status):
@@ -124,7 +124,7 @@ try:
         if "block_number" in status:
             return status["block_number"]
         assert "head_number" in status, \
-            f"ERROR: getTransactionStatus returned a status object that didn't have a \"head_number\" field. state: {json.dumps(status, indent=1)}"
+            f"ERROR: getTransactionStatus returned a status object that didn't have a \"head_number\" field. status: {json.dumps(status, indent=1)}"
         return status["head_number"]
 
     def getBlockID(status):
@@ -132,7 +132,7 @@ try:
         if "block_id" in status:
             return status["block_id"]
         assert "head_id" in status, \
-            f"ERROR: getTransactionStatus returned a status object that didn't have a \"head_id\" field. state: {json.dumps(status, indent=1)}"
+            f"ERROR: getTransactionStatus returned a status object that didn't have a \"head_id\" field. status: {json.dumps(status, indent=1)}"
         return status["head_id"]
 
     transferAmount = 10
