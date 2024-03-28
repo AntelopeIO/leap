@@ -57,7 +57,7 @@ struct valid_t {
 struct finality_data_t {
    uint32_t     major_version{light_header_protocol_version_major};
    uint32_t     minor_version{light_header_protocol_version_minor};
-   uint32_t     active_finalizer_policy_generation{0};
+   uint32_t     active_finalizer_policy_generation{1};
    digest_type  action_mroot{};
    digest_type  base_digest{};
 };
