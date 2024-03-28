@@ -67,9 +67,9 @@ public:
                                   ("core", symbol(CORE_SYMBOL).to_string())
             );
       }
-      const auto& accnt = control->db().get<account_object,by_name>( config::system_account_name );
+      const auto& accnt_metadata = control->db().get<account_metadata_object,by_name>( config::system_account_name );
       abi_def abi;
-      BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
+      BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt_metadata.abi, abi), true);
       abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
    }
 
@@ -163,9 +163,9 @@ public:
         set_code(account, wasm, signer);
         set_abi(account, abi, signer);
         if (account == config::system_account_name) {
-           const auto& accnt = control->db().get<account_object,by_name>( account );
+           const auto& accnt_metadata = control->db().get<account_metadata_object,by_name>( account );
            abi_def abi_definition;
-           BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi_definition), true);
+           BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt_metadata.abi, abi_definition), true);
            abi_ser.set_abi(std::move(abi_definition), abi_serializer::create_yield_function( abi_serializer_max_time ));
         }
         produce_blocks();
