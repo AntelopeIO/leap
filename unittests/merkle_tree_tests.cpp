@@ -240,4 +240,19 @@ BOOST_AUTO_TEST_CASE(consistency_over_large_range) {
    }
 }
 
+BOOST_AUTO_TEST_CASE(stack_check) {
+   constexpr size_t num_digests = 1024ull;
+
+   std::vector<digest_type> digests = create_test_digests(num_digests);
+   incremental_merkle_tree tree;
+   for (size_t j=0; j<num_digests; ++j) {
+      tree.append(digests[j]);
+      if (j == num_digests - 1) {
+         BOOST_CHECK_LE(tree.max_stack_depth, 2000);
+         std::cout << "max_stack_depth = " << tree.max_stack_depth << " bytes\n";
+      }
+   }
+}
+
+
 BOOST_AUTO_TEST_SUITE_END()
