@@ -763,12 +763,12 @@ struct building_block {
                   // Create the valid structure for validating_bsp if it does not
                   // have one.
                   if (!validating_bsp->valid) {
-                     validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot);
+                     validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot, bb.parent.strong_digest);
                      validating_bsp->action_mroot = action_mroot; // caching for constructing finality_data. Only needed when block is commited.
                   }
                } else {
                   // Create the valid structure for producing
-                  valid = bb.parent.new_valid(bhs, action_mroot);
+                  valid = bb.parent.new_valid(bhs, action_mroot, bb.parent.strong_digest);
                }
 
                assembled_block::assembled_block_if ab{
@@ -1311,7 +1311,7 @@ struct controller_impl {
          auto digests = *legacy->action_receipt_digests_savanna;
          auto action_mroot = calculate_merkle(std::move(digests));
          // Create the valid structure for producing
-         new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
+         new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
       }
       forkdb.add(new_bsp, legacy->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
    }
@@ -1525,7 +1525,7 @@ struct controller_impl {
                            auto digests = *bspl->action_receipt_digests_savanna;
                            auto action_mroot = calculate_merkle(std::move(digests));
                            // Create the valid structure for producing
-                           new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
+                           new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
                            prev = new_bsp;
                         }
                      }
