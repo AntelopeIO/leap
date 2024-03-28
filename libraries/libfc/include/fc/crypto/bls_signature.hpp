@@ -47,8 +47,8 @@ namespace fc::crypto::blslib {
       template<typename T>
       friend T& operator<<(T& ds, const bls_signature& sig) {
          // Serialization as variable length array when it is stored as a fixed length array. This makes for easier deserialization by external tools
-         fc::raw::pack(ds, fc::unsigned_int(static_cast<uint32_t>(sig._affine_non_montgomery_le.size()*sizeof(uint8_t))));
-         ds.write(reinterpret_cast<const char*>(sig._affine_non_montgomery_le.data()), sig._affine_non_montgomery_le.size()*sizeof(uint8_t));
+         fc::raw::pack(ds, fc::unsigned_int(static_cast<uint32_t>(sizeof(sig._affine_non_montgomery_le))));
+         ds.write(reinterpret_cast<const char*>(sig._affine_non_montgomery_le.data()), sizeof(sig._affine_non_montgomery_le));
          return ds;
       }
 
@@ -58,8 +58,8 @@ namespace fc::crypto::blslib {
          // Serialization as variable length array when it is stored as a fixed length array. This makes for easier deserialization by external tools
          fc::unsigned_int size;
          fc::raw::unpack( ds, size );
-         FC_ASSERT(size.value == sig._affine_non_montgomery_le.size()*sizeof(uint8_t));
-         ds.read(reinterpret_cast<char*>(sig._affine_non_montgomery_le.data()), sig._affine_non_montgomery_le.size()*sizeof(uint8_t));
+         FC_ASSERT(size.value == sizeof(sig._affine_non_montgomery_le));
+         ds.read(reinterpret_cast<char*>(sig._affine_non_montgomery_le.data()), sizeof(sig._affine_non_montgomery_le));
          sig._jacobian_montgomery_le = to_jacobian_montgomery_le(sig._affine_non_montgomery_le);
          return ds;
       }
@@ -109,8 +109,8 @@ namespace fc::crypto::blslib {
          constexpr bool raw = false;
          std::array<uint8_t, 192> affine_non_montgomery_le = sig._jacobian_montgomery_le.toAffineBytesLE(raw);
          // Serialization as variable length array when it is stored as a fixed length array. This makes for easier deserialization by external tools
-         fc::raw::pack(ds, fc::unsigned_int(static_cast<uint32_t>(affine_non_montgomery_le.size()*sizeof(uint8_t))));
-         ds.write(reinterpret_cast<const char*>(affine_non_montgomery_le.data()), affine_non_montgomery_le.size()*sizeof(uint8_t));
+         fc::raw::pack(ds, fc::unsigned_int(static_cast<uint32_t>(sizeof(affine_non_montgomery_le))));
+         ds.write(reinterpret_cast<const char*>(affine_non_montgomery_le.data()), sizeof(affine_non_montgomery_le));
          return ds;
       }
 
@@ -121,8 +121,8 @@ namespace fc::crypto::blslib {
          fc::unsigned_int size;
          fc::raw::unpack( ds, size );
          std::array<uint8_t, 192> affine_non_montgomery_le;
-         FC_ASSERT(size.value == affine_non_montgomery_le.size()*sizeof(uint8_t));
-         ds.read(reinterpret_cast<char*>(affine_non_montgomery_le.data()), affine_non_montgomery_le.size()*sizeof(uint8_t));
+         FC_ASSERT(size.value == sizeof(affine_non_montgomery_le));
+         ds.read(reinterpret_cast<char*>(affine_non_montgomery_le.data()), sizeof(affine_non_montgomery_le));
          sig._jacobian_montgomery_le = bls_signature::to_jacobian_montgomery_le(affine_non_montgomery_le);
          return ds;
       }
