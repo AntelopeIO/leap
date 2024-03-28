@@ -1347,6 +1347,9 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
                     "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"");
 
+         EOS_ASSERT(_finalizer_keys.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
+                    "node cannot have any finalizers configured because finalization is impossible when read_mode is \"irreversible\"");
+
          EOS_ASSERT(_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
                     "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"");
 
@@ -1898,8 +1901,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    try {
       uint16_t blocks_to_confirm = 0;
 
-      auto block_state = chain.head_block_state_legacy(); // null means if is active
-      if (in_producing_mode() && block_state && block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum) { // only if hotstuff not enabled
+      auto block_state = chain.head_block_state_legacy(); // null means savanna is active
+      if (in_producing_mode() && block_state) { // only if savanna not enabled
          // determine how many blocks this producer can confirm
          // 1) if it is not a producer from this node, assume no confirmations (we will discard this block anyway)
          // 2) if it is a producer on this node that has never produced, the conservative approach is to assume no

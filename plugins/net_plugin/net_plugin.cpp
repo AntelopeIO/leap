@@ -2856,15 +2856,17 @@ namespace eosio {
    }
 
    void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address, size_t limit) {
-      uint32_t                  visitors  = 0;
-      uint32_t                  from_addr = 0;
       boost::system::error_code rec;
-      const auto&               paddr_add = socket.remote_endpoint(rec).address();
-      string                    paddr_str;
+      const auto&               rend = socket.remote_endpoint(rec);
       if (rec) {
          fc_ilog(logger, "Unable to get remote endpoint: ${m}", ("m", rec.message()));
       } else {
-         paddr_str        = paddr_add.to_string();
+         uint32_t                  visitors  = 0;
+         uint32_t                  from_addr = 0;
+         const auto&               paddr_add = rend.address();
+         const auto                paddr_port = rend.port();
+         string                    paddr_str  = paddr_add.to_string();
+         string                    paddr_desc = paddr_str + ":" + std::to_string(paddr_port);
          connections.for_each_connection([&visitors, &from_addr, &paddr_str](const connection_ptr& conn) {
             if (conn->socket_is_open()) {
                if (conn->peer_address().empty()) {
@@ -2881,11 +2883,11 @@ namespace eosio {
                visitors < connections.get_max_client_count())) {
             fc_ilog(logger, "Accepted new connection: " + paddr_str);
 
-            connections.any_of_supplied_peers([&listen_address, &paddr_str, &limit](const string& peer_addr) {
+            connections.any_of_supplied_peers([&listen_address, &paddr_str, &paddr_desc, &limit](const string& peer_addr) {
                auto [host, port, type] = split_host_port_type(peer_addr);
                if (host == paddr_str) {
                   if (limit > 0) {
-                     fc_dlog(logger, "Connection inbound to ${la} from ${a} is a configured p2p-peer-address and will not be throttled", ("la", listen_address)("a", paddr_str));
+                     fc_dlog(logger, "Connection inbound to ${la} from ${a} is a configured p2p-peer-address and will not be throttled", ("la", listen_address)("a", paddr_desc));
                   }
                   limit = 0;
                   return true;
@@ -2902,10 +2904,10 @@ namespace eosio {
 
          } else {
             if (from_addr >= max_nodes_per_host) {
-               fc_dlog(logger, "Number of connections (${n}) from ${ra} exceeds limit ${l}",
-                        ("n", from_addr + 1)("ra", paddr_str)("l", max_nodes_per_host));
+               fc_dlog(logger, "Number of connections (${n}) from ${ra} exceeds limit ${l}, closing",
+                        ("n", from_addr + 1)("ra", paddr_desc)("l", max_nodes_per_host));
             } else {
-               fc_dlog(logger, "max_client_count ${m} exceeded", ("m", connections.get_max_client_count()));
+               fc_dlog(logger, "max_client_count ${m} exceeded, closing: ${ra}", ("m", connections.get_max_client_count())("ra", paddr_desc));
             }
             // new_connection never added to connections and start_session not called, lifetime will end
             boost::system::error_code ec;
@@ -3852,7 +3854,7 @@ namespace eosio {
 
       fc::microseconds age( fc::time_point::now() - block->timestamp);
       fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection ${cid}, ${v}, lib #${lib}",
-               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", obt ? "pre-validated" : "validation pending")("lib", lib) );
+               ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", obt ? "header validated" : "header validation pending")("lib", lib) );
 
       go_away_reason reason = no_reason;
       bool accepted = false;

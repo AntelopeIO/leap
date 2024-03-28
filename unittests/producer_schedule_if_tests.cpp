@@ -64,8 +64,11 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_instant_finality_activat
 
    // enable instant_finality
    set_finalizers(producers);
-   auto block = produce_block(); // this block contains the header extension of the finalizer set
-   BOOST_TEST(lib == 4u); // TODO: currently lib advances immediately on set_finalizers
+   auto setfin_block = produce_block(); // this block contains the header extension of the finalizer set
+
+   for (block_num_type active_block_num = setfin_block->block_num(); active_block_num > lib; produce_block()) {
+      (void)active_block_num; // avoid warning
+   };
 
    // ---- Test first set of producers ----
    // Send set prods action and confirm schedule correctness
@@ -118,11 +121,13 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
    // activate instant_finality
    set_finalizers({"alice"_n,"bob"_n,"carol"_n});
    produce_block(); // this block contains the header extension of the finalizer set
+   produce_block(); // one producer, lib here
 
    // current proposer schedule stays the same as the one prior to IF transition
    vector<producer_authority> prev_sch = {
                                  producer_authority{"eosio"_n, block_signing_authority_v0{1, {{get_public_key("eosio"_n, "active"), 1}}}}};
    BOOST_CHECK_EQUAL( true, compare_schedules( prev_sch, control->active_producers() ) );
+   BOOST_CHECK_EQUAL( 0, control->active_producers().version );
 
    // set a new proposer policy sch1
    set_producers( {"alice"_n} );
@@ -134,6 +139,7 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
    produce_blocks(config::producer_repetitions);
 
    // sch1 cannot become active before one round of production
+   BOOST_CHECK_EQUAL( 0, control->active_producers().version );
    BOOST_CHECK_EQUAL( true, compare_schedules( prev_sch, control->active_producers() ) );
 
    // set another ploicy to have multiple pending different active time policies
@@ -142,9 +148,17 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
                                  producer_authority{"bob"_n,   block_signing_authority_v0{ 1, {{get_public_key("bob"_n,   "active"),1}}}},
                                  producer_authority{"carol"_n, block_signing_authority_v0{ 1, {{get_public_key("carol"_n, "active"),1}}}}
                                };
+   produce_block();
+
+   // set another ploicy should replace sch2
+   set_producers( {"bob"_n,"alice"_n} );
+   vector<producer_authority> sch3 = {
+      producer_authority{"bob"_n,   block_signing_authority_v0{ 1, {{get_public_key("bob"_n,   "active"),1}}}},
+      producer_authority{"alice"_n, block_signing_authority_v0{ 1, {{get_public_key("alice"_n, "active"),1}}}}
+   };
 
    // another round
-   produce_blocks(config::producer_repetitions);
+   produce_blocks(config::producer_repetitions-1); // -1, already produced one of the round above
 
    // sch1  must become active no later than 2 rounds but sch2 cannot become active yet
    BOOST_CHECK_EQUAL( control->active_producers().version, 1u );
@@ -152,9 +166,9 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_progression_test, validating_tester ) t
 
    produce_blocks(config::producer_repetitions);
 
-   // sch2 becomes active
-   BOOST_CHECK_EQUAL( control->active_producers().version, 2u );
-   BOOST_CHECK_EQUAL( true, compare_schedules( sch2, control->active_producers() ) );
+   // sch3 becomes active
+   BOOST_CHECK_EQUAL( 2u, control->active_producers().version ); // should be 2 as sch2 was replaced by sch3
+   BOOST_CHECK_EQUAL( true, compare_schedules( sch3, control->active_producers() ) );
 } FC_LOG_AND_RETHROW()
 
 
@@ -168,6 +182,7 @@ BOOST_FIXTURE_TEST_CASE( proposer_policy_misc_tests, validating_tester ) try {
    // activate instant_finality
    set_finalizers({"alice"_n,"bob"_n});
    produce_block(); // this block contains the header extension of the finalizer set
+   produce_block(); // one producer, lib here
 
    { // set multiple policies in the same block. The last one will be chosen
       set_producers( {"alice"_n} );

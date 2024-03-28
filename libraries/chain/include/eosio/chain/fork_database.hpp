@@ -17,7 +17,6 @@ namespace eosio::chain {
    // Used for logging of comparison values used for best fork determination
    std::string log_fork_comparison(const block_state& bs);
    std::string log_fork_comparison(const block_state_legacy& bs);
-   std::string log_fork_comparison(const block_state_variant_t& bh);
 
    /**
     * @class fork_database_t
@@ -97,7 +96,7 @@ namespace eosio::chain {
       block_branch_t fetch_block_branch( const block_id_type& h, uint32_t trim_after_block_num = std::numeric_limits<uint32_t>::max() ) const;
 
       /**
-       *  eturns full branch of block_header_state pointers including the root.
+       *  Returns full branch of block_header_state pointers including the root.
        *  The order of the sequence is in descending block number order.
        *  A block with an id of `h` must exist in the fork database otherwise this method will throw an exception.
        */
@@ -155,15 +154,14 @@ namespace eosio::chain {
       void open( validator_t& validator );
       void close();
 
-      // expected to be called from main thread
-      void switch_from_legacy(const block_state_variant_t& bhv);
+      // switches to using both legacy and savanna during transition
+      void switch_from_legacy(const block_state_ptr& root);
+      void switch_to(in_use_t v) { in_use = v; }
 
       in_use_t version_in_use() const { return in_use.load(); }
 
       // see fork_database_t::fetch_branch(forkdb->head()->id())
       block_branch_t fetch_branch_from_head() const;
-
-      void reset_root(const block_state_variant_t& v);
 
       template <class R, class F>
       R apply(const F& f) const {
@@ -199,34 +197,45 @@ namespace eosio::chain {
          }
       }
 
-      /// Apply for when only need lambda executed when in savanna (instant-finality) mode
+      /// Apply for when only need lambda executed on savanna fork db
       template <class R, class F>
       R apply_s(const F& f) {
          if constexpr (std::is_same_v<void, R>) {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                f(fork_db_s);
             }
          } else {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
                return f(fork_db_s);
             }
             return {};
          }
       }
 
-      /// Apply for when only need lambda executed when in legacy mode
+      /// Apply for when only need lambda executed on savanna fork db
       template <class R, class F>
-      R apply_l(const F& f) {
+      R apply_s(const F& f) const {
          if constexpr (std::is_same_v<void, R>) {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+               f(fork_db_s);
+            }
+         } else {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::savanna || in_use_value == in_use_t::both) {
+               return f(fork_db_s);
+            }
+            return {};
+         }
+      }
+
+      /// Apply for when only need lambda executed on legacy fork db
+      template <class R, class F>
+      R apply_l(const F& f) const {
+         if constexpr (std::is_same_v<void, R>) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
                f(fork_db_l);
             }
          } else {
-            if (auto in_use_value = in_use.load();
-                in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
+            if (auto in_use_value = in_use.load(); in_use_value == in_use_t::legacy || in_use_value == in_use_t::both) {
                return f(fork_db_l);
             }
             return {};

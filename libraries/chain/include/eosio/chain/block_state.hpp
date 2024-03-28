@@ -146,18 +146,15 @@ public:
                const block_signing_authority&           valid_block_signing_authority,
                const digest_type&                       action_mroot);
 
-   block_state(const block_state_legacy& bsp, const digest_type& action_mroot_svnn);
+   static std::shared_ptr<block_state> create_if_genesis_block(const block_state_legacy& bsp);
 
    explicit block_state(snapshot_detail::snapshot_block_state_v7&& sbs);
-
-   explicit block_state(const block_state_legacy& bsp);
 
    void sign(const signer_callback_type& signer, const block_signing_authority& valid_block_signing_authority);
    void verify_signee(const std::vector<signature_type>& additional_signatures, const block_signing_authority& valid_block_signing_authority) const;
 };
 
 using block_state_ptr       = std::shared_ptr<block_state>;
-using block_state_variant_t = std::variant<std::shared_ptr<block_state_legacy>, block_state_ptr>;
 using block_state_pair      = std::pair<std::shared_ptr<block_state_legacy>, block_state_ptr>;
 
 } // namespace eosio::chain
