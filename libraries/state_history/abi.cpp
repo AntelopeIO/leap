@@ -59,6 +59,17 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "prev_block", "type": "block_position?" },
                 { "name": "block", "type": "bytes?" },
                 { "name": "traces", "type": "bytes?" },
+                { "name": "deltas", "type": "bytes?" }
+            ]
+        },
+        {
+            "name": "get_blocks_result_v1", "fields": [
+                { "name": "head", "type": "block_position" },
+                { "name": "last_irreversible", "type": "block_position" },
+                { "name": "this_block", "type": "block_position?" },
+                { "name": "prev_block", "type": "block_position?" },
+                { "name": "block", "type": "bytes?" },
+                { "name": "traces", "type": "bytes?" },
                 { "name": "deltas", "type": "bytes?" },
                 { "name": "finality_data", "type": "bytes?" }
             ]
@@ -576,7 +587,7 @@ extern const char* const state_history_plugin_abi = R"({
     ],
     "variants": [
         { "name": "request", "types": ["get_status_request_v0", "get_blocks_request_v0", "get_blocks_request_v1", "get_blocks_ack_request_v0"] },
-        { "name": "result", "types": ["get_status_result_v0", "get_blocks_result_v0"] },
+        { "name": "result", "types": ["get_status_result_v0", "get_blocks_result_v0", "get_blocks_result_v1"] },
 
         { "name": "action_receipt", "types": ["action_receipt_v0"] },
         { "name": "action_trace", "types": ["action_trace_v0", "action_trace_v1"] },

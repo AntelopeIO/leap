@@ -123,12 +123,16 @@ struct get_blocks_result_base {
 struct get_blocks_result_v0 : get_blocks_result_base {
    std::optional<bytes>          traces;
    std::optional<bytes>          deltas;
+};
+
+struct get_blocks_result_v1 : get_blocks_result_v0 {
    std::optional<bytes>          finality_data;
 };
 
 using state_request = std::variant<get_status_request_v0, get_blocks_request_v0, get_blocks_request_v1, get_blocks_ack_request_v0>;
+using state_result  = std::variant<get_status_result_v0, get_blocks_result_v0, get_blocks_result_v1>;
 using get_blocks_request = std::variant<get_blocks_request_v0, get_blocks_request_v1>;
-using state_result  = std::variant<get_status_result_v0, get_blocks_result_v0>;
+using get_blocks_result = std::variant<get_blocks_result_v0, get_blocks_result_v1>;
 
 } // namespace state_history
 } // namespace eosio
@@ -142,5 +146,6 @@ FC_REFLECT(eosio::state_history::get_blocks_request_v0, (start_block_num)(end_bl
 FC_REFLECT_DERIVED(eosio::state_history::get_blocks_request_v1, (eosio::state_history::get_blocks_request_v0), (fetch_finality_data));
 FC_REFLECT(eosio::state_history::get_blocks_ack_request_v0, (num_messages));
 FC_REFLECT(eosio::state_history::get_blocks_result_base, (head)(last_irreversible)(this_block)(prev_block)(block));
-FC_REFLECT_DERIVED(eosio::state_history::get_blocks_result_v0, (eosio::state_history::get_blocks_result_base), (traces)(deltas)(finality_data));
+FC_REFLECT_DERIVED(eosio::state_history::get_blocks_result_v0, (eosio::state_history::get_blocks_result_base), (traces)(deltas));
+FC_REFLECT_DERIVED(eosio::state_history::get_blocks_result_v1, (eosio::state_history::get_blocks_result_v0), (finality_data));
 // clang-format on

@@ -75,6 +75,18 @@ fc::datastream<ST>& operator>>(fc::datastream<ST>& ds, eosio::state_history::get
    unpack_big_bytes(ds, obj.block);
    unpack_big_bytes(ds, obj.traces);
    unpack_big_bytes(ds, obj.deltas);
+   return ds;
+}
+
+template <typename ST>
+fc::datastream<ST>& operator>>(fc::datastream<ST>& ds, eosio::state_history::get_blocks_result_v1& obj) {
+   fc::raw::unpack(ds, obj.head);
+   fc::raw::unpack(ds, obj.last_irreversible);
+   fc::raw::unpack(ds, obj.this_block);
+   fc::raw::unpack(ds, obj.prev_block);
+   unpack_big_bytes(ds, obj.block);
+   unpack_big_bytes(ds, obj.traces);
+   unpack_big_bytes(ds, obj.deltas);
    unpack_big_bytes(ds, obj.finality_data);
    return ds;
 }
@@ -467,27 +479,40 @@ void test_session_no_prune_impl(state_history_test_fixture& fixture, bool fetch_
    // we should get 3 consecutive block result
    for (int i = 0; i < 3; ++i) {
       fixture.receive_result(result);
-      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-      auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
-      BOOST_REQUIRE(r.traces.has_value());
-      BOOST_REQUIRE(r.deltas.has_value());
-      if( fetch_finality_data ) {
-         BOOST_REQUIRE(r.finality_data.has_value());
-      }
-      auto  traces        = r.traces.value();
-      auto  deltas        = r.deltas.value();
-      auto& data      = fixture.written_data[i];
-      auto  data_size = data.size() * sizeof(int32_t);
-      BOOST_REQUIRE_EQUAL(traces.size(), data_size);
-      BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
-      BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
-      BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
 
       if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         BOOST_REQUIRE(r.finality_data.has_value());
+         auto  traces    = r.traces.value();
+         auto  deltas    = r.deltas.value();
+         auto& data      = fixture.written_data[i];
+         auto  data_size = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
          auto finality_data = r.finality_data.value();
          BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
          BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces    = r.traces.value();
+         auto  deltas    = r.deltas.value();
+         auto& data      = fixture.written_data[i];
+         auto  data_size = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
    }
 }
@@ -531,30 +556,50 @@ void test_split_log_impl(state_history_test_fixture& fixture, bool fetch_finalit
    eosio::chain::block_id_type prev_id;
    for (uint32_t i = 0; i < head; ++i) {
       fixture.receive_result(result);
-      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-      auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
-      if (i > 0) {
-         BOOST_TEST(prev_id.str() == r.prev_block->block_id.str());
-      }
-      prev_id = r.this_block->block_id;
-      BOOST_REQUIRE(r.traces.has_value());
-      BOOST_REQUIRE(r.deltas.has_value());
-      auto  traces        = r.traces.value();
-      auto  deltas        = r.deltas.value();
-      auto& data      = fixture.written_data[i];
-      auto  data_size = data.size() * sizeof(int32_t);
-      BOOST_REQUIRE_EQUAL(traces.size(), data_size);
-      BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
-
-      BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
-      BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
 
       if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         if (i > 0) {
+            BOOST_TEST(prev_id.str() == r.prev_block->block_id.str());
+         }
+         prev_id = r.this_block->block_id;
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces    = r.traces.value();
+         auto  deltas    = r.deltas.value();
+         auto& data      = fixture.written_data[i];
+         auto  data_size = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
          auto  finality_data = r.finality_data.value();
          BOOST_REQUIRE(r.finality_data.has_value());
          BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
          BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         if (i > 0) {
+            BOOST_TEST(prev_id.str() == r.prev_block->block_id.str());
+         }
+         prev_id = r.this_block->block_id;
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces    = r.traces.value();
+         auto  deltas    = r.deltas.value();
+         auto& data      = fixture.written_data[i];
+         auto  data_size = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
    }
 }
@@ -603,37 +648,59 @@ void test_session_with_prune_impl(state_history_test_fixture& fixture, bool fetc
    // we should get 3 consecutive block result
 
    fixture.receive_result(result);
-   BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-   auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-   BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
-   BOOST_REQUIRE(!r.traces.has_value());
-   BOOST_REQUIRE(!r.deltas.has_value());
    if( fetch_finality_data ) {
+      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+      auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+      BOOST_REQUIRE(!r.traces.has_value());
+      BOOST_REQUIRE(!r.deltas.has_value());
       BOOST_REQUIRE(!r.finality_data.has_value());
+   } else {
+      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+      auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+      BOOST_REQUIRE(!r.traces.has_value());
+      BOOST_REQUIRE(!r.deltas.has_value());
    }
 
    for (int i = 1; i < 3; ++i) {
       fixture.receive_result(result);
-      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-      auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
-      BOOST_REQUIRE(r.traces.has_value());
-      BOOST_REQUIRE(r.deltas.has_value());
-      auto  traces        = r.traces.value();
-      auto  deltas        = r.deltas.value();
-      auto& data          = fixture.written_data[i];
-      auto  data_size     = data.size() * sizeof(int32_t);
-      BOOST_REQUIRE_EQUAL(traces.size(), data_size);
-      BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
-
-      BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
-      BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
 
       if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
          BOOST_REQUIRE(r.finality_data.has_value());
          auto  finality_data = r.finality_data.value();
          BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
          BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
    }
 }
@@ -681,29 +748,48 @@ void test_session_fork_impl(state_history_test_fixture& fixture, bool fetch_fina
    // we should get 4 consecutive block result
    for (uint32_t i = 0; i < 4; ++i) {
       fixture.receive_result(result);
-      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-      auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
-      BOOST_REQUIRE(r.traces.has_value());
-      BOOST_REQUIRE(r.deltas.has_value());
-      auto  traces        = r.traces.value();
-      auto  deltas        = r.deltas.value();
-      auto& data          = fixture.written_data[i];
-      auto  data_size     = data.size() * sizeof(int32_t);
-      BOOST_REQUIRE_EQUAL(traces.size(), data_size);
-      BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
-      BOOST_REQUIRE(r.this_block.has_value());
-      BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
-      have_positions.push_back(*r.this_block);
-
-      BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
-      BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
 
       if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+         BOOST_REQUIRE(r.this_block.has_value());
+         BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
+         have_positions.push_back(*r.this_block);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
          BOOST_REQUIRE(r.finality_data.has_value());
          auto finality_data = r.finality_data.value();
          BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
          BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+         BOOST_REQUIRE(r.this_block.has_value());
+         BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
+         have_positions.push_back(*r.this_block);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
    }
 
@@ -731,28 +817,46 @@ void test_session_fork_impl(state_history_test_fixture& fixture, bool fetch_fina
    // we should now get data for fork 3,4
    for (uint32_t i = 2; i < 4; ++i) {
       fixture.receive_result(fork_result);
-      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(fork_result));
-      auto r = std::get<eosio::state_history::get_blocks_result_v0>(fork_result);
-      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
-      BOOST_REQUIRE(r.this_block.has_value());
-      BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
-      BOOST_REQUIRE(r.traces.has_value());
-      BOOST_REQUIRE(r.deltas.has_value());
-      auto  traces        = r.traces.value();
-      auto  deltas        = r.deltas.value();
-      auto& data          = fixture.written_data[i];
-      auto  data_size     = data.size() * sizeof(int32_t);
-      BOOST_REQUIRE_EQUAL(traces.size(), data_size);
-      BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
-
-      BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
-      BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
 
       if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(fork_result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(fork_result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.this_block.has_value());
+         BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
          BOOST_REQUIRE(r.finality_data.has_value());
          auto finality_data = r.finality_data.value();
          BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
          BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(fork_result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(fork_result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.this_block.has_value());
+         BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
    }
 }
