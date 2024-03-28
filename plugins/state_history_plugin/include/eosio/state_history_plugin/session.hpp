@@ -541,7 +541,7 @@ private:
    }
 
    template<typename T> // get_blocks_result_v0 or get_blocks_result_v1
-   void send_update(state_history::get_blocks_request_v0& request, bool fetch_finality_data, T result, const chain::signed_block_ptr& block, const chain::block_id_type& id) {
+   void send_update(state_history::get_blocks_request_v0& request, bool fetch_finality_data, T&& result, const chain::signed_block_ptr& block, const chain::block_id_type& id) {
       need_to_send_update = true;
 
       result.last_irreversible = plugin.get_last_irreversible();
