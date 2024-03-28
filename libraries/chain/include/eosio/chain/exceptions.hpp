@@ -255,7 +255,8 @@ namespace eosio { namespace chain {
                                     3030012, "Invalid block extension" )
       FC_DECLARE_DERIVED_EXCEPTION( ill_formed_additional_block_signatures_extension, block_validate_exception,
                                     3030013, "Block includes an ill-formed additional block signature extension" )
-
+      FC_DECLARE_DERIVED_EXCEPTION( invalid_qc_claim, block_validate_exception,
+                                    3030014, "Block includes an invalid QC claim" )
 
    FC_DECLARE_DERIVED_EXCEPTION( transaction_exception,             chain_exception,
                                  3040000, "Transaction exception" )
@@ -667,4 +668,9 @@ namespace eosio { namespace chain {
                                     3250002, "Protocol feature exception (invalid block)" )
       FC_DECLARE_DERIVED_EXCEPTION( protocol_feature_iterator_exception, protocol_feature_exception,
                                     3250003, "Protocol feature iterator exception" )
+
+   FC_DECLARE_DERIVED_EXCEPTION( finalizer_exception,    chain_exception,
+                                 3260000, "Finalizer exception" )
+      FC_DECLARE_DERIVED_EXCEPTION( finalizer_safety_exception, finalizer_exception,
+                                    3260001, "Finalizer safety file exception" )
 } } // eosio::chain

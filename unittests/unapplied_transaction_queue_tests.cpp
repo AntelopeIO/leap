@@ -1,5 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
+#include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/unapplied_transaction_queue.hpp>
 #include <eosio/chain/contract_types.hpp>
 
@@ -63,10 +64,12 @@ auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    producer_authority_schedule schedule = { 0, { producer_authority{block->producer, block_signing_authority_v0{ 1, {{pub_key, 1}} } } } };
    pbhs.active_schedule = schedule;
    pbhs.valid_block_signing_authority = block_signing_authority_v0{ 1, {{pub_key, 1}} };
+   std::optional<digests_t> action_receipt_digests;
    auto bsp = std::make_shared<block_state_legacy>(
          std::move( pbhs ),
          std::move( block ),
          std::move( trx_metas ),
+         std::move( action_receipt_digests ),
          protocol_feature_set(),
          []( block_timestamp_type timestamp,
              const flat_set<digest_type>& cur_features,
@@ -76,6 +79,20 @@ auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    );
 
    return bsp;
+}
+
+using branch_legacy_t = fork_database_legacy_t::branch_t;
+
+template<class BRANCH_TYPE>
+void add_forked( unapplied_transaction_queue& queue, const BRANCH_TYPE& forked_branch ) {
+   // forked_branch is in reverse order
+   for( auto ritr = forked_branch.rbegin(), rend = forked_branch.rend(); ritr != rend; ++ritr ) {
+      const auto& bsptr = *ritr;
+      for( auto itr = bsptr->trxs_metas().begin(), end = bsptr->trxs_metas().end(); itr != end; ++itr ) {
+         const auto& trx = *itr;
+         queue.add_forked(trx);
+      }
+   }
 }
 
 // given a current itr make sure expected number of items are iterated over
@@ -136,7 +153,7 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    auto bs1 = create_test_block_state( { trx1, trx2 } );
    auto bs2 = create_test_block_state( { trx3, trx4, trx5 } );
    auto bs3 = create_test_block_state( { trx6 } );
-   q.add_forked( { bs3, bs2, bs1, bs1 } ); // bs1 duplicate ignored
+   add_forked( q, branch_legacy_t{ bs3, bs2, bs1, bs1 } ); // bs1 duplicate ignored
    BOOST_CHECK( q.size() == 6u );
    BOOST_REQUIRE( next( q ) == trx1 );
    BOOST_CHECK( q.size() == 5u );
@@ -155,9 +172,9 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
 
    // fifo forked
    auto bs4 = create_test_block_state( { trx7 } );
-   q.add_forked( { bs1 } );
-   q.add_forked( { bs3, bs2 } );
-   q.add_forked( { bs4 } );
+   add_forked( q, branch_legacy_t{ bs1 } );
+   add_forked( q, branch_legacy_t{ bs3, bs2 } );
+   add_forked( q, branch_legacy_t{ bs4 } );
    BOOST_CHECK( q.size() == 7u );
    BOOST_REQUIRE( next( q ) == trx1 );
    BOOST_CHECK( q.size() == 6u );
@@ -189,10 +206,10 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    // fifo forked, multi forks
    auto bs5 = create_test_block_state( { trx11, trx12, trx13 } );
    auto bs6 = create_test_block_state( { trx11, trx15 } );
-   q.add_forked( { bs3, bs2, bs1 } );
-   q.add_forked( { bs4 } );
-   q.add_forked( { bs3, bs2 } ); // dups ignored
-   q.add_forked( { bs6, bs5 } );
+   add_forked( q, branch_legacy_t{ bs3, bs2, bs1 } );
+   add_forked( q, branch_legacy_t{ bs4 } );
+   add_forked( q, branch_legacy_t{ bs3, bs2 } ); // dups ignored
+   add_forked( q, branch_legacy_t{ bs6, bs5 } );
    BOOST_CHECK_EQUAL( q.size(), 11u );
    BOOST_REQUIRE( next( q ) == trx1 );
    BOOST_CHECK( q.size() == 10u );
@@ -220,10 +237,10 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    BOOST_CHECK( q.empty() );
 
    // altogether, order fifo: forked, aborted
-   q.add_forked( { bs3, bs2, bs1 } );
+   add_forked( q, branch_legacy_t{ bs3, bs2, bs1 } );
    q.add_aborted( { trx9, trx14 } );
    q.add_aborted( { trx18, trx19 } );
-   q.add_forked( { bs6, bs5, bs4 } );
+   add_forked( q, branch_legacy_t{ bs6, bs5, bs4 } );
    // verify order
    verify_order( q, q.begin(), 15 );
    // verify type order
@@ -289,7 +306,7 @@ BOOST_AUTO_TEST_CASE( unapplied_transaction_queue_test ) try {
    BOOST_REQUIRE( next( q ) == trx22 );
    BOOST_CHECK( q.empty() );
 
-   q.add_forked( { bs3, bs2, bs1 } );
+   add_forked( q, branch_legacy_t{ bs3, bs2, bs1 } );
    q.add_aborted( { trx9, trx11 } );
    q.clear();
    BOOST_CHECK( q.empty() );

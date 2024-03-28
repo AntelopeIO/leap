@@ -29,7 +29,7 @@ appArgs.add(flag="--eos-vm-oc-enable", type=str, help="specify eos-vm-oc-enable 
 appArgs.add(flag="--wasm-runtime", type=str, help="if set to eos-vm-oc, must compile with EOSIO_EOS_VM_OC_DEVELOPER", default="eos-vm-jit")
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
-                            ,"--dump-error-details","-v","--leave-running"
+                            ,"--activate-if","--dump-error-details","-v","--leave-running"
                             ,"--keep-logs","--unshared"}, applicationSpecificArgs=appArgs)
 
 pnodes=args.p
@@ -44,6 +44,7 @@ debug=args.v
 nodesFile=args.nodes_file
 dontLaunch=nodesFile is not None
 seed=args.seed
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 numTestRuns=args.num_test_runs
 
@@ -122,7 +123,7 @@ def startCluster():
         specificExtraNodeosArgs[pnodes]+=" --wasm-runtime "
         specificExtraNodeosArgs[pnodes]+=args.wasm_runtime
     extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false "
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=extraNodeosArgs ) is False:
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, activateIF=activateIF, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=extraNodeosArgs ) is False:
         errorExit("Failed to stand up eos cluster.")
 
     Print ("Wait for Cluster stabilization")

@@ -22,7 +22,7 @@ class TraceApiPluginTest(unittest.TestCase):
         account_names = ["alice", "bob", "charlie"]
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs = " --verbose-http-errors --trace-rpc-abi eosio.token=" + abs_path
-        self.cluster.launch(totalNodes=2, extraNodeosArgs=traceNodeosArgs)
+        self.cluster.launch(totalNodes=2, activateIF=True, extraNodeosArgs=traceNodeosArgs)
         self.walletMgr.launch()
         testWalletName="testwallet"
         testWallet=self.walletMgr.create(testWalletName, [self.cluster.eosioAccount, self.cluster.defproduceraAccount])

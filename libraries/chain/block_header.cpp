@@ -1,4 +1,5 @@
 #include <eosio/chain/block.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/merkle.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/bitutil.hpp>
@@ -24,7 +25,7 @@ namespace eosio { namespace chain {
       return result;
    }
 
-   flat_multimap<uint16_t, block_header_extension> block_header::validate_and_extract_header_extensions()const {
+   header_extension_multimap block_header::validate_and_extract_header_extensions()const {
       using decompose_t = block_header_extension_types::decompose_t;
 
       flat_multimap<uint16_t, block_header_extension> results;
@@ -62,6 +63,36 @@ namespace eosio { namespace chain {
       }
 
       return results;
+   }
+
+   std::optional<block_header_extension> block_header::extract_header_extension(uint16_t extension_id)const {
+      using decompose_t = block_header_extension_types::decompose_t;
+
+      for( size_t i = 0; i < header_extensions.size(); ++i ) {
+         const auto& e = header_extensions[i];
+         auto id = e.first;
+
+         if (id != extension_id)
+            continue;
+
+         block_header_extension ext;
+
+         auto match = decompose_t::extract<block_header_extension>( id, e.second, ext );
+         EOS_ASSERT( match, invalid_block_header_extension,
+                     "Block header extension with id type ${id} is not supported",
+                     ("id", id)
+         );
+
+         return ext;
+      }
+
+      return {};
+   }
+
+   bool block_header::contains_header_extension(uint16_t extension_id)const {
+      return std::any_of(header_extensions.cbegin(), header_extensions.cend(), [&](const auto& p) {
+         return p.first == extension_id;
+      });
    }
 
 } }

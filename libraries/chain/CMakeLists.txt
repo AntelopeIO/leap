@@ -3,6 +3,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/genesis_state_root_key.cpp.in ${CMAKE
 
 file(GLOB HEADERS "include/eosio/chain/*.hpp"
                   "include/eosio/chain/webassembly/*.hpp"
+                  "include/eosio/chain/hotstuff/*.hpp"
                   "${CMAKE_CURRENT_BINARY_DIR}/include/eosio/chain/core_symbol.hpp" )
 
 if((APPLE AND UNIX) OR (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD"))
@@ -78,6 +79,12 @@ set(CHAIN_WEBASSEMBLY_SOURCES
    webassembly/transaction.cpp
 )
 
+set(CHAIN_HOTSTUFF_SOURCES
+   hotstuff/finalizer.cpp
+   hotstuff/instant_finality_extension.cpp
+   hotstuff/hotstuff.cpp
+)
+
 add_library(eosio_rapidjson INTERFACE)
 target_include_directories(eosio_rapidjson INTERFACE ../rapidjson/include)
 
@@ -88,8 +95,11 @@ add_library( eosio_chain
              transaction.cpp
              block.cpp
              block_header.cpp
+             block_header_state.cpp
+             block_state.cpp
              block_header_state_legacy.cpp
              block_state_legacy.cpp
+             finality_core.cpp
              fork_database.cpp
              controller.cpp
              authorization_manager.cpp
@@ -119,6 +129,7 @@ add_library( eosio_chain
              ${CHAIN_EOSVMOC_SOURCES}
              ${CHAIN_EOSVM_SOURCES}
              ${CHAIN_WEBASSEMBLY_SOURCES}
+             ${CHAIN_HOTSTUFF_SOURCES}
 
              authority.cpp
              trace.cpp
@@ -170,6 +181,8 @@ if(EOSVMOC_ENABLE_DEVELOPER_OPTIONS)
    message(WARNING "EOS VM OC Developer Options are enabled; these are NOT supported")
    target_compile_definitions(eosio_chain PUBLIC EOSIO_EOS_VM_OC_DEVELOPER)
 endif()
+
+add_subdirectory(hotstuff/test)
 
 install( TARGETS eosio_chain
    RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR} COMPONENT dev EXCLUDE_FROM_ALL

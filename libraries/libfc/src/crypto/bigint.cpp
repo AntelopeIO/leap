@@ -211,7 +211,7 @@ namespace fc {
   void to_variant( const bigint& bi, variant& v )
   {
     std::vector<char> ve = bi;
-    v = fc::variant(base64_encode((unsigned char*)ve.data(),ve.size()));
+    v = fc::variant(base64_encode((const unsigned char*)ve.data(),ve.size()));
   }
 
   /** decodes the big int as base64 string, or a number */

@@ -1,19 +1,10 @@
-#include <algorithm>
-#include <iterator>
-#include <vector>
-
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/permission_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/testing/tester.hpp>
 
-#include <fc/crypto/digest.hpp>
-
-#include <boost/range/algorithm/find.hpp>
-#include <boost/range/algorithm/find_if.hpp>
-#include <boost/range/algorithm/permutation.hpp>
-#include <boost/test/unit_test.hpp>
+#include <vector>
 
 using namespace eosio;
 using namespace chain;
@@ -44,7 +35,7 @@ BOOST_FIXTURE_TEST_CASE(accounts_exists, tester)
       auto producers = chain1_db.find<account_object, by_name>(config::producers_account_name);
       BOOST_CHECK(producers != nullptr);
 
-      const auto& active_producers = control->head_block_state()->active_schedule;
+      const auto& active_producers = control->active_producers();
 
       const auto& producers_active_authority = chain1_db.get<permission_object, by_owner>(boost::make_tuple(config::producers_account_name, config::active_name));
       auto expected_threshold = (active_producers.producers.size() * 2)/3 + 1;

@@ -1,7 +1,7 @@
 #pragma once
 #include <eosio/chain/block.hpp>
+#include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/types.hpp>
-#include <chrono>
 
 namespace eosio {
    using namespace chain;
@@ -141,8 +141,9 @@ namespace eosio {
                                     notice_message,
                                     request_message,
                                     sync_request_message,
-                                    signed_block,         // which = 7
-                                    packed_transaction>;  // which = 8
+                                    signed_block,
+                                    packed_transaction,
+                                    vote_message>;
 
 } // namespace eosio
 

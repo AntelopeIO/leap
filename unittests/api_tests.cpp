@@ -24,6 +24,7 @@
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/wasm_interface.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 
 #include <fc/crypto/digest.hpp>
 #include <fc/crypto/sha256.hpp>
@@ -888,7 +889,7 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    other.execute_setup_policy( setup_policy::full );
 
    transaction_trace_ptr other_trace;
-   auto cc = other.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+   auto cc = other.control->applied_transaction().connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if( t && t->id == trace->id ) {
          other_trace = t;
@@ -906,16 +907,17 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
    BOOST_CHECK(*trace->receipt == *other_trace->receipt);
    BOOST_CHECK_EQUAL(2, other_trace->action_traces.size());
 
+   auto check_action_traces = [](const auto& t, const auto& ot) {
+      BOOST_CHECK_EQUAL("", ot.console); // cfa not executed for light validation (trusted producer)
+      BOOST_CHECK_EQUAL(t.receipt->global_sequence, ot.receipt->global_sequence);
+      BOOST_CHECK_EQUAL(t.digest_legacy(), ot.digest_legacy()); // digest_legacy because test doesn't switch to Savanna
+   };
+
    BOOST_CHECK(other_trace->action_traces.at(0).context_free); // cfa
-   BOOST_CHECK_EQUAL("", other_trace->action_traces.at(0).console); // cfa not executed for light validation (trusted producer)
-   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->global_sequence, other_trace->action_traces.at(0).receipt->global_sequence);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(0).receipt->digest(), other_trace->action_traces.at(0).receipt->digest());
+   check_action_traces(trace->action_traces.at(0), other_trace->action_traces.at(0));
 
    BOOST_CHECK(!other_trace->action_traces.at(1).context_free); // non-cfa
-   BOOST_CHECK_EQUAL("", other_trace->action_traces.at(1).console);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->global_sequence, other_trace->action_traces.at(1).receipt->global_sequence);
-   BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(), other_trace->action_traces.at(1).receipt->digest());
-
+   check_action_traces(trace->action_traces.at(1), other_trace->action_traces.at(1));
 
    other.close();
 
@@ -1466,12 +1468,12 @@ void transaction_tests(T& chain) {
       {
          chain.produce_blocks(10);
          transaction_trace_ptr trace;
-         auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+         auto c = chain.control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
             auto& t = std::get<0>(x);
             if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
          } );
          signed_block_ptr block;
-         auto c2 = chain.control->accepted_block.connect([&](block_signal_params t) {
+         auto c2 = chain.control->accepted_block().connect([&](block_signal_params t) {
             const auto& [ b, id ] = t;
             block = b; });
 
@@ -1651,7 +1653,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_limit) { try {
    chain2.push_block(block);
 
    transaction_trace_ptr trace;
-   auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+   auto c = chain.control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if (t->scheduled) { trace = t; }
    } );
@@ -1686,7 +1688,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    //schedule
    {
       transaction_trace_ptr trace;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t->scheduled) { trace = t; }
       } );
@@ -1709,7 +1711,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    {
       transaction_trace_ptr trace;
       uint32_t count = 0;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; ++count; }
       } );
@@ -1735,7 +1737,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    {
       transaction_trace_ptr trace;
       uint32_t count = 0;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; ++count; }
       } );
@@ -1761,7 +1763,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    //schedule and cancel
    {
       transaction_trace_ptr trace;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) { trace = t; }
       } );
@@ -1784,7 +1786,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_no_disable
    //repeated deferred transactions
    {
       vector<transaction_trace_ptr> traces;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto c = control->applied_transaction().connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
          auto& t = std::get<0>(x);
          if (t && t->scheduled) {
             traces.push_back( t );
@@ -3855,6 +3857,191 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
    check("test"_n, 2);
    t.set_code("test"_n, std::vector<uint8_t>{});
    check("test"_n, 3);
+} FC_LOG_AND_RETHROW() }
+
+// test set_finalizer host function serialization and tester set_finalizers
+BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
+   validating_tester t;
+
+   uint32_t lib = 0;
+   signed_block_ptr lib_block;
+   t.control->irreversible_block().connect([&](const block_signal_params& t) {
+      const auto& [ block, id ] = t;
+      lib = block->block_num();
+      lib_block = block;
+   });
+
+   t.produce_block();
+
+   // Create finalizer accounts
+   vector<account_name> finalizers = {
+      "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "initg"_n,
+      "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
+      "inito"_n, "initp"_n, "initq"_n, "initr"_n, "inits"_n, "initt"_n, "initu"_n
+   };
+
+   t.create_accounts(finalizers);
+   t.produce_block();
+
+   // activate savanna
+   t.set_finalizers(finalizers);
+   // this block contains the header extension for the instant finality, savanna activated when it is LIB
+   auto block = t.produce_block();
+
+   std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
+   BOOST_TEST(!!ext);
+   std::optional<finalizer_policy> fin_policy = std::get<instant_finality_extension>(*ext).new_finalizer_policy;
+   BOOST_TEST(!!fin_policy);
+   BOOST_TEST(fin_policy->finalizers.size() == finalizers.size());
+   BOOST_TEST(fin_policy->generation == 1);
+   BOOST_TEST(fin_policy->threshold == finalizers.size() / 3 * 2 + 1);
+   block_id_type if_genesis_block_id = block->calculate_id();
+
+   for (block_num_type active_block_num = block->block_num(); active_block_num > lib; t.produce_block()) {
+      (void)active_block_num; // avoid warning
+   };
+
+   // lib_block is IF Genesis Block
+   // block is IF Critical Block
+   auto fb = t.control->fetch_block_by_id(lib_block->calculate_id());
+   BOOST_REQUIRE(!!fb);
+   BOOST_TEST(fb->calculate_id() == lib_block->calculate_id());
+   ext = fb->extract_header_extension(instant_finality_extension::extension_id());
+   BOOST_REQUIRE(!!ext);
+   BOOST_TEST(if_genesis_block_id == fb->calculate_id());
+
+   auto lib_after_transition = lib;
+   // block after IF Critical Block is IF Proper Block
+   block = t.produce_block();
+
+   // lib must advance after 3 blocks
+   t.produce_blocks(3);
+   BOOST_CHECK_GT(lib, lib_after_transition);
+} FC_LOG_AND_RETHROW() }
+
+void test_finality_transition(const vector<account_name>& accounts, const base_tester::finalizer_policy_input& input, bool lib_advancing_expected) {
+   validating_tester t;
+
+   uint32_t lib = 0;
+   signed_block_ptr lib_block;
+   t.control->irreversible_block().connect([&](const block_signal_params& t) {
+      const auto& [ block, id ] = t;
+      lib = block->block_num();
+      lib_block = block;
+   });
+
+   t.produce_block();
+
+   // Create finalizer accounts
+   t.create_accounts(accounts);
+   t.produce_block();
+
+   // activate savanna
+   t.set_finalizers(input);
+   // this block contains the header extension for the instant finality, savanna activated when it is LIB
+   auto block = t.produce_block();
+
+   std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
+   BOOST_TEST(!!ext);
+   std::optional<finalizer_policy> fin_policy = std::get<instant_finality_extension>(*ext).new_finalizer_policy;
+   BOOST_TEST(!!fin_policy);
+   BOOST_TEST(fin_policy->finalizers.size() == accounts.size());
+   BOOST_TEST(fin_policy->generation == 1);
+   block_id_type if_genesis_block_id = block->calculate_id();
+
+   block_num_type active_block_num = block->block_num();
+   while (active_block_num > lib) {
+      block = t.produce_block();
+   }
+   // lib_block is IF Genesis Block
+   // block is IF Critical Block
+   auto fb = t.control->fetch_block_by_id(lib_block->calculate_id());
+   BOOST_REQUIRE(!!fb);
+   BOOST_TEST(fb->calculate_id() == lib_block->calculate_id());
+   ext = fb->extract_header_extension(instant_finality_extension::extension_id());
+   BOOST_REQUIRE(!!ext);
+   BOOST_TEST(if_genesis_block_id == fb->calculate_id());
+
+   auto lib_after_transition = lib;
+   // block after IF Critical Block is IF Proper Block
+   block = t.produce_block();
+
+   t.produce_blocks(4);
+   if( lib_advancing_expected ) {
+      BOOST_CHECK_GT(lib, lib_after_transition);
+   } else {
+      BOOST_CHECK_EQUAL(lib, lib_after_transition);
+   }
+}
+
+BOOST_AUTO_TEST_CASE(threshold_equal_to_half_weight_sum_test) { try {
+   vector<account_name> account_names = {
+      "alice"_n, "bob"_n, "carol"_n
+   };
+
+   // threshold set to half of the weight sum of finalizers
+   base_tester::finalizer_policy_input policy_input = {
+      .finalizers       = { {.name = "alice"_n, .weight = 1},
+                            {.name = "bob"_n,   .weight = 2},
+                            {.name = "carol"_n, .weight = 3} },
+      .threshold        = 3,
+      .local_finalizers = {"alice"_n, "bob"_n}
+   };
+
+   // threshold must be greater than half of the sum of the weights
+   BOOST_REQUIRE_THROW( test_finality_transition(account_names, policy_input, false), eosio_assert_message_exception );
+
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE(votes_equal_to_threshold_test) { try {
+   vector<account_name> account_names = {
+      "alice"_n, "bob"_n, "carol"_n
+   };
+
+   base_tester::finalizer_policy_input policy_input = {
+      .finalizers       = { {.name = "alice"_n, .weight = 1},
+                            {.name = "bob"_n,   .weight = 3},
+                            {.name = "carol"_n, .weight = 5} },
+      .threshold        = 5,
+      .local_finalizers = {"carol"_n}
+   };
+
+   // Carol votes with weight 5 and threshold 5
+   test_finality_transition(account_names, policy_input, true); // lib_advancing_expected
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE(votes_greater_than_threshold_test) { try {
+   vector<account_name> account_names = {
+      "alice"_n, "bob"_n, "carol"_n
+   };
+
+   base_tester::finalizer_policy_input policy_input = {
+      .finalizers       = { {.name = "alice"_n, .weight = 1},
+                            {.name = "bob"_n,   .weight = 4},
+                            {.name = "carol"_n, .weight = 2} },
+      .threshold        = 4,
+      .local_finalizers = {"alice"_n, "bob"_n}
+   };
+
+   // alice and bob vote with weight 5 and threshold 4
+   test_finality_transition(account_names, policy_input, true); // lib_advancing_expected
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE(votes_less_than_threshold_test) { try {
+   vector<account_name> account_names = {
+      "alice"_n, "bob"_n, "carol"_n
+   };
+
+   base_tester::finalizer_policy_input policy_input = {
+      .finalizers       = { {.name = "alice"_n, .weight = 1},
+                            {.name = "bob"_n,   .weight = 3},
+                            {.name = "carol"_n, .weight = 10} },
+      .threshold        = 8,
+      .local_finalizers = {"alice"_n, "bob"_n}
+   };
+
+   // alice and bob vote with weight 4 but threshold 8. LIB cannot advance
+   test_finality_transition(account_names, policy_input, false); // not expecting lib advancing
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

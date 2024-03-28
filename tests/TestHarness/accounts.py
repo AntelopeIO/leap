@@ -49,6 +49,9 @@ class Account(object):
         self.ownerPublicKey=None
         self.activePrivateKey=None
         self.activePublicKey=None
+        self.blsFinalizerPrivateKey=None
+        self.blsFinalizerPublicKey=None
+        self.blsFinalizerPOP=None
 
 
     def __str__(self):
@@ -84,12 +87,28 @@ def createAccountKeys(count: int) -> List[Account]:
             activePrivate=m.group(1)
             activePublic=m.group(2)
 
+            # Private key: PVT_BLS_kRhJJ2MsM+/CddO...
+            # Public key: PUB_BLS_lbUE8922wUfX0Iy5...
+            # Proof of Possession: SIG_BLS_3jwkVUUYahHgsnmnEA...
+            rslts = Utils.processLeapUtilCmd("bls create key --to-console", "create key to console", silentErrors=False)
+            pattern = r'(\w+[^:]*): ([^\n]+)'
+            matched = re.findall(pattern, rslts)
+            results = {}
+            for k, v in matched:
+                results[k.strip()] = v.strip()
+            assert "PVT_BLS_" in results["Private key"]
+            assert "PUB_BLS_" in results["Public key"]
+            assert "SIG_BLS_" in results["Proof of Possession"]
+
             name=''.join(random.choice(string.ascii_lowercase) for _ in range(12))
             account=Account(name)
             account.ownerPrivateKey=ownerPrivate
             account.ownerPublicKey=ownerPublic
             account.activePrivateKey=activePrivate
             account.activePublicKey=activePublic
+            account.blsFinalizerPrivateKey=results["Private key"]
+            account.blsFinalizerPublicKey=results["Public key"]
+            account.blsFinalizerPOP=results["Proof of Possession"]
             accounts.append(account)
             if Utils.Debug: Utils.Print("name: %s, key(owner): ['%s', '%s], key(active): ['%s', '%s']" % (name, ownerPublic, ownerPrivate, activePublic, activePrivate))
 

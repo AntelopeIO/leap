@@ -4,7 +4,7 @@
 #include <eosio/chain/action_receipt.hpp>
 #include <eosio/chain/block.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    struct account_delta {
       account_delta( const account_name& n, int64_t d):account(n),delta(d){}
@@ -45,6 +45,43 @@ namespace eosio { namespace chain {
       std::optional<fc::exception>    except;
       std::optional<uint64_t>         error_code;
       std::vector<char>               return_value;
+
+      digest_type digest_savanna() const {
+         assert(!!receipt);
+         const action_receipt& r = *receipt;
+
+         digest_type::encoder e;
+         fc::raw::pack(e, r.receiver);
+         fc::raw::pack(e, r.recv_sequence);
+         fc::raw::pack(e, act.account);
+         fc::raw::pack(e, act.name);
+         fc::raw::pack(e, r.act_digest);
+
+         {
+            digest_type::encoder e2;
+            fc::raw::pack(e2, r.global_sequence);
+            fc::raw::pack(e2, r.auth_sequence);
+            fc::raw::pack(e2, r.code_sequence);
+            fc::raw::pack(e2, r.abi_sequence);
+            fc::raw::pack(e, e2.result());
+         }
+         return e.result();
+      }
+
+      digest_type digest_legacy()const {
+         assert(!!receipt);
+         const action_receipt& r = *receipt;
+
+         digest_type::encoder e;
+         fc::raw::pack(e, r.receiver);
+         fc::raw::pack(e, r.act_digest);
+         fc::raw::pack(e, r.global_sequence);
+         fc::raw::pack(e, r.recv_sequence);
+         fc::raw::pack(e, r.auth_sequence);
+         fc::raw::pack(e, r.code_sequence);
+         fc::raw::pack(e, r.abi_sequence);
+         return e.result();
+      }
    };
 
    struct transaction_trace {
@@ -80,7 +117,7 @@ namespace eosio { namespace chain {
              auth.permission == eosio::chain::config::active_name;
    }
 
-} }  /// namespace eosio::chain
+}  /// namespace eosio::chain
 
 FC_REFLECT( eosio::chain::account_delta,
             (account)(delta) )

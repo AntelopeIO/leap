@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
-from pathlib import Path
 
 import decimal
 import re
@@ -22,7 +21,7 @@ cmdError=Utils.cmdError
 
 args = TestHelper.parse_args({"--host","--port","--prod-count","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios"
-                              ,"--sanity-test","--wallet-port", "--error-log-path", "--unshared"})
+                              ,"--activate-if","--sanity-test","--wallet-port", "--error-log-path", "--unshared"})
 server=args.host
 port=args.port
 debug=args.v
@@ -34,6 +33,7 @@ prodCount=args.prod_count
 onlyBios=args.only_bios
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
+activateIF=args.activate_if
 
 Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
@@ -63,7 +63,7 @@ try:
         traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi eosio.token=" + abs_path
         extraNodeosArgs=traceNodeosArgs + " --plugin eosio::prometheus_plugin --database-map-mode mapped_private "
         specificNodeosInstances={0: "bin/nodeos"}
-        if cluster.launch(totalNodes=2, prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=extraNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
+        if cluster.launch(totalNodes=2, prodCount=prodCount, activateIF=activateIF, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=extraNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:

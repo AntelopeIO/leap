@@ -125,6 +125,32 @@ namespace eosiobios {
                                      (schedule_version)(new_producers))
    };
 
+   struct finalizer_authority {
+      std::string   description;
+      uint64_t      weight = 0;  // weight that this finalizer's vote has for meeting threshold
+      std::string   public_key;  // public key of the finalizer in base64 format
+      std::string   pop;         // proof of possession of private key in base64 format
+
+      // explicit serialization macro is not necessary, used here only to improve compilation time
+      EOSLIB_SERIALIZE(finalizer_authority, (description)(weight)(public_key)(pop))
+   };
+
+   constexpr size_t max_finalizers = 64*1024;
+   constexpr size_t max_finalizer_description_size = 256;
+
+   /**
+    * finalizer_policy
+    *
+    * List of finalizer authorties along with the threshold
+    */
+   struct finalizer_policy {
+      uint64_t                         threshold = 0; // quorum threshold
+      std::vector<finalizer_authority> finalizers;
+
+      // explicit serialization macro is not necessary, used here only to improve compilation time
+      EOSLIB_SERIALIZE(finalizer_policy, (threshold)(finalizers));
+   };
+
    /**
     * @defgroup eosiobios eosio.bios
     * @ingroup eosiocontracts
@@ -318,6 +344,15 @@ namespace eosiobios {
          void setprods( const std::vector<eosio::producer_authority>& schedule );
 
          /**
+          * Propose new finalizer policy that, unless superseded by a later
+          * finalizer policy, will eventually become the active finalizer policy.
+          *
+          * @param finalizer_policy - proposed finalizer policy
+          */
+         [[eosio::action]]
+         void setfinalizer( const finalizer_policy& finalizer_policy );
+
+         /**
           * Set the blockchain parameters
           *
           * @details Set the blockchain parameters. By tuning these parameters, various degrees of customization can be achieved.
@@ -387,6 +422,7 @@ namespace eosiobios {
          using setpriv_action = action_wrapper<"setpriv"_n, &bios::setpriv>;
          using setalimits_action = action_wrapper<"setalimits"_n, &bios::setalimits>;
          using setprods_action = action_wrapper<"setprods"_n, &bios::setprods>;
+         using setfinalizer_action = action_wrapper<"setfinalizer"_n, &bios::setfinalizer>;
          using setparams_action = action_wrapper<"setparams"_n, &bios::setparams>;
          using reqauth_action = action_wrapper<"reqauth"_n, &bios::reqauth>;
          using activate_action = action_wrapper<"activate"_n, &bios::activate>;

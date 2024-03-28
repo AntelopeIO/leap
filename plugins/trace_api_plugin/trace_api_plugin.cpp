@@ -363,21 +363,21 @@ struct trace_api_plugin_impl {
       auto& chain = app().find_plugin<chain_plugin>()->chain();
 
       applied_transaction_connection.emplace(
-         chain.applied_transaction.connect([this](std::tuple<const chain::transaction_trace_ptr&, const chain::packed_transaction_ptr&> t) {
+         chain.applied_transaction().connect([this](std::tuple<const chain::transaction_trace_ptr&, const chain::packed_transaction_ptr&> t) {
             emit_killer([&](){
                extraction->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
             });
          }));
 
       block_start_connection.emplace(
-            chain.block_start.connect([this](uint32_t block_num) {
+            chain.block_start().connect([this](uint32_t block_num) {
                emit_killer([&](){
                   extraction->signal_block_start(block_num);
                });
             }));
 
       accepted_block_connection.emplace(
-         chain.accepted_block.connect([this](const chain::block_signal_params& t) {
+         chain.accepted_block().connect([this](const chain::block_signal_params& t) {
             emit_killer([&](){
                const auto& [ block, id ] = t;
                extraction->signal_accepted_block(block, id);
@@ -385,7 +385,7 @@ struct trace_api_plugin_impl {
          }));
 
       irreversible_block_connection.emplace(
-         chain.irreversible_block.connect([this](const chain::block_signal_params& t) {
+         chain.irreversible_block().connect([this](const chain::block_signal_params& t) {
             const auto& [ block, id ] = t;
             emit_killer([&](){
                extraction->signal_irreversible_block(block->block_num());

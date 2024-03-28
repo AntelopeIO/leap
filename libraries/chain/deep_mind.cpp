@@ -77,7 +77,7 @@ namespace eosio::chain {
       auto packed_blk = fc::raw::pack(*bsp);
 
       fc_dlog(_logger, "ACCEPTED_BLOCK ${num} ${blk}",
-         ("num", bsp->block_num)
+         ("num", bsp->block_num())
          ("blk", fc::to_hex(packed_blk))
       );
    }

@@ -1,0 +1,106 @@
+#define BOOST_TEST_MODULE hotstuff
+#include <boost/test/included/unit_test.hpp>
+
+#include <fc/exception/exception.hpp>
+
+#include <fc/crypto/sha256.hpp>
+
+fc::sha256 message_1 = fc::sha256("000000000000000118237d3d79f3c684c031a9844c27e6b95c6d27d8a5f401a1");
+fc::sha256 message_2 = fc::sha256("0000000000000002fb2129a8f7c9091ae983bc817002ffab21cd98eab2147029");
+
+struct proposal_height {
+
+	fc::sha256 block_id;
+	
+	uint32_t phase_counter;
+
+	int operator >(proposal_height x){
+		if(block_id>x.block_id || (block_id==x.block_id && phase_counter>x.phase_counter )) return 1;
+		else return 0;
+	}
+
+	int operator >=(proposal_height x){
+		if(block_id>x.block_id || (block_id==x.block_id && phase_counter>=x.phase_counter )) return 1;
+		else return 0;
+	}
+
+	int operator <(proposal_height x){
+		return !(*this>=x);
+	}
+
+	int operator <=(proposal_height x){
+		return !(*this>x);
+	}
+
+	int operator == (proposal_height x){
+		if(block_id==x.block_id && phase_counter==x.phase_counter ) return 1;
+		else return 0;
+	}
+
+	int operator != (proposal_height x){
+		return !(*this==x);
+	}
+
+
+
+};
+
+using std::cout;
+
+BOOST_AUTO_TEST_SUITE(hotstuff)
+
+BOOST_AUTO_TEST_CASE(hotstuff_1) try {
+
+	proposal_height p1 = {message_1, 0};
+	proposal_height p2 = {message_1, 0};
+
+  	BOOST_CHECK_EQUAL(p1 > p2, false);
+
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(hotstuff_2) try {
+
+	proposal_height p1 = {message_1, 1};
+	proposal_height p2 = {message_1, 0};
+
+  	BOOST_CHECK_EQUAL(p1 > p2, true);
+
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(hotstuff_3) try {
+
+	proposal_height p1 = {message_1, 1};
+	proposal_height p2 = {message_1, 1};
+
+  	BOOST_CHECK_EQUAL(p1 <= p2, true);
+
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(hotstuff_4) try {
+
+	proposal_height p1 = {message_1, 1};
+	proposal_height p2 = {message_2, 1};
+
+  	BOOST_CHECK_EQUAL(p1 < p2, true);
+
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(hotstuff_5) try {
+
+	proposal_height p1 = {message_1, 1};
+	proposal_height p2 = {message_1, 1};
+
+  	BOOST_CHECK_EQUAL(p1 == p2, true);
+
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(hotstuff_6) try {
+
+	proposal_height p1 = {message_1, 1};
+	proposal_height p2 = {message_1, 1};
+
+  	BOOST_CHECK_EQUAL(p1 != p2, false);
+
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_SUITE_END()

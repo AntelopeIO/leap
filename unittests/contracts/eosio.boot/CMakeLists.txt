@@ -1,0 +1,6 @@
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_contract( eosio.boot eosio.boot eosio.boot.cpp )
+else()
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/eosio.boot.wasm ${CMAKE_CURRENT_BINARY_DIR}/eosio.boot.wasm COPYONLY )
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/eosio.boot.abi  ${CMAKE_CURRENT_BINARY_DIR}/eosio.boot.abi  COPYONLY )
+endif()

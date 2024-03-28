@@ -24,6 +24,7 @@ totalNodes = 4
 # Parse command line arguments
 args = TestHelper.parse_args({
     "-v",
+    "--activate-if",
     "--dump-error-details",
     "--leave-running",
     "--keep-logs",
@@ -31,6 +32,7 @@ args = TestHelper.parse_args({
 })
 
 Utils.Debug = args.v
+activateIF=args.activate_if
 dumpErrorDetails = args.dump_error_details
 
 # Wrapper function to execute test
@@ -195,6 +197,7 @@ try:
         totalNodes=totalNodes,
         pnodes=1,
         topo="mesh",
+        activateIF=activateIF,
         specificExtraNodeosArgs=specificNodeosArgs,
     )
 

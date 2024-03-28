@@ -1,4 +1,9 @@
 #pragma once
+
+#include <eosio/chain_plugin/account_query_db.hpp>
+#include <eosio/chain_plugin/trx_retry_db.hpp>
+#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
+
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/asset.hpp>
 #include <eosio/chain/authority.hpp>
@@ -12,15 +17,11 @@
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/fixed_bytes.hpp>
+#include <eosio/chain/hotstuff/hotstuff.hpp>
 
 #include <boost/container/flat_set.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
-#include <eosio/chain_plugin/account_query_db.hpp>
-#include <eosio/chain_plugin/trx_retry_db.hpp>
-#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
-
-#include <fc/static_variant.hpp>
 #include <fc/time.hpp>
 
 namespace fc { class variant; }
@@ -407,12 +408,6 @@ public:
    };
 
    fc::variant get_block_info(const get_block_info_params& params, const fc::time_point& deadline) const;
-
-   struct get_block_header_state_params {
-      string block_num_or_id;
-   };
-
-   fc::variant get_block_header_state(const get_block_header_state_params& params, const fc::time_point& deadline) const;
 
    struct get_table_rows_params {
       bool                 json = false;
@@ -978,7 +973,7 @@ public:
    chain_apis::read_write get_read_write_api(const fc::microseconds& http_max_response_time);
    chain_apis::read_only get_read_only_api(const fc::microseconds& http_max_response_time) const;
 
-   bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id, const chain::block_state_legacy_ptr& bsp );
+   bool accept_block( const chain::signed_block_ptr& block, const chain::block_id_type& id, const std::optional<chain::block_handle>& obt );
    void accept_transaction(const chain::packed_transaction_ptr& trx, chain::plugin_interface::next_function<chain::transaction_trace_ptr> next);
 
    // Only call this after plugin_initialize()!
@@ -1027,7 +1022,6 @@ FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params,
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
 FC_REFLECT(eosio::chain_apis::read_only::get_raw_block_params, (block_num_or_id))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_info_params, (block_num))
-FC_REFLECT(eosio::chain_apis::read_only::get_block_header_state_params, (block_num_or_id))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_params, (block_num_or_id)(include_extensions))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_result, (id)(signed_block_header)(block_extensions))
 

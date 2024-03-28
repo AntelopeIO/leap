@@ -40,7 +40,7 @@ def setProds(sharedProdKey):
         key = cluster.defProducerAccounts[name].activePublicKey
         if name == "shrproducera":
             key = sharedProdKey
-        setProdsStr += ' { "producer_name": "%s", "block_signing_key": "%s" }' % (name, key)
+        setProdsStr += '{"producer_name":' + name + ',"authority": ["block_signing_authority_v0", {"threshold":1, "keys":[{"key":' + key + ', "weight":1}]}]}'
 
     setProdsStr += ' ] }'
     Utils.Print("setprods: %s" % (setProdsStr))
@@ -147,11 +147,12 @@ def verifyProductionRounds(trans, node, prodsActive, rounds):
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running",
+args = TestHelper.parse_args({"--prod-count","--activate-if","--dump-error-details","--keep-logs","-v","--leave-running",
                               "--wallet-port","--unshared"})
 Utils.Debug=args.v
 totalNodes=3
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 prodCount=args.prod_count
 walletPort=args.wallet_port
@@ -169,7 +170,8 @@ try:
     cluster.setWalletMgr(walletMgr)
 
     Print("Stand up cluster")
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, onlySetProds=True, sharedProducers=1) is False:
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes,
+                      onlySetProds=True, sharedProducers=1, activateIF=activateIF) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 

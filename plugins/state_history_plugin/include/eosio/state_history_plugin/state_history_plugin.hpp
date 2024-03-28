@@ -31,6 +31,7 @@ class state_history_plugin : public plugin<state_history_plugin> {
 
    const state_history_log* trace_log() const;
    const state_history_log* chain_state_log() const;
+   const state_history_log* finality_data_log() const;
 
  private:
    state_history_ptr my;

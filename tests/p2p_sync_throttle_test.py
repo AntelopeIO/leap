@@ -24,7 +24,7 @@ appArgs = AppArgs()
 appArgs.add(flag='--plugin',action='append',type=str,help='Run nodes with additional plugins')
 appArgs.add(flag='--connection-cleanup-period',type=int,help='Interval in whole seconds to run the connection reaper and metric collection')
 
-args=TestHelper.parse_args({"-d","--keep-logs"
+args=TestHelper.parse_args({"-d","--keep-logs","--activate-if"
                             ,"--dump-error-details","-v","--leave-running"
                             ,"--unshared"},
                             applicationSpecificArgs=appArgs)
@@ -33,6 +33,7 @@ delay=args.d
 debug=args.v
 prod_count = 2
 total_nodes=4
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 
 Utils.Debug=debug
@@ -60,7 +61,7 @@ try:
     # Custom topology is a line of singlely connected nodes from highest node number in sequence to lowest,
     # the reverse of the usual TestHarness line topology.
     if cluster.launch(pnodes=pnodes, unstartedNodes=2, totalNodes=total_nodes, prodCount=prod_count, 
-                      topo='./tests/p2p_sync_throttle_test_shape.json', delay=delay, 
+                      topo='./tests/p2p_sync_throttle_test_shape.json', delay=delay, activateIF=activateIF,
                       extraNodeosArgs=extraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
@@ -135,6 +136,7 @@ try:
             if len(response) < 100:
                 # tolerate HTTPError as well (method returns only the exception code)
                 errorLimit -= 1
+                time.sleep(0.5)
                 continue
             connPorts = prometheusHostPortPattern.findall(response)
             Print(connPorts)
@@ -179,6 +181,7 @@ try:
             if len(connPorts) < 2:
                 # wait for sending node to be connected
                 errorLimit -= 1
+                time.sleep(0.5)
                 continue
             Print('Throttled Node Start State')
             throttledNodePortMap = {port: id for id, port in connPorts if port != '0'}

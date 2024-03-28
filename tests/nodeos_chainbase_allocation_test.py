@@ -16,9 +16,10 @@ from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 ###############################################################
 
 # Parse command line arguments
-args = TestHelper.parse_args({"-v","--dump-error-details","--leave-running","--keep-logs","--unshared"})
+args = TestHelper.parse_args({"-v","--activate-if","--dump-error-details","--leave-running","--keep-logs","--unshared"})
 Utils.Debug = args.v
 dumpErrorDetails=args.dump_error_details
+activateIF=args.activate_if
 
 walletMgr=WalletMgr(True)
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
@@ -43,6 +44,7 @@ try:
         prodCount=1,
         totalProducers=1,
         totalNodes=3,
+        activateIF=activateIF,
         loadSystemContract=False,
         specificExtraNodeosArgs={
             1:"--read-mode irreversible --plugin eosio::producer_api_plugin"})
@@ -61,7 +63,7 @@ try:
     nonProdNode.createAccount(newProducerAcc, cluster.eosioAccount, waitForTransBlock=True)
 
     setProdsStr = '{"schedule": ['
-    setProdsStr += '{"producer_name":' + newProducerAcc.name + ',"block_signing_key":' + newProducerAcc.activePublicKey + '}'
+    setProdsStr += '{"producer_name":' + newProducerAcc.name + ',"authority": ["block_signing_authority_v0", {"threshold":1, "keys":[{"key":' + newProducerAcc.activePublicKey + ', "weight":1}]}]}'
     setProdsStr += ']}'
     cmd="push action -j eosio setprods '{}' -p eosio".format(setProdsStr)
     trans = producerNode.processCleosCmd(cmd, cmd, silentErrors=False)

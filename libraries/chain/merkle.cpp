@@ -32,7 +32,7 @@ bool is_canonical_right(const digest_type& val) {
 }
 
 
-digest_type merkle(deque<digest_type> ids) {
+digest_type legacy_merkle(deque<digest_type>&& ids) {
    if( 0 == ids.size() ) { return digest_type(); }
 
    while( ids.size() > 1 ) {
@@ -41,6 +41,23 @@ digest_type merkle(deque<digest_type> ids) {
 
       for (size_t i = 0; i < ids.size() / 2; i++) {
          ids[i] = digest_type::hash(make_canonical_pair(ids[2 * i], ids[(2 * i) + 1]));
+      }
+
+      ids.resize(ids.size() / 2);
+   }
+
+   return ids.front();
+}
+
+digest_type calculate_merkle( deque<digest_type>&& ids ) {
+   if( 0 == ids.size() ) { return digest_type(); }
+
+   while( ids.size() > 1 ) {
+      if( ids.size() % 2 )
+         ids.push_back(ids.back());
+
+      for (size_t i = 0; i < ids.size() / 2; ++i) {
+         ids[i] = digest_type::hash(std::make_pair(std::cref(ids[2 * i]), std::cref(ids[(2 * i) + 1])));
       }
 
       ids.resize(ids.size() / 2);

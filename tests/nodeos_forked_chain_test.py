@@ -127,7 +127,7 @@ def getMinHeadAndLib(prodNodes):
 
 appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-ship-clients", type=int, help="How many ship_streamers should be started", default=2)
-args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running",
+args = TestHelper.parse_args({"--prod-count","--activate-if","--dump-error-details","--keep-logs","-v","--leave-running",
                               "--wallet-port","--unshared"}, applicationSpecificArgs=appArgs)
 Utils.Debug=args.v
 totalProducerNodes=2
@@ -135,6 +135,7 @@ totalNonProducerNodes=1
 totalNodes=totalProducerNodes+totalNonProducerNodes
 maxActiveProducers=21
 totalProducers=maxActiveProducers
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 prodCount=args.prod_count
 walletPort=args.wallet_port
@@ -166,7 +167,7 @@ try:
     # and the only connection between those 2 groups is through the bridge node
 
     if cluster.launch(prodCount=prodCount, topo="bridge", pnodes=totalProducerNodes,
-                      totalNodes=totalNodes, totalProducers=totalProducers,
+                      totalNodes=totalNodes, totalProducers=totalProducers, activateIF=activateIF, biosFinalizer=False,
                       specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")

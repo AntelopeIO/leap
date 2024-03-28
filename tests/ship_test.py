@@ -30,7 +30,7 @@ appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-requests", type=int, help="How many requests that each ship_client requests", default=1)
 extraArgs = appArgs.add(flag="--num-clients", type=int, help="How many ship_clients should be started", default=1)
 extraArgs = appArgs.add_bool(flag="--unix-socket", help="Run ship over unix socket")
-args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
+args = TestHelper.parse_args({"-p", "-n","--activate-if","--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
 totalProducerNodes=args.p
@@ -40,6 +40,7 @@ if totalNodes<=totalProducerNodes:
 totalNonProducerNodes=totalNodes-totalProducerNodes
 totalProducers=totalProducerNodes
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 
@@ -63,7 +64,7 @@ try:
         specificExtraNodeosArgs[shipNodeNum] += "--state-history-unix-socket-path ship.sock"
 
     if cluster.launch(pnodes=totalProducerNodes,
-                      totalNodes=totalNodes, totalProducers=totalProducers,
+                      totalNodes=totalNodes, totalProducers=totalProducers, activateIF=activateIF,
                       specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")

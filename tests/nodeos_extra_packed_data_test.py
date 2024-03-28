@@ -8,9 +8,9 @@ from TestHarness.Cluster import PFSetupPolicy
 from TestHarness.TestHelper import AppArgs
 
 ###############################################################
-# nodeos_run_test
+# nodeos_extra_packed_data_test
 #
-# General test that tests a wide range of general use actions around nodeos and keosd
+# Tests nodeos accepts trx with extra data packed at the end.
 #
 ###############################################################
 
@@ -69,7 +69,7 @@ try:
         if cluster.launch(totalNodes=totalNodes, 
                           pnodes=pnodes,
                           dontBootstrap=dontBootstrap,
-                          pfSetupPolicy=PFSetupPolicy.PREACTIVATE_FEATURE_ONLY,
+                          activateIF=True,
                           specificExtraNodeosArgs=specificExtraNodeosArgs,
                           associatedNodeLabels=associatedNodeLabels) is False:
             cmdError("launcher")

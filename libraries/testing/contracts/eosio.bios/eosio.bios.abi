@@ -171,6 +171,42 @@
             ]
         },
         {
+            "name": "finalizer_authority",
+            "base": "",
+            "fields": [
+                {
+                    "name": "description",
+                    "type": "string"
+                },
+                {
+                    "name": "weight",
+                    "type": "uint64"
+                },
+                {
+                    "name": "public_key",
+                    "type": "string"
+                },
+                {
+                    "name": "pop",
+                    "type": "string"
+                }
+            ]
+        },
+        {
+            "name": "finalizer_policy",
+            "base": "",
+            "fields": [
+                {
+                    "name": "threshold",
+                    "type": "uint64"
+                },
+                {
+                    "name": "finalizers",
+                    "type": "finalizer_authority[]"
+                }
+            ]
+        },
+        {
             "name": "key_weight",
             "base": "",
             "fields": [
@@ -363,6 +399,16 @@
             ]
         },
         {
+            "name": "setfinalizer",
+            "base": "",
+            "fields": [
+                {
+                    "name": "finalizer_policy",
+                    "type": "finalizer_policy"
+                }
+            ]
+        },
+        {
             "name": "setparams",
             "base": "",
             "fields": [
@@ -505,6 +551,11 @@
         {
             "name": "setcode",
             "type": "setcode",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "setfinalizer",
+            "type": "setfinalizer",
             "ricardian_contract": ""
         },
         {
