@@ -93,11 +93,7 @@ int main(int argc, char* argv[]) {
       //};
       request_writer.StartArray();
 
-         if( fetch_finality_data ) {
-            request_writer.String("get_blocks_request_v1");
-         } else {
-            request_writer.String("get_blocks_request_v0");
-         }
+         request_writer.String("get_blocks_request_v1"); // always send out latest version of request
          request_writer.StartObject();
          request_writer.Key("start_block_num");
          request_writer.Uint(start_block_num);
@@ -144,8 +140,6 @@ int main(int argc, char* argv[]) {
          eosio::check(result_document.Size() == 2,                                           "result was an array but did not contain 2 items like a variant should");
          if( fetch_finality_data ) {
             eosio::check(std::string(result_document[0].GetString()) == "get_blocks_result_v1", "result type doesn't look like get_blocks_result_v1");
-         } else {
-            eosio::check(std::string(result_document[0].GetString()) == "get_blocks_result_v0", "result type doesn't look like get_blocks_result_v0");
          }
          eosio::check(result_document[1].IsObject(),                                         "second item in result array is not an object");
          eosio::check(result_document[1].HasMember("head"),                                  "cannot find 'head' in result");
@@ -162,11 +156,7 @@ int main(int argc, char* argv[]) {
          } else {
            std::cout << "," << std::endl;
          }
-         if( fetch_finality_data ) {
-            std::cout << "{ \"get_blocks_result_v1\":" << std::endl;
-         } else {
-            std::cout << "{ \"get_blocks_result_v0\":" << std::endl;
-         }
+         std::cout << "{ \"get_blocks_result_v1\":" << std::endl;
 
          rapidjson::StringBuffer result_sb;
          rapidjson::PrettyWriter<rapidjson::StringBuffer> result_writer(result_sb);
