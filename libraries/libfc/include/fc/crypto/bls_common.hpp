@@ -4,11 +4,8 @@
 namespace fc::crypto::blslib {
 
    template <typename Container>
-   static Container deserialize_base64url(const std::string& data_str)
-   {
-
+   static Container deserialize_base64url(const std::string& data_str) {
       using wrapper = checksummed_data<Container>;
-
       wrapper wrapped;
 
       auto bin = fc::base64url_decode(data_str);
@@ -22,10 +19,8 @@ namespace fc::crypto::blslib {
    }
 
    template <typename Container>
-   static std::string serialize_base64url( Container data) {
-
+   static std::string serialize_base64url(const Container& data) {
       using wrapper = checksummed_data<Container>;
-      
       wrapper wrapped;
 
       wrapped.data = data;

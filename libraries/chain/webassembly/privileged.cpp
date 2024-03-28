@@ -174,7 +174,7 @@ namespace eosio { namespace chain { namespace webassembly {
       EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer policy exceeds the maximum finalizer count for this chain" );
       EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizers cannot be empty" );
 
-      std::set<bls12_381::g1> unique_finalizer_keys;
+      std::set<fc::crypto::blslib::bls_public_key> unique_finalizer_keys;
 
       uint64_t weight_sum = 0;
 
@@ -185,15 +185,12 @@ namespace eosio { namespace chain { namespace webassembly {
                      "Finalizer description greater than ${s}", ("s", config::max_finalizer_description_size) );
          EOS_ASSERT(std::numeric_limits<uint64_t>::max() - weight_sum >= f.weight, wasm_execution_error, "sum of weights causes uint64_t overflow");
          weight_sum += f.weight;
-         constexpr bool check = true; // always validate key
-         constexpr bool raw = false; // non-montgomery
          EOS_ASSERT(f.public_key.size() == 96, wasm_execution_error, "Invalid bls public key length");
-         std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t,96>(f.public_key.data(), 96), check, raw);
-         EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
-         EOS_ASSERT( unique_finalizer_keys.insert(*pk).second, wasm_execution_error, "Duplicate public key: ${pk}", ("pk", fc::crypto::blslib::bls_public_key{*pk}.to_string()) );
+         fc::crypto::blslib::bls_public_key pk(std::span<const uint8_t,96>(f.public_key.data(), 96));
+         EOS_ASSERT( unique_finalizer_keys.insert(pk).second, wasm_execution_error, "Duplicate public key: ${pk}", ("pk", pk.to_string()) );
          finpol.finalizers.push_back(chain::finalizer_authority{.description = std::move(f.description),
                                                                 .weight = f.weight,
-                                                                .public_key{fc::crypto::blslib::bls_public_key{*pk}}});
+                                                                .public_key{pk}});
       }
 
       EOS_ASSERT( weight_sum >= finpol.threshold && finpol.threshold > weight_sum / 2, wasm_execution_error, "Finalizer policy threshold (${t}) must be greater than half of the sum of the weights (${w}), and less than or equal to the sum of the weights", ("t", finpol.threshold)("w", weight_sum) );
