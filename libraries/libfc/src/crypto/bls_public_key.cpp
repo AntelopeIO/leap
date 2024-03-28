@@ -12,7 +12,7 @@ namespace fc::crypto::blslib {
       return fc::crypto::blslib::deserialize_base64url<std::array<uint8_t, 96>>(data_str);
    }
 
-   inline bls12_381::g1 from_affine_bytes_le(const std::array<uint8_t, 96>& affine_non_montgomery_le) {
+   bls12_381::g1 bls_public_key::from_affine_bytes_le(const std::array<uint8_t, 96>& affine_non_montgomery_le) {
       constexpr bool check = true; // check if base64urlstr is invalid
       constexpr bool raw = false;  // non-montgomery
       std::optional<bls12_381::g1> g1 = bls12_381::g1::fromAffineBytesLE(affine_non_montgomery_le, check, raw);
@@ -39,16 +39,6 @@ namespace fc::crypto::blslib {
    std::string bls_public_key::to_string() const {
       std::string data_str = fc::crypto::blslib::serialize_base64url<std::array<uint8_t, 96>>(_affine_non_montgomery_le);
       return config::bls_public_key_prefix + data_str;
-   }
-
-   void bls_public_key::reflector_init() {
-      // called after construction, but always on the same thread and before bls_public_key passed to any other threads
-      static_assert(fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
-                    "FC unpack needs to call reflector_init otherwise _jacobian_montgomery_le will not be initialized");
-      std::optional<bls12_381::g1> g1 = bls12_381::g1::fromAffineBytesLE(_affine_non_montgomery_le);
-      FC_ASSERT(g1, "Invalid bls public key ${k}", ("k", _affine_non_montgomery_le));
-      // reflector_init is private and only called during construction
-      _jacobian_montgomery_le = *g1;
    }
 
 } // fc::crypto::blslib
