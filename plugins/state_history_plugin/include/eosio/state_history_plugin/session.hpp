@@ -320,9 +320,11 @@ public:
       std::visit(
          chain::overloaded{
             [&](state_history::get_blocks_result_v0& r) {
+               static_assert(std::is_same_v<state_history::get_blocks_result_v0, std::variant_alternative_t<1, state_history::state_result>>);
                pack_result_base(r, 1); // 1 for variant index of get_blocks_result_v0 in state_result
             },
             [&](state_history::get_blocks_result_v1& r) {
+               static_assert(std::is_same_v<state_history::get_blocks_result_v1, std::variant_alternative_t<2, state_history::state_result>>);
                pack_result_base(r, 2); // 2 for variant index of get_blocks_result_v1 in state_result
             }
          },
