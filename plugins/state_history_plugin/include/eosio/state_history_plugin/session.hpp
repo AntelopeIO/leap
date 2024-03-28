@@ -297,35 +297,38 @@ class blocks_result_send_queue_entry : public send_queue_entry_base, public std:
       });
    }
 
+   template<typename T>
+   void pack_result_base(const T& result, uint32_t variant_index) {
+      // pack the state_result{get_blocks_result} excluding the fields `traces` and `deltas`,
+      // and `finality_data` if get_blocks_result_v1
+      fc::datastream<size_t> ss;
+
+      fc::raw::pack(ss, fc::unsigned_int(variant_index)); // pack the variant index of state_result{result}
+      fc::raw::pack(ss, static_cast<const state_history::get_blocks_result_base&>(result));
+      data.resize(ss.tellp());
+      fc::datastream<char*> ds(data.data(), data.size());
+      fc::raw::pack(ds, fc::unsigned_int(variant_index)); // pack the variant index of state_result{result}
+      fc::raw::pack(ds, static_cast<const state_history::get_blocks_result_base&>(result));
+   }
+
 public:
    blocks_result_send_queue_entry(std::shared_ptr<Session> s, state_history::get_blocks_result&& r)
        : session(std::move(s)),
          result(std::move(r)) {}
 
    void send_entry() override {
-      assert(std::holds_alternative<state_history::get_blocks_result_v0>(result) ||
-             std::holds_alternative<state_history::get_blocks_result_v1>(result));
+      std::visit(
+         chain::overloaded{
+            [&](state_history::get_blocks_result_v0& r) {
+               pack_result_base(r, 1); // 1 for variant index of get_blocks_result_v0 in state_result
+            },
+            [&](state_history::get_blocks_result_v1& r) {
+               pack_result_base(r, 2); // 2 for variant index of get_blocks_result_v1 in state_result
+            }
+         },
+         result
+      );
 
-      // pack the state_result{get_blocks_result} excluding the fields `traces` and `deltas`
-      fc::datastream<size_t> ss;
-      if(std::holds_alternative<state_history::get_blocks_result_v0>(result)) {
-         fc::raw::pack(ss, fc::unsigned_int(1)); // pack the variant index of state_result{r}, 1 for get_blocks_result_v0
-      } else {
-         fc::raw::pack(ss, fc::unsigned_int(2)); // pack the variant index of state_result{r}, 2 for get_blocks_result_v1
-      }
-      std::visit([&](auto& r) {
-                    fc::raw::pack(ss, static_cast<const state_history::get_blocks_result_base&>(r)); },
-                 result);
-      data.resize(ss.tellp());
-      fc::datastream<char*> ds(data.data(), data.size());
-      if(std::holds_alternative<state_history::get_blocks_result_v0>(result)) {
-         fc::raw::pack(ds, fc::unsigned_int(1)); // pack the variant index of state_result{r}, 1 for get_blocks_result_v0
-      } else {
-         fc::raw::pack(ds, fc::unsigned_int(2)); // pack the variant index of state_result{r}, 2 for get_blocks_result_v1
-      }
-      std::visit([&](auto& r) {
-                    fc::raw::pack(ds, static_cast<const state_history::get_blocks_result_base&>(r)); },
-                 result);
       async_send(false, data, [me=this->shared_from_this()]() {
          me->send_traces();
       });
