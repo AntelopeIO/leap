@@ -709,11 +709,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_context_wrapper_sta
 
 template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::get_blocks_result_v0& obj) {
-   fc::raw::pack(ds, obj.head);
-   fc::raw::pack(ds, obj.last_irreversible);
-   fc::raw::pack(ds, obj.this_block);
-   fc::raw::pack(ds, obj.prev_block);
-   history_pack_big_bytes(ds, obj.block);
+   ds << static_cast<const eosio::state_history::get_blocks_result_base&>(obj);
    history_pack_big_bytes(ds, obj.traces);
    history_pack_big_bytes(ds, obj.deltas);
    return ds;
@@ -721,13 +717,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::get_b
 
 template <typename ST>
 datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::get_blocks_result_v1& obj) {
-   fc::raw::pack(ds, obj.head);
-   fc::raw::pack(ds, obj.last_irreversible);
-   fc::raw::pack(ds, obj.this_block);
-   fc::raw::pack(ds, obj.prev_block);
-   history_pack_big_bytes(ds, obj.block);
-   history_pack_big_bytes(ds, obj.traces);
-   history_pack_big_bytes(ds, obj.deltas);
+   ds << static_cast<const eosio::state_history::get_blocks_result_v0&>(obj);
    history_pack_big_bytes(ds, obj.finality_data);
    return ds;
 }
