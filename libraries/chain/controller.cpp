@@ -512,10 +512,10 @@ struct building_block {
    R apply_l(F&& f) {
       if constexpr (std::is_same_v<void, R>)
          std::visit(overloaded{[&](building_block_legacy& bb) { std::forward<F>(f)(bb); },
-                               [&](building_block_if& bb)   {}}, v);
+                               [&](building_block_if&)        {}}, v);
       else
          return std::visit(overloaded{[&](building_block_legacy& bb) -> R { return std::forward<F>(f)(bb); },
-                                      [&](building_block_if& bb)   -> R { return {}; }}, v);
+                                      [&](building_block_if&)        -> R { return {}; }}, v);
    }
 
    void set_proposed_finalizer_policy(const finalizer_policy& fin_pol) {
@@ -3195,7 +3195,7 @@ struct controller_impl {
       auto& bb = std::get<building_block>(pending->_block_stage);
       bb.set_proposed_finalizer_policy(fin_pol);
 
-      apply_l<void>(chain_head, [&](auto&) {
+      bb.apply_l<void>([&](building_block::building_block_legacy& bl) {
          // Savanna uses new algorithm for proposer schedule change, prevent any in-flight legacy proposer schedule changes
          const auto& gpo = db.get<global_property_object>();
          if (gpo.proposed_schedule_block_num) {
@@ -3205,6 +3205,8 @@ struct controller_impl {
                gp.proposed_schedule.producers.clear();
             });
          }
+         bl.new_pending_producer_schedule = {};
+         bl.pending_block_header_state.prev_pending_schedule.schedule.producers.clear();
       });
    }
 
@@ -5045,6 +5047,15 @@ int64_t controller_impl::set_proposed_producers_legacy( vector<producer_authorit
 
    if( std::equal( producers.begin(), producers.end(), begin, end ) )
       return -1; // the producer schedule would not change
+
+   // ignore proposed producers during transition
+   assert(pending);
+   auto& bb = std::get<building_block>(pending->_block_stage);
+   bool transition_block = bb.apply_l<bool>([](building_block::building_block_legacy& bl) {
+      return bl.pending_block_header_state.is_if_transition_block() || bl.new_finalizer_policy;
+   });
+   if (transition_block)
+      return -1;
 
    sch.producers = std::move(producers);
 
