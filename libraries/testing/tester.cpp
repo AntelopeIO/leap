@@ -485,7 +485,20 @@ namespace eosio { namespace testing {
       control->commit_block();
       last_produced_block[producer_name] = control->head_block_id();
 
+      _wait_for_vote_if_needed(*control);
+
       return control->head_block();
+   }
+
+   void base_tester::_wait_for_vote_if_needed(controller& c) {
+      if (c.head_block()->is_proper_svnn_block()) {
+         // wait for this node's vote to be processed
+         size_t retrys = 200;
+         while (!c.node_has_voted_if_finalizer(c.head_block_id()) && --retrys) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+         }
+         FC_ASSERT(retrys, "Never saw this nodes vote processed before timeout");
+      }
    }
 
    signed_block_ptr base_tester::produce_block( std::vector<transaction_trace_ptr>& traces ) {

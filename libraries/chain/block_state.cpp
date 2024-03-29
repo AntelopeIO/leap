@@ -158,6 +158,19 @@ vote_status block_state::aggregate_vote(const vote_message& vote) {
    }
 }
 
+bool block_state::has_voted(const bls_public_key& key) const {
+   const auto& finalizers = active_finalizer_policy->finalizers;
+   auto it = std::find_if(finalizers.begin(),
+                          finalizers.end(),
+                          [&](const auto& finalizer) { return finalizer.public_key == key; });
+
+   if (it != finalizers.end()) {
+      auto index = std::distance(finalizers.begin(), it);
+      return pending_qc.has_voted(index);
+   }
+   return false;
+}
+
 // Called from net threads
 void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    const auto& finalizers = active_finalizer_policy->finalizers;
