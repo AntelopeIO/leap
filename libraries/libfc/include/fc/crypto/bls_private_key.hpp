@@ -24,7 +24,7 @@ namespace fc::crypto::blslib {
 
          bls_private_key& operator=( const bls_private_key& ) = default;
 
-         std::string to_string(const yield_function_t& yield = yield_function_t()) const;
+         std::string to_string() const;
 
          bls_public_key     get_public_key() const;
 
@@ -42,8 +42,7 @@ namespace fc::crypto::blslib {
 } // fc::crypto::blslib
 
 namespace fc {
-   void to_variant(const crypto::blslib::bls_private_key& var, variant& vo,
-                   const yield_function_t& yield = yield_function_t());
+   void to_variant(const crypto::blslib::bls_private_key& var, variant& vo);
 
    void from_variant(const variant& var, crypto::blslib::bls_private_key& vo);
 } // namespace fc

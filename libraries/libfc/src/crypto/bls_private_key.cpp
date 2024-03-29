@@ -10,19 +10,22 @@ namespace fc::crypto::blslib {
    bls_public_key bls_private_key::get_public_key() const
    {
       bls12_381::g1 pk = bls12_381::public_key(_sk);
-      return bls_public_key(pk);
+      constexpr bool raw = false;
+      return bls_public_key(pk.toAffineBytesLE(raw));
    }
 
    bls_signature bls_private_key::proof_of_possession() const
    {
       bls12_381::g2 proof = bls12_381::pop_prove(_sk);
-      return bls_signature(proof);
+      constexpr bool raw = false;
+      return bls_signature(proof.toAffineBytesLE(raw));
    }
 
    bls_signature bls_private_key::sign( std::span<const uint8_t> message ) const
    {
       bls12_381::g2 sig = bls12_381::sign(_sk, message);
-      return bls_signature(sig);
+      constexpr bool raw = false;
+      return bls_signature(sig.toAffineBytesLE(raw));
    }
 
    bls_private_key bls_private_key::generate() {
@@ -48,7 +51,7 @@ namespace fc::crypto::blslib {
    :_sk(priv_parse_base64url(base64urlstr))
    {}
 
-   std::string bls_private_key::to_string(const yield_function_t& yield) const
+   std::string bls_private_key::to_string() const
    {
       std::string data_str = fc::crypto::blslib::serialize_base64url<std::array<uint64_t, 4>>(_sk); 
 
@@ -63,9 +66,9 @@ namespace fc::crypto::blslib {
 
 namespace fc
 {
-   void to_variant(const crypto::blslib::bls_private_key& var, variant& vo, const yield_function_t& yield)
+   void to_variant(const crypto::blslib::bls_private_key& var, variant& vo)
    {
-      vo = var.to_string(yield);
+      vo = var.to_string();
    }
 
    void from_variant(const variant& var, crypto::blslib::bls_private_key& vo)

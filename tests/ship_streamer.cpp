@@ -93,11 +93,7 @@ int main(int argc, char* argv[]) {
       //};
       request_writer.StartArray();
 
-         if( fetch_finality_data ) {
-            request_writer.String("get_blocks_request_v1");
-         } else {
-            request_writer.String("get_blocks_request_v0");
-         }
+         request_writer.String("get_blocks_request_v1"); // always send out latest version of request
          request_writer.StartObject();
          request_writer.Key("start_block_num");
          request_writer.Uint(start_block_num);
@@ -116,10 +112,8 @@ int main(int argc, char* argv[]) {
          request_writer.Bool(fetch_traces);
          request_writer.Key("fetch_deltas");
          request_writer.Bool(fetch_deltas);
-         if( fetch_finality_data ) {
-            request_writer.Key("fetch_finality_data");
-            request_writer.Bool(fetch_finality_data);
-         }
+         request_writer.Key("fetch_finality_data");
+         request_writer.Bool(fetch_finality_data);
          request_writer.EndObject();
       request_writer.EndArray();
 
@@ -142,7 +136,7 @@ int main(int argc, char* argv[]) {
          eosio::check(!result_document.HasParseError(),                                      "Failed to parse result JSON from abieos");
          eosio::check(result_document.IsArray(),                                             "result should have been an array (variant) but it's not");
          eosio::check(result_document.Size() == 2,                                           "result was an array but did not contain 2 items like a variant should");
-         eosio::check(std::string(result_document[0].GetString()) == "get_blocks_result_v0", "result type doesn't look like get_blocks_result_v0");
+         eosio::check(std::string(result_document[0].GetString()) == "get_blocks_result_v1", "result type doesn't look like get_blocks_result_v1");
          eosio::check(result_document[1].IsObject(),                                         "second item in result array is not an object");
          eosio::check(result_document[1].HasMember("head"),                                  "cannot find 'head' in result");
          eosio::check(result_document[1]["head"].IsObject(),                                 "'head' is not an object");
@@ -158,7 +152,7 @@ int main(int argc, char* argv[]) {
          } else {
            std::cout << "," << std::endl;
          }
-         std::cout << "{ \"get_blocks_result_v0\":" << std::endl;
+         std::cout << "{ \"get_blocks_result_v1\":" << std::endl;
 
          rapidjson::StringBuffer result_sb;
          rapidjson::PrettyWriter<rapidjson::StringBuffer> result_writer(result_sb);
