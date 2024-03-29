@@ -3498,12 +3498,11 @@ struct controller_impl {
       std::optional<bool> voted = fork_db.apply_s<std::optional<bool>>([&](auto& forkdb) -> std::optional<bool> {
          auto bsp = forkdb.get_block(id);
          if (bsp) {
-            for (auto& f : my_finalizers.finalizers) {
-               if (bsp->has_voted(f.first))
-                  return {true};
-            }
+            return std::ranges::all_of(my_finalizers.finalizers, [&bsp](auto& f) {
+               return bsp->has_voted(f.first);
+            });
          }
-         return {false};
+         return false;
       });
       // empty optional means legacy forkdb
       return !voted || *voted;
