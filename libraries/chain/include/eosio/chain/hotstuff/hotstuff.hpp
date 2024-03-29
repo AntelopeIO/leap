@@ -85,8 +85,7 @@ namespace eosio::chain {
          void resize(size_t num_finalizers) { _bitset.resize(num_finalizers); }
          size_t count() const { return _bitset.count(); }
 
-         vote_status add_vote(std::span<const uint8_t> proposal_digest, size_t index, const bls_public_key& pubkey,
-                              const bls_signature& new_sig);
+         vote_status add_vote(size_t index, const bls_signature& sig);
 
          void reset(size_t num_finalizers);
       };
@@ -110,6 +109,9 @@ namespace eosio::chain {
                            const bls_signature& sig,
                            uint64_t weight);
 
+      // thread safe
+      bool has_voted(size_t index) const;
+
       state_t state() const { std::lock_guard g(*_mtx); return _state; };
       valid_quorum_certificate to_valid_quorum_certificate() const;
 
@@ -126,20 +128,17 @@ namespace eosio::chain {
       votes_t              _strong_votes;
 
       // called by add_vote, already protected by mutex
-      vote_status add_strong_vote(std::span<const uint8_t> proposal_digest,
-                                  size_t index,
-                                  const bls_public_key& pubkey,
+      vote_status add_strong_vote(size_t index,
                                   const bls_signature& sig,
                                   uint64_t weight);
 
       // called by add_vote, already protected by mutex
-      vote_status add_weak_vote(std::span<const uint8_t> proposal_digest,
-                                size_t index,
-                                const bls_public_key& pubkey,
+      vote_status add_weak_vote(size_t index,
                                 const bls_signature& sig,
                                 uint64_t weight);
 
       bool is_quorum_met_no_lock() const;
+      bool has_voted_no_lock(bool strong, size_t index) const;
    };
 } //eosio::chain
 

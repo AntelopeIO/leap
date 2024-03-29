@@ -458,6 +458,7 @@ namespace eosio { namespace testing {
 
          void             _start_block(fc::time_point block_time);
          signed_block_ptr _finish_block();
+         void             _wait_for_vote_if_needed(controller& c);
 
       // Fields:
       protected:
@@ -626,10 +627,7 @@ namespace eosio { namespace testing {
 
       signed_block_ptr produce_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          auto sb = _produce_block(skip_time, false);
-         auto btf = validating_node->create_block_handle_future( sb->calculate_id(), sb );
-         controller::block_report br;
-         validating_node->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} );
-
+         validate_push_block(sb);
          return sb;
       }
 
@@ -641,15 +639,13 @@ namespace eosio { namespace testing {
          auto btf = validating_node->create_block_handle_future( sb->calculate_id(), sb );
          controller::block_report br;
          validating_node->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} );
+         _wait_for_vote_if_needed(*validating_node);
       }
 
       signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          unapplied_transactions.add_aborted( control->abort_block() );
          auto sb = _produce_block(skip_time, true);
-         auto btf = validating_node->create_block_handle_future( sb->calculate_id(), sb );
-         controller::block_report br;
-         validating_node->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} );
-
+         validate_push_block(sb);
          return sb;
       }
 
