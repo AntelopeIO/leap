@@ -9,9 +9,8 @@ namespace eosio::chain {
 class incremental_merkle_tree {
 public:
    void append(const digest_type& digest) {
-      char c;
       assert(trees.size() == detail::popcount(mask));
-      _append(digest, trees.end(), 0, &c);
+      _append(digest, trees.end(), 0);
       assert(trees.size() == detail::popcount(mask));
    }
 
@@ -21,8 +20,6 @@ public:
       assert(!trees.empty());
       return _get_root(0);
    };
-
-   int64_t max_stack_depth = 0;
 
 private:
    friend struct fc::reflector<incremental_merkle_tree>;
@@ -35,13 +32,11 @@ private:
    digest_type _get_root(size_t idx) const {
       if (idx + 1 == trees.size())
          return trees[idx];
-      return detail::hash_combine(trees[idx], _get_root(idx + 1));
+      return detail::hash_combine(trees[idx], _get_root(idx + 1)); // log2 recursion OK
    }
 
    // slot points to the current insertion point. *(slot-1) is the digest for the first bit set >= idx
-   void _append(const digest_type& digest, vec_it slot, size_t idx, const char *p) {
-      char c;
-      max_stack_depth = std::max(max_stack_depth, p - &c);
+   void _append(const digest_type& digest, vec_it slot, size_t idx) {
       if (is_bit_set(idx)) {
          assert(!trees.empty());
          if (!is_bit_set(idx+1)) {
@@ -55,7 +50,8 @@ private:
             clear_bit(idx+1);
             digest_type d = detail::hash_combine(*(slot-2), detail::hash_combine(*(slot-1), digest));
             trees.erase(slot-2, slot);
-            _append(d, slot-2, idx+2, p);
+            _append(d, slot-2, idx+2); // log2 recursion OK, uses less than 5KB stack space for 32M digests
+                                       // appended (or 0.25% of default 2MB thread stack size on Ubuntu)
          }
       } else {
          trees.insert(slot, digest);

@@ -241,20 +241,6 @@ BOOST_AUTO_TEST_CASE(consistency_over_large_range) {
    }
 }
 
-BOOST_AUTO_TEST_CASE(stack_check) {
-   constexpr size_t num_digests = 1024ull;
-
-   std::vector<digest_type> digests = create_test_digests(num_digests);
-   incremental_merkle_tree tree;
-   for (size_t j=0; j<num_digests; ++j) {
-      tree.append(digests[j]);
-      if (j == num_digests - 1) {
-         BOOST_CHECK_LE(tree.max_stack_depth, 2000);
-         std::cout << "max_stack_depth = " << tree.max_stack_depth << " bytes\n";
-      }
-   }
-}
-
 class stopwatch {
 public:
    stopwatch(std::string msg) : _msg(std::move(msg)) {  _start = clock::now(); }
@@ -273,10 +259,10 @@ public:
    point       _start;
 };
 
-BOOST_AUTO_TEST_CASE(perf_test) {
+BOOST_AUTO_TEST_CASE(perf_test_one_large) {
    auto perf_test = [](const std::string& type, auto&& incr_tree, auto&& calc_fn) {
       using namespace std::string_literals;
-      constexpr size_t num_digests = 1024ull * 1024ull;
+      constexpr size_t num_digests = 1000ull * 1000ull; // don't use exact powers of 2 as it is a special case
 
       std::vector<digest_type> digests = create_test_digests(num_digests);
       deque<digest_type> deq { digests.begin(), digests.end() };
@@ -307,5 +293,54 @@ BOOST_AUTO_TEST_CASE(perf_test) {
    }
 }
 
+
+BOOST_AUTO_TEST_CASE(perf_test_many_small) {
+
+   auto perf_test = [](const std::string& type, auto&& incr_tree, auto&& calc_fn) {
+      using namespace std::string_literals;
+      constexpr size_t num_digests = 10000; // don't use exact powers of 2 as it is a special case
+      constexpr size_t num_runs    = 100;
+
+      std::vector<digest_type> digests = create_test_digests(num_digests);
+      deque<digest_type> deq { digests.begin(), digests.end() };
+
+      deque<digest_type> results(num_runs);
+
+      auto incr = [&]() {
+         auto work_tree = incr_tree;
+         for (const auto& d : digests)
+            work_tree.append(d);
+         return work_tree.get_root();
+      };
+
+      auto calc = [&]() { return calc_fn(deq); };
+
+      auto incr_root = [&]() {
+         stopwatch s("time for "s + type + " incremental_merkle: ");
+         for (auto& r : results)
+            r = incr();
+         return calc_fn(results);
+      }();
+
+      auto calc_root = [&]() {
+         stopwatch s("time for "s + type + " calculate_merkle: ");
+         for (auto& r : results)
+            r = calc();
+         return calc_fn(results);
+      }();
+
+      return std::make_pair(incr_root, calc_root);
+   };
+
+   {
+      auto [incr_root, calc_root] = perf_test("new", incremental_merkle_tree(), calculate_merkle);
+      BOOST_CHECK_EQUAL(incr_root, calc_root);
+   }
+
+   {
+      auto [incr_root, calc_root] = perf_test("legacy", incremental_merkle_tree_legacy(), calculate_merkle_legacy);
+      BOOST_CHECK_EQUAL(incr_root, calc_root);
+   }
+}
 
 BOOST_AUTO_TEST_SUITE_END()
