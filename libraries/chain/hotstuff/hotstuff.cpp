@@ -20,17 +20,19 @@ inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) {
    return r;
 }
 
-vote_status pending_quorum_certificate::votes_t::add_vote(std::span<const uint8_t> proposal_digest, size_t index,
-                                                          const bls_public_key& pubkey, const bls_signature& new_sig) {
-   if (_bitset[index]) {
+bool pending_quorum_certificate::is_duplicate_no_lock(bool strong, size_t index) const {
+   if (strong) {
+      return _strong_votes._bitset[index];
+   }
+   return _weak_votes._bitset[index];
+}
+
+vote_status pending_quorum_certificate::votes_t::add_vote(size_t index, const bls_signature& sig) {
+   if (_bitset[index]) { // check here as could have come in while unlocked
       return vote_status::duplicate; // shouldn't be already present
    }
-   if (!fc::crypto::blslib::verify(pubkey, proposal_digest, new_sig)) {
-      wlog( "signature from finalizer ${i} cannot be verified", ("i", index) );
-      return vote_status::invalid_signature;
-   }
    _bitset.set(index);
-   _sig.aggregate(new_sig); // works even if _sig is default initialized (fp2::zero())
+   _sig.aggregate(sig); // works even if _sig is default initialized (fp2::zero())
    return vote_status::success;
 }
 
@@ -59,10 +61,8 @@ bool pending_quorum_certificate::is_quorum_met() const {
 }
 
 // called by add_vote, already protected by mutex
-vote_status pending_quorum_certificate::add_strong_vote(std::span<const uint8_t> proposal_digest, size_t index,
-                                                        const bls_public_key& pubkey, const bls_signature& sig,
-                                                        uint64_t weight) {
-   if (auto s = _strong_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success) {
+vote_status pending_quorum_certificate::add_strong_vote(size_t index, const bls_signature& sig, uint64_t weight) {
+   if (auto s = _strong_votes.add_vote(index, sig); s != vote_status::success) {
       return s;
    }
    _strong_sum += weight;
@@ -91,10 +91,8 @@ vote_status pending_quorum_certificate::add_strong_vote(std::span<const uint8_t>
 }
 
 // called by add_vote, already protected by mutex
-vote_status pending_quorum_certificate::add_weak_vote(std::span<const uint8_t> proposal_digest, size_t index,
-                                                      const bls_public_key& pubkey, const bls_signature& sig,
-                                                      uint64_t weight) {
-   if (auto s = _weak_votes.add_vote(proposal_digest, index, pubkey, sig); s != vote_status::success)
+vote_status pending_quorum_certificate::add_weak_vote(size_t index, const bls_signature& sig, uint64_t weight) {
+   if (auto s = _weak_votes.add_vote(index, sig); s != vote_status::success)
       return s;
    _weak_sum += weight;
 
@@ -125,15 +123,32 @@ vote_status pending_quorum_certificate::add_weak_vote(std::span<const uint8_t> p
    return vote_status::success;
 }
 
-// thread safe, status, pre state                          , post state
+// thread safe
 vote_status pending_quorum_certificate::add_vote(block_num_type block_num, bool strong, std::span<const uint8_t> proposal_digest, size_t index,
                                                  const bls_public_key& pubkey, const bls_signature& sig, uint64_t weight) {
-   std::lock_guard g(*_mtx);
-   auto pre_state = _state;
-   vote_status s = strong ? add_strong_vote(proposal_digest, index, pubkey, sig, weight)
-                          : add_weak_vote(proposal_digest, index, pubkey, sig, weight);
+   vote_status s = vote_status::success;
+
+   std::unique_lock g(*_mtx);
+   state_t pre_state = _state;
+   state_t post_state = pre_state;
+   if (is_duplicate_no_lock(strong, index)) {
+      s = vote_status::duplicate;
+   } else {
+      g.unlock();
+      if (!fc::crypto::blslib::verify(pubkey, proposal_digest, sig)) {
+         wlog( "signature from finalizer ${i} cannot be verified", ("i", index) );
+         s = vote_status::invalid_signature;
+      } else {
+         g.lock();
+         s = strong ? add_strong_vote(index, sig, weight)
+                    : add_weak_vote(index, sig, weight);
+         post_state = _state;
+         g.unlock();
+      }
+   }
+
    dlog("block_num: ${bn}, vote strong: ${sv}, status: ${s}, pre-state: ${pre}, post-state: ${state}, quorum_met: ${q}",
-        ("bn", block_num)("sv", strong)("s", s)("pre", pre_state)("state", _state)("q", is_quorum_met_no_lock()));
+        ("bn", block_num)("sv", strong)("s", s)("pre", pre_state)("state", post_state)("q", is_quorum_met(post_state)));
    return s;
 }
 
