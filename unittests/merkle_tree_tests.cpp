@@ -173,8 +173,10 @@ BOOST_AUTO_TEST_CASE(consistency_over_large_range) {
    std::vector<digest_type> digests = create_test_digests(num_digests);
    for (size_t i=1; i<num_digests; ++i) {
       incremental_merkle_tree tree;
-      for (size_t j=0; j<i; ++j)
+      for (size_t j=0; j<i; ++j) {
+         BOOST_CHECK_EQUAL(tree.num_digests_appended(), j);
          tree.append(digests[j]);
+      }
       BOOST_CHECK_EQUAL(calculate_merkle({digests.begin(), digests.begin() + i}), tree.get_root());
    }
 }

@@ -19,7 +19,11 @@ public:
          return {};
       assert(!trees.empty());
       return _get_root(0);
-   };
+   }
+
+   uint64_t num_digests_appended() const {
+      return mask;
+   }
 
 private:
    friend struct fc::reflector<incremental_merkle_tree>;
