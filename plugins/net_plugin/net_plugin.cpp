@@ -3729,6 +3729,7 @@ namespace eosio {
             close( false ); // do not reconnect after closing
             break;
          case vote_status::unknown_block: // track the failure
+            peer_dlog(this, "vote unknown block #${bn}:${id}..", ("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16)));
             block_status_monitor_.rejected();
             break;
          case vote_status::duplicate: // do nothing
