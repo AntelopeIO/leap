@@ -4301,7 +4301,15 @@ struct controller_impl {
    }
 
    std::optional<finality_data_t> head_finality_data() const {
-      return apply_s<std::optional<finality_data_t>>(chain_head, [](const block_state_ptr& head) { return head->get_finality_data(); });
+      if (fork_db.version_in_use() == fork_database::in_use_t::both) {
+         // During transition to Savanna, need to fetch the head from fork_db which
+         // contains Savanna information for finality_data
+         return fork_db.apply_s<std::optional<finality_data_t>>([&](const auto& forkdb) {
+            return forkdb.head()->get_finality_data(); });
+      } else {
+         // Returns finality_data from chain_head if in Savanna
+         return apply_s<std::optional<finality_data_t>>(chain_head, [](const block_state_ptr& head) { return head->get_finality_data(); });
+      }
    }
 
    uint32_t earliest_available_block_num() const {
