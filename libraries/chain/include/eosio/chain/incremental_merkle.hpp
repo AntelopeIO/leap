@@ -4,20 +4,23 @@
 #include <fc/io/raw.hpp>
 #include <bit>
 
-#include <eosio/chain/incremental_merkle_legacy.hpp>  // temporary - remove when incremental_merkle implemented here
-
-
 namespace eosio::chain {
 
-// typedef incremental_merkle_impl<digest_type> incremental_merkle_tree;
+namespace detail {
+#if __cplusplus >= 202002L
+   inline int popcount(uint64_t x) noexcept { return std::popcount(x); }
+#else
+   inline int popcount(uint64_t x) noexcept { return __builtin_popcountll(x); }
+#endif
+}
 
 class incremental_merkle_tree {
 public:
    void append(const digest_type& digest) {
       char c;
-      assert(trees.size() == std::popcount(mask));
+      assert(trees.size() == detail::popcount(mask));
       _append(digest, trees.end(), 0, &c);
-      assert(trees.size() == std::popcount(mask));
+      assert(trees.size() == detail::popcount(mask));
    }
 
    digest_type get_root() const {
@@ -68,14 +71,11 @@ private:
       }
    }
 
-
    uint64_t                 mask = 0; // bits set signify tree present in trees vector.
                                       // least signif. bit set maps to smallest tree present.
    std::vector<digest_type> trees;    // digests representing power of 2 trees, smallest tree last
                                       // to minimize digest copying when appending.
-                                      // invariant: `trees.size() == std::popcount(mask)`
-
-   static inline constexpr size_t num_bits = sizeof(mask) * 8;
+                                      // invariant: `trees.size() == detail::popcount(mask)`
 };
 
 } /// eosio::chain
