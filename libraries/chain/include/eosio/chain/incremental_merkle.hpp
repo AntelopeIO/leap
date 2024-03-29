@@ -6,14 +6,6 @@
 
 namespace eosio::chain {
 
-namespace detail {
-#if __cplusplus >= 202002L
-   inline int popcount(uint64_t x) noexcept { return std::popcount(x); }
-#else
-   inline int popcount(uint64_t x) noexcept { return __builtin_popcountll(x); }
-#endif
-}
-
 class incremental_merkle_tree {
 public:
    void append(const digest_type& digest) {
