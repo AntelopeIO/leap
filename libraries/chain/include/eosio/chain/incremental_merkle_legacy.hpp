@@ -50,7 +50,7 @@ inline void move_nodes(Container& to, Container&& from) {
  *
  * @param canonical if true use the merkle make_canonical_pair which sets the left/right bits of the hash
  */
-template<typename DigestType, bool canonical = false, template<typename ...> class Container = vector, typename ...Args>
+template<typename DigestType, template<typename ...> class Container = vector, typename ...Args>
 class incremental_merkle_impl {
    public:
       incremental_merkle_impl() = default;
@@ -144,11 +144,7 @@ class incremental_merkle_impl {
 
                // calculate the partially realized node value by implying the "right" value is identical
                // to the "left" value
-               if constexpr (canonical) {
-                  top = DigestType::hash(detail::make_legacy_digest_pair(top, top));
-               } else {
-                  top = DigestType::hash(std::make_pair(std::cref(top), std::cref(top)));
-               }
+               top = DigestType::hash(detail::make_legacy_digest_pair(top, top));
                partial = true;
             } else {
                // we are collapsing from a "right" value and an fully-realized "left"
@@ -164,11 +160,7 @@ class incremental_merkle_impl {
                }
 
                // calculate the node
-               if constexpr (canonical) {
-                  top = DigestType::hash(detail::make_legacy_digest_pair(left_value, top));
-               } else {
-                  top = DigestType::hash(std::make_pair(std::cref(left_value), std::cref(top)));
-               }
+               top = DigestType::hash(detail::make_legacy_digest_pair(left_value, top));
             }
 
             // move up a level in the tree
@@ -206,7 +198,7 @@ class incremental_merkle_impl {
       Container<DigestType, Args...>   _active_nodes;
 };
 
-typedef incremental_merkle_impl<digest_type, true> incremental_merkle_tree_legacy;
+typedef incremental_merkle_impl<digest_type> incremental_merkle_tree_legacy;
 
 } /// eosio::chain
 
