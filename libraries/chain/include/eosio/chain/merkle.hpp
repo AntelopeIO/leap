@@ -23,9 +23,9 @@ inline digest_type hash_combine(const digest_type& a, const digest_type& b) {
 
 // does not overwrite passed sequence
 //
-// log2 recursion OK, uses less than 5KB stack space for 32M digests
-// appended (or 0.25% of default 2MB thread stack size on Ubuntu)
-// -----------------------------------------------------------------
+// log2 recursion OK, uses less than 5KB stack space for 4 billion digests
+// appended (or 0.25% of default 2MB thread stack size on Ubuntu).
+// -----------------------------------------------------------------------
 template <class It, bool async = false>
 requires std::is_same_v<std::decay_t<typename std::iterator_traits<It>::value_type>, digest_type>
 inline digest_type calculate_merkle_pow2(const It& start, const It& end) {

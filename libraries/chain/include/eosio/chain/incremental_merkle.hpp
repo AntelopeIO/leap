@@ -50,7 +50,7 @@ private:
             clear_bit(idx+1);
             digest_type d = detail::hash_combine(*(slot-2), detail::hash_combine(*(slot-1), digest));
             trees.erase(slot-2, slot);
-            _append(d, slot-2, idx+2); // log2 recursion OK, uses less than 5KB stack space for 32M digests
+            _append(d, slot-2, idx+2); // log2 recursion OK, uses less than 5KB stack space for 4 billion digests
                                        // appended (or 0.25% of default 2MB thread stack size on Ubuntu)
          }
       } else {
