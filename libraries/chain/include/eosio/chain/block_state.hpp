@@ -80,7 +80,7 @@ private:
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
    digest_type                action_mroot; // For finality_data sent to SHiP
-   std::optional<digest_type> base_digest;  // For finality_data sent to SHiP
+   std::optional<digest_type> base_digest;  // For finality_data sent to SHiP, computed on demand in get_finality_data()
 
    // ------ private methods -----------------------------------------------------------
    bool                                is_valid() const { return validated; }
@@ -110,8 +110,7 @@ public:
    uint32_t               final_on_strong_qc_block_num() const { return core.final_on_strong_qc_block_num; }
 
    // build next valid structure from current one with input of next
-   // header state and action_mroot
-   valid_t new_valid(const block_header_state& bhs, const digest_type& action_mroot) const;
+   valid_t new_valid(const block_header_state& bhs, const digest_type& action_mroot, const digest_type& strong_digest) const;
 
    // Returns the root digest of the finality tree associated with the target_block_num
    // [core.last_final_block_num, block_num]
