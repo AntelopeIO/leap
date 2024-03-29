@@ -20,7 +20,12 @@ inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) {
    return r;
 }
 
-bool pending_quorum_certificate::is_duplicate_no_lock(bool strong, size_t index) const {
+bool pending_quorum_certificate::has_voted(size_t index) const {
+   std::lock_guard g(*_mtx);
+   return _strong_votes._bitset.at(index) || _weak_votes._bitset.at(index);
+}
+
+bool pending_quorum_certificate::has_voted_no_lock(bool strong, size_t index) const {
    if (strong) {
       return _strong_votes._bitset[index];
    }
@@ -131,7 +136,7 @@ vote_status pending_quorum_certificate::add_vote(block_num_type block_num, bool 
    std::unique_lock g(*_mtx);
    state_t pre_state = _state;
    state_t post_state = pre_state;
-   if (is_duplicate_no_lock(strong, index)) {
+   if (has_voted_no_lock(strong, index)) {
       s = vote_status::duplicate;
    } else {
       g.unlock();
