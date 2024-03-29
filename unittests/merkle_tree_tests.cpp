@@ -2,6 +2,7 @@
 #include <eosio/chain/incremental_merkle_legacy.hpp>
 #include <boost/test/unit_test.hpp>
 #include <fc/crypto/sha256.hpp>
+#include <chrono>
 
 using namespace eosio::chain;
 using eosio::chain::detail::make_legacy_digest_pair;
@@ -251,6 +252,58 @@ BOOST_AUTO_TEST_CASE(stack_check) {
          BOOST_CHECK_LE(tree.max_stack_depth, 2000);
          std::cout << "max_stack_depth = " << tree.max_stack_depth << " bytes\n";
       }
+   }
+}
+
+class stopwatch {
+public:
+   stopwatch(std::string msg) : _msg(std::move(msg)) {  _start = clock::now(); }
+
+   ~stopwatch() { std::cout << _msg << get_time_us()/1000000 << " s\n"; }
+
+   double get_time_us() const {
+      using duration_t = std::chrono::duration<double, std::micro>;
+      return std::chrono::duration_cast<duration_t>(clock::now() - _start).count();
+   }
+
+   using clock = std::chrono::high_resolution_clock;
+   using point = std::chrono::time_point<clock>;
+
+   std::string _msg;
+   point       _start;
+};
+
+BOOST_AUTO_TEST_CASE(perf_test) {
+   auto perf_test = [](const std::string& type, auto&& incr_tree, auto&& calc_fn) {
+      using namespace std::string_literals;
+      constexpr size_t num_digests = 1024ull * 1024ull;
+
+      std::vector<digest_type> digests = create_test_digests(num_digests);
+      deque<digest_type> deq { digests.begin(), digests.end() };
+
+      auto incr_root = [&]() {
+         stopwatch s("time for "s + type + " incremental_merkle: ");
+         for (const auto& d : digests)
+            incr_tree.append(d);
+         return incr_tree.get_root();
+      }();
+
+      auto calc_root = [&]() {
+         stopwatch s("time for "s + type + " calculate_merkle: ");
+         return calc_fn(deq);
+      }();
+
+      return std::make_pair(incr_root, calc_root);
+   };
+
+   {
+      auto [incr_root, calc_root] = perf_test("new", incremental_merkle_tree(), calculate_merkle);
+      BOOST_CHECK_EQUAL(incr_root, calc_root);
+   }
+
+   {
+      auto [incr_root, calc_root] = perf_test("legacy", incremental_merkle_tree_legacy(), calculate_merkle_legacy);
+      BOOST_CHECK_EQUAL(incr_root, calc_root);
    }
 }
 

@@ -36,16 +36,15 @@ inline digest_type calculate_merkle_pow2(const It& start, const It& end) {
    }
 }
 
-
 template <class It>
 requires std::is_same_v<std::decay_t<typename std::iterator_traits<It>::value_type>, digest_type>
 inline digest_type calculate_merkle(const It& start, const It& end) {
    assert(end >= start);
-   auto size = end - start;
+   auto size = static_cast<size_t>(end - start);
    if (size <= 1)
       return (size == 0) ? digest_type{} : *start;
 
-   auto midpoint = detail::bit_floor(static_cast<size_t>(size));
+   auto midpoint = detail::bit_floor(size);
    if (size == midpoint)
       return calculate_merkle_pow2(start, end);
 
