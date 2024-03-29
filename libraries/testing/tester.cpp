@@ -485,6 +485,15 @@ namespace eosio { namespace testing {
       control->commit_block();
       last_produced_block[producer_name] = control->head_block_id();
 
+      if (control->head_block()->is_proper_svnn_block()) {
+         // wait for this node's vote to be processed
+         size_t retrys = 200;
+         while (!control->node_has_voted_if_finalizer(control->head_block_id()) && --retrys) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+         }
+         FC_ASSERT(retrys, "Never saw this nodes vote processed before timeout");
+      }
+
       return control->head_block();
    }
 

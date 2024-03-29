@@ -3491,6 +3491,24 @@ struct controller_impl {
       return fork_db.apply<vote_status>(aggregate_vote_legacy, aggregate_vote);
    }
 
+   bool node_has_voted_if_finalizer(const block_id_type& id) const {
+      if (my_finalizers.finalizers.empty())
+         return true;
+
+      std::optional<bool> voted = fork_db.apply_s<std::optional<bool>>([&](auto& forkdb) -> std::optional<bool> {
+         auto bsp = forkdb.get_block(id);
+         if (bsp) {
+            for (auto& f : my_finalizers.finalizers) {
+               if (bsp->has_voted(f.first))
+                  return {true};
+            }
+         }
+         return {false};
+      });
+      // empty optional means legacy forkdb
+      return !voted || *voted;
+   }
+
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
       if (!bsp->block->is_proper_svnn_block())
          return;
@@ -5067,6 +5085,10 @@ void controller::set_proposed_finalizers( const finalizer_policy& fin_pol ) {
 vote_status controller::process_vote_message( const vote_message& vote ) {
    return my->process_vote_message( vote );
 };
+
+bool controller::node_has_voted_if_finalizer(const block_id_type& id) const {
+   return my->node_has_voted_if_finalizer(id);
+}
 
 const producer_authority_schedule& controller::active_producers()const {
    return my->active_producers();
