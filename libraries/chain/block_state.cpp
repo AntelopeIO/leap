@@ -91,7 +91,7 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    auto digests = *bsp.action_receipt_digests_savanna;
    auto action_mroot_svnn = calculate_merkle(std::move(digests));
 
-   // built leaf_node and validation_tree
+   // build leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {
       .block_num       = bsp.block_num(),
       .finality_digest = result.strong_digest,
