@@ -763,12 +763,12 @@ struct building_block {
                   // Create the valid structure for validating_bsp if it does not
                   // have one.
                   if (!validating_bsp->valid) {
-                     validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot, bb.parent.strong_digest);
+                     validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot, validating_bsp->strong_digest);
                      validating_bsp->action_mroot = action_mroot; // caching for constructing finality_data. Only needed when block is commited.
                   }
                } else {
                   // Create the valid structure for producing
-                  valid = bb.parent.new_valid(bhs, action_mroot, bb.parent.strong_digest);
+                  valid = bb.parent.new_valid(bhs, action_mroot, bhs.compute_finality_digest());
                }
 
                assembled_block::assembled_block_if ab{
