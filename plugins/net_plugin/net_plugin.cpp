@@ -723,10 +723,17 @@ namespace eosio {
          return _out_queue.empty();
       }
 
-      bool ready_to_send() const {
-         fc::lock_guard g( _mtx );
+      // called from connection strand
+      bool ready_to_send(uint32_t connection_id) const {
+         fc::unique_lock g( _mtx );
          // if out_queue is not empty then async_write is in progress
-         return ((!_sync_write_queue.empty() || !_write_queue.empty()) && _out_queue.empty());
+         bool async_write_in_progress = !_out_queue.empty();
+         bool ready = ((!_sync_write_queue.empty() || !_write_queue.empty()) && !async_write_in_progress);
+         g.unlock();
+         if (async_write_in_progress) {
+            fc_dlog(logger, "Connection - ${id} not ready to send data, async write in progress", ("id", connection_id));
+         }
+         return ready;
       }
 
       // @param callback must not callback into queued_buffer
@@ -1287,7 +1294,7 @@ namespace eosio {
    {
       my_impl->mark_bp_connection(this);
       update_endpoints();
-      fc_ilog( logger, "created connection ${c} to ${n}", ("c", connection_id)("n", endpoint) );
+      fc_ilog( logger, "created connection - ${c} to ${n}", ("c", connection_id)("n", endpoint) );
    }
 
    connection::connection(tcp::socket&& s, const string& listen_address, size_t block_sync_rate_limit)
@@ -1302,7 +1309,8 @@ namespace eosio {
         last_handshake_sent()
    {
       update_endpoints();
-      fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", listen_address) );
+      fc_dlog( logger, "new connection - ${c} object created for peer ${address}:${port} from listener ${addr}",
+               ("c", connection_id)("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", listen_address) );
    }
 
    void connection::update_endpoints(const tcp::endpoint& endpoint) {
@@ -1335,16 +1343,16 @@ namespace eosio {
    void connection::set_connection_type( const std::string& peer_add ) {      
       auto [host, port, type] = split_host_port_type(peer_add);
       if( type.empty() ) {
-         fc_dlog( logger, "Setting connection ${c} type for: ${peer} to both transactions and blocks", ("c", connection_id)("peer", peer_add) );
+         fc_dlog( logger, "Setting connection - ${c} type for: ${peer} to both transactions and blocks", ("c", connection_id)("peer", peer_add) );
          connection_type = both;
       } else if( type == "trx" ) {
-         fc_dlog( logger, "Setting connection ${c} type for: ${peer} to transactions only", ("c", connection_id)("peer", peer_add) );
+         fc_dlog( logger, "Setting connection - ${c} type for: ${peer} to transactions only", ("c", connection_id)("peer", peer_add) );
          connection_type = transactions_only;
       } else if( type == "blk" ) {
-         fc_dlog( logger, "Setting connection ${c} type for: ${peer} to blocks only", ("c", connection_id)("peer", peer_add) );
+         fc_dlog( logger, "Setting connection - ${c} type for: ${peer} to blocks only", ("c", connection_id)("peer", peer_add) );
          connection_type = blocks_only;
       } else {
-         fc_wlog( logger, "Unknown connection ${c} type: ${t}, for ${peer}", ("c", connection_id)("t", type)("peer", peer_add) );
+         fc_wlog( logger, "Unknown connection - ${c} type: ${t}, for ${peer}", ("c", connection_id)("t", type)("peer", peer_add) );
       }
    }
 
@@ -1676,7 +1684,7 @@ namespace eosio {
 
    // called from connection strand
    void connection::do_queue_write() {
-      if( !buffer_queue.ready_to_send() || closed() )
+      if( !buffer_queue.ready_to_send(connection_id) || closed() )
          return;
       connection_ptr c(shared_from_this());
 
@@ -1711,6 +1719,7 @@ namespace eosio {
                   c->close();
                   return;
                }
+               peer_dlog(c, "async write complete");
                c->bytes_sent += w;
                c->last_bytes_sent = c->get_time();
 
@@ -2641,12 +2650,12 @@ namespace eosio {
       block_buffer_factory buff_factory;
       const auto bnum = b->block_num();
       my_impl->connections.for_each_block_connection( [this, &id, &bnum, &b, &buff_factory]( auto& cp ) {
-         fc_dlog( logger, "socket_is_open ${s}, state ${c}, syncing ${ss}, connection ${cid}",
+         fc_dlog( logger, "socket_is_open ${s}, state ${c}, syncing ${ss}, connection - ${cid}",
                   ("s", cp->socket_is_open())("c", connection::state_str(cp->state()))("ss", cp->peer_syncing_from_us.load())("cid", cp->connection_id) );
          if( !cp->current() ) return;
 
          if( !add_peer_block( id, cp->connection_id ) ) {
-            fc_dlog( logger, "not bcast block ${b} to connection ${cid}", ("b", bnum)("cid", cp->connection_id) );
+            fc_dlog( logger, "not bcast block ${b} to connection - ${cid}", ("b", bnum)("cid", cp->connection_id) );
             return;
          }
 
@@ -2711,7 +2720,7 @@ namespace eosio {
          }
 
          send_buffer_type sb = buff_factory.get_send_buffer( trx );
-         fc_dlog( logger, "sending trx: ${id}, to connection ${cid}", ("id", trx->id())("cid", cp->connection_id) );
+         fc_dlog( logger, "sending trx: ${id}, to connection - ${cid}", ("id", trx->id())("cid", cp->connection_id) );
          cp->strand.post( [cp, sb{std::move(sb)}]() {
             cp->enqueue_buffer( sb, no_reason );
          } );
@@ -3786,15 +3795,15 @@ namespace eosio {
          } catch( const invalid_qc_claim &ex) {
             exception = true;
             close_mode = sync_manager::closing_mode::immediately;
-            fc_wlog( logger, "invalid QC claim exception, connection ${cid}: #${n} ${id}...: ${m}",
+            fc_wlog( logger, "invalid QC claim exception, connection - ${cid}: #${n} ${id}...: ${m}",
                      ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16))("m",ex.to_string()));
          } catch( const fc::exception& ex ) {
             exception = true;
-            fc_ilog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
+            fc_ilog( logger, "bad block exception connection - ${cid}: #${n} ${id}...: ${m}",
                      ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16))("m",ex.to_string()));
          } catch( ... ) {
             exception = true;
-            fc_wlog( logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
+            fc_wlog( logger, "bad block connection - ${cid}: #${n} ${id}...: unknown exception",
                      ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16)));
          }
          if( exception ) {
@@ -3810,7 +3819,7 @@ namespace eosio {
 
          if( block_num != 0 ) {
             assert(obt);
-            fc_dlog( logger, "validated block header, broadcasting immediately, connection ${cid}, blk num = ${num}, id = ${id}",
+            fc_dlog( logger, "validated block header, broadcasting immediately, connection - ${cid}, blk num = ${num}, id = ${id}",
                      ("cid", cid)("num", block_num)("id", obt->id()) );
             my_impl->dispatcher.add_peer_block( obt->id(), cid ); // no need to send back to sender
             my_impl->dispatcher.bcast_block( obt->block(), obt->id() );
@@ -3853,7 +3862,7 @@ namespace eosio {
       }
 
       fc::microseconds age( fc::time_point::now() - block->timestamp);
-      fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection ${cid}, ${v}, lib #${lib}",
+      fc_dlog( logger, "received signed_block: #${n} block age in secs = ${age}, connection - ${cid}, ${v}, lib #${lib}",
                ("n", blk_num)("age", age.to_seconds())("cid", c->connection_id)("v", obt ? "header validated" : "header validation pending")("lib", lib) );
 
       go_away_reason reason = no_reason;
@@ -3862,23 +3871,23 @@ namespace eosio {
          accepted = my_impl->chain_plug->accept_block(block, blk_id, obt);
          my_impl->update_chain_info();
       } catch( const unlinkable_block_exception &ex) {
-         fc_ilog(logger, "unlinkable_block_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "unlinkable_block_exception connection - ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = unlinkable;
       } catch( const block_validate_exception &ex ) {
-         fc_ilog(logger, "block_validate_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "block_validate_exception connection - ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = validation;
       } catch( const assert_exception &ex ) {
-         fc_wlog(logger, "block assert_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_wlog(logger, "block assert_exception connection - ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = fatal_other;
       } catch( const fc::exception &ex ) {
-         fc_ilog(logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "bad block exception connection - ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = fatal_other;
       } catch( ... ) {
-         fc_wlog(logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
+         fc_wlog(logger, "bad block connection - ${cid}: #${n} ${id}...: unknown exception",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16)));
          reason = fatal_other;
       }
