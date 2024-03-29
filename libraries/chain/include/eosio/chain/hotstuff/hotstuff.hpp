@@ -12,11 +12,12 @@
 
 namespace eosio::chain {
 
-   using bls_public_key  = fc::crypto::blslib::bls_public_key;
-   using bls_signature   = fc::crypto::blslib::bls_signature;
-   using bls_private_key = fc::crypto::blslib::bls_private_key;
+   using bls_public_key          = fc::crypto::blslib::bls_public_key;
+   using bls_signature           = fc::crypto::blslib::bls_signature;
+   using bls_aggregate_signature = fc::crypto::blslib::bls_aggregate_signature;
+   using bls_private_key         = fc::crypto::blslib::bls_private_key;
 
-   using hs_bitset = boost::dynamic_bitset<uint32_t>;
+   using hs_bitset     = boost::dynamic_bitset<uint32_t>;
    using bls_key_map_t = std::map<bls_public_key, bls_private_key>;
 
    struct vote_message {
@@ -39,22 +40,13 @@ namespace eosio::chain {
    using bls_private_key = fc::crypto::blslib::bls_private_key;
 
    // valid_quorum_certificate
-   class valid_quorum_certificate {
-   public:
-      valid_quorum_certificate(const std::vector<uint32_t>& strong_votes, //bitset encoding, following canonical order
-                               const std::vector<uint32_t>& weak_votes,   //bitset encoding, following canonical order
-                               const bls_signature& sig);
-
-      valid_quorum_certificate() = default;
-      valid_quorum_certificate(const valid_quorum_certificate&) = default;
-
+   struct valid_quorum_certificate {
       bool is_weak()   const { return !!_weak_votes; }
       bool is_strong() const { return !_weak_votes; }
 
-      friend struct fc::reflector<valid_quorum_certificate>;
       std::optional<hs_bitset> _strong_votes;
       std::optional<hs_bitset> _weak_votes;
-      bls_signature            _sig;
+      bls_aggregate_signature  _sig;
    };
 
    // quorum_certificate
@@ -87,8 +79,8 @@ namespace eosio::chain {
       };
 
       struct votes_t {
-         hs_bitset     _bitset;
-         bls_signature _sig;
+         hs_bitset               _bitset;
+         bls_aggregate_signature _sig;
 
          void resize(size_t num_finalizers) { _bitset.resize(num_finalizers); }
          size_t count() const { return _bitset.count(); }

@@ -58,9 +58,9 @@ int bls_actions::create_key() {
    const bls_signature pop = private_key.proof_of_possession();
 
    // prepare output
-   std::string out_str = "Private key: " + private_key.to_string({}) + "\n";
-   out_str += "Public key: " + public_key.to_string({}) + "\n";
-   out_str += "Proof of Possession: " + pop.to_string({}) + "\n";
+   std::string out_str = "Private key: " + private_key.to_string() + "\n";
+   out_str += "Public key: " + public_key.to_string() + "\n";
+   out_str += "Proof of Possession: " + pop.to_string() + "\n";
    if (opt->print_console) {
       std::cout << out_str;
    } else {
@@ -108,8 +108,8 @@ int bls_actions::create_pop() {
    const bls_public_key public_key = private_key.get_public_key();
    const bls_signature pop = private_key.proof_of_possession();
 
-   std::cout << "Proof of Possession: " << pop.to_string({})<< "\n";
-   std::cout << "Public key: " <<  public_key.to_string({}) << "\n";
+   std::cout << "Proof of Possession: " << pop.to_string()<< "\n";
+   std::cout << "Public key: " <<  public_key.to_string() << "\n";
 
    return 0;
 }

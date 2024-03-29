@@ -598,11 +598,11 @@ try:
         block_num = start_block_num
         for i in data:
             # fork can cause block numbers to be repeated
-            this_block_num = i['get_blocks_result_v0']['this_block']['block_num']
+            this_block_num = i['get_blocks_result_v1']['this_block']['block_num']
             if this_block_num < block_num:
                 block_num = this_block_num
             assert block_num == this_block_num, f"{block_num} != {this_block_num}"
-            assert isinstance(i['get_blocks_result_v0']['block'], str) # verify block in result
+            assert isinstance(i['get_blocks_result_v1']['block'], str) # verify block in result
             block_num += 1
         assert block_num-1 == end_block_num, f"{block_num-1} != {end_block_num}"
 

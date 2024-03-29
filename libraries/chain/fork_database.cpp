@@ -799,11 +799,6 @@ namespace eosio::chain {
       }
    }
 
-   // only called from the main thread
-   void fork_database::switch_to_savanna() {
-      in_use = in_use_t::savanna;
-   }
-
    block_branch_t fork_database::fetch_branch_from_head() const {
       return apply<block_branch_t>([&](auto& forkdb) {
          return forkdb.fetch_block_branch(forkdb.head()->id());

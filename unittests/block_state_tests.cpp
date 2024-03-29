@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(quorum_test) try {
       do_quorum_test( weights, threshold, strong, to_vote, expected_quorum_met );
    }
 } FC_LOG_AND_RETHROW();
-  
+
 BOOST_AUTO_TEST_CASE(verify_qc_test) try {
    using namespace eosio::chain;
    using namespace fc::crypto::blslib;
@@ -212,13 +212,6 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
    bsp->strong_digest = strong_digest;
    bsp->weak_digest = weak_digest;
 
-   auto bitset_to_vector = [](const hs_bitset& bs) {
-      std::vector<uint32_t> r;
-      r.resize(bs.num_blocks());
-      boost::to_block_range(bs, r.begin());
-      return r;
-   };
-
    {  // valid strong QC
       hs_bitset strong_votes(num_finalizers);
       strong_votes[0] = 1;  // finalizer 0 voted with weight 1
@@ -226,12 +219,12 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
 
       bls_signature sig_0 = private_key[0].sign(strong_digest.to_uint8_span());
       bls_signature sig_2 = private_key[2].sign(strong_digest.to_uint8_span());
-      bls_signature agg_sig;
-      agg_sig = fc::crypto::blslib::aggregate(std::array{agg_sig, sig_0});
-      agg_sig = fc::crypto::blslib::aggregate(std::array{agg_sig, sig_2});
+      bls_aggregate_signature agg_sig;
+      agg_sig.aggregate(sig_0);
+      agg_sig.aggregate(sig_2);
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, agg_sig);
+      valid_quorum_certificate qc{strong_votes, {}, agg_sig};
 
       BOOST_REQUIRE_NO_THROW( bsp->verify_qc(qc) );
    }
@@ -245,27 +238,27 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       weak_votes[2] = 1;  // finalizer 2 voted with weight 3
       bls_signature weak_sig = private_key[2].sign(weak_digest);
 
-      bls_signature agg_sig;
-      agg_sig = fc::crypto::blslib::aggregate(std::array{agg_sig, strong_sig});
-      agg_sig = fc::crypto::blslib::aggregate(std::array{agg_sig, weak_sig});
+      bls_aggregate_signature agg_sig;
+      agg_sig.aggregate(strong_sig);
+      agg_sig.aggregate(weak_sig);
 
-      valid_quorum_certificate qc(bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), agg_sig);
+      valid_quorum_certificate qc(strong_votes, weak_votes, agg_sig);
       BOOST_REQUIRE_NO_THROW( bsp->verify_qc(qc) );
    }
 
    {  // valid strong QC signed by all finalizers
       hs_bitset strong_votes(num_finalizers);
       std::vector<bls_signature> sigs(num_finalizers);
-      bls_signature agg_sig;
+      bls_aggregate_signature agg_sig;
 
       for (auto i = 0u; i < num_finalizers; ++i) {
          strong_votes[i] = 1;
          sigs[i] = private_key[i].sign(strong_digest.to_uint8_span());
-         agg_sig = fc::crypto::blslib::aggregate(std::array{agg_sig, sigs[i]});
+         agg_sig.aggregate(sigs[i]);
       }
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, agg_sig);
+      valid_quorum_certificate qc(strong_votes, {}, agg_sig);
 
       BOOST_REQUIRE_NO_THROW( bsp->verify_qc(qc) );
    }
@@ -273,16 +266,16 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
    {  // valid weak QC signed by all finalizers
       hs_bitset weak_votes(num_finalizers);
       std::vector<bls_signature> sigs(num_finalizers);
-      bls_signature agg_sig;
+      bls_aggregate_signature agg_sig;
 
       for (auto i = 0u; i < num_finalizers; ++i) {
          weak_votes[i] = 1;
          sigs[i] = private_key[i].sign(weak_digest);
-         agg_sig = fc::crypto::blslib::aggregate(std::array{agg_sig, sigs[i]});
+         agg_sig.aggregate(sigs[i]);
       }
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, bitset_to_vector(weak_votes), agg_sig);
+      valid_quorum_certificate qc({}, weak_votes, agg_sig);
 
       BOOST_REQUIRE_NO_THROW( bsp->verify_qc(qc) );
    }
@@ -291,12 +284,12 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       hs_bitset strong_votes(num_finalizers);
       strong_votes[2] = 1;  // finalizer 2 voted with weight 3 (threshold is 4)
 
-      bls_signature agg_sig;
+      bls_aggregate_signature agg_sig;
       bls_signature sig_2 = private_key[2].sign(strong_digest.to_uint8_span());
-      agg_sig = fc::crypto::blslib::aggregate(std::array{agg_sig, sig_2});
+      agg_sig.aggregate(sig_2);
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, agg_sig);
+      valid_quorum_certificate qc(strong_votes, {}, agg_sig);
 
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_starts_with("strong quorum is not met") );
    }
@@ -305,12 +298,12 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       hs_bitset weak_votes(num_finalizers);
       weak_votes[2] = 1;  // finalizer 2 voted with weight 3 (threshold is 4)
 
-      bls_signature agg_sig;
+      bls_aggregate_signature agg_sig;
       bls_signature sig_2 = private_key[2].sign(weak_digest);
-      agg_sig = fc::crypto::blslib::aggregate(std::array{agg_sig, sig_2});
+      agg_sig.aggregate(sig_2);
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc({}, bitset_to_vector(weak_votes), agg_sig);
+      valid_quorum_certificate qc({}, weak_votes, agg_sig);
 
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_starts_with("weak quorum is not met") );
    }
@@ -322,12 +315,12 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
 
       bls_signature sig_0 = private_key[0].sign(strong_digest.to_uint8_span());
       bls_signature sig_2 = private_key[1].sign(strong_digest.to_uint8_span()); // signed by finalizer 1 which is not set in strong_votes
-      bls_signature sig;
-      sig = fc::crypto::blslib::aggregate(std::array{sig, sig_0});
-      sig = fc::crypto::blslib::aggregate(std::array{sig, sig_2});
+      bls_aggregate_signature sig;
+      sig.aggregate(sig_0);
+      sig.aggregate(sig_2);
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, sig);
+      valid_quorum_certificate qc(strong_votes, {}, sig);
 
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_is("signature validation failed") );
    }
@@ -339,12 +332,12 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
 
       bls_signature sig_0 = private_key[0].sign(weak_digest); // should have used strong digest
       bls_signature sig_2 = private_key[2].sign(strong_digest.to_uint8_span());
-      bls_signature sig;
-      sig = fc::crypto::blslib::aggregate(std::array{sig, sig_0});
-      sig = fc::crypto::blslib::aggregate(std::array{sig, sig_2});
+      bls_aggregate_signature sig;
+      sig.aggregate(sig_0);
+      sig.aggregate(sig_2);
 
       // create a valid_quorum_certificate
-      valid_quorum_certificate qc(bitset_to_vector(strong_votes), {}, sig);
+      valid_quorum_certificate qc(strong_votes, {}, sig);
 
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_is("signature validation failed") );
    }
@@ -358,11 +351,11 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       weak_votes[2] = 1;  // finalizer 2 voted with weight 3
       bls_signature weak_sig = private_key[1].sign(weak_digest); // wrong key
 
-      bls_signature sig;
-      sig = fc::crypto::blslib::aggregate(std::array{sig, strong_sig});
-      sig = fc::crypto::blslib::aggregate(std::array{sig, weak_sig});
+      bls_aggregate_signature sig;
+      sig.aggregate(strong_sig);
+      sig.aggregate(weak_sig);
 
-      valid_quorum_certificate qc(bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), sig);
+      valid_quorum_certificate qc(strong_votes, weak_votes, sig);
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_is("signature validation failed") );
    }
 
@@ -375,11 +368,11 @@ BOOST_AUTO_TEST_CASE(verify_qc_test) try {
       weak_votes[2] = 1;  // finalizer 2 voted with weight 3
       bls_signature weak_sig = private_key[2].sign(weak_digest);
 
-      bls_signature sig;
-      sig = fc::crypto::blslib::aggregate(std::array{sig, strong_sig});
-      sig = fc::crypto::blslib::aggregate(std::array{sig, weak_sig});
+      bls_aggregate_signature sig;
+      sig.aggregate(strong_sig);
+      sig.aggregate(weak_sig);
 
-      valid_quorum_certificate qc(bitset_to_vector(strong_votes), bitset_to_vector(weak_votes), sig);
+      valid_quorum_certificate qc(strong_votes, weak_votes, sig);
       BOOST_CHECK_EXCEPTION( bsp->verify_qc(qc), block_validate_exception, eosio::testing::fc_exception_message_is("signature validation failed") );
    }
 } FC_LOG_AND_RETHROW();
