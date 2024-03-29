@@ -317,6 +317,7 @@ finality_data_t block_state::get_finality_data() {
    }
    return {
       // other fields take the default values set by finality_data_t definition
+      .active_finalizer_policy_generation = active_finalizer_policy->generation,
       .action_mroot = action_mroot,
       .base_digest  = *base_digest
    };
