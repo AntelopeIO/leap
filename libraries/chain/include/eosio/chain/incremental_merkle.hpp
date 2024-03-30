@@ -6,6 +6,28 @@
 
 namespace eosio::chain {
 
+/**
+ * A balanced merkle tree built in such that the set of leaf nodes can be
+ * appended to without triggering the reconstruction of previously
+ * constructed nodes.
+ *
+ * this is achieved by keeping all possible power of two size trees, so
+ * for example:
+ * - after appending 3 digests, we have one `tree of two` digests, and a
+ *   single digest. the mask os 0b11.
+ * - when appending another digest, a new `tree of two` is constructed with
+ *   the single digest, and these two `trees of two` are conbined in a `tree
+ *   of four`. The original tree of two is unchanged.
+ *   Only the tree of four is stored, the mask 0b100 indicating its rank (4)
+ * - when appending another digest, the `tree of four` is unchanged, we store
+ *   the new single digest. The mask 0b101 indicates that the tow digest stored
+ *   are the roots of one `tree of four` and one `tree of one` (single digest)
+ *
+ * Once a sub-tree is constructed, its sub-root will never change.
+ * This allows proofs based on this merkle to be very stable
+ * after some time has passed, only needing to update or add a single
+ * value to maintain validity.
+ */
 class incremental_merkle_tree {
 public:
    void append(const digest_type& digest) {
