@@ -707,7 +707,8 @@ struct building_block {
                // compute the action_mroot and transaction_mroot
                auto [transaction_mroot, action_mroot] = std::visit(
                   overloaded{[&](digests_t& trx_receipts) {
-                                return std::make_pair(calculate_merkle(trx_receipts), // ~0.06ms for 300 digests
+                                // calculate_merkle takes 3.2ms for 50,000 digests (legacy version took 11.1ms)
+                                return std::make_pair(calculate_merkle(trx_receipts),
                                                       calculate_merkle(*action_receipts.digests_s));
                              },
                              [&](const checksum256_type& trx_checksum) {
