@@ -46,54 +46,55 @@ BOOST_AUTO_TEST_CASE(multiple_appends_legacy) {
    auto node9 = fc::sha256::hash("Node9");
 
    tree.append(node1);
-   BOOST_CHECK_EQUAL(tree.get_root().str(), node1.str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1}).str(), node1.str());
+   BOOST_CHECK_EQUAL(tree.get_root(), node1);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1}), node1);
 
    tree.append(node2);
-   BOOST_CHECK_EQUAL(tree.get_root().str(), hash_l(node1, node2).str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2}).str(), hash_l(node1, node2).str());
+   auto calculated_root = hash_l(node1, node2);
+   BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2}), calculated_root);
 
    tree.append(node3);
-   BOOST_CHECK_EQUAL(tree.get_root().str(), hash_l(hash_l(node1, node2),hash_l(node3, node3)).str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3}).str(), hash_l(hash_l(node1, node2),hash_l(node3, node3)).str());
+   calculated_root = hash_l(hash_l(node1, node2), hash_l(node3, node3));
+   BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3}), calculated_root);
 
    tree.append(node4);
-   auto calculated_root = hash_l(hash_l(node1, node2),hash_l(node3, node4));
-   BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4}).str(),
-                     calculated_root.str());
+   calculated_root = hash_l(hash_l(node1, node2), hash_l(node3, node4));
+   BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4}), calculated_root);
 
    tree.append(node5);
    calculated_root = hash_l(hash_l(hash_l(node1, node2), hash_l(node3, node4)),
                             hash_l(hash_l(node5, node5), hash_l(node5, node5)));
-   BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5}).str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5}), calculated_root);
 
    tree.append(node6);
    calculated_root = hash_l(hash_l(hash_l(node1, node2), hash_l(node3, node4)),
                             hash_l(hash_l(node5, node6), hash_l(node5, node6)));
-   BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5, node6}).str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5, node6}), calculated_root);
 
    tree.append(node7);
    calculated_root = hash_l(hash_l(hash_l(node1, node2), hash_l(node3, node4)),
                             hash_l(hash_l(node5, node6), hash_l(node7, node7)));
-   BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5, node6, node7}).str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5, node6, node7}), calculated_root);
 
    tree.append(node8);
    calculated_root = hash_l(hash_l(hash_l(node1, node2), hash_l(node3, node4)),
                             hash_l(hash_l(node5, node6), hash_l(node7, node8)));
-   BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5, node6, node7, node8}).str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5, node6, node7, node8}), calculated_root);
 
    tree.append(node9);
    calculated_root = hash_l(hash_l(hash_l(hash_l(node1, node2), hash_l(node3, node4)),
                                    hash_l(hash_l(node5, node6), hash_l(node7, node8))),
-                            hash_l(hash_l(hash_l(node9, node9),hash_l(node9, node9)),
-                                   hash_l(hash_l(node9, node9),hash_l(node9, node9))));
-   BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
-   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5, node6, node7, node8, node9}).str(), calculated_root.str());
+                            hash_l(hash_l(hash_l(node9, node9), hash_l(node9, node9)),
+                                   hash_l(hash_l(node9, node9), hash_l(node9, node9))));
+   BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle_legacy({node1, node2, node3, node4, node5, node6, node7, node8, node9}), calculated_root);
 }
 
 BOOST_AUTO_TEST_CASE(basic_append_and_root_check) {
