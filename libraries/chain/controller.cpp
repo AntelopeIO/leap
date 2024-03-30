@@ -706,15 +706,13 @@ struct building_block {
             [&](building_block_if& bb) -> assembled_block {
                // compute the action_mroot and transaction_mroot
                auto [transaction_mroot, action_mroot] = std::visit(
-                  overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
-                                auto trx_merkle_fut =
-                                   post_async_task(ioc, [&]() { return calculate_merkle(trx_receipts); });
-                                auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return calculate_merkle(*action_receipts.digests_s); });
-                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
+                  overloaded{[&](digests_t& trx_receipts) {
+                                return std::make_pair(calculate_merkle(trx_receipts), // ~15us for 100 digests
+                                                      calculate_merkle(*action_receipts.digests_s));
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, calculate_merkle(*action_receipts.digests_s));
+                                return std::make_pair(trx_checksum,
+                                                      calculate_merkle(*action_receipts.digests_s));
                              }},
                   trx_mroot_or_receipt_digests());
 
