@@ -60,45 +60,56 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    auto result_ptr = std::make_shared<block_state>();
    auto &result = *result_ptr;
 
+   // set block_header_state data ----
    result.block_id = bsp.id();
    result.header = bsp.header;
-   result.header_exts = bsp.header_exts;
-   result.block = bsp.block;
    result.activated_protocol_features = bsp.activated_protocol_features;
    result.core = finality_core::create_core_for_genesis_block(bsp.block_num());
 
-   // Calculate Merkle tree root in Savanna way so that it is stored in Leaf Node when building block_state.
-   auto digests = *bsp.action_receipt_digests_savanna;
-   auto action_mroot_svnn = calculate_merkle(std::move(digests));
-   // built leaf_node and validation_tree
-   valid_t::finality_leaf_node_t leaf_node {
-      .block_num       = bsp.block_num(),
-      .finality_digest = digest_type{},
-      .action_mroot    = action_mroot_svnn
-   };
-   incremental_merkle_tree validation_tree;
-   validation_tree.append(fc::sha256::hash(leaf_node));
-
-   // construct valid structure
-   result.valid = valid_t {
-      .validation_tree   = validation_tree,
-      .validation_mroots = { validation_tree.get_root() }
-   };
-
-   assert(result.block->contains_header_extension(instant_finality_extension::extension_id())); // required by transition mechanism
-   instant_finality_extension if_ext = result.block->extract_header_extension<instant_finality_extension>();
+   assert(bsp.block->contains_header_extension(instant_finality_extension::extension_id())); // required by transition mechanism
+   instant_finality_extension if_ext = bsp.block->extract_header_extension<instant_finality_extension>();
    assert(if_ext.new_finalizer_policy); // required by transition mechanism
    result.active_finalizer_policy = std::make_shared<finalizer_policy>(*if_ext.new_finalizer_policy);
    result.active_proposer_policy = std::make_shared<proposer_policy>();
    result.active_proposer_policy->active_time = bsp.timestamp();
    result.active_proposer_policy->proposer_schedule = bsp.active_schedule;
+   result.proposer_policies = {};  // none pending at IF genesis block
+   result.finalizer_policies = {}; // none pending at IF genesis block
+   result.header_exts = bsp.header_exts;
+
+   // set block_state data ----
+   result.block = bsp.block;
+   result.strong_digest = result.compute_finality_digest(); // all block_header_state data populated in result at this point
+   result.weak_digest = create_weak_digest(result.strong_digest);
+
    // TODO: https://github.com/AntelopeIO/leap/issues/2057
    // TODO: Do not aggregate votes on blocks created from block_state_legacy. This can be removed when #2057 complete.
    result.pending_qc = pending_quorum_certificate{result.active_finalizer_policy->finalizers.size(), result.active_finalizer_policy->threshold, result.active_finalizer_policy->max_weak_sum_before_weak_final()};
+   result.valid_qc = {}; // best qc received from the network inside block extension, empty until first savanna proper IF block
+
+   // Calculate Merkle tree root in Savanna way so that it is stored in Leaf Node when building block_state.
+   auto digests = *bsp.action_receipt_digests_savanna;
+   auto action_mroot_svnn = calculate_merkle(std::move(digests));
+
+   // build leaf_node and validation_tree
+   valid_t::finality_leaf_node_t leaf_node {
+      .block_num       = bsp.block_num(),
+      .finality_digest = result.strong_digest,
+      .action_mroot    = action_mroot_svnn
+   };
+   // construct valid structure
+   incremental_merkle_tree validation_tree;
+   validation_tree.append(fc::sha256::hash(leaf_node));
+   result.valid = valid_t {
+      .validation_tree   = validation_tree,
+      .validation_mroots = { validation_tree.get_root() }
+   };
+
    result.validated = bsp.is_valid();
    result.pub_keys_recovered = bsp._pub_keys_recovered;
    result.cached_trxs = bsp._cached_trxs;
    result.action_mroot = action_mroot_svnn;
+   result.base_digest = {}; // calculated on demand in get_finality_data()
 
    return result_ptr;
 }
@@ -268,7 +279,7 @@ std::optional<quorum_certificate> block_state::get_best_qc() const {
    return quorum_certificate{ block_num(), best_qc };
 }
 
-valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_type& action_mroot) const {
+valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_type& action_mroot, const digest_type& strong_digest) const {
    assert(valid);
    assert(next_bhs.core.last_final_block_num() >= core.last_final_block_num());
 
@@ -283,7 +294,7 @@ valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_
    // construct block's finality leaf node.
    valid_t::finality_leaf_node_t leaf_node{
       .block_num       = next_bhs.block_num(),
-      .finality_digest = next_bhs.compute_finality_digest(),
+      .finality_digest = strong_digest,
       .action_mroot    = action_mroot
    };
    auto leaf_node_digest = fc::sha256::hash(leaf_node);
