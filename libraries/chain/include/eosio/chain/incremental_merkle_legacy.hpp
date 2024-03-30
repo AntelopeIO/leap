@@ -45,7 +45,7 @@ inline void move_nodes(Container& to, Container&& from) {
  *
  * Once a sub-tree contains only realized nodes its sub-root will never
  * change.  This allows proofs based on this merkle to be very stable
- * after some time has past only needing to update or add a single
+ * after some time has passed, only needing to update or add a single
  * value to maintain validity.
  */
 template<typename DigestType, template<typename ...> class Container = vector, typename ...Args>
