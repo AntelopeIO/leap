@@ -225,7 +225,8 @@ BOOST_AUTO_TEST_CASE(perf_test_one_large) {
    };
 
    {
-      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(), calculate_merkle<deque<digest_type>>);
+      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(),
+                                              [](const deque<digest_type>& d) { return calculate_merkle(d); }); // gcc10 needs a lambda here
       BOOST_CHECK_EQUAL(incr_root, calc_root);
    }
 
@@ -277,7 +278,8 @@ BOOST_AUTO_TEST_CASE(perf_test_many_small) {
    };
 
    {
-      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(), calculate_merkle<deque<digest_type>>);
+      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(),
+                                              [](const deque<digest_type>& d) { return calculate_merkle(d); }); // gcc10 needs a lambda here
       BOOST_CHECK_EQUAL(incr_root, calc_root);
    }
 
