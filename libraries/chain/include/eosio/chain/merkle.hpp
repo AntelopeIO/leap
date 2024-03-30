@@ -24,9 +24,9 @@ inline digest_type hash_combine(const digest_type& a, const digest_type& b) {
 template <class It, bool async = false>
 requires std::is_same_v<std::decay_t<typename std::iterator_traits<It>::value_type>, digest_type>
 inline digest_type calculate_merkle_pow2(const It& start, const It& end) {
-   auto size = end - start;
-   assert(size >= 2);
-   assert(detail::bit_floor(static_cast<size_t>(size)) == size);
+   assert(end >= start + 2);
+   auto size = static_cast<size_t>(end - start);
+   assert(detail::bit_floor(size) == size);
 
    if (size == 2)
       return hash_combine(start[0], start[1]);

@@ -9,9 +9,9 @@ namespace eosio::chain {
 class incremental_merkle_tree {
 public:
    void append(const digest_type& digest) {
-      assert(trees.size() == detail::popcount(mask));
+      assert(trees.size() == static_cast<size_t>(detail::popcount(mask)));
       _append(digest, trees.end(), 0);
-      assert(trees.size() == detail::popcount(mask));
+      assert(trees.size() == static_cast<size_t>(detail::popcount(mask)));
    }
 
    digest_type get_root() const {
