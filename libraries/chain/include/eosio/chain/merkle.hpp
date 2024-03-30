@@ -21,11 +21,6 @@ inline digest_type hash_combine(const digest_type& a, const digest_type& b) {
    return digest_type::hash(std::make_pair(std::cref(a), std::cref(b)));
 }
 
-// does not overwrite passed sequence
-//
-// log2 recursion OK, uses less than 5KB stack space for 4 billion digests
-// appended (or 0.25% of default 2MB thread stack size on Ubuntu).
-// -----------------------------------------------------------------------
 template <class It, bool async = false>
 requires std::is_same_v<std::decay_t<typename std::iterator_traits<It>::value_type>, digest_type>
 inline digest_type calculate_merkle_pow2(const It& start, const It& end) {
@@ -56,8 +51,26 @@ inline digest_type calculate_merkle_pow2(const It& start, const It& end) {
    }
 }
 
+} // namespace detail
+
+// ************* public interface starts here ************************************************
+
+// ------------------------------------------------------------------------
+// calculate_merkle:
+// -----------------
+// takes two random access iterators delimiting a sequence of `digest_type`,
+// returns the root digest for the provided sequence.
+//
+// does not overwrite passed sequence
+//
+// log2 recursion OK, uses less than 5KB stack space for 4 billion digests
+// appended (or 0.25% of default 2MB thread stack size on Ubuntu).
+// ------------------------------------------------------------------------
 template <class It>
-requires std::is_same_v<std::decay_t<typename std::iterator_traits<It>::value_type>, digest_type>
+#if __cplusplus >= 202002L
+requires std::random_access_iterator<It> &&
+         std::is_same_v<std::decay_t<typename std::iterator_traits<It>::value_type>, digest_type>
+#endif
 inline digest_type calculate_merkle(const It& start, const It& end) {
    assert(end >= start);
    auto size = static_cast<size_t>(end - start);
@@ -66,16 +79,26 @@ inline digest_type calculate_merkle(const It& start, const It& end) {
 
    auto midpoint = detail::bit_floor(size);
    if (size == midpoint)
-      return calculate_merkle_pow2<It, true>(start, end);
+      return detail::calculate_merkle_pow2<It, true>(start, end);
 
    auto mid = start + midpoint;
-   return hash_combine(calculate_merkle_pow2<It, true>(start, mid), calculate_merkle(mid, end));
+   return detail::hash_combine(detail::calculate_merkle_pow2<It, true>(start, mid),
+                               calculate_merkle(mid, end));
 }
 
-}
-
-inline digest_type calculate_merkle(const deque<digest_type>& ids) {
-   return detail::calculate_merkle(ids.cbegin(), ids.cend());
+// --------------------------------------------------------------------------
+// calculate_merkle:
+// -----------------
+// takes a container or `std::span` of `digest_type`, returns the root digest
+// for the sequence of digests in the container.
+// --------------------------------------------------------------------------
+template <class Cont>
+#if __cplusplus >= 202002L
+requires std::random_access_iterator<decltype(Cont().begin())> &&
+         std::is_same_v<std::decay_t<typename Cont::value_type>, digest_type>
+#endif
+inline digest_type calculate_merkle(const Cont& ids) {
+   return calculate_merkle(ids.begin(), ids.end()); // cbegin not supported for std::span until C++23.
 }
 
 

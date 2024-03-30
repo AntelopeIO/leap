@@ -104,7 +104,7 @@ BOOST_AUTO_TEST_CASE(basic_append_and_root_check) {
    auto node1 = fc::sha256::hash("Node1");
    tree.append(node1);
    BOOST_CHECK_EQUAL(tree.get_root(), node1);
-   BOOST_CHECK_EQUAL(calculate_merkle({node1}), node1);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(&node1, 1)), node1);
 }
 
 BOOST_AUTO_TEST_CASE(multiple_appends) {
@@ -124,48 +124,48 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
 
    tree.append(node1);
    BOOST_CHECK_EQUAL(tree.get_root(), node1);
-   BOOST_CHECK_EQUAL(calculate_merkle({node1}), node1);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 1)), node1);
 
    tree.append(node2);
    BOOST_CHECK_EQUAL(tree.get_root(), hash(node1, node2));
-   BOOST_CHECK_EQUAL(calculate_merkle({first, first + 2}), hash(node1, node2));
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 2)), hash(node1, node2));
 
    tree.append(node3);
    auto calculated_root = hash(hash(node1, node2), node3);
    BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
-   BOOST_CHECK_EQUAL(calculate_merkle({first, first + 3}), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 3)), calculated_root);
 
    tree.append(node4);
    auto first_four_tree = hash(hash(node1, node2), hash(node3, node4));
    calculated_root = first_four_tree;
    BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
-   BOOST_CHECK_EQUAL(calculate_merkle({first, first + 4}), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 4)), calculated_root);
 
    tree.append(node5);
    calculated_root = hash(first_four_tree, node5);
    BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
-   BOOST_CHECK_EQUAL(calculate_merkle({first, first + 5}), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 5)), calculated_root);
 
    tree.append(node6);
    calculated_root = hash(first_four_tree, hash(node5, node6));
    BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
-   BOOST_CHECK_EQUAL(calculate_merkle({first, first + 6}), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 6)), calculated_root);
 
    tree.append(node7);
    calculated_root = hash(first_four_tree, hash(hash(node5, node6), node7));
    BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
-   BOOST_CHECK_EQUAL(calculate_merkle({first, first + 7}), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 7)), calculated_root);
 
    tree.append(node8);
    auto next_four_tree = hash(hash(node5, node6), hash(node7, node8));
    calculated_root = hash(first_four_tree, next_four_tree);
    BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
-   BOOST_CHECK_EQUAL(calculate_merkle({first, first + 8}), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 8)), calculated_root);
 
    tree.append(node9);
    calculated_root = hash(hash(first_four_tree, next_four_tree), node9);
    BOOST_CHECK_EQUAL(tree.get_root(), calculated_root);
-   BOOST_CHECK_EQUAL(calculate_merkle({first, first + 9}), calculated_root);
+   BOOST_CHECK_EQUAL(calculate_merkle(std::span(first, 9)), calculated_root);
 }
 
 BOOST_AUTO_TEST_CASE(consistency_over_large_range) {
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(consistency_over_large_range) {
       for (size_t j=0; j<i; ++j)
          tree.append(digests[j]);
       BOOST_CHECK_EQUAL(tree.num_digests_appended(), i);
-      BOOST_CHECK_EQUAL(calculate_merkle({digests.begin(), digests.begin() + i}), tree.get_root());
+      BOOST_CHECK_EQUAL(calculate_merkle(std::span(digests.begin(), i)), tree.get_root());
    }
 }
 
@@ -225,7 +225,7 @@ BOOST_AUTO_TEST_CASE(perf_test_one_large) {
    };
 
    {
-      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(), calculate_merkle);
+      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(), calculate_merkle<deque<digest_type>>);
       BOOST_CHECK_EQUAL(incr_root, calc_root);
    }
 
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE(perf_test_many_small) {
    };
 
    {
-      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(), calculate_merkle);
+      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(), calculate_merkle<deque<digest_type>>);
       BOOST_CHECK_EQUAL(incr_root, calc_root);
    }
 

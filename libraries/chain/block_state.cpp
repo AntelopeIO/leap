@@ -88,8 +88,8 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    result.valid_qc = {}; // best qc received from the network inside block extension, empty until first savanna proper IF block
 
    // Calculate Merkle tree root in Savanna way so that it is stored in Leaf Node when building block_state.
-   auto digests = *bsp.action_receipt_digests_savanna;
-   auto action_mroot_svnn = calculate_merkle(std::move(digests));
+   const auto& digests = *bsp.action_receipt_digests_savanna;
+   auto action_mroot_svnn = calculate_merkle(digests);
 
    // build leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {

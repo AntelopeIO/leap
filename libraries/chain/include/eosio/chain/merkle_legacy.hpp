@@ -30,7 +30,7 @@ namespace detail {
       return make_pair(make_legacy_left_digest(l), make_legacy_right_digest(r));
    };
 
-}
+} // namespace detail
 
 /**
  *  Calculates the merkle root of a set of digests, if ids is odd it will duplicate the last id.
