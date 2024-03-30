@@ -7,15 +7,15 @@ namespace eosio::chain {
 namespace detail {
 
    inline digest_type make_legacy_left_digest(const digest_type& val) {
-      digest_type canonical_l = val;
-      canonical_l._hash[0] &= 0xFFFFFFFFFFFFFF7FULL;
-      return canonical_l;
+      digest_type left = val;
+      left._hash[0] &= 0xFFFFFFFFFFFFFF7FULL;
+      return left;
    }
 
    inline digest_type make_legacy_right_digest(const digest_type& val) {
-      digest_type canonical_r = val;
-      canonical_r._hash[0] |= 0x0000000000000080ULL;
-      return canonical_r;
+      digest_type right = val;
+      right._hash[0] |= 0x0000000000000080ULL;
+      return right;
    }
 
    inline bool is_legacy_left_digest(const digest_type& val) {
@@ -34,7 +34,7 @@ namespace detail {
 
 /**
  *  Calculates the merkle root of a set of digests, if ids is odd it will duplicate the last id.
- *  Uses make_canonical_pair which before hashing sets the first bit of the previous hashes
+ *  Uses make_legacy_digest_pair which before hashing sets the first bit of the previous hashes
  *  to 0 or 1 to indicate the side it is on.
  */
 inline digest_type calculate_merkle_legacy( deque<digest_type> ids ) {

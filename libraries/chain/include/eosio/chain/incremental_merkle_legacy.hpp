@@ -47,8 +47,6 @@ inline void move_nodes(Container& to, Container&& from) {
  * change.  This allows proofs based on this merkle to be very stable
  * after some time has past only needing to update or add a single
  * value to maintain validity.
- *
- * @param canonical if true use the merkle make_canonical_pair which sets the left/right bits of the hash
  */
 template<typename DigestType, template<typename ...> class Container = vector, typename ...Args>
 class incremental_merkle_impl {
