@@ -25,10 +25,10 @@ FC_REFLECT( connector, (balance)(weight) );
 
 using namespace eosio_system;
 
-BOOST_AUTO_TEST_SUITE(eosio_system_tests)
-
 bool within_error(int64_t a, int64_t b, int64_t err) { return std::abs(a - b) <= err; };
 bool within_one(int64_t a, int64_t b) { return within_error(a, b, 1); }
+
+BOOST_AUTO_TEST_SUITE(eosio_system_part1_tests)
 
 BOOST_FIXTURE_TEST_CASE( buysell, eosio_system_tester ) try {
    using namespace eosio::chain;
@@ -1239,6 +1239,10 @@ BOOST_FIXTURE_TEST_CASE( proxy_actions_affect_producers, eosio_system_tester, * 
    BOOST_TEST_REQUIRE( stake2votes(core_from_string("180.0003")) == get_producer_info( "defproducer3"_n )["total_votes"].as_double() );
 
 } FC_LOG_AND_RETHROW()
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(eosio_system_part2_tests)
 
 BOOST_FIXTURE_TEST_CASE(multiple_producer_votepay_share, eosio_system_tester, * boost::unit_test::tolerance(1e-10)) try {
 
