@@ -3847,7 +3847,7 @@ namespace eosio {
 
       uint32_t lib = cc.last_irreversible_block_num();
       try {
-         if( blk_num <= lib || cc.block_exists(blk_id) ) {
+         if( blk_num <= lib ) {
             c->strand.post( [sync_master = my_impl->sync_master.get(),
                              &dispatcher = my_impl->dispatcher, c, blk_id, blk_num]() {
                dispatcher.add_peer_block( blk_id, c->connection_id );

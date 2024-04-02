@@ -688,10 +688,6 @@ public:
       });
 
       auto& chain = chain_plug->chain();
-      // de-dupe here... no point in aborting block if we already know the block; avoid exception in create_block_handle_future
-      if (chain.block_exists(id)) {
-         return true; // return true because the block is accepted
-      }
 
       EOS_ASSERT(block->timestamp < (now + fc::seconds(7)), block_from_the_future, "received a block from the future, ignoring it: ${id}", ("id", id));
 

@@ -3650,8 +3650,8 @@ struct controller_impl {
    }
 
    // thread safe, expected to be called from thread other than the main thread
-   template<class BS>
-   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const BS& prev ) {
+   template<typename ForkDB, typename BS>
+   block_handle create_block_state_i( ForkDB& forkdb, const block_id_type& id, const signed_block_ptr& b, const BS& prev ) {
       constexpr bool savanna_mode = std::is_same_v<typename std::decay_t<BS>, block_state>;
       if constexpr (savanna_mode) {
          // Verify claim made by instant_finality_extension in block header extension and
@@ -3679,13 +3679,16 @@ struct controller_impl {
 
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
+
+      forkdb.add(bsp, mark_valid_t::no, ignore_duplicate_t::yes);
+
       return block_handle{bsp};
    }
 
    std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
-      auto f = [&](const auto& forkdb) -> std::future<block_handle> {
+      auto f = [&](auto& forkdb) -> std::future<block_handle> {
          return post_async_task( thread_pool.get_executor(), [b, id, &forkdb, control=this]() {
             // no reason for a block_state if fork_db already knows about block
             auto existing = forkdb.get_block( id );
@@ -3695,7 +3698,7 @@ struct controller_impl {
             EOS_ASSERT( prev, unlinkable_block_exception,
                         "unlinkable block ${id} previous ${p}", ("id", id)("p", b->previous) );
 
-            return control->create_block_state_i( id, b, *prev );
+            return control->create_block_state_i( forkdb, id, b, *prev );
          } );
       };
 
@@ -3719,7 +3722,7 @@ struct controller_impl {
    std::optional<block_handle> create_block_handle( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
       
-      auto f = [&](const auto& forkdb) -> std::optional<block_handle> {
+      auto f = [&](auto& forkdb) -> std::optional<block_handle> {
          // no reason for a block_state if fork_db already knows about block
          auto existing = forkdb.get_block( id );
          EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
@@ -3728,13 +3731,17 @@ struct controller_impl {
          auto prev = forkdb.get_block( b->previous, include_root_t::yes );
          if( !prev ) return {};
 
-         return create_block_state_i( id, b, *prev );
+         return create_block_state_i( forkdb, id, b, *prev );
+      };
+
+      auto unlinkable = [&](const auto&) -> std::optional<block_handle> {
+         return {};
       };
 
       if (!b->is_proper_svnn_block()) {
-         return fork_db.apply_l<std::optional<block_handle>>(f);
+         return fork_db.apply<std::optional<block_handle>>(f, unlinkable);
       }
-      return fork_db.apply_s<std::optional<block_handle>>(f);
+      return fork_db.apply<std::optional<block_handle>>(unlinkable, f);
    }
 
    // expected to be called from application thread as it modifies bsp->valid_qc and if_irreversible_block_id
@@ -3807,7 +3814,7 @@ struct controller_impl {
 
       auto do_accept_block = [&](auto& forkdb) {
          if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.head())>>)
-            forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::no );
+            forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::yes );
 
          emit( accepted_block_header, std::tie(bsp->block, bsp->id()) );
       };
@@ -3846,7 +3853,7 @@ struct controller_impl {
          
          auto do_push = [&](auto& forkdb) {
             if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.head())>>) {
-               forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::no );
+               forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::yes );
             }
 
             if (is_trusted_producer(b->producer)) {
