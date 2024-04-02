@@ -4,6 +4,7 @@
 #include <eosio/chain/block.hpp>
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/action_receipt.hpp>
+#include <eosio/chain/incremental_merkle.hpp>
 
 namespace eosio::chain {
 

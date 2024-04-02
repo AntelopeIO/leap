@@ -9,7 +9,6 @@
 #include <eosio/chain/kv_config.hpp>
 #include <eosio/chain/wasm_config.hpp>
 #include <eosio/chain/producer_schedule.hpp>
-#include <eosio/chain/incremental_merkle.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <chainbase/chainbase.hpp>
 #include "multi_index_includes.hpp"

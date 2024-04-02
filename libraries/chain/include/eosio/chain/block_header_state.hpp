@@ -1,7 +1,6 @@
 #pragma once
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/finality_core.hpp>
-#include <eosio/chain/incremental_merkle.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>

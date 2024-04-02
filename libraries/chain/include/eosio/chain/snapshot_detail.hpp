@@ -1,6 +1,6 @@
 #pragma once
 #include <eosio/chain/block_header.hpp>
-#include <eosio/chain/incremental_merkle.hpp>
+#include <eosio/chain/incremental_merkle_legacy.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
 #include <eosio/chain/block_state_legacy.hpp>
@@ -29,7 +29,7 @@ namespace eosio::chain::snapshot_detail {
       uint32_t                             dpos_proposed_irreversible_blocknum = 0;
       uint32_t                             dpos_irreversible_blocknum = 0;
       legacy::producer_schedule_type       active_schedule;
-      incremental_legacy_merkle_tree       blockroot_merkle;
+      incremental_merkle_tree_legacy       blockroot_merkle;
       flat_map<account_name,uint32_t>      producer_to_last_produced;
       flat_map<account_name,uint32_t>      producer_to_last_implied_irb;
       public_key_type                      block_signing_key;
@@ -57,7 +57,7 @@ namespace eosio::chain::snapshot_detail {
       uint32_t                             dpos_proposed_irreversible_blocknum = 0;
       uint32_t                             dpos_irreversible_blocknum = 0;
       producer_authority_schedule          active_schedule;
-      incremental_legacy_merkle_tree       blockroot_merkle;
+      incremental_merkle_tree_legacy       blockroot_merkle;
       flat_map<account_name,uint32_t>      producer_to_last_produced;
       flat_map<account_name,uint32_t>      producer_to_last_implied_irb;
       block_signing_authority              valid_block_signing_authority;

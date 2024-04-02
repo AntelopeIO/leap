@@ -674,13 +674,13 @@ struct building_block {
                auto [transaction_mroot, action_mroot] = std::visit(
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
-                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(trx_receipts)); });
+                                   post_async_task(ioc, [&]() { return calculate_merkle_legacy(std::move(trx_receipts)); });
                                 auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(*action_receipts.digests_l)); });
+                                   post_async_task(ioc, [&]() { return calculate_merkle_legacy(std::move(*action_receipts.digests_l)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, legacy_merkle(std::move(*action_receipts.digests_l)));
+                                return std::make_pair(trx_checksum, calculate_merkle_legacy(std::move(*action_receipts.digests_l)));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -706,15 +706,14 @@ struct building_block {
             [&](building_block_if& bb) -> assembled_block {
                // compute the action_mroot and transaction_mroot
                auto [transaction_mroot, action_mroot] = std::visit(
-                  overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
-                                auto trx_merkle_fut =
-                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(trx_receipts)); });
-                                auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(*action_receipts.digests_s)); });
-                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
+                  overloaded{[&](digests_t& trx_receipts) {
+                                // calculate_merkle takes 3.2ms for 50,000 digests (legacy version took 11.1ms)
+                                return std::make_pair(calculate_merkle(trx_receipts),
+                                                      calculate_merkle(*action_receipts.digests_s));
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, calculate_merkle(std::move(*action_receipts.digests_s)));
+                                return std::make_pair(trx_checksum,
+                                                      calculate_merkle(*action_receipts.digests_s));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -1308,8 +1307,8 @@ struct controller_impl {
       // IRREVERSIBLE applies (validates) blocks when irreversible, new_valid will be done after apply in log_irreversible
       assert(read_mode == db_read_mode::IRREVERSIBLE || legacy->action_receipt_digests_savanna);
       if (legacy->action_receipt_digests_savanna) {
-         auto digests = *legacy->action_receipt_digests_savanna;
-         auto action_mroot = calculate_merkle(std::move(digests));
+         const auto& digests = *legacy->action_receipt_digests_savanna;
+         auto action_mroot = calculate_merkle(digests);
          // Create the valid structure for producing
          new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
       }
@@ -1522,8 +1521,8 @@ struct controller_impl {
                                  validator_t{}, skip_validate_signee);
                            // legacy_branch is from head, all should be validated
                            assert(bspl->action_receipt_digests_savanna);
-                           auto digests = *bspl->action_receipt_digests_savanna;
-                           auto action_mroot = calculate_merkle(std::move(digests));
+                           const auto& digests = *bspl->action_receipt_digests_savanna;
+                           auto action_mroot = calculate_merkle(digests);
                            // Create the valid structure for producing
                            new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
                            prev = new_bsp;
@@ -4066,9 +4065,9 @@ struct controller_impl {
    // @param if_active true if instant finality is active
    static checksum256_type calc_merkle( deque<digest_type>&& digests, bool if_active ) {
       if (if_active) {
-         return calculate_merkle( std::move(digests) );
+         return calculate_merkle( digests );
       } else {
-         return legacy_merkle( std::move(digests) );
+         return calculate_merkle_legacy( std::move(digests) );
       }
    }
 
