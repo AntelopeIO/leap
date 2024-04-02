@@ -79,15 +79,22 @@ namespace eosio::chain {
       };
 
       struct votes_t {
+      private:
+         friend struct fc::reflector<votes_t>;
+         friend class pending_quorum_certificate;
          hs_bitset               _bitset;
          bls_aggregate_signature _sig;
+         std::vector<std::atomic<bool>> _processed; // avoid locking mutex for _bitset duplicate check
 
-         void resize(size_t num_finalizers) { _bitset.resize(num_finalizers); }
-         size_t count() const { return _bitset.count(); }
+      public:
+         explicit votes_t(size_t num_finalizers)
+            : _bitset(num_finalizers)
+            , _processed(num_finalizers) {}
+
+         // thread safe
+         bool has_voted(size_t index) const;
 
          vote_status add_vote(size_t index, const bls_signature& sig);
-
-         void reset(size_t num_finalizers);
       };
 
       pending_quorum_certificate();
@@ -124,8 +131,8 @@ namespace eosio::chain {
       state_t              _state { state_t::unrestricted };
       uint64_t             _strong_sum {0}; // accumulated sum of strong votes so far
       uint64_t             _weak_sum {0}; // accumulated sum of weak votes so far
-      votes_t              _weak_votes;
-      votes_t              _strong_votes;
+      votes_t              _weak_votes {0};
+      votes_t              _strong_votes {0};
 
       // called by add_vote, already protected by mutex
       vote_status add_strong_vote(size_t index,
