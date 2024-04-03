@@ -4330,8 +4330,13 @@ struct controller_impl {
       block_state_ptr prev;
       auto bitr = legacy_branch.rbegin();
 
-      // search for the first block having instant_finality_extension
-      // and create the Savanna Genesis Block
+      // get_transition_block_finality_data is called by SHiP as a result
+      // of receiving accepted_block signal. That is before
+      // the call to log_irreversible where root() is updated.
+      // Search both root and legacy_branch for the first block having
+      // instant_finality_extension -- the the Savanna Genesis Block.
+      // Then start from the Savanna Genesis Block to create corresponding
+      // Savanna blocks.
       if (legacy_root->header.contains_header_extension(instant_finality_extension::extension_id())) {
          prev = block_state::create_if_genesis_block(*legacy_root);
       } else {
