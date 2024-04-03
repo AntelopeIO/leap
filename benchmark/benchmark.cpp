@@ -15,7 +15,8 @@ std::map<std::string, std::function<void()>> features {
    { "key", key_benchmarking },
    { "hash", hash_benchmarking },
    { "blake2", blake2_benchmarking },
-   { "bls", bls_benchmarking }
+   { "bls", bls_benchmarking },
+   { "merkle", merkle_benchmarking }
 };
 
 // values to control cout format
@@ -32,6 +33,10 @@ std::map<std::string, std::function<void()>> get_features() {
 
 void set_num_runs(uint32_t runs) {
    num_runs = runs;
+}
+
+uint32_t get_num_runs() {
+   return num_runs;
 }
 
 void print_header() {
@@ -63,12 +68,14 @@ bytes to_bytes(const std::string& source) {
    return output;
 };
 
-void benchmarking(const std::string& name, const std::function<void()>& func) {
+void benchmarking(const std::string& name, const std::function<void()>& func,
+                  std::optional<size_t> opt_num_runs /* = {} */) {
    uint64_t total{0};
    uint64_t min{std::numeric_limits<uint64_t>::max()};
    uint64_t max{0};
+   uint32_t runs = opt_num_runs ? *opt_num_runs : num_runs;
 
-   for (auto i = 0U; i < num_runs; ++i) {
+   for (auto i = 0U; i < runs; ++i) {
       auto start_time = std::chrono::high_resolution_clock::now();
       func();
       auto end_time = std::chrono::high_resolution_clock::now();
@@ -79,7 +86,7 @@ void benchmarking(const std::string& name, const std::function<void()>& func) {
       max = std::max(max, duration);
    }
 
-   print_results(name, num_runs, total, min, max);
+   print_results(name, runs, total, min, max);
 }
 
 } // benchmark
