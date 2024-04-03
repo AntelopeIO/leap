@@ -25,9 +25,10 @@ namespace {
 namespace {
    using eosio::chain::span;
    using eosio::chain::webassembly::return_code;
+   using bls12_381::from_mont;
 }
 
-namespace eosio { namespace chain { namespace webassembly {
+namespace eosio::chain::webassembly {
 
    void interface::assert_recover_key( legacy_ptr<const fc::sha256> digest,
                                        legacy_span<const char> sig,
@@ -262,24 +263,24 @@ namespace eosio { namespace chain { namespace webassembly {
    int32_t interface::bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const {
       if(op1.size() != 96 ||  op2.size() != 96 ||  result.size() != 96)
          return return_code::failure;
-      std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op1.data(), 96), true, false);
-      std::optional<bls12_381::g1> b = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op2.data(), 96), true, false);
+      std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op1.data(), 96), {.check_valid = true, .to_mont = true});
+      std::optional<bls12_381::g1> b = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op2.data(), 96), {.check_valid = true, .to_mont = true});
       if(!a || !b)
          return return_code::failure;
       bls12_381::g1 c = a->add(*b);
-      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), false);
+      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), from_mont::yes);
       return return_code::success;
    }
 
    int32_t interface::bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const {
       if(op1.size() != 192 ||  op2.size() != 192 ||  result.size() != 192)
          return return_code::failure;
-      std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op1.data(), 192), true, false);
-      std::optional<bls12_381::g2> b = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op2.data(), 192), true, false);
+      std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op1.data(), 192), {.check_valid = true, .to_mont = true});
+      std::optional<bls12_381::g2> b = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op2.data(), 192), {.check_valid = true, .to_mont = true});
       if(!a || !b)
          return return_code::failure;
       bls12_381::g2 c = a->add(*b);
-      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), false);
+      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), from_mont::yes);
       return return_code::success;
    }
 
@@ -289,12 +290,12 @@ namespace eosio { namespace chain { namespace webassembly {
 
       // Use much efficient scale for the special case of n == 1.
       if (1 == n) {
-         std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data(), 96), true, false);
+         std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data(), 96), {.check_valid = true, .to_mont = true});
          if(!a)
             return return_code::failure;
          std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalars.data(), 32));
          bls12_381::g1 c = a->scale(b);
-         c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), false);
+         c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), from_mont::yes);
          return return_code::success;
       }
 
@@ -304,7 +305,7 @@ namespace eosio { namespace chain { namespace webassembly {
       sv.reserve(n);
       for(uint32_t i = 0; i < n; i++)
       {
-         std::optional<bls12_381::g1> p = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data() + i*96, 96), true, false);
+         std::optional<bls12_381::g1> p = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data() + i*96, 96), {.check_valid = true, .to_mont = true});
          if(!p.has_value())
             return return_code::failure;
          std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
@@ -314,7 +315,7 @@ namespace eosio { namespace chain { namespace webassembly {
             context.trx_context.checktime();
       }
       bls12_381::g1 r = bls12_381::g1::weightedSum(pv, sv, [this](){ context.trx_context.checktime();}); // accessing value is safe
-      r.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), false);
+      r.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), from_mont::yes);
       return return_code::success;
    }
 
@@ -324,12 +325,12 @@ namespace eosio { namespace chain { namespace webassembly {
 
       // Use much efficient scale for the special case of n == 1.
       if (1 == n) {
-         std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data(), 192), true, false);
+         std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data(), 192), {.check_valid = true, .to_mont = true});
          if(!a)
             return return_code::failure;
          std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalars.data(), 32));
          bls12_381::g2 c = a->scale(b);
-         c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), false);
+         c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), from_mont::yes);
          return return_code::success;
       }
 
@@ -339,7 +340,7 @@ namespace eosio { namespace chain { namespace webassembly {
       sv.reserve(n);
       for(uint32_t i = 0; i < n; i++)
       {
-         std::optional<bls12_381::g2> p = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data() + i*192, 192), true, false);
+         std::optional<bls12_381::g2> p = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data() + i*192, 192), {.check_valid = true, .to_mont = true});
          if(!p)
             return return_code::failure;
          std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
@@ -349,7 +350,7 @@ namespace eosio { namespace chain { namespace webassembly {
             context.trx_context.checktime();
       }
       bls12_381::g2 r = bls12_381::g2::weightedSum(pv, sv, [this](){ context.trx_context.checktime();}); // accessing value is safe
-      r.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), false);
+      r.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), from_mont::yes);
       return return_code::success;
    }
 
@@ -360,8 +361,8 @@ namespace eosio { namespace chain { namespace webassembly {
       v.reserve(n);
       for(uint32_t i = 0; i < n; i++)
       {
-         std::optional<bls12_381::g1> p_g1 = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)g1_points.data() + i*96, 96), true, false);
-         std::optional<bls12_381::g2> p_g2 = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)g2_points.data() + i*192, 192), true, false);
+         std::optional<bls12_381::g1> p_g1 = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)g1_points.data() + i*96, 96), {.check_valid = true, .to_mont = true});
+         std::optional<bls12_381::g2> p_g2 = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)g2_points.data() + i*192, 192), {.check_valid = true, .to_mont = true});
          if(!p_g1 || !p_g2)
             return return_code::failure;
          bls12_381::pairing::add_pair(v, *p_g1, *p_g2);
@@ -369,29 +370,29 @@ namespace eosio { namespace chain { namespace webassembly {
             context.trx_context.checktime();
       }
       bls12_381::fp12 r = bls12_381::pairing::calculate(v, [this](){ context.trx_context.checktime();});
-      r.toBytesLE(std::span<uint8_t, 576>((uint8_t*)result.data(), 576), false);
+      r.toBytesLE(std::span<uint8_t, 576>((uint8_t*)result.data(), 576), from_mont::yes);
       return return_code::success;
    }
 
    int32_t interface::bls_g1_map(span<const char> e, span<char> result) const {
       if(e.size() != 48 ||  result.size() != 96)
          return return_code::failure;
-      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)e.data(), 48), true, false);
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)e.data(), 48), {.check_valid = true, .to_mont = true});
       if(!a)
          return return_code::failure;
       bls12_381::g1 c = bls12_381::g1::mapToCurve(*a);
-      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), false);
+      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), from_mont::yes);
       return return_code::success;
    }
 
    int32_t interface::bls_g2_map(span<const char> e, span<char> result) const {
       if(e.size() != 96 ||  result.size() != 192)
          return return_code::failure;
-      std::optional<bls12_381::fp2> a = bls12_381::fp2::fromBytesLE(std::span<const uint8_t, 96>((const uint8_t*)e.data(), 96), true, false);
+      std::optional<bls12_381::fp2> a = bls12_381::fp2::fromBytesLE(std::span<const uint8_t, 96>((const uint8_t*)e.data(), 96), {.check_valid = true, .to_mont = true});
       if(!a)
          return return_code::failure;
       bls12_381::g2 c = bls12_381::g2::mapToCurve(*a);
-      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), false);
+      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), from_mont::yes);
       return return_code::success;
    }
 
@@ -401,19 +402,19 @@ namespace eosio { namespace chain { namespace webassembly {
          return return_code::failure;  
       std::array<uint64_t, 8> k = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)s.data(), 64));
       bls12_381::fp e = bls12_381::fp::modPrime<8>(k);
-      e.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), false);
+      e.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), from_mont::yes);
       return return_code::success;
    }
 
    int32_t interface::bls_fp_mul(span<const char> op1, span<const char> op2, span<char> result) const {
       if(op1.size() != 48 || op2.size() != 48 || result.size() != 48)
          return return_code::failure;
-      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op1.data(), 48), true, false);
-      std::optional<bls12_381::fp> b = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op2.data(), 48), true, false);
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op1.data(), 48), {.check_valid = true, .to_mont = true});
+      std::optional<bls12_381::fp> b = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op2.data(), 48), {.check_valid = true, .to_mont = true});
       if(!a || !b)
          return return_code::failure;
       bls12_381::fp c = a->multiply(*b);
-      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), false);
+      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), from_mont::yes);
       return return_code::success;
    }
 
@@ -421,13 +422,13 @@ namespace eosio { namespace chain { namespace webassembly {
       // exp is scalar.
       if(base.size() != 48 || exp.size() != 64 || result.size() != 48)
          return return_code::failure;
-      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)base.data(), 48), true, false);
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)base.data(), 48), {.check_valid = true, .to_mont = true});
       if(!a)
          return return_code::failure;
       std::array<uint64_t, 8> b = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)exp.data(), 64));
       bls12_381::fp c = a->exp<8>(b);
-      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), false);
+      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), from_mont::yes);
       return return_code::success;
    }
 
-}}} // ns eosio::chain::webassembly
+} // ns eosio::chain::webassembly
