@@ -1411,8 +1411,10 @@ struct controller_impl {
             auto it = v.begin();
 
             for( auto bitr = branch.rbegin(); bitr != branch.rend() && should_process(*bitr); ++bitr ) {
+               dlog("apply irreversible block");
                apply_irreversible_block(forkdb, *bitr);
 
+               dlog("emit irreversible_block");
                emit( irreversible_block, std::tie((*bitr)->block, (*bitr)->id()) );
 
                dlog("waiting on future");
@@ -1438,6 +1440,7 @@ struct controller_impl {
                   fork_db.switch_to(fork_database::in_use_t::savanna);
                   break;
                }
+               dlog("end of irreversible loop");
             }
          } catch( std::exception& ) {
             if( root_id != forkdb.root()->id() ) {
