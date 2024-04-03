@@ -1041,14 +1041,20 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          const auto& [ block, id ] = t;
 
          if (_trx_retry_db) {
+            dlog("trx retry on_irreversible_block");
             _trx_retry_db->on_irreversible_block(block);
+            dlog("trx retry on_irreversible_block done");
          }
 
          if (_trx_finality_status_processing) {
+            dlog("trx finality status on_irreversible_block");
             _trx_finality_status_processing->signal_irreversible_block(block, id);
+            dlog("trx finality status on_irreversible_block done");
          }
 
+         dlog("irreversible_block_channel.publish");
          irreversible_block_channel.publish( priority::low, t );
+         dlog("irreversible_block_channel.publish done");
       } );
       
       applied_transaction_connection = chain->applied_transaction().connect(

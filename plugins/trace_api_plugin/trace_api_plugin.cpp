@@ -386,10 +386,12 @@ struct trace_api_plugin_impl {
 
       irreversible_block_connection.emplace(
          chain.irreversible_block().connect([this](const chain::block_signal_params& t) {
+            dlog("on_irreversible_block");
             const auto& [ block, id ] = t;
             emit_killer([&](){
                extraction->signal_irreversible_block(block->block_num());
             });
+            dlog("on_irreversible_block done");
          }));
 
    }

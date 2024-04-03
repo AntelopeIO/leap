@@ -4421,8 +4421,10 @@ namespace eosio {
             my->on_accepted_block();
          } );
          cc.irreversible_block().connect( [my = shared_from_this()]( const block_signal_params& t ) {
+            dlog("on_irreversible_block");
             const auto& [ block, id ] = t;
             my->on_irreversible_block( id, block->block_num() );
+            dlog("on_irreversible_block done");
          } );
 
          cc.voted_block().connect( [my = shared_from_this()]( const vote_message& vote ) {

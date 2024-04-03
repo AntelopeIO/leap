@@ -1367,8 +1367,10 @@ void producer_plugin_impl::plugin_startup() {
             on_block_header(block->producer, block->block_num(), block->timestamp);
          }));
          _irreversible_block_connection.emplace(chain.irreversible_block().connect([this](const block_signal_params& t) {
+            dlog("on_irreversible_block");
             const auto& [ block, id ] = t;
             on_irreversible_block(block);
+            dlog("on_irreversible_block done");
          }));
 
          _block_start_connection.emplace(chain.block_start().connect([this, &chain](uint32_t bs) {

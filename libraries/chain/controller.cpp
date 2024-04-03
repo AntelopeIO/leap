@@ -1196,8 +1196,10 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::instant_finality>();
 
       irreversible_block.connect([this](const block_signal_params& t) {
+         dlog("on irreversible");
          const auto& [ block, id] = t;
          wasmif.current_lib(block->block_num());
+         dlog("wasmif current_lib done");
       });
 
 

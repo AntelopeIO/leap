@@ -33,8 +33,10 @@ private:
 void test_control_plugin_impl::connect() {
    _irreversible_block_connection.emplace(
          _chain.irreversible_block().connect( [&]( const chain::block_signal_params& t ) {
+            dlog("on_irreversible_block");
             const auto& [ block, id ] = t;
             applied_irreversible_block( id );
+            dlog("on_irreversible_block done");
          } ));
    _accepted_block_connection =
          _chain.accepted_block().connect( [&]( const chain::block_signal_params& t ) {
