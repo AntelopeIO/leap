@@ -15,14 +15,15 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs = AppArgs()
-args=TestHelper.parse_args({"-d","-s","--keep-logs","--dump-error-details","-v","--leave-running","--unshared"},
+args=TestHelper.parse_args({"-p","-d","-s","--keep-logs","--dump-error-details","-v","--leave-running","--unshared"},
                             applicationSpecificArgs=appArgs)
-pnodes=4
+pnodes=args.p if args.p > 4 else 4
 delay=args.d
 topo=args.s
 debug=args.v
 prod_count = 1 # per node prod count
 total_nodes=pnodes+1
+irreversibleNodeId=pnodes
 dumpErrorDetails=args.dump_error_details
 
 Utils.Debug=debug
@@ -41,7 +42,7 @@ try:
     numTrxGenerators=2
     Print("Stand up cluster")
     # For now do not load system contract as it does not support setfinalizer
-    specificExtraNodeosArgs = { 4: "--read-mode irreversible"}
+    specificExtraNodeosArgs = { irreversibleNodeId: "--read-mode irreversible"}
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, prodCount=prod_count, maximumP2pPerHost=total_nodes+numTrxGenerators, topo=topo, delay=delay, loadSystemContract=False,
                       activateIF=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
@@ -66,7 +67,7 @@ try:
     assert cluster.biosNode.waitForHeadToAdvance(blocksToAdvance=13), "Head did not advance 13 blocks to next producer"
     assert cluster.biosNode.waitForLibToAdvance(), "Lib stopped advancing on biosNode"
     assert cluster.getNode(1).waitForLibToAdvance(), "Lib stopped advancing on Node 1"
-    assert cluster.getNode(4).waitForLibToAdvance(), "Lib stopped advancing on Node 4, irreversible node"
+    assert cluster.getNode(irreversibleNodeId).waitForLibToAdvance(), f"Lib stopped advancing on Node {irreversibleNodeId}, irreversible node"
 
     info = cluster.biosNode.getInfo(exitOnError=True)
     assert (info["head_block_num"] - info["last_irreversible_block_num"]) < 9, "Instant finality enabled LIB diff should be small"

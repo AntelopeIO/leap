@@ -140,6 +140,8 @@ set_property(TEST cluster_launcher_if PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME transition_to_if COMMAND tests/transition_to_if.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST transition_to_if PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME transition_to_if_lr COMMAND tests/transition_to_if.py -v -p 20 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST transition_to_if_lr PROPERTY LABELS long_running_tests)
 
 add_test(NAME ship_test COMMAND tests/ship_test.py -v --num-clients 10 --num-requests 5000 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_test PROPERTY LABELS nonparallelizable_tests)
