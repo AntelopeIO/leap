@@ -4313,8 +4313,8 @@ struct controller_impl {
       }
    }
 
-   // This is only used during Savanna transition, which is a one-time occurrance
-   // and the number of Transition block is small.
+   // This is only used during Savanna transition, which is a one-time occurrence,
+   // and it is only used by SHiP..
    // It is OK to calculate from Savanna Genesis block for each Transition block.
    std::optional<finality_data_t> get_transition_block_finality_data(const block_state_legacy_ptr& head) const {
       fork_database_legacy_t::branch_t legacy_branch;
@@ -4331,7 +4331,7 @@ struct controller_impl {
       // of receiving accepted_block signal. That is before
       // the call to log_irreversible where root() is updated.
       // Search both root and legacy_branch for the first block having
-      // instant_finality_extension -- the the Savanna Genesis Block.
+      // instant_finality_extension -- the Savanna Genesis Block.
       // Then start from the Savanna Genesis Block to create corresponding
       // Savanna blocks.
       if (legacy_root->header.contains_header_extension(instant_finality_extension::extension_id())) {
