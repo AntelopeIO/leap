@@ -103,7 +103,13 @@ struct locked_decompress_stream {
    locked_decompress_stream(locked_decompress_stream&&) = default;
 
    explicit locked_decompress_stream(std::unique_lock<std::mutex> l)
-   : lock(std::move(l)) {};
+   : lock(std::move(l)) {
+      dlog("locked");
+   };
+
+   ~locked_decompress_stream() {
+      dlog("unlocking");
+   }
 
    template <typename StateHistoryLog>
    void init(StateHistoryLog&& log, fc::cfile& stream, uint64_t compressed_size) {
@@ -388,6 +394,7 @@ class state_history_log {
    }
 
    locked_decompress_stream create_locked_decompress_stream() {
+      dlog("locking");
       return locked_decompress_stream{ std::unique_lock<std::mutex>( _mx ) };
    }
 
@@ -412,7 +419,9 @@ class state_history_log {
 
    template <typename F>
    void pack_and_write_entry(state_history_log_header header, const chain::block_id_type& prev_id, F&& pack_to) {
+      dlog("locking"); {
       std::lock_guard g(_mx);
+      dlog("locked");
       write_entry(header, prev_id, [&, pack_to = std::forward<F>(pack_to)](auto& stream) {
          size_t payload_pos = stream.tellp();
 
@@ -454,7 +463,9 @@ class state_history_log {
          // make sure we reset the file position to end_payload_pos to preserve API behavior
          stream.seek(end_payload_pos);
       });
-   }
+    }
+      dlog("unlocked");
+  }
 
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
       std::lock_guard g(_mx);

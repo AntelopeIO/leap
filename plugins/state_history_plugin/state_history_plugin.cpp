@@ -208,9 +208,11 @@ public:
       update_current();
 
       try {
+         dlog("writing to ship logs");
          store_traces(block, id);
          store_chain_state(id, block->previous, block->block_num());
          store_finality_data(id, block->previous);
+         dlog("done writing to ship logs");
       } catch (const fc::exception& e) {
          fc_elog(_log, "fc::exception: ${details}", ("details", e.to_detail_string()));
          // Both app().quit() and exception throwing are required. Without app().quit(),
