@@ -1291,7 +1291,7 @@ struct controller_impl {
                fc::scoped_exit<std::function<void()>> e([&]{fork_db.switch_to(fork_database::in_use_t::both);});
                apply_block(br, legacy, controller::block_status::complete, trx_meta_cache_lookup{});
                // irreversible apply was just done, calculate new_valid here instead of in transition_to_savanna()
-               assert(legacy->action_receipt_digests_savanna);
+               assert(legacy->action_mroot_savanna);
                block_state_ptr prev = forkdb.get_block(legacy->previous(), include_root_t::yes);
                assert(prev);
                transition_add_to_savanna_fork_db(forkdb, legacy, bsp, prev);
@@ -1305,12 +1305,10 @@ struct controller_impl {
                                           const block_state_ptr& prev) {
       // legacy_branch is from head, all will be validated unless irreversible_mode(),
       // IRREVERSIBLE applies (validates) blocks when irreversible, new_valid will be done after apply in log_irreversible
-      assert(read_mode == db_read_mode::IRREVERSIBLE || legacy->action_receipt_digests_savanna);
-      if (legacy->action_receipt_digests_savanna) {
-         const auto& digests = *legacy->action_receipt_digests_savanna;
-         auto action_mroot = calculate_merkle(digests);
+      assert(read_mode == db_read_mode::IRREVERSIBLE || legacy->action_mroot_savanna);
+      if (legacy->action_mroot_savanna) {
          // Create the valid structure for producing
-         new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
+         new_bsp->valid = prev->new_valid(*new_bsp, *legacy->action_mroot_savanna, new_bsp->strong_digest);
       }
       forkdb.add(new_bsp, legacy->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
    }
@@ -1520,11 +1518,9 @@ struct controller_impl {
                                  protocol_features.get_protocol_feature_set(),
                                  validator_t{}, skip_validate_signee);
                            // legacy_branch is from head, all should be validated
-                           assert(bspl->action_receipt_digests_savanna);
-                           const auto& digests = *bspl->action_receipt_digests_savanna;
-                           auto action_mroot = calculate_merkle(digests);
+                           assert(bspl->action_mroot_savanna);
                            // Create the valid structure for producing
-                           new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
+                           new_bsp->valid = prev->new_valid(*new_bsp, *bspl->action_mroot_savanna, new_bsp->strong_digest);
                            prev = new_bsp;
                         }
                      }
@@ -3434,7 +3430,8 @@ struct controller_impl {
                auto& ab = std::get<assembled_block>(pending->_block_stage);
                ab.apply_legacy<void>([&](assembled_block::assembled_block_legacy& abl) {
                   assert(abl.action_receipt_digests_savanna);
-                  bsp->action_receipt_digests_savanna = std::move(*abl.action_receipt_digests_savanna);
+                  const auto& digests = *abl.action_receipt_digests_savanna;
+                  bsp->action_mroot_savanna = calculate_merkle(digests);
                });
             }
             auto& ab = std::get<assembled_block>(pending->_block_stage);
@@ -4359,9 +4356,8 @@ struct controller_impl {
                protocol_features.get_protocol_feature_set(),
                validator_t{}, skip_validate_signee);
 
-         assert((*bitr)->action_receipt_digests_savanna);
-         auto digests = *((*bitr)->action_receipt_digests_savanna);
-         new_bsp->action_mroot = calculate_merkle(std::move(digests)); // required by finality_data
+         assert((*bitr)->action_mroot_savanna);
+         new_bsp->action_mroot = *((*bitr)->action_mroot_savanna); // required by finality_data
 
          prev = new_bsp;
       }
