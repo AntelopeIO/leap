@@ -4376,6 +4376,7 @@ namespace eosio {
       set_producer_accounts(producer_plug->producer_accounts());
 
       thread_pool.start( thread_pool_size, []( const fc::exception& e ) {
+         elog("Exception in net thread, exiting: ${e}", ("e", e.to_detail_string()));
          app().quit();
       } );
 
