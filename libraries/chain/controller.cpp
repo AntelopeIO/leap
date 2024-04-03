@@ -4049,8 +4049,8 @@ struct controller_impl {
             head_changed = false;
          }
 
-         if( head_changed )
-            log_irreversible();
+         // irreversible can change even if block not applied to head, integrated qc can move LIB
+         log_irreversible();
       };
 
       fork_db.apply<void>(do_maybe_switch_forks);
