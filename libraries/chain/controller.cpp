@@ -3794,15 +3794,20 @@ struct controller_impl {
       }
    }
 
+   template <typename BSP>
+   void integrate_qc(const BSP& bsp) {
+      if constexpr (std::is_same_v<BSP, block_state_ptr>) {
+         integrate_received_qc_to_block(bsp);
+         consider_voting(bsp);
+      }
+   }
+
    template <class BSP>
    void accept_block(const BSP& bsp) {
       assert(bsp && bsp->block);
 
       // Save the received QC as soon as possible, no matter whether the block itself is valid or not
-      if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-         integrate_received_qc_to_block(bsp);
-         consider_voting(bsp);
-      }
+      integrate_qc(bsp);
 
       auto do_accept_block = [&](auto& forkdb) {
          if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.head())>>)
@@ -3823,10 +3828,7 @@ struct controller_impl {
       assert(bsp && bsp->block);
 
       // Save the received QC as soon as possible, no matter whether the block itself is valid or not
-      if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-         integrate_received_qc_to_block(bsp);
-         consider_voting(bsp);
-      }
+      integrate_qc(bsp);
 
       controller::block_status s = controller::block_status::complete;
       EOS_ASSERT(!pending, block_validate_exception, "it is not valid to push a block when there is a pending block");
@@ -3989,9 +3991,13 @@ struct controller_impl {
             for( auto ritr = branches.first.rbegin(); ritr != branches.first.rend(); ++ritr ) {
                auto except = std::exception_ptr{};
                try {
+                  bool valid = (*ritr)->is_valid();
+                  if (!valid) // has not been validated (applied) before, only in forkdb, integrate and possibly vote now
+                     integrate_qc(*ritr);
+
                   br = controller::block_report{};
-                  apply_block( br, *ritr, (*ritr)->is_valid() ? controller::block_status::validated
-                               : controller::block_status::complete, trx_lookup );
+                  apply_block( br, *ritr, valid ? controller::block_status::validated
+                                                : controller::block_status::complete, trx_lookup );
                } catch ( const std::bad_alloc& ) {
                   throw;
                } catch ( const boost::interprocess::bad_alloc& ) {
