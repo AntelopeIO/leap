@@ -4300,16 +4300,72 @@ struct controller_impl {
       }
    }
 
-   std::optional<finality_data_t> head_finality_data() const {
-      if (fork_db.version_in_use() == fork_database::in_use_t::both) {
-         // During transition to Savanna, need to fetch the head from fork_db which
-         // contains Savanna information for finality_data
-         return fork_db.apply_s<std::optional<finality_data_t>>([&](const auto& forkdb) {
-            return forkdb.head()->get_finality_data(); });
+   // This is only used during Savanna transition, which is a one-time occurrance
+   // and the number of Transition block is small.
+   // It is OK to calculate from Savanna Genesis block for each Transition block.
+   std::optional<finality_data_t> get_transition_block_finality_data(const block_state_legacy_ptr& head) const {
+      fork_database_legacy_t::branch_t legacy_branch;
+      block_state_legacy_ptr legacy_root;
+      fork_db.apply_l<void>([&](const auto& forkdb) {
+         legacy_root = forkdb.root();
+         legacy_branch = forkdb.fetch_branch(head->id());
+      });
+
+      block_state_ptr prev;
+      auto bitr = legacy_branch.rbegin();
+
+      // search for the first block having instant_finality_extension
+      // and create the Savanna Genesis Block
+      if (legacy_root->header.contains_header_extension(instant_finality_extension::extension_id())) {
+         prev = block_state::create_if_genesis_block(*legacy_root);
       } else {
-         // Returns finality_data from chain_head if in Savanna
-         return apply_s<std::optional<finality_data_t>>(chain_head, [](const block_state_ptr& head) { return head->get_finality_data(); });
+         for (; bitr != legacy_branch.rend(); ++bitr) {
+            if ((*bitr)->header.contains_header_extension(instant_finality_extension::extension_id())) {
+               prev = block_state::create_if_genesis_block(*(*bitr));
+               ++bitr;
+               break;
+            }
+         }
       }
+
+      assert(prev);
+      const bool skip_validate_signee = true; // validated already
+
+      for (; bitr != legacy_branch.rend(); ++bitr) {
+         auto new_bsp = std::make_shared<block_state>(
+               *prev,
+               (*bitr)->block,
+               protocol_features.get_protocol_feature_set(),
+               validator_t{}, skip_validate_signee);
+
+         assert((*bitr)->action_receipt_digests_savanna);
+         auto digests = *((*bitr)->action_receipt_digests_savanna);
+         new_bsp->action_mroot = calculate_merkle(std::move(digests)); // required by finality_data
+
+         prev = new_bsp;
+      }
+
+      assert(prev);
+      return prev->get_finality_data();
+   }
+
+   std::optional<finality_data_t> head_finality_data() const {
+      return apply<std::optional<finality_data_t>>(chain_head, overloaded{
+         [&](const block_state_legacy_ptr& head) -> std::optional<finality_data_t> {
+            // When in Legacy, if it is during transition to Savana, we need to
+            // build finality_data for the corresponding Savanna block
+            if (head->header.contains_header_extension(instant_finality_extension::extension_id())) {
+               // during transition
+               return get_transition_block_finality_data(head);
+            } else {
+               // pre transition
+               return {};
+            }
+         },
+         [](const block_state_ptr& head) {
+            // Returns finality_data from chain_head because we are in Savanna
+            return head->get_finality_data();
+         }});
    }
 
    uint32_t earliest_available_block_num() const {
