@@ -6,9 +6,7 @@
 namespace fc::crypto::blslib {
 
    bls12_381::g2 bls_signature::to_jacobian_montgomery_le(const std::array<uint8_t, 192>& affine_non_montgomery_le) {
-      constexpr bool check = true;  // verify
-      constexpr bool raw   = false; // to montgomery
-      auto           g2    = bls12_381::g2::fromAffineBytesLE(affine_non_montgomery_le, check, raw);
+      auto g2 = bls12_381::g2::fromAffineBytesLE(affine_non_montgomery_le, {.check_valid = true, .to_mont = true});
       FC_ASSERT(g2, "Invalid bls_signature");
       return *g2;
    }
@@ -48,8 +46,7 @@ namespace fc::crypto::blslib {
    }
 
    std::string bls_aggregate_signature::to_string() const {
-      constexpr bool raw = false;
-      std::array<uint8_t, 192> affine_non_montgomery_le = _jacobian_montgomery_le.toAffineBytesLE(raw);
+      std::array<uint8_t, 192> affine_non_montgomery_le = _jacobian_montgomery_le.toAffineBytesLE(bls12_381::from_mont::yes);
       std::string data_str = fc::crypto::blslib::serialize_base64url<std::array<uint8_t, 192>>(affine_non_montgomery_le);
       return config::bls_signature_prefix + data_str;
    }
