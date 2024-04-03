@@ -1415,12 +1415,17 @@ struct controller_impl {
 
                emit( irreversible_block, std::tie((*bitr)->block, (*bitr)->id()) );
 
+               dlog("waiting on future");
+               it->wait();
+               dlog("done waiting on future");
                // blog.append could fail due to failures like running out of space.
                // Do it before commit so that in case it throws, DB can be rolled back.
                blog.append( (*bitr)->block, (*bitr)->id(), it->get() );
+               dlog("done writing to block log");
                ++it;
 
                db.commit( (*bitr)->block_num() );
+               dlog("done commiting to db");
                root_id = (*bitr)->id();
 
                if constexpr (std::is_same_v<block_state_legacy_ptr, std::decay_t<decltype(*bitr)>>) {
