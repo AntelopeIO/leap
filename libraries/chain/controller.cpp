@@ -3690,10 +3690,6 @@ struct controller_impl {
 
       auto f = [&](auto& forkdb) -> std::future<block_handle> {
          return post_async_task( thread_pool.get_executor(), [b, id, &forkdb, control=this]() {
-            // no reason for a block_state if fork_db already knows about block
-            auto existing = forkdb.get_block( id );
-            EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
-
             auto prev = forkdb.get_block( b->previous, include_root_t::yes );
             EOS_ASSERT( prev, unlinkable_block_exception,
                         "unlinkable block ${id} previous ${p}", ("id", id)("p", b->previous) );
@@ -3723,10 +3719,6 @@ struct controller_impl {
       EOS_ASSERT( b, block_validate_exception, "null block" );
       
       auto f = [&](auto& forkdb) -> std::optional<block_handle> {
-         // no reason for a block_state if fork_db already knows about block
-         auto existing = forkdb.get_block( id );
-         EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
-
          // previous not found could mean that previous block not applied yet
          auto prev = forkdb.get_block( b->previous, include_root_t::yes );
          if( !prev ) return {};
