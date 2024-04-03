@@ -674,13 +674,13 @@ struct building_block {
                auto [transaction_mroot, action_mroot] = std::visit(
                   overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
                                 auto trx_merkle_fut =
-                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(trx_receipts)); });
+                                   post_async_task(ioc, [&]() { return calculate_merkle_legacy(std::move(trx_receipts)); });
                                 auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return legacy_merkle(std::move(*action_receipts.digests_l)); });
+                                   post_async_task(ioc, [&]() { return calculate_merkle_legacy(std::move(*action_receipts.digests_l)); });
                                 return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, legacy_merkle(std::move(*action_receipts.digests_l)));
+                                return std::make_pair(trx_checksum, calculate_merkle_legacy(std::move(*action_receipts.digests_l)));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -706,15 +706,14 @@ struct building_block {
             [&](building_block_if& bb) -> assembled_block {
                // compute the action_mroot and transaction_mroot
                auto [transaction_mroot, action_mroot] = std::visit(
-                  overloaded{[&](digests_t& trx_receipts) { // calculate the two merkle roots in separate threads
-                                auto trx_merkle_fut =
-                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(trx_receipts)); });
-                                auto action_merkle_fut =
-                                   post_async_task(ioc, [&]() { return calculate_merkle(std::move(*action_receipts.digests_s)); });
-                                return std::make_pair(trx_merkle_fut.get(), action_merkle_fut.get());
+                  overloaded{[&](digests_t& trx_receipts) {
+                                // calculate_merkle takes 3.2ms for 50,000 digests (legacy version took 11.1ms)
+                                return std::make_pair(calculate_merkle(trx_receipts),
+                                                      calculate_merkle(*action_receipts.digests_s));
                              },
                              [&](const checksum256_type& trx_checksum) {
-                                return std::make_pair(trx_checksum, calculate_merkle(std::move(*action_receipts.digests_s)));
+                                return std::make_pair(trx_checksum,
+                                                      calculate_merkle(*action_receipts.digests_s));
                              }},
                   trx_mroot_or_receipt_digests());
 
@@ -763,12 +762,12 @@ struct building_block {
                   // Create the valid structure for validating_bsp if it does not
                   // have one.
                   if (!validating_bsp->valid) {
-                     validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot);
+                     validating_bsp->valid = bb.parent.new_valid(bhs, action_mroot, validating_bsp->strong_digest);
                      validating_bsp->action_mroot = action_mroot; // caching for constructing finality_data. Only needed when block is commited.
                   }
                } else {
                   // Create the valid structure for producing
-                  valid = bb.parent.new_valid(bhs, action_mroot);
+                  valid = bb.parent.new_valid(bhs, action_mroot, bhs.compute_finality_digest());
                }
 
                assembled_block::assembled_block_if ab{
@@ -1308,10 +1307,10 @@ struct controller_impl {
       // IRREVERSIBLE applies (validates) blocks when irreversible, new_valid will be done after apply in log_irreversible
       assert(read_mode == db_read_mode::IRREVERSIBLE || legacy->action_receipt_digests_savanna);
       if (legacy->action_receipt_digests_savanna) {
-         auto digests = *legacy->action_receipt_digests_savanna;
-         auto action_mroot = calculate_merkle(std::move(digests));
+         const auto& digests = *legacy->action_receipt_digests_savanna;
+         auto action_mroot = calculate_merkle(digests);
          // Create the valid structure for producing
-         new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
+         new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
       }
       forkdb.add(new_bsp, legacy->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
    }
@@ -1522,10 +1521,10 @@ struct controller_impl {
                                  validator_t{}, skip_validate_signee);
                            // legacy_branch is from head, all should be validated
                            assert(bspl->action_receipt_digests_savanna);
-                           auto digests = *bspl->action_receipt_digests_savanna;
-                           auto action_mroot = calculate_merkle(std::move(digests));
+                           const auto& digests = *bspl->action_receipt_digests_savanna;
+                           auto action_mroot = calculate_merkle(digests);
                            // Create the valid structure for producing
-                           new_bsp->valid = prev->new_valid(*new_bsp, action_mroot);
+                           new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
                            prev = new_bsp;
                         }
                      }
@@ -3493,6 +3492,23 @@ struct controller_impl {
       return fork_db.apply<vote_status>(aggregate_vote_legacy, aggregate_vote);
    }
 
+   bool node_has_voted_if_finalizer(const block_id_type& id) const {
+      if (my_finalizers.finalizers.empty())
+         return true;
+
+      std::optional<bool> voted = fork_db.apply_s<std::optional<bool>>([&](auto& forkdb) -> std::optional<bool> {
+         auto bsp = forkdb.get_block(id);
+         if (bsp) {
+            return std::ranges::all_of(my_finalizers.finalizers, [&bsp](auto& f) {
+               return bsp->has_voted(f.first);
+            });
+         }
+         return false;
+      });
+      // empty optional means legacy forkdb
+      return !voted || *voted;
+   }
+
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
       if (!bsp->block->is_proper_svnn_block())
          return;
@@ -4049,9 +4065,9 @@ struct controller_impl {
    // @param if_active true if instant finality is active
    static checksum256_type calc_merkle( deque<digest_type>&& digests, bool if_active ) {
       if (if_active) {
-         return calculate_merkle( std::move(digests) );
+         return calculate_merkle( digests );
       } else {
-         return legacy_merkle( std::move(digests) );
+         return calculate_merkle_legacy( std::move(digests) );
       }
    }
 
@@ -5142,6 +5158,10 @@ void controller::set_proposed_finalizers( const finalizer_policy& fin_pol ) {
 vote_status controller::process_vote_message( const vote_message& vote ) {
    return my->process_vote_message( vote );
 };
+
+bool controller::node_has_voted_if_finalizer(const block_id_type& id) const {
+   return my->node_has_voted_if_finalizer(id);
+}
 
 const producer_authority_schedule& controller::active_producers()const {
    return my->active_producers();

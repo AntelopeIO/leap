@@ -326,6 +326,8 @@ namespace eosio::chain {
          void set_proposed_finalizers( const finalizer_policy& fin_set );
          // called from net threads
          vote_status process_vote_message( const vote_message& msg );
+         // thread safe, for testing
+         bool node_has_voted_if_finalizer(const block_id_type& id) const;
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;

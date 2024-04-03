@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE( irrblock ) try {
 
 struct fork_tracker {
    vector<signed_block_ptr>           blocks;
-   incremental_legacy_merkle_tree     block_merkle;
+   incremental_merkle_tree_legacy     block_merkle;
 };
 
 BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {

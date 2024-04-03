@@ -485,7 +485,20 @@ namespace eosio { namespace testing {
       control->commit_block();
       last_produced_block[producer_name] = control->head_block_id();
 
+      _wait_for_vote_if_needed(*control);
+
       return control->head_block();
+   }
+
+   void base_tester::_wait_for_vote_if_needed(controller& c) {
+      if (c.head_block()->is_proper_svnn_block()) {
+         // wait for this node's vote to be processed
+         size_t retrys = 200;
+         while (!c.node_has_voted_if_finalizer(c.head_block_id()) && --retrys) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+         }
+         FC_ASSERT(retrys, "Never saw this nodes vote processed before timeout");
+      }
    }
 
    signed_block_ptr base_tester::produce_block( std::vector<transaction_trace_ptr>& traces ) {
@@ -1034,8 +1047,11 @@ namespace eosio { namespace testing {
       return asset(result, asset_symbol);
    }
 
-
    vector<char> base_tester::get_row_by_account( name code, name scope, name table, const account_name& act ) const {
+      return get_row_by_id( code, scope, table, act.to_uint64_t() );
+   }
+
+   vector<char> base_tester::get_row_by_id( name code, name scope, name table, uint64_t id ) const {
       vector<char> data;
       const auto& db = control->db();
       const auto* t_id = db.find<chain::table_id_object, chain::by_code_scope_table>( boost::make_tuple( code, scope, table ) );
@@ -1046,8 +1062,8 @@ namespace eosio { namespace testing {
 
       const auto& idx = db.get_index<chain::key_value_index, chain::by_scope_primary>();
 
-      auto itr = idx.lower_bound( boost::make_tuple( t_id->id, act.to_uint64_t() ) );
-      if ( itr == idx.end() || itr->t_id != t_id->id || act.to_uint64_t() != itr->primary_key ) {
+      auto itr = idx.lower_bound( boost::make_tuple( t_id->id, id ) );
+      if ( itr == idx.end() || itr->t_id != t_id->id || id != itr->primary_key ) {
          return data;
       }
 
@@ -1055,7 +1071,6 @@ namespace eosio { namespace testing {
       memcpy( data.data(), itr->value.data(), data.size() );
       return data;
    }
-
 
    vector<uint8_t> base_tester::to_uint8_vector(const string& s) {
       vector<uint8_t> v(s.size());

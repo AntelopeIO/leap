@@ -4,6 +4,7 @@
 #include <eosio/chain/block.hpp>
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/action_receipt.hpp>
+#include <eosio/chain/incremental_merkle.hpp>
 
 namespace eosio::chain {
 
@@ -79,7 +80,7 @@ private:
    bool                       pub_keys_recovered = false;
    deque<transaction_metadata_ptr> cached_trxs;
    digest_type                action_mroot; // For finality_data sent to SHiP
-   std::optional<digest_type> base_digest;  // For finality_data sent to SHiP
+   std::optional<digest_type> base_digest;  // For finality_data sent to SHiP, computed on demand in get_finality_data()
 
    // ------ private methods -----------------------------------------------------------
    bool                                is_valid() const { return validated; }
@@ -109,8 +110,7 @@ public:
    uint32_t               final_on_strong_qc_block_num() const { return core.final_on_strong_qc_block_num; }
 
    // build next valid structure from current one with input of next
-   // header state and action_mroot
-   valid_t new_valid(const block_header_state& bhs, const digest_type& action_mroot) const;
+   valid_t new_valid(const block_header_state& bhs, const digest_type& action_mroot, const digest_type& strong_digest) const;
 
    // Returns the root digest of the finality tree associated with the target_block_num
    // [core.last_final_block_num, block_num]
@@ -124,6 +124,7 @@ public:
 
    // vote_status
    vote_status aggregate_vote(const vote_message& vote); // aggregate vote into pending_qc
+   bool has_voted(const bls_public_key& key) const;
    void verify_qc(const valid_quorum_certificate& qc) const; // verify given qc is valid with respect block_state
 
    using bhs_t  = block_header_state;
