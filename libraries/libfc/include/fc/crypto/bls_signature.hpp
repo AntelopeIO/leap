@@ -106,9 +106,10 @@ namespace fc::crypto::blslib {
 
       template<typename T>
       friend T& operator<<(T& ds, const bls_aggregate_signature& sig) {
-         constexpr bool raw = false;
-         std::array<uint8_t, 192> affine_non_montgomery_le = sig._jacobian_montgomery_le.toAffineBytesLE(raw);
-         // Serialization as variable length array when it is stored as a fixed length array. This makes for easier deserialization by external tools
+         std::array<uint8_t, 192> affine_non_montgomery_le =
+            sig._jacobian_montgomery_le.toAffineBytesLE(bls12_381::from_mont::yes);
+         // Serialization as variable length array when it is stored as a fixed length array.
+         // This makes for easier deserialization by external tools
          fc::raw::pack(ds, fc::unsigned_int(static_cast<uint32_t>(sizeof(affine_non_montgomery_le))));
          ds.write(reinterpret_cast<const char*>(affine_non_montgomery_le.data()), sizeof(affine_non_montgomery_le));
          return ds;
@@ -117,7 +118,8 @@ namespace fc::crypto::blslib {
       // Could use FC_REFLECT, but to make it obvious serialization matches bls_signature implement via operator
       template<typename T>
       friend T& operator>>(T& ds, bls_aggregate_signature& sig) {
-         // Serialization as variable length array when it is stored as a fixed length array. This makes for easier deserialization by external tools
+         // Serialization as variable length array when it is stored as a fixed length array.
+         // This makes for easier deserialization by external tools
          fc::unsigned_int size;
          fc::raw::unpack( ds, size );
          std::array<uint8_t, 192> affine_non_montgomery_le;
