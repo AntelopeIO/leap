@@ -3696,7 +3696,9 @@ struct controller_impl {
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
 
-      forkdb.add(bsp, mark_valid_t::no, ignore_duplicate_t::yes);
+      if (conf.terminate_at_block > 0 && bsp->block_num() <= conf.terminate_at_block) {
+         forkdb.add(bsp, mark_valid_t::no, ignore_duplicate_t::yes);
+      }
 
       return block_handle{bsp};
    }
