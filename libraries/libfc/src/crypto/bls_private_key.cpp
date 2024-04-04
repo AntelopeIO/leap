@@ -7,25 +7,24 @@
 
 namespace fc::crypto::blslib {
 
+   using from_mont = bls12_381::from_mont;
+
    bls_public_key bls_private_key::get_public_key() const
    {
       bls12_381::g1 pk = bls12_381::public_key(_sk);
-      constexpr bool raw = false;
-      return bls_public_key(pk.toAffineBytesLE(raw));
+      return bls_public_key(pk.toAffineBytesLE(from_mont::yes));
    }
 
    bls_signature bls_private_key::proof_of_possession() const
    {
       bls12_381::g2 proof = bls12_381::pop_prove(_sk);
-      constexpr bool raw = false;
-      return bls_signature(proof.toAffineBytesLE(raw));
+      return bls_signature(proof.toAffineBytesLE(from_mont::yes));
    }
 
    bls_signature bls_private_key::sign( std::span<const uint8_t> message ) const
    {
       bls12_381::g2 sig = bls12_381::sign(_sk, message);
-      constexpr bool raw = false;
-      return bls_signature(sig.toAffineBytesLE(raw));
+      return bls_signature(sig.toAffineBytesLE(from_mont::yes));
    }
 
    bls_private_key bls_private_key::generate() {

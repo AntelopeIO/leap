@@ -2,7 +2,6 @@
 #include <eosio/chain/incremental_merkle_legacy.hpp>
 #include <boost/test/unit_test.hpp>
 #include <fc/crypto/sha256.hpp>
-#include <chrono>
 
 using namespace eosio::chain;
 using eosio::chain::detail::make_legacy_digest_pair;
@@ -178,114 +177,6 @@ BOOST_AUTO_TEST_CASE(consistency_over_large_range) {
          tree.append(digests[j]);
       BOOST_CHECK_EQUAL(tree.num_digests_appended(), i);
       BOOST_CHECK_EQUAL(calculate_merkle(std::span(digests.begin(), i)), tree.get_root());
-   }
-}
-
-class stopwatch {
-public:
-   stopwatch(std::string msg) : _msg(std::move(msg)) {  _start = clock::now(); }
-
-   ~stopwatch() { std::cout << _msg << get_time_us()/1000000 << "s\n"; }
-
-   double get_time_us() const {
-      using duration_t = std::chrono::duration<double, std::micro>;
-      return std::chrono::duration_cast<duration_t>(clock::now() - _start).count();
-   }
-
-   using clock = std::chrono::high_resolution_clock;
-   using point = std::chrono::time_point<clock>;
-
-   std::string _msg;
-   point       _start;
-};
-
-BOOST_AUTO_TEST_CASE(perf_test_one_large) {
-   auto perf_test = [](const std::string& type, auto&& incr_tree, auto&& calc_fn) {
-      using namespace std::string_literals;
-      constexpr size_t num_digests = 1000ull * 1000ull; // don't use exact powers of 2 as it is a special case
-
-      const std::vector<digest_type> digests = create_test_digests(num_digests);
-      const deque<digest_type> deq { digests.begin(), digests.end() };
-
-      auto msg_header = "1 sequence of "s + std::to_string(num_digests) + " digests: time for "s;
-
-      auto incr_root = [&]() {
-         stopwatch s(msg_header + type + " incremental_merkle: ");
-         for (const auto& d : digests)
-            incr_tree.append(d);
-         return incr_tree.get_root();
-      }();
-
-      auto calc_root = [&]() {
-         stopwatch s(msg_header + type + " calculate_merkle:   ");
-         return calc_fn(deq);
-      }();
-
-      return std::make_pair(incr_root, calc_root);
-   };
-
-   {
-      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(),
-                                              [](const deque<digest_type>& d) { return calculate_merkle(d); }); // gcc10 needs a lambda here
-      BOOST_CHECK_EQUAL(incr_root, calc_root);
-   }
-
-   {
-      auto [incr_root, calc_root] = perf_test("legacy ", incremental_merkle_tree_legacy(), calculate_merkle_legacy);
-      BOOST_CHECK_EQUAL(incr_root, calc_root);
-   }
-}
-
-
-BOOST_AUTO_TEST_CASE(perf_test_many_small) {
-
-   auto perf_test = [](const std::string& type, const auto& incr_tree, auto&& calc_fn) {
-      using namespace std::string_literals;
-      constexpr size_t num_digests = 10000; // don't use exact powers of 2 as it is a special case
-      constexpr size_t num_runs    = 100;
-
-      const std::vector<digest_type> digests = create_test_digests(num_digests);
-      const deque<digest_type> deq { digests.begin(), digests.end() };
-
-      deque<digest_type> results(num_runs);
-
-      auto incr = [&]() {
-         auto work_tree = incr_tree;
-         for (const auto& d : digests)
-            work_tree.append(d);
-         return work_tree.get_root();
-      };
-
-      auto calc = [&]() { return calc_fn(deq); };
-
-      auto msg_header = std::to_string(num_runs) + " runs for a sequence of "s + std::to_string(num_digests) + " digests: time for "s;
-
-      auto incr_root = [&]() {
-         stopwatch s(msg_header + type + " incremental_merkle: ");
-         for (auto& r : results)
-            r = incr();
-         return calc_fn(results);
-      }();
-
-      auto calc_root = [&]() {
-         stopwatch s(msg_header + type + " calculate_merkle:   ");
-         for (auto& r : results)
-            r = calc();
-         return calc_fn(results);
-      }();
-
-      return std::make_pair(incr_root, calc_root);
-   };
-
-   {
-      auto [incr_root, calc_root] = perf_test("savanna", incremental_merkle_tree(),
-                                              [](const deque<digest_type>& d) { return calculate_merkle(d); }); // gcc10 needs a lambda here
-      BOOST_CHECK_EQUAL(incr_root, calc_root);
-   }
-
-   {
-      auto [incr_root, calc_root] = perf_test("legacy ", incremental_merkle_tree_legacy(), calculate_merkle_legacy);
-      BOOST_CHECK_EQUAL(incr_root, calc_root);
    }
 }
 

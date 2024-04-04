@@ -153,7 +153,7 @@ void benchmark_bls_g1_add() {
    // prepare g1 operand in Jacobian LE format
    g1 p = random_g1();
    std::array<char, 96> op;
-   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)op.data(), 96), false);
+   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)op.data(), 96), from_mont::yes);
 
    // prepare result operand
    std::array<char, 96> result;
@@ -172,7 +172,7 @@ void benchmark_bls_g2_add() {
    // prepare g2 operand in Jacobian LE format
    g2 p = random_g2();
    std::array<char, 192> op;
-   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)op.data(), 192), false);
+   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)op.data(), 192), from_mont::yes);
 
    // prepare result operand
    std::array<char, 192> result;
@@ -192,7 +192,7 @@ void benchmark_bls_g1_weighted_sum_impl(const std::string& test_name, uint32_t n
    std::vector<char> g1_buf(96*num_points);
    for (auto i=0u; i < num_points; ++i) {
       g1 p = random_g1();
-      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), false);
+      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), from_mont::yes);
    }
    chain::span<const char> g1_points(g1_buf.data(), g1_buf.size());
 
@@ -237,7 +237,7 @@ void benchmark_bls_g2_weighted_sum_impl(const std::string& test_name, uint32_t n
    std::vector<char> g2_buf(192*num_points);
    for (auto i=0u; i < num_points; ++i) {
       g2 p = random_g2();
-      p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)g2_buf.data() + i * 192, 192), false);
+      p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)g2_buf.data() + i * 192, 192), from_mont::yes);
    }
    eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
 
@@ -282,7 +282,7 @@ void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs
    std::vector<char> g1_buf(96*num_pairs);
    for (auto i=0u; i < num_pairs; ++i) {
       g1 p = random_g1();
-      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), false);
+      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), from_mont::yes);
    }
    eosio::chain::span<const char> g1_points(g1_buf.data(), g1_buf.size());
 
@@ -290,7 +290,7 @@ void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs
    std::vector<char> g2_buf(192*num_pairs);
    for (auto i=0u; i < num_pairs; ++i) {
       g2 p2 = random_g2();
-      p2.toAffineBytesLE(std::span<uint8_t, (192)>((uint8_t*)g2_buf.data() + i * 192, (192)), false);
+      p2.toAffineBytesLE(std::span<uint8_t, (192)>((uint8_t*)g2_buf.data() + i * 192, (192)), from_mont::yes);
    }
    eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
 
@@ -321,7 +321,7 @@ void benchmark_bls_g1_map() {
    // prepare e operand. Must be fp LE.
    std::array<char, 48> e;
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)e.data(), 48), false);
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)e.data(), 48), from_mont::yes);
 
    // prepare result operand
    std::array<char, 96> result;
@@ -339,7 +339,7 @@ void benchmark_bls_g1_map() {
 void benchmark_bls_g2_map() {
    std::array<char, 96> e;
    fp2 a = random_fe2();
-   a.toBytesLE(std::span<uint8_t, 96>((uint8_t*)e.data(), 96), false);
+   a.toBytesLE(std::span<uint8_t, 96>((uint8_t*)e.data(), 96), from_mont::yes);
 
    // prepare result operand
    std::array<char, 192> result;
@@ -379,12 +379,12 @@ void benchmark_bls_fp_mul() {
    // prepare op1
    std::array<char, 48> op1;
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op1.data(), 48), false);
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op1.data(), 48), from_mont::yes);
 
    // prepare op2
    std::array<char, 48> op2;
    fp b = random_fe();
-   b.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op2.data(), 48), false);
+   b.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op2.data(), 48), from_mont::yes);
 
    // prepare result operand
    std::array<char, 48> result;
@@ -402,7 +402,7 @@ void benchmark_bls_fp_exp() {
    // prepare base
    std::array<char, 48> base;
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)base.data(), 48), false);
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)base.data(), 48), from_mont::yes);
 
    // prepare exp operand
    std::array<char, 64> exp;
