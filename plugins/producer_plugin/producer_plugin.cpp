@@ -677,17 +677,13 @@ public:
       if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
          fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
-      // start a new speculative block, speculative start_block may have been interrupted
-      auto ensure = fc::make_scoped_exit([this]() {
-         // avoid schedule_production_loop if in_producing_mode(); speculative block was not interrupted and we don't want to abort block
-         if (!in_producing_mode()) {
-            schedule_production_loop();
-         } else {
-            _time_tracker.add_other_time();
-         }
-      });
-
       auto& chain = chain_plug->chain();
+
+      // de-dupe here... no point in aborting block if we already know the block; avoid exception in create_block_handle_future
+      if (chain.validated_block_exists(id)) {
+         _time_tracker.add_other_time();
+         return true; // return true because the block was already accepted
+      }
 
       EOS_ASSERT(block->timestamp < (now + fc::seconds(7)), block_from_the_future, "received a block from the future, ignoring it: ${id}", ("id", id));
 
@@ -701,8 +697,12 @@ public:
          fc_ilog(_log, "producing, incoming block #${num} id: ${id}", ("num", blk_num)("id", id));
          const block_handle& bh = obt ? *obt : btf.get();
          chain.accept_block(bh);
+         _time_tracker.add_other_time();
          return true; // return true because block was accepted
       }
+
+      // start a new speculative block
+      auto ensure = fc::make_scoped_exit([this]() { schedule_production_loop(); });
 
       // abort the pending block
       abort_block();

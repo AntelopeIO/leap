@@ -128,6 +128,7 @@ namespace eosio::chain {
 
       bsp_t            get_block_impl( const block_id_type& id, include_root_t include_root = include_root_t::no ) const;
       bool             block_exists_impl( const block_id_type& id ) const;
+      bool             validated_block_exists_impl( const block_id_type& id ) const;
       void             reset_root_impl( const bsp_t& root_bs );
       void             rollback_head_to_root_impl();
       void             advance_root_impl( const block_id_type& id );
@@ -664,7 +665,19 @@ namespace eosio::chain {
       return index.find( id ) != index.end();
    }
 
-   // ------------------ fork_database -------------------------
+   template<class BSP>
+   bool fork_database_t<BSP>::validated_block_exists(const block_id_type& id) const {
+      std::lock_guard g( my->mtx );
+      return my->validated_block_exists_impl(id);
+   }
+
+   template<class BSP>
+   bool fork_database_impl<BSP>::validated_block_exists_impl(const block_id_type& id) const {
+      auto itr = index.find( id );
+      return itr != index.end() && bs_accessor_t::is_valid(*(*itr));
+   }
+
+// ------------------ fork_database -------------------------
 
    fork_database::fork_database(const std::filesystem::path& data_dir)
       : data_dir(data_dir)

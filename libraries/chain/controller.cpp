@@ -1070,6 +1070,12 @@ struct controller_impl {
       });
    }
 
+   bool fork_db_validated_block_exists( const block_id_type& id ) const {
+      return fork_db.apply<bool>([&](const auto& forkdb) {
+         return forkdb.validated_block_exists(id);
+      });
+   }
+
    signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
       return fork_db.apply<signed_block_ptr>([&](const auto& forkdb) {
          auto bsp = forkdb.get_block(id);
@@ -4924,6 +4930,14 @@ signed_block_ptr controller::fetch_block_by_id( const block_id_type& id )const {
 
 bool controller::block_exists(const block_id_type& id) const {
    bool exists = my->fork_db_block_exists(id);
+   if( exists ) return true;
+   std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
+   if( sbh && sbh->calculate_id() == id ) return true;
+   return false;
+}
+
+bool controller::validated_block_exists(const block_id_type& id) const {
+   bool exists = my->fork_db_validated_block_exists(id);
    if( exists ) return true;
    std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
    if( sbh && sbh->calculate_id() == id ) return true;
