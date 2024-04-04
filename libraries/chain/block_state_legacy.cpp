@@ -66,7 +66,7 @@ namespace eosio::chain {
    block_state_legacy::block_state_legacy( pending_block_header_state_legacy&& cur,
                                            signed_block_ptr&& b,
                                            deque<transaction_metadata_ptr>&& trx_metas,
-                                           std::optional<digests_t>&& action_receipt_digests_savanna,
+                                           const std::optional<digests_t>& action_receipt_digests_savanna,
                                            const protocol_feature_set& pfs,
                                            const validator_t& validator,
                                            const signer_callback_type& signer

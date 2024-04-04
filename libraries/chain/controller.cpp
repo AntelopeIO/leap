@@ -360,7 +360,7 @@ struct assembled_block {
       return std::visit(overloaded{[&](assembled_block_legacy& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
-                                         std::move(ab.trx_metas), std::move(ab.action_receipt_digests_savanna), pfs, validator, signer);
+                                         std::move(ab.trx_metas), ab.action_receipt_digests_savanna, pfs, validator, signer);
                                       return completed_block{block_handle{std::move(bsp)}};
                                    },
                                    [&](assembled_block_if& ab) {
