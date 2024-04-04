@@ -894,6 +894,7 @@ struct controller_impl {
 #endif
    controller&                     self;
    std::function<void()>           shutdown;
+   std::function<bool()>           check_shutdown;
    chainbase::database             db;
    block_log                       blog;
    std::optional<pending_state>    pending;
@@ -1493,7 +1494,7 @@ struct controller_impl {
 
    enum class startup_t { genesis, snapshot, existing_state };
 
-   std::exception_ptr replay_block_log(const std::function<bool()>& check_shutdown) {
+   std::exception_ptr replay_block_log() {
       auto blog_head = blog.head();
       if (!blog_head) {
          ilog( "no block log found" );
@@ -1585,7 +1586,7 @@ struct controller_impl {
       return except_ptr;
    }
 
-   void replay(const std::function<bool()>& check_shutdown, startup_t startup) {
+   void replay(startup_t startup) {
       replaying = true;
 
       auto blog_head = blog.head();
@@ -1593,7 +1594,7 @@ struct controller_impl {
       std::exception_ptr except_ptr;
 
       if (blog_head) {
-         except_ptr = replay_block_log(check_shutdown);
+         except_ptr = replay_block_log();
       } else {
          ilog( "no block log found" );
       }
@@ -1699,7 +1700,10 @@ struct controller_impl {
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot) {
       EOS_ASSERT( snapshot, snapshot_exception, "No snapshot reader provided" );
-      this->shutdown = shutdown;
+      this->shutdown = std::move(shutdown);
+      assert(this->shutdown);
+      this->check_shutdown = std::move(check_shutdown);
+      assert(this->check_shutdown);
       try {
          auto snapshot_load_start_time = fc::time_point::now();
          snapshot->validate();
@@ -1718,7 +1722,7 @@ struct controller_impl {
          }
          ilog( "Snapshot loaded, lib: ${lib}", ("lib", chain_head.block_num()) );
 
-         init(std::move(check_shutdown), startup_t::snapshot);
+         init(startup_t::snapshot);
          apply_l<void>(chain_head, [&](auto& head) {
             if (block_states.second && head->header.contains_header_extension(instant_finality_extension::extension_id())) {
                // snapshot generated in transition to savanna
@@ -1744,6 +1748,9 @@ struct controller_impl {
       );
 
       this->shutdown = std::move(shutdown);
+      assert(this->shutdown);
+      this->check_shutdown = std::move(check_shutdown);
+      assert(this->check_shutdown);
 
       initialize_blockchain_state(genesis); // sets chain_head to genesis state
 
@@ -1753,7 +1760,7 @@ struct controller_impl {
          blog.reset( genesis, chain_head.block() );
       }
 
-      init(std::move(check_shutdown), startup_t::genesis);
+      init(startup_t::genesis);
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
@@ -1766,6 +1773,9 @@ struct controller_impl {
                   "No existing fork database despite existing chain state. Replay required." );
 
       this->shutdown = std::move(shutdown);
+      assert(this->shutdown);
+      this->check_shutdown = std::move(check_shutdown);
+      assert(this->check_shutdown);
       uint32_t lib_num = fork_db_root_block_num();
       auto first_block_num = blog.first_block_num();
       if( auto blog_head = blog.head() ) {
@@ -1792,7 +1802,7 @@ struct controller_impl {
 
       fork_db.apply<void>(do_startup);
 
-      init(std::move(check_shutdown), startup_t::existing_state);
+      init(startup_t::existing_state);
    }
 
 
@@ -1809,7 +1819,7 @@ struct controller_impl {
       return header_itr;
    }
 
-   void init(std::function<bool()> check_shutdown, startup_t startup) {
+   void init(startup_t startup) {
       auto header_itr = validate_db_version( db );
 
       {
@@ -1852,7 +1862,7 @@ struct controller_impl {
          ilog( "chain database started with hash: ${hash}", ("hash", calculate_integrity_hash()) );
       okay_to_print_integrity_hash_on_stop = true;
 
-      replay( check_shutdown, startup ); // replay any irreversible and reversible blocks ahead of current head
+      replay( startup ); // replay any irreversible and reversible blocks ahead of current head
 
       if( check_shutdown() ) return;
 
@@ -3963,10 +3973,11 @@ struct controller_impl {
                throw;
             }
          } else if( new_head->id() != chain_head.id() ) {
-            auto head_fork_comp_str = apply<std::string>(chain_head, [](auto& head) -> std::string { return log_fork_comparison(*head); });
             auto branches = forkdb.fetch_branch_from( new_head->id(), chain_head.id() );
 
-            if( branches.second.size() > 0 ) {
+            bool switch_fork = !branches.second.empty();
+            if( switch_fork ) {
+               auto head_fork_comp_str = apply<std::string>(chain_head, [](auto& head) -> std::string { return log_fork_comparison(*head); });
                ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
                     ("current_head_id", chain_head.id())("current_head_num", chain_head.block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
                     ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
@@ -3991,10 +4002,10 @@ struct controller_impl {
                      }
                   }
                }
-            } else {
-               ilog("applying fork db blocks from ${cbn}:${cbid} ${c} to ${nbn}:${nbid} ${n}",
-                    ("cbid", chain_head.id())("cbn", chain_head.block_num())("nbid", new_head->id())("nbn", new_head->block_num())
-                    ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
+            } else if (!branches.first.empty()) {
+               ilog("applying ${n} fork db blocks from ${cbn}:${cbid} to ${nbn}:${nbid}",
+                    ("n", branches.first.size())("cbid", (*branches.first.rbegin())->id())("cbn", (*branches.first.rbegin())->block_num())
+                    ("nbid", new_head->id())("nbn", new_head->block_num()));
             }
 
             for( auto ritr = branches.first.rbegin(); ritr != branches.first.rend(); ++ritr ) {
@@ -4011,7 +4022,11 @@ struct controller_impl {
                   if( conf.terminate_at_block > 0 && conf.terminate_at_block <= chain_head.block_num()) {
                      ilog("Reached configured maximum block ${num}; terminating", ("num", conf.terminate_at_block) );
                      shutdown();
-                     return;
+                     break;
+                  }
+                  if (!switch_fork && check_shutdown()) {
+                     shutdown();
+                     break;
                   }
                } catch ( const std::bad_alloc& ) {
                   throw;
@@ -4048,7 +4063,7 @@ struct controller_impl {
                } // end if exception
             } /// end for each block in branch
 
-            if (fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::info)) {
+            if (switch_fork && fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::info)) {
                auto get_ids = [&](auto& container)->std::string {
                   std::string ids;
                   for(auto ritr = container.rbegin(), e = container.rend(); ritr != e; ++ritr) {
