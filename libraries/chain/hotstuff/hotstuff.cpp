@@ -31,6 +31,15 @@ bool pending_quorum_certificate::has_voted_no_lock(bool strong, size_t index) co
    return _weak_votes.has_voted(index);
 }
 
+void pending_quorum_certificate::votes_t::reflector_init() {
+   _processed = std::vector<std::atomic<bool>>(_bitset.size());
+   for (size_t i = 0; i < _bitset.size(); ++i) {
+      if (_bitset[i]) {
+         _processed[i].store(true, std::memory_order_relaxed);
+      }
+   }
+}
+
 bool pending_quorum_certificate::votes_t::has_voted(size_t index) const {
    assert(index <= _processed.size());
    return _processed[index].load(std::memory_order_relaxed);

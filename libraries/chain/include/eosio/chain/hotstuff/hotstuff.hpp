@@ -78,14 +78,18 @@ namespace eosio::chain {
          strong         // Enough `strong` votes to have a valid `strong` QC
       };
 
-      struct votes_t {
+      struct votes_t : fc::reflect_init {
       private:
          friend struct fc::reflector<votes_t>;
+         friend struct fc::reflector_init_visitor<votes_t>;
+         friend struct fc::has_reflector_init<votes_t>;
          friend class pending_quorum_certificate;
+
          hs_bitset               _bitset;
          bls_aggregate_signature _sig;
          std::vector<std::atomic<bool>> _processed; // avoid locking mutex for _bitset duplicate check
 
+         void reflector_init();
       public:
          explicit votes_t(size_t num_finalizers)
             : _bitset(num_finalizers)
