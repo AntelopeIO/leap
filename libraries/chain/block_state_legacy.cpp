@@ -75,7 +75,7 @@ namespace eosio::chain {
    ,block( std::move(b) )
    ,_pub_keys_recovered( true ) // called by produce_block so signature recovery of trxs must have been done
    ,_cached_trxs( std::move(trx_metas) )
-   ,action_mroot_savanna( action_receipt_digests_savanna ? calculate_merkle(*action_receipt_digests_savanna) : digest_type {} )
+   ,action_mroot_savanna( action_receipt_digests_savanna ? std::optional<digest_type>(calculate_merkle(*action_receipt_digests_savanna)) : std::nullopt )
    {}
 
    block_state_legacy::block_state_legacy(snapshot_detail::snapshot_block_state_legacy_v7&& sbs)
