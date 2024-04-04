@@ -3955,7 +3955,6 @@ struct controller_impl {
                             const forked_callback_t& forked_cb, const trx_meta_cache_lookup& trx_lookup )
    {
       auto do_maybe_switch_forks = [&](auto& forkdb) {
-         bool head_changed = true;
          if( new_head->header.previous == chain_head.id() ) {
             try {
                apply_block( br, new_head, s, trx_lookup );
@@ -3965,18 +3964,18 @@ struct controller_impl {
             }
          } else if( new_head->id() != chain_head.id() ) {
             auto head_fork_comp_str = apply<std::string>(chain_head, [](auto& head) -> std::string { return log_fork_comparison(*head); });
-            ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
-                 ("current_head_id", chain_head.id())("current_head_num", chain_head.block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
-                 ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
-
-            // not possible to log transaction specific infor when switching forks
-            if (auto dm_logger = get_deep_mind_logger(false)) {
-               dm_logger->on_switch_forks(chain_head.id(), new_head->id());
-            }
-
             auto branches = forkdb.fetch_branch_from( new_head->id(), chain_head.id() );
 
             if( branches.second.size() > 0 ) {
+               ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
+                    ("current_head_id", chain_head.id())("current_head_num", chain_head.block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
+                    ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
+
+               // not possible to log transaction specific info when switching forks
+               if (auto dm_logger = get_deep_mind_logger(false)) {
+                  dm_logger->on_switch_forks(chain_head.id(), new_head->id());
+               }
+
                for( auto itr = branches.second.begin(); itr != branches.second.end(); ++itr ) {
                   pop_block();
                }
@@ -3992,6 +3991,10 @@ struct controller_impl {
                      }
                   }
                }
+            } else {
+               ilog("applying fork db blocks from ${cbn}:${cbid} ${c} to ${nbn}:${nbid} ${n}",
+                    ("cbid", chain_head.id())("cbn", chain_head.block_num())("nbid", new_head->id())("nbn", new_head->block_num())
+                    ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
             }
 
             for( auto ritr = branches.first.rbegin(); ritr != branches.first.rend(); ++ritr ) {
@@ -4051,8 +4054,6 @@ struct controller_impl {
                ilog("successfully switched fork to new head ${new_head_id}, removed {${rm_ids}}, applied {${new_ids}}",
                     ("new_head_id", new_head->id())("rm_ids", get_ids(branches.second))("new_ids", get_ids(branches.first)));
             }
-         } else {
-            head_changed = false;
          }
 
          // irreversible can change even if block not applied to head, integrated qc can move LIB
