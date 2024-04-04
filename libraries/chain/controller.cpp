@@ -4007,6 +4007,12 @@ struct controller_impl {
                   br = controller::block_report{};
                   apply_block( br, *ritr, valid ? controller::block_status::validated
                                                 : controller::block_status::complete, trx_lookup );
+
+                  if( conf.terminate_at_block > 0 && conf.terminate_at_block <= chain_head.block_num()) {
+                     ilog("Reached configured maximum block ${num}; terminating", ("num", conf.terminate_at_block) );
+                     shutdown();
+                     return;
+                  }
                } catch ( const std::bad_alloc& ) {
                   throw;
                } catch ( const boost::interprocess::bad_alloc& ) {
