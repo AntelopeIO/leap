@@ -205,7 +205,7 @@ try:
     state = getState(retStatus)
 
     # it is possible for another fork switch to cause the trx to be forked out again
-    if state == forkedOutState:
+    if state == forkedOutState or state == localState:
         while True:
             info = prodD.getInfo()
             retStatus = prodD.getTransactionStatus(transId)
