@@ -2540,7 +2540,11 @@ namespace eosio {
                if (sync_last_requested_num == 0) { // block was rejected
                   sync_next_expected_num = my_impl->get_chain_lib_num() + 1;
                } else {
-                  sync_next_expected_num = blk_num + 1;
+                  if (blk_num == sync_next_expected_num) {
+                     ++sync_next_expected_num;
+                  } else if (blk_num < sync_next_expected_num) {
+                     sync_next_expected_num = blk_num + 1;
+                  }
                }
             }
 
@@ -3140,7 +3144,6 @@ namespace eosio {
          }
       } else {
          block_sync_bytes_received += message_length;
-         my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
          uint32_t lib_num = my_impl->get_chain_lib_num();
          if( blk_num <= lib_num ) {
             cancel_wait();
@@ -3148,6 +3151,7 @@ namespace eosio {
             pending_message_buffer.advance_read_ptr( message_length );
             return true;
          }
+         my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
       }
 
       auto ds = pending_message_buffer.create_datastream();
