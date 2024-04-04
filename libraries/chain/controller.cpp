@@ -4334,6 +4334,7 @@ struct controller_impl {
       // instant_finality_extension -- the Savanna Genesis Block.
       // Then start from the Savanna Genesis Block to create corresponding
       // Savanna blocks.
+      // genesis_block already contains all information for finality_data.
       if (legacy_root->header.contains_header_extension(instant_finality_extension::extension_id())) {
          prev = block_state::create_if_genesis_block(*legacy_root);
       } else {
@@ -4356,8 +4357,11 @@ struct controller_impl {
                protocol_features.get_protocol_feature_set(),
                validator_t{}, skip_validate_signee);
 
-         assert((*bitr)->action_mroot_savanna);
-         new_bsp->action_mroot = *((*bitr)->action_mroot_savanna); // required by finality_data
+         // We only need action_mroot of the last block for finality_data
+         if ((bitr + 1) == legacy_branch.rend()) {
+            assert((*bitr)->action_mroot_savanna);
+            new_bsp->action_mroot = *((*bitr)->action_mroot_savanna);
+         }
 
          prev = new_bsp;
       }
