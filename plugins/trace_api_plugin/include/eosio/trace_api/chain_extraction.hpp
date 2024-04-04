@@ -119,7 +119,9 @@ private:
 
    void store_lib( uint32_t block_num ) {
       try {
+         dlog("append_lib");
          store.append_lib( block_num );
+         dlog("append_lib done");
       } catch( ... ) {
          except_handler( MAKE_EXCEPTION_WITH_CONTEXT( std::current_exception() ) );
       }

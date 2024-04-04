@@ -62,11 +62,17 @@ namespace eosio::trace_api {
     */
    template<typename DataEntry, typename File>
    static uint64_t append_store(const DataEntry &entry, File &file) {
+      dlog("pack");
       auto data = fc::raw::pack(entry);
+      dlog("tellp");
       const auto offset = file.tellp();
+      dlog("write");
       file.write(data.data(), data.size());
+      dlog("flush");
       file.flush();
+      dlog("sync");
       file.sync();
+      dlog("append_store done");
       return offset;
    }
 
