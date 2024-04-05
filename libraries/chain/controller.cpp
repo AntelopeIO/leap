@@ -1875,10 +1875,10 @@ struct controller_impl {
             auto pending_head = forkdb.pending_head();
             auto head         = forkdb.head();
             if ( head && pending_head && pending_head->id() != head->id() && head->id() == forkdb.root()->id() ) {
-               wlog( "read_mode has changed from irreversible: applying best branch from fork database" );
+               ilog( "read_mode has changed from irreversible: applying best branch from fork database" );
 
                for( ; pending_head->id() != forkdb.head()->id(); pending_head = forkdb.pending_head() ) {
-                  wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
+                  ilog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
                   controller::block_report br;
                   maybe_switch_forks( br, pending_head, controller::block_status::complete, {}, trx_meta_cache_lookup{} );
                }
@@ -3696,7 +3696,7 @@ struct controller_impl {
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
 
-      if (conf.terminate_at_block > 0 && bsp->block_num() <= conf.terminate_at_block) {
+      if (conf.terminate_at_block == 0 || bsp->block_num() <= conf.terminate_at_block) {
          forkdb.add(bsp, mark_valid_t::no, ignore_duplicate_t::yes);
       }
 
@@ -4020,16 +4020,17 @@ struct controller_impl {
 
                   br = controller::block_report{};
                   apply_block( br, bsp, valid ? controller::block_status::validated
-                                                : controller::block_status::complete, trx_lookup );
+                                              : controller::block_status::complete, trx_lookup );
                   if (!valid) { // was just applied for first time so log it
-                     ilog("Applied  block ${id}... #${n} @ ${t} signed by ${p} "
-                          "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
-                          ("p", bsp->producer())("id", bsp->id().str().substr(8, 16))("n", bsp->block_num())("t", bsp->timestamp())
-                          ("count", bsp->block->transactions.size())("lib", fork_db_root_block_num())
-                          ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
-                          ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (fc::time_point::now() - bsp->timestamp()).count() / 1000));
+                     if (fc::time_point::now() - bsp->timestamp() < fc::minutes(5) || (bsp->block_num() % 1000 == 0)) {
+                        ilog("Applied  block ${id}... #${n} @ ${t} signed by ${p} "
+                             "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
+                             ("p", bsp->producer())("id", bsp->id().str().substr(8, 16))("n", bsp->block_num())("t", bsp->timestamp())
+                             ("count", bsp->block->transactions.size())("lib", fork_db_root_block_num())
+                             ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+                             ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (fc::time_point::now() - bsp->timestamp()).count() / 1000));
+                     }
                   }
-
                   if( conf.terminate_at_block > 0 && conf.terminate_at_block <= chain_head.block_num()) {
                      ilog("Reached configured maximum block ${num}; terminating", ("num", conf.terminate_at_block) );
                      shutdown();
