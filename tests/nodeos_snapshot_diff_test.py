@@ -182,7 +182,7 @@ try:
     assert ret is not None, "Snapshot scheduling failed"
 
     Print("Wait for programmable node lib to advance")
-    waitForBlock(nodeProg, ret_head_block_num+1, blockType=BlockType.lib)
+    waitForBlock(nodeProg, ret_head_block_num, blockType=BlockType.lib)
 
     Print("Kill programmable node")
     nodeProg.kill(signal.SIGTERM)
