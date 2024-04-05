@@ -900,7 +900,7 @@ struct controller_impl {
    std::optional<pending_state>    pending;
    block_handle                    chain_head;
    fork_database                   fork_db;
-   block_id_type                   if_irreversible_block_id;
+   large_atomic<block_id_type>     if_irreversible_block_id;
    resource_limits_manager         resource_limits;
    subjective_billing              subjective_bill;
    authorization_manager           authorization;
@@ -1389,7 +1389,8 @@ struct controller_impl {
                      ("lib_num", lib_num)("bn", fork_db_root_block_num()) );
       }
 
-      uint32_t if_lib_num = block_header::num_from_id(if_irreversible_block_id);
+      block_id_type irreversible_block_id = if_irreversible_block_id.load();
+      uint32_t if_lib_num = block_header::num_from_id(irreversible_block_id);
       const uint32_t new_lib_num = if_lib_num > 0 ? if_lib_num : fork_db_head_irreversible_blocknum();
 
       if( new_lib_num <= lib_num )
@@ -1397,7 +1398,7 @@ struct controller_impl {
 
       bool savanna_transistion_required = false;
       auto mark_branch_irreversible = [&, this](auto& forkdb) {
-         auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( if_irreversible_block_id, new_lib_num)
+         auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( irreversible_block_id, new_lib_num)
                                         : forkdb.fetch_branch( fork_db_head_or_pending(forkdb)->id(), new_lib_num );
          try {
             auto should_process = [&](auto& bsp) {
@@ -3754,7 +3755,7 @@ struct controller_impl {
       return fork_db.apply<std::optional<block_handle>>(unlinkable, f);
    }
 
-   // expected to be called from application thread as it modifies bsp->valid_qc and if_irreversible_block_id
+   // expected to be called from application thread as it modifies bsp->valid_qc
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
       const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
@@ -3805,8 +3806,7 @@ struct controller_impl {
 
       if (bsp->core.final_on_strong_qc_block_num > 0) {
          const auto& final_on_strong_qc_block_ref = bsp->core.get_block_reference(bsp->core.final_on_strong_qc_block_num);
-         auto final = fetch_bsp(final_on_strong_qc_block_ref.block_id);
-         if (final && final->is_valid()) {
+         if (fork_db_validated_block_exists(final_on_strong_qc_block_ref.block_id)) {
             create_and_send_vote_msg(bsp);
          }
       }
@@ -4354,10 +4354,11 @@ struct controller_impl {
 
    void set_if_irreversible_block_id(const block_id_type& id) {
       const block_num_type id_num = block_header::num_from_id(id);
-      const block_num_type current_num = block_header::num_from_id(if_irreversible_block_id);
+      auto accessor = if_irreversible_block_id.make_accessor();
+      const block_num_type current_num = block_header::num_from_id(accessor.value());
       if( id_num > current_num ) {
-         dlog("set irreversible block ${bn}: ${id}, old ${obn}: ${oid}", ("bn", id_num)("id", id)("obn", current_num)("oid", if_irreversible_block_id));
-         if_irreversible_block_id = id;
+         dlog("set irreversible block ${bn}: ${id}, old ${obn}: ${oid}", ("bn", id_num)("id", id)("obn", current_num)("oid", accessor.value()));
+         accessor.value() = id;
       }
    }
 
@@ -4932,7 +4933,7 @@ void controller::set_if_irreversible_block_id(const block_id_type& id) {
 }
 
 uint32_t controller::if_irreversible_block_num() const {
-   return block_header::num_from_id(my->if_irreversible_block_id);
+   return block_header::num_from_id(my->if_irreversible_block_id.load());
 }
 
 uint32_t controller::last_irreversible_block_num() const {
