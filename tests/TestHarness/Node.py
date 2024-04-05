@@ -208,7 +208,7 @@ class Node(Transactions):
         return ret
 
     def waitForBlock(self, blockNum, timeout=None, blockType=BlockType.head, reportInterval=None):
-        lam = lambda: self.getBlockNum(blockType=blockType) >= blockNum
+        lam = lambda: self.getBlockNum(blockType=blockType) > blockNum
         blockDesc = "head" if blockType == BlockType.head else "LIB"
         count = 0
 
