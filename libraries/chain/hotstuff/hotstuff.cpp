@@ -163,10 +163,7 @@ vote_status pending_quorum_certificate::add_vote(block_num_type block_num, bool 
    return s;
 }
 
-// thread safe
 valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate() const {
-   std::lock_guard g(*_mtx);
-
    valid_quorum_certificate valid_qc;
 
    if( _state == state_t::strong ) {
@@ -181,6 +178,44 @@ valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate
       assert(0); // this should be called only when we have a valid qc.
 
    return valid_qc;
+}
+
+std::optional<quorum_certificate> pending_quorum_certificate::get_best_qc(block_num_type block_num) const {
+   std::lock_guard g(*_mtx);
+   // if pending_qc does not have a valid QC, consider valid_qc only
+   if( !is_quorum_met_no_lock() ) {
+      if( _valid_qc ) {
+         return std::optional{quorum_certificate{ block_num, *_valid_qc }};
+      } else {
+         return std::nullopt;
+      }
+   }
+
+   // extract valid QC from pending_qc
+   valid_quorum_certificate valid_qc_from_pending = to_valid_quorum_certificate();
+
+   // if valid_qc does not have value, consider valid_qc_from_pending only
+   if( !_valid_qc ) {
+      return std::optional{quorum_certificate{ block_num, valid_qc_from_pending }};
+   }
+
+   // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
+   // Strong beats weak. Tie break by valid_qc.
+   const auto& best_qc =
+      _valid_qc->is_strong() == valid_qc_from_pending.is_strong() ?
+      *_valid_qc : // tie broke by valid_qc
+      _valid_qc->is_strong() ? *_valid_qc : valid_qc_from_pending; // strong beats weak
+   return std::optional{quorum_certificate{ block_num, best_qc }};
+}
+
+void pending_quorum_certificate::set_valid_qc(const valid_quorum_certificate& qc) {
+   std::lock_guard g(*_mtx);
+   _valid_qc = qc;
+}
+
+bool pending_quorum_certificate::valid_qc_is_strong() const {
+   std::lock_guard g(*_mtx);
+   return _valid_qc && _valid_qc->is_strong();
 }
 
 bool pending_quorum_certificate::is_quorum_met_no_lock() const {

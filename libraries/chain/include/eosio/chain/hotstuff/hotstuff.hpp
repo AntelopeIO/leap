@@ -124,12 +124,15 @@ namespace eosio::chain {
       bool has_voted(size_t index) const;
 
       state_t state() const { std::lock_guard g(*_mtx); return _state; };
-      valid_quorum_certificate to_valid_quorum_certificate() const;
 
+      std::optional<quorum_certificate> get_best_qc(block_num_type block_num) const;
+      void set_valid_qc(const valid_quorum_certificate& qc);
+      bool valid_qc_is_strong() const;
    private:
       friend struct fc::reflector<pending_quorum_certificate>;
       friend class qc_chain;
       std::unique_ptr<std::mutex> _mtx;
+      std::optional<valid_quorum_certificate> _valid_qc; // best qc received from the network inside block extension
       uint64_t             _quorum {0};
       uint64_t             _max_weak_sum_before_weak_final {0}; // max weak sum before becoming weak_final
       state_t              _state { state_t::unrestricted };
@@ -150,6 +153,7 @@ namespace eosio::chain {
 
       bool is_quorum_met_no_lock() const;
       bool has_voted_no_lock(bool strong, size_t index) const;
+      valid_quorum_certificate to_valid_quorum_certificate() const;
    };
 } //eosio::chain
 
@@ -157,7 +161,7 @@ namespace eosio::chain {
 FC_REFLECT(eosio::chain::vote_message, (block_id)(strong)(finalizer_key)(sig));
 FC_REFLECT_ENUM(eosio::chain::vote_status, (success)(duplicate)(unknown_public_key)(invalid_signature)(unknown_block))
 FC_REFLECT(eosio::chain::valid_quorum_certificate, (_strong_votes)(_weak_votes)(_sig));
-FC_REFLECT(eosio::chain::pending_quorum_certificate, (_quorum)(_max_weak_sum_before_weak_final)(_state)(_strong_sum)(_weak_sum)(_weak_votes)(_strong_votes));
+FC_REFLECT(eosio::chain::pending_quorum_certificate, (_valid_qc)(_quorum)(_max_weak_sum_before_weak_final)(_state)(_strong_sum)(_weak_sum)(_weak_votes)(_strong_votes));
 FC_REFLECT_ENUM(eosio::chain::pending_quorum_certificate::state_t, (unrestricted)(restricted)(weak_achieved)(weak_final)(strong));
 FC_REFLECT(eosio::chain::pending_quorum_certificate::votes_t, (_bitset)(_sig));
 FC_REFLECT(eosio::chain::quorum_certificate, (block_num)(qc));

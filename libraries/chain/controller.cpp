@@ -3753,7 +3753,7 @@ struct controller_impl {
       return fork_db.apply<std::optional<block_handle>>(unlinkable, f);
    }
 
-   // expected to be called from application thread as it modifies bsp->valid_qc
+   // thread safe
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
       const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
@@ -3772,17 +3772,17 @@ struct controller_impl {
          return;
       }
 
-      // Don't save the QC from block extension if the claimed block has a better valid_qc.
-      if (claimed->valid_qc && (claimed->valid_qc->is_strong() || received_qc.is_weak())) {
+      // Don't save the QC from block extension if the claimed block has a better or same valid_qc.
+      if (received_qc.is_weak() || claimed->valid_qc_is_strong()) {
          dlog("qc not better, claimed->valid: ${qbn} ${qid}, strong=${s}, received: ${rqc}, for block ${bn} ${id}",
-              ("qbn", claimed->block_num())("qid", claimed->id())("s", claimed->valid_qc->is_strong())
+              ("qbn", claimed->block_num())("qid", claimed->id())("s", !received_qc.is_weak()) // use is_weak() to avoid mutex on valid_qc_is_strong()
               ("rqc", qc_ext.qc.to_qc_claim())("bn", bsp_in->block_num())("id", bsp_in->id()));
          return;
       }
 
       // Save the QC. This is safe as the function is called by push_block & accept_block from application thread.
       dlog("setting valid qc: ${rqc} into claimed block ${bn} ${id}", ("rqc", qc_ext.qc.to_qc_claim())("bn", claimed->block_num())("id", claimed->id()));
-      claimed->valid_qc = received_qc;
+      claimed->set_valid_qc(received_qc);
 
       // advance LIB if QC is strong
       if( received_qc.is_strong() ) {

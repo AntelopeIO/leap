@@ -99,7 +99,7 @@ std::optional<vote_message> finalizer::maybe_vote(const bls_public_key& pub_key,
       } else {
          sig =  priv_key.sign({(uint8_t*)digest.data(), (uint8_t*)digest.data() + digest.data_size()});
       }
-      return vote_message{ bsp->id(), decision == vote_decision::strong_vote, pub_key, sig };
+      return std::optional{vote_message{ bsp->id(), decision == vote_decision::strong_vote, pub_key, sig }};
    }
    return {};
 }
