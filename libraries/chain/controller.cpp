@@ -4013,13 +4013,22 @@ struct controller_impl {
             for( auto ritr = branches.first.rbegin(); ritr != branches.first.rend(); ++ritr ) {
                auto except = std::exception_ptr{};
                try {
-                  bool valid = (*ritr)->is_valid();
+                  const auto& bsp = *ritr;
+                  bool valid = bsp->is_valid();
                   if (!valid) // has not been validated (applied) before, only in forkdb, integrate and possibly vote now
-                     integrate_qc(*ritr);
+                     integrate_qc(bsp);
 
                   br = controller::block_report{};
-                  apply_block( br, *ritr, valid ? controller::block_status::validated
+                  apply_block( br, bsp, valid ? controller::block_status::validated
                                                 : controller::block_status::complete, trx_lookup );
+                  if (!valid) { // was just applied for first time so log it
+                     ilog("Applied  block ${id}... #${n} @ ${t} signed by ${p} "
+                          "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
+                          ("p", bsp->producer())("id", bsp->id().str().substr(8, 16))("n", bsp->block_num())("t", bsp->timestamp())
+                          ("count", bsp->block->transactions.size())("lib", fork_db_root_block_num())
+                          ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+                          ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (fc::time_point::now() - bsp->timestamp()).count() / 1000));
+                  }
 
                   if( conf.terminate_at_block > 0 && conf.terminate_at_block <= chain_head.block_num()) {
                      ilog("Reached configured maximum block ${num}; terminating", ("num", conf.terminate_at_block) );
