@@ -3530,8 +3530,6 @@ struct controller_impl {
       if (!bsp->block->is_proper_svnn_block())
          return;
 
-      auto finalizer_digest = bsp->compute_finality_digest();
-
       // Each finalizer configured on the node which is present in the active finalizer policy
       // may create and sign a vote
       // TODO: as a future optimization, we could run maybe_vote on a thread (it would need a
@@ -3539,7 +3537,7 @@ struct controller_impl {
       // off the main thread. net_plugin is fine for this to be emitted from any thread.
       // Just need to update the comment in net_plugin
       my_finalizers.maybe_vote(
-          *bsp->active_finalizer_policy, bsp, finalizer_digest, [&](const vote_message& vote) {
+          *bsp->active_finalizer_policy, bsp, bsp->strong_digest, [&](const vote_message& vote) {
               // net plugin subscribed to this signal. it will broadcast the vote message
               // on receiving the signal
               emit(voted_block, vote);
