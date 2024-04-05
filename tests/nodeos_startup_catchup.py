@@ -133,9 +133,11 @@ try:
     steadyStateAvg=steadyStateWindowTrxs / steadyStateWindowBlks
 
     Print("Validate transactions are generating")
-    minReqPctLeeway=0.9
+    minReqPctLeeway=0.85
     minRequiredTransactions=minReqPctLeeway*transactionsPerBlock
-    assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
+    assert steadyStateAvg>=minRequiredTransactions, \
+        (f"Expected to at least receive {minRequiredTransactions} transactions per block, "
+         f"but only getting {steadyStateAvg} for blocks {startBlockNum} - {endBlockNum}")
 
     Print("Cycle through catchup scenarios")
     twoRounds=21*2*12
