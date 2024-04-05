@@ -129,7 +129,7 @@ struct get_blocks_result_v1 : get_blocks_result_v0 {
    std::optional<bytes>          finality_data;
 };
 
-using state_request = std::variant<get_status_request_v0, get_blocks_request_v0, get_blocks_request_v1, get_blocks_ack_request_v0>;
+using state_request = std::variant<get_status_request_v0, get_blocks_request_v0, get_blocks_ack_request_v0, get_blocks_request_v1>;
 using state_result  = std::variant<get_status_result_v0, get_blocks_result_v0, get_blocks_result_v1>;
 using get_blocks_request = std::variant<get_blocks_request_v0, get_blocks_request_v1>;
 using get_blocks_result = std::variant<get_blocks_result_v0, get_blocks_result_v1>;
