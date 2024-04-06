@@ -3339,16 +3339,45 @@ struct controller_impl {
       return {};
    }
 
+
+   template<typename BSP>
+   void log_applied(controller::block_report& br, const BSP& bsp) const {
+      fc::time_point now = fc::time_point::now();
+      if (now - bsp->timestamp() < fc::minutes(5) || (bsp->block_num() % 1000 == 0)) {
+         ilog("Received block ${id}... #${n} @ ${t} signed by ${p} " // "Received" instead of "Applied" so it matches existing log output
+              "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
+              ("p", bsp->producer())("id", bsp->id().str().substr(8, 16))("n", bsp->block_num())("t", bsp->timestamp())
+              ("count", bsp->block->transactions.size())("lib", fork_db_root_block_num())
+              ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+              ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (fc::time_point::now() - bsp->timestamp()).count() / 1000));
+         const auto& hb_id = chain_head.id();
+         const auto& hb = chain_head.block();
+         if (read_mode != db_read_mode::IRREVERSIBLE && hb && hb_id != bsp->id() && hb != nullptr) { // not applied to head
+            ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
+                 "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
+                 ("p", hb->producer)("id", hb_id.str().substr(8, 16))("n", hb->block_num())("t", hb->timestamp)
+                 ("count", hb->transactions.size())("lib", fork_db_root_block_num())
+                 ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)
+                 ("latency", (now - hb->timestamp).count() / 1000));
+         }
+      }
+   }
+
    template<class BSP>
    void apply_block( controller::block_report& br, const BSP& bsp, controller::block_status s,
                      const trx_meta_cache_lookup& trx_lookup ) {
       try {
          try {
             auto start = fc::time_point::now();
+
+            const bool already_valid = bsp->is_valid();
+            if (!already_valid) // has not been validated (applied) before, only in forkdb, integrate and possibly vote now
+               integrate_qc(bsp);
+
             const signed_block_ptr& b = bsp->block;
             const auto& new_protocol_feature_activations = bsp->get_new_protocol_feature_activations();
+            const auto& producer_block_id = bsp->id();
 
-            auto producer_block_id = bsp->id();
             start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
             // validated in create_block_handle()
@@ -3475,6 +3504,9 @@ struct controller_impl {
             br = pending->_block_report; // copy before commit block destroys pending
             commit_block(s);
             br.total_time = fc::time_point::now() - start;
+
+            if (!already_valid)
+               log_applied(br, bsp);
 
          } catch ( const std::bad_alloc& ) {
             throw;
@@ -4012,23 +4044,11 @@ struct controller_impl {
                auto except = std::exception_ptr{};
                try {
                   const auto& bsp = *ritr;
-                  bool valid = bsp->is_valid();
-                  if (!valid) // has not been validated (applied) before, only in forkdb, integrate and possibly vote now
-                     integrate_qc(bsp);
 
                   br = controller::block_report{};
-                  apply_block( br, bsp, valid ? controller::block_status::validated
-                                              : controller::block_status::complete, trx_lookup );
-                  if (!valid) { // was just applied for first time so log it
-                     if (fc::time_point::now() - bsp->timestamp() < fc::minutes(5) || (bsp->block_num() % 1000 == 0)) {
-                        ilog("Applied  block ${id}... #${n} @ ${t} signed by ${p} "
-                             "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
-                             ("p", bsp->producer())("id", bsp->id().str().substr(8, 16))("n", bsp->block_num())("t", bsp->timestamp())
-                             ("count", bsp->block->transactions.size())("lib", fork_db_root_block_num())
-                             ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
-                             ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (fc::time_point::now() - bsp->timestamp()).count() / 1000));
-                     }
-                  }
+                  apply_block( br, bsp, bsp->is_valid() ? controller::block_status::validated
+                                                        : controller::block_status::complete, trx_lookup );
+
                   if( conf.terminate_at_block > 0 && conf.terminate_at_block <= chain_head.block_num()) {
                      ilog("Reached configured maximum block ${num}; terminating", ("num", conf.terminate_at_block) );
                      shutdown();
@@ -4750,9 +4770,21 @@ void controller::assemble_and_complete_block( block_report& br, const signer_cal
    br = my->pending->_block_report;
 }
 
-void controller::commit_block() {
+void controller::commit_block(block_report& br) {
+   fc::time_point start = fc::time_point::now();
+
    validate_db_available_size();
    my->commit_block(block_status::incomplete);
+
+   const auto& id = head_block_id();
+   const auto& new_b = head_block();
+   br.total_time += fc::time_point::now() - start;
+
+   ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
+        "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
+        ("p", new_b->producer)("id", id.str().substr(8, 16))("n", new_b->block_num())("t", new_b->timestamp)
+        ("count", new_b->transactions.size())("lib", last_irreversible_block_num())("net", br.total_net_usage)
+        ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_b->confirmed));
 }
 
 void controller::maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup) {

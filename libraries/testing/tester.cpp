@@ -482,7 +482,7 @@ namespace eosio { namespace testing {
          return result;
       } );
 
-      control->commit_block();
+      control->commit_block(br);
       last_produced_block[producer_name] = control->head_block_id();
 
       _wait_for_vote_if_needed(*control);
