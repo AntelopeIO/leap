@@ -3342,6 +3342,8 @@ struct controller_impl {
 
    template<typename BSP>
    void log_applied(controller::block_report& br, const BSP& bsp) const {
+      if (replaying) // fork_db_root_block_num not available during replay
+         return;
       fc::time_point now = fc::time_point::now();
       if (now - bsp->timestamp() < fc::minutes(5) || (bsp->block_num() % 1000 == 0)) {
          ilog("Received block ${id}... #${n} @ ${t} signed by ${p} " // "Received" instead of "Applied" so it matches existing log output
