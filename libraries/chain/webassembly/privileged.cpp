@@ -195,7 +195,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
       EOS_ASSERT( weight_sum >= finpol.threshold && finpol.threshold > weight_sum / 2, wasm_execution_error, "Finalizer policy threshold (${t}) must be greater than half of the sum of the weights (${w}), and less than or equal to the sum of the weights", ("t", finpol.threshold)("w", weight_sum) );
 
-      context.control.set_proposed_finalizers( finpol );
+      context.control.set_proposed_finalizers( std::move(finpol) );
    }
 
    uint32_t interface::get_blockchain_parameters_packed( legacy_span<char> packed_blockchain_parameters ) const {

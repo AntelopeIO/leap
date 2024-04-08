@@ -518,8 +518,17 @@ struct building_block {
                                       [&](building_block_if&)        -> R { return {}; }}, v);
    }
 
-   void set_proposed_finalizer_policy(const finalizer_policy& fin_pol) {
-      std::visit([&](auto& bb) { bb.new_finalizer_policy = fin_pol; }, v);
+   void set_proposed_finalizer_policy(finalizer_policy&& fin_pol)
+   {
+      std::visit(overloaded{ [&](building_block_legacy& bb) {
+                                 fin_pol.generation = 1;  // only allowed to be set once in legacy mode
+                                 bb.new_finalizer_policy = std::move(fin_pol);
+                             },
+                             [&](building_block_if& bb)     {
+                                 fin_pol.generation = bb.parent.active_finalizer_policy->generation + 1;
+                                 bb.new_finalizer_policy = std::move(fin_pol);
+                              } },
+                  v);
    }
 
    deque<transaction_metadata_ptr> extract_trx_metas() {
@@ -3185,10 +3194,10 @@ struct controller_impl {
       pending->push();
    }
 
-   void set_proposed_finalizers(const finalizer_policy& fin_pol) {
+   void set_proposed_finalizers(finalizer_policy&& fin_pol) {
       assert(pending); // has to exist and be building_block since called from host function
       auto& bb = std::get<building_block>(pending->_block_stage);
-      bb.set_proposed_finalizer_policy(fin_pol);
+      bb.set_proposed_finalizer_policy(std::move(fin_pol));
 
       bb.apply_l<void>([&](building_block::building_block_legacy& bl) {
          // Savanna uses new algorithm for proposer schedule change, prevent any in-flight legacy proposer schedule changes
@@ -5155,8 +5164,8 @@ int64_t controller_impl::set_proposed_producers_legacy( vector<producer_authorit
    return version;
 }
 
-void controller::set_proposed_finalizers( const finalizer_policy& fin_pol ) {
-   my->set_proposed_finalizers(fin_pol);
+void controller::set_proposed_finalizers( finalizer_policy&& fin_pol ) {
+   my->set_proposed_finalizers(std::move(fin_pol));
 }
 
 // called from net threads
