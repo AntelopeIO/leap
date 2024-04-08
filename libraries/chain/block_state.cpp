@@ -104,7 +104,7 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
       .validation_mroots = { validation_tree.get_root() }
    };
 
-   result.validated = bsp.is_valid();
+   result.validated.store(bsp.is_valid());
    result.pub_keys_recovered = bsp._pub_keys_recovered;
    result.cached_trxs = bsp._cached_trxs;
    result.action_mroot = action_mroot_svnn;

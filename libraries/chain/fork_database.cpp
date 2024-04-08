@@ -24,7 +24,7 @@ namespace eosio::chain {
 
    struct block_state_accessor {
       static bool is_valid(const block_state& bs) { return bs.is_valid(); }
-      static void set_valid(block_state& bs, bool v) { bs.validated = v; }
+      static void set_valid(block_state& bs, bool v) { bs.validated.store(v); }
    };
 
    struct block_state_legacy_accessor {

@@ -3995,7 +3995,7 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   // called from application thread
+   // called from other threads including net threads
    void net_plugin_impl::on_voted_block(const vote_message& msg) {
       fc_dlog(logger, "on voted signal: block #${bn} ${id}.., ${t}, key ${k}..",
                 ("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))

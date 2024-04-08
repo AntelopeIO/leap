@@ -5,6 +5,7 @@
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/action_receipt.hpp>
 #include <eosio/chain/incremental_merkle.hpp>
+#include <eosio/chain/thread_utils.hpp>
 
 namespace eosio::chain {
 
@@ -73,7 +74,7 @@ struct block_state : public block_header_state {     // block_header_state provi
 
    // ------ updated for votes, used for fork_db ordering ------------------------------
 private:
-   bool                       validated = false;     // We have executed the block's trxs and verified that action merkle root (block id) matches.
+   copyable_atomic<bool>      validated{false};     // We have executed the block's trxs and verified that action merkle root (block id) matches.
 
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
@@ -82,7 +83,7 @@ private:
    std::optional<digest_type> base_digest;  // For finality_data sent to SHiP, computed on demand in get_finality_data()
 
    // ------ private methods -----------------------------------------------------------
-   bool                                is_valid() const { return validated; }
+   bool                                is_valid() const { return validated.load(); }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);

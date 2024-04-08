@@ -1179,7 +1179,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    my_finalizers{ .t_startup = fc::time_point::now(), .persist_file_path = cfg.finalizers_dir / "safety.dat" },
+    my_finalizers(fc::time_point::now(), cfg.finalizers_dir / "safety.dat"),
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       thread_pool.start( cfg.thread_pool_size, [this]( const fc::exception& e ) {
@@ -3373,8 +3373,8 @@ struct controller_impl {
             auto start = fc::time_point::now();
 
             const bool already_valid = bsp->is_valid();
-            if (!already_valid) // has not been validated (applied) before, only in forkdb, integrate and possibly vote now
-               integrate_qc(bsp);
+            if (!already_valid) // has not been validated (applied) before, only in forkdb, see if we can vote now
+               consider_voting(bsp);
 
             const signed_block_ptr& b = bsp->block;
             const auto& new_protocol_feature_activations = bsp->get_new_protocol_feature_activations();
@@ -3544,14 +3544,14 @@ struct controller_impl {
    }
 
    bool node_has_voted_if_finalizer(const block_id_type& id) const {
-      if (my_finalizers.finalizers.empty())
+      if (my_finalizers.empty())
          return true;
 
       std::optional<bool> voted = fork_db.apply_s<std::optional<bool>>([&](auto& forkdb) -> std::optional<bool> {
          auto bsp = forkdb.get_block(id);
          if (bsp) {
-            return std::ranges::all_of(my_finalizers.finalizers, [&bsp](auto& f) {
-               return bsp->has_voted(f.first);
+            return my_finalizers.all_of_public_keys([&bsp](const auto& k) {
+               return bsp->has_voted(k);
             });
          }
          return false;
@@ -3560,20 +3560,15 @@ struct controller_impl {
       return !voted || *voted;
    }
 
+   // thread safe
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
       if (!bsp->block->is_proper_svnn_block())
          return;
 
-      // Each finalizer configured on the node which is present in the active finalizer policy
-      // may create and sign a vote
-      // TODO: as a future optimization, we could run maybe_vote on a thread (it would need a
-      // lock around the file access). We should document that the voted_block is emitted
-      // off the main thread. net_plugin is fine for this to be emitted from any thread.
-      // Just need to update the comment in net_plugin
+      // Each finalizer configured on the node which is present in the active finalizer policy may create and sign a vote.
       my_finalizers.maybe_vote(
           *bsp->active_finalizer_policy, bsp, bsp->strong_digest, [&](const vote_message& vote) {
-              // net plugin subscribed to this signal. it will broadcast the vote message
-              // on receiving the signal
+              // net plugin subscribed to this signal. it will broadcast the vote message on receiving the signal
               emit(voted_block, vote);
 
               // also aggregate our own vote into the pending_qc for this block.
@@ -3729,6 +3724,11 @@ struct controller_impl {
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
 
+      if constexpr (savanna_mode) {
+         integrate_received_qc_to_block(bsp); // Save the received QC as soon as possible, no matter whether the block itself is valid or not
+         consider_voting(bsp);
+      }
+
       if (conf.terminate_at_block == 0 || bsp->block_num() <= conf.terminate_at_block) {
          forkdb.add(bsp, mark_valid_t::no, ignore_duplicate_t::yes);
       }
@@ -3814,7 +3814,7 @@ struct controller_impl {
          return;
       }
 
-      // Save the QC. This is safe as the function is called by push_block & accept_block from application thread.
+      // Save the QC.
       dlog("setting valid qc: ${rqc} into claimed block ${bn} ${id}", ("rqc", qc_ext.qc.to_qc_claim())("bn", claimed->block_num())("id", claimed->id()));
       claimed->set_valid_qc(received_qc);
 
@@ -3830,6 +3830,9 @@ struct controller_impl {
       }
    }
 
+   void consider_voting(const block_state_legacy_ptr&) {}
+
+   // thread safe
    void consider_voting(const block_state_ptr& bsp) {
       // 1. Get the `core.final_on_strong_qc_block_num` for the block you are considering to vote on and use that to find the actual block ID
       //    of the ancestor block that has that block number.
@@ -3844,20 +3847,12 @@ struct controller_impl {
       }
    }
 
-   template <typename BSP>
-   void integrate_qc(const BSP& bsp) {
-      if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-         integrate_received_qc_to_block(bsp);
-         consider_voting(bsp);
-      }
-   }
-
    template <class BSP>
    void accept_block(const BSP& bsp) {
       assert(bsp && bsp->block);
 
-      // Save the received QC as soon as possible, no matter whether the block itself is valid or not
-      integrate_qc(bsp);
+      // consider voting again as final_on_strong_qc_block may have been validated since the bsp was created in create_block_state_i
+      consider_voting(bsp);
 
       auto do_accept_block = [&](auto& forkdb) {
          if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.head())>>)
@@ -3876,9 +3871,6 @@ struct controller_impl {
                     const trx_meta_cache_lookup& trx_lookup )
    {
       assert(bsp && bsp->block);
-
-      // Save the received QC as soon as possible, no matter whether the block itself is valid or not
-      integrate_qc(bsp);
 
       controller::block_status s = controller::block_status::complete;
       EOS_ASSERT(!pending, block_validate_exception, "it is not valid to push a block when there is a pending block");

@@ -373,6 +373,8 @@ namespace eosio::chain {
          signal<void(const block_signal_params&)>&  accepted_block();
          signal<void(const block_signal_params&)>&  irreversible_block();
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)>& applied_transaction();
+
+         // Unlike other signals, voted_block can be signaled from other threads than the main thread.
          signal<void(const vote_message&)>&         voted_block();
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
