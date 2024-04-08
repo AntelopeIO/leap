@@ -50,6 +50,36 @@ namespace eosio { namespace chain {
       auto make_accessor() { return accessor{mtx, value}; }
    };
 
+   template <typename T>
+   class copyable_atomic {
+      std::atomic<T> value;
+   public:
+      copyable_atomic() = default;
+      copyable_atomic(T v) noexcept
+         : value(v) {}
+      copyable_atomic(const copyable_atomic& rhs)
+         : value(rhs.value.load(std::memory_order_relaxed)) {}
+      copyable_atomic(copyable_atomic&& rhs) noexcept
+         : value(rhs.value.load(std::memory_order_relaxed)) {}
+
+      T load(std::memory_order mo = std::memory_order_seq_cst) const noexcept { return value.load(mo); }
+      void store(T v, std::memory_order mo = std::memory_order_seq_cst) noexcept { value.store(v, mo); }
+
+      template<typename DS>
+      friend DS& operator<<(DS& ds, const copyable_atomic& ca) {
+         fc::raw::pack(ds, ca.load(std::memory_order_relaxed));
+         return ds;
+      }
+
+      template<typename DS>
+      friend DS& operator>>(DS& ds, copyable_atomic& ca) {
+         T v;
+         fc::raw::unpack(ds, v);
+         ca.store(v, std::memory_order_relaxed);
+         return ds;
+      }
+   };
+
    /**
     * Wrapper class for thread pool of boost asio io_context run.
     * Also names threads so that tools like htop can see thread name.
