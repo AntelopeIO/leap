@@ -13,9 +13,8 @@ namespace fc::crypto::blslib {
    }
 
    bls12_381::g1 bls_public_key::from_affine_bytes_le(const std::array<uint8_t, 96>& affine_non_montgomery_le) {
-      constexpr bool check = true; // check if base64urlstr is invalid
-      constexpr bool raw = false;  // non-montgomery
-      std::optional<bls12_381::g1> g1 = bls12_381::g1::fromAffineBytesLE(affine_non_montgomery_le, check, raw);
+      std::optional<bls12_381::g1> g1 =
+         bls12_381::g1::fromAffineBytesLE(affine_non_montgomery_le, {.check_valid = true, .to_mont = true});
       FC_ASSERT(g1);
       return *g1;
    }

@@ -55,7 +55,7 @@ block_state::block_state(const block_header_state&                bhs,
 
 // Used for transition from dpos to Savanna.
 block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& bsp) {
-   assert(bsp.action_receipt_digests_savanna);
+   assert(bsp.action_mroot_savanna);
 
    auto result_ptr = std::make_shared<block_state>();
    auto &result = *result_ptr;
@@ -86,15 +86,11 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    // TODO: Do not aggregate votes on blocks created from block_state_legacy. This can be removed when #2057 complete.
    result.pending_qc = pending_quorum_certificate{result.active_finalizer_policy->finalizers.size(), result.active_finalizer_policy->threshold, result.active_finalizer_policy->max_weak_sum_before_weak_final()};
 
-   // Calculate Merkle tree root in Savanna way so that it is stored in Leaf Node when building block_state.
-   const auto& digests = *bsp.action_receipt_digests_savanna;
-   auto action_mroot_svnn = calculate_merkle(digests);
-
    // build leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {
       .block_num       = bsp.block_num(),
       .finality_digest = result.strong_digest,
-      .action_mroot    = action_mroot_svnn
+      .action_mroot    = *bsp.action_mroot_savanna
    };
    // construct valid structure
    incremental_merkle_tree validation_tree;
@@ -107,7 +103,7 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    result.validated.store(bsp.is_valid());
    result.pub_keys_recovered = bsp._pub_keys_recovered;
    result.cached_trxs = bsp._cached_trxs;
-   result.action_mroot = action_mroot_svnn;
+   result.action_mroot = *bsp.action_mroot_savanna;
    result.base_digest = {}; // calculated on demand in get_finality_data()
 
    return result_ptr;

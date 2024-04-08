@@ -360,7 +360,7 @@ struct assembled_block {
       return std::visit(overloaded{[&](assembled_block_legacy& ab) {
                                       auto bsp = std::make_shared<block_state_legacy>(
                                          std::move(ab.pending_block_header_state), std::move(ab.unsigned_block),
-                                         std::move(ab.trx_metas), std::move(ab.action_receipt_digests_savanna), pfs, validator, signer);
+                                         std::move(ab.trx_metas), ab.action_receipt_digests_savanna, pfs, validator, signer);
                                       return completed_block{block_handle{std::move(bsp)}};
                                    },
                                    [&](assembled_block_if& ab) {
@@ -1298,7 +1298,7 @@ struct controller_impl {
                fc::scoped_exit<std::function<void()>> e([&]{fork_db.switch_to(fork_database::in_use_t::both);});
                apply_block(br, legacy, controller::block_status::complete, trx_meta_cache_lookup{});
                // irreversible apply was just done, calculate new_valid here instead of in transition_to_savanna()
-               assert(legacy->action_receipt_digests_savanna);
+               assert(legacy->action_mroot_savanna);
                block_state_ptr prev = forkdb.get_block(legacy->previous(), include_root_t::yes);
                assert(prev);
                transition_add_to_savanna_fork_db(forkdb, legacy, bsp, prev);
@@ -1312,12 +1312,10 @@ struct controller_impl {
                                           const block_state_ptr& prev) {
       // legacy_branch is from head, all will be validated unless irreversible_mode(),
       // IRREVERSIBLE applies (validates) blocks when irreversible, new_valid will be done after apply in log_irreversible
-      assert(read_mode == db_read_mode::IRREVERSIBLE || legacy->action_receipt_digests_savanna);
-      if (legacy->action_receipt_digests_savanna) {
-         const auto& digests = *legacy->action_receipt_digests_savanna;
-         auto action_mroot = calculate_merkle(digests);
+      assert(read_mode == db_read_mode::IRREVERSIBLE || legacy->action_mroot_savanna);
+      if (legacy->action_mroot_savanna) {
          // Create the valid structure for producing
-         new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
+         new_bsp->valid = prev->new_valid(*new_bsp, *legacy->action_mroot_savanna, new_bsp->strong_digest);
       }
       forkdb.add(new_bsp, legacy->is_valid() ? mark_valid_t::yes : mark_valid_t::no, ignore_duplicate_t::yes);
    }
@@ -1528,11 +1526,9 @@ struct controller_impl {
                                  protocol_features.get_protocol_feature_set(),
                                  validator_t{}, skip_validate_signee);
                            // legacy_branch is from head, all should be validated
-                           assert(bspl->action_receipt_digests_savanna);
-                           const auto& digests = *bspl->action_receipt_digests_savanna;
-                           auto action_mroot = calculate_merkle(digests);
+                           assert(bspl->action_mroot_savanna);
                            // Create the valid structure for producing
-                           new_bsp->valid = prev->new_valid(*new_bsp, action_mroot, new_bsp->strong_digest);
+                           new_bsp->valid = prev->new_valid(*new_bsp, *bspl->action_mroot_savanna, new_bsp->strong_digest);
                            prev = new_bsp;
                         }
                      }
@@ -3482,7 +3478,8 @@ struct controller_impl {
                auto& ab = std::get<assembled_block>(pending->_block_stage);
                ab.apply_legacy<void>([&](assembled_block::assembled_block_legacy& abl) {
                   assert(abl.action_receipt_digests_savanna);
-                  bsp->action_receipt_digests_savanna = std::move(*abl.action_receipt_digests_savanna);
+                  const auto& digests = *abl.action_receipt_digests_savanna;
+                  bsp->action_mroot_savanna = calculate_merkle(digests);
                });
             }
             auto& ab = std::get<assembled_block>(pending->_block_stage);
@@ -4374,8 +4371,80 @@ struct controller_impl {
       }
    }
 
+   // This is only used during Savanna transition, which is a one-time occurrence,
+   // and it is only used by SHiP..
+   // It is OK to calculate from Savanna Genesis block for each Transition block.
+   std::optional<finality_data_t> get_transition_block_finality_data(const block_state_legacy_ptr& head) const {
+      fork_database_legacy_t::branch_t legacy_branch;
+      block_state_legacy_ptr legacy_root;
+      fork_db.apply_l<void>([&](const auto& forkdb) {
+         legacy_root = forkdb.root();
+         legacy_branch = forkdb.fetch_branch(head->id());
+      });
+
+      block_state_ptr prev;
+      auto bitr = legacy_branch.rbegin();
+
+      // get_transition_block_finality_data is called by SHiP as a result
+      // of receiving accepted_block signal. That is before
+      // the call to log_irreversible where root() is updated.
+      // Search both root and legacy_branch for the first block having
+      // instant_finality_extension -- the Savanna Genesis Block.
+      // Then start from the Savanna Genesis Block to create corresponding
+      // Savanna blocks.
+      // genesis_block already contains all information for finality_data.
+      if (legacy_root->header.contains_header_extension(instant_finality_extension::extension_id())) {
+         prev = block_state::create_if_genesis_block(*legacy_root);
+      } else {
+         for (; bitr != legacy_branch.rend(); ++bitr) {
+            if ((*bitr)->header.contains_header_extension(instant_finality_extension::extension_id())) {
+               prev = block_state::create_if_genesis_block(*(*bitr));
+               ++bitr;
+               break;
+            }
+         }
+      }
+
+      assert(prev);
+      const bool skip_validate_signee = true; // validated already
+
+      for (; bitr != legacy_branch.rend(); ++bitr) {
+         auto new_bsp = std::make_shared<block_state>(
+               *prev,
+               (*bitr)->block,
+               protocol_features.get_protocol_feature_set(),
+               validator_t{}, skip_validate_signee);
+
+         // We only need action_mroot of the last block for finality_data
+         if ((bitr + 1) == legacy_branch.rend()) {
+            assert((*bitr)->action_mroot_savanna);
+            new_bsp->action_mroot = *((*bitr)->action_mroot_savanna);
+         }
+
+         prev = new_bsp;
+      }
+
+      assert(prev);
+      return prev->get_finality_data();
+   }
+
    std::optional<finality_data_t> head_finality_data() const {
-      return apply_s<std::optional<finality_data_t>>(chain_head, [](const block_state_ptr& head) { return head->get_finality_data(); });
+      return apply<std::optional<finality_data_t>>(chain_head, overloaded{
+         [&](const block_state_legacy_ptr& head) -> std::optional<finality_data_t> {
+            // When in Legacy, if it is during transition to Savana, we need to
+            // build finality_data for the corresponding Savanna block
+            if (head->header.contains_header_extension(instant_finality_extension::extension_id())) {
+               // during transition
+               return get_transition_block_finality_data(head);
+            } else {
+               // pre transition
+               return {};
+            }
+         },
+         [](const block_state_ptr& head) {
+            // Returns finality_data from chain_head because we are in Savanna
+            return head->get_finality_data();
+         }});
    }
 
    uint32_t earliest_available_block_num() const {

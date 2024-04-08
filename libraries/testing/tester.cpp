@@ -1047,8 +1047,11 @@ namespace eosio { namespace testing {
       return asset(result, asset_symbol);
    }
 
-
    vector<char> base_tester::get_row_by_account( name code, name scope, name table, const account_name& act ) const {
+      return get_row_by_id( code, scope, table, act.to_uint64_t() );
+   }
+
+   vector<char> base_tester::get_row_by_id( name code, name scope, name table, uint64_t id ) const {
       vector<char> data;
       const auto& db = control->db();
       const auto* t_id = db.find<chain::table_id_object, chain::by_code_scope_table>( boost::make_tuple( code, scope, table ) );
@@ -1059,8 +1062,8 @@ namespace eosio { namespace testing {
 
       const auto& idx = db.get_index<chain::key_value_index, chain::by_scope_primary>();
 
-      auto itr = idx.lower_bound( boost::make_tuple( t_id->id, act.to_uint64_t() ) );
-      if ( itr == idx.end() || itr->t_id != t_id->id || act.to_uint64_t() != itr->primary_key ) {
+      auto itr = idx.lower_bound( boost::make_tuple( t_id->id, id ) );
+      if ( itr == idx.end() || itr->t_id != t_id->id || id != itr->primary_key ) {
          return data;
       }
 
@@ -1068,7 +1071,6 @@ namespace eosio { namespace testing {
       memcpy( data.data(), itr->value.data(), data.size() );
       return data;
    }
-
 
    vector<uint8_t> base_tester::to_uint8_vector(const string& s) {
       vector<uint8_t> v(s.size());
