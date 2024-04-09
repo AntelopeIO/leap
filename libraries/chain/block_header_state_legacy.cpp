@@ -216,7 +216,7 @@ namespace eosio::chain {
       }
 
       if (new_finalizer_policy) {
-         new_finalizer_policy->generation = 1; // only allowed to be set once
+         assert(new_finalizer_policy->generation == 1); // only allowed to be set once
          // set current block_num as qc_claim.last_qc_block_num in the IF extension
          qc_claim_t initial_if_claim { .block_num = block_num,
                                        .is_strong_qc = false };

@@ -323,7 +323,7 @@ namespace eosio::chain {
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
          // called by host function set_finalizers
-         void set_proposed_finalizers( const finalizer_policy& fin_set );
+         void set_proposed_finalizers( finalizer_policy&& fin_pol );
          // called from net threads
          vote_status process_vote_message( const vote_message& msg );
          // thread safe, for testing
