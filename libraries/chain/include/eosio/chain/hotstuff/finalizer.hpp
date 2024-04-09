@@ -99,7 +99,7 @@ namespace eosio::chain {
          votes.reserve(finalizers.size());
 
          // Possible improvement in the future, look at locking only individual finalizers and releasing the lock for writing the file.
-         // Would require making sure that only the latest is ever written to the file.
+         // Would require making sure that only the latest is ever written to the file and that the file access was protected separately.
          std::unique_lock g(mtx);
 
          // first accumulate all the votes

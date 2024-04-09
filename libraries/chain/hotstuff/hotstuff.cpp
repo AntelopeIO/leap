@@ -41,7 +41,7 @@ void pending_quorum_certificate::votes_t::reflector_init() {
 }
 
 bool pending_quorum_certificate::votes_t::has_voted(size_t index) const {
-   assert(index <= _processed.size());
+   assert(index < _processed.size());
    return _processed[index].load(std::memory_order_relaxed);
 }
 
@@ -163,6 +163,7 @@ vote_status pending_quorum_certificate::add_vote(block_num_type block_num, bool 
    return s;
 }
 
+// called by get_best_qc which acquires a mutex
 valid_quorum_certificate pending_quorum_certificate::to_valid_quorum_certificate() const {
    valid_quorum_certificate valid_qc;
 
@@ -203,7 +204,7 @@ std::optional<quorum_certificate> pending_quorum_certificate::get_best_qc(block_
    // Strong beats weak. Tie break by valid_qc.
    const auto& best_qc =
       _valid_qc->is_strong() == valid_qc_from_pending.is_strong() ?
-      *_valid_qc : // tie broke by valid_qc
+      *_valid_qc : // tie broken by valid_qc
       _valid_qc->is_strong() ? *_valid_qc : valid_qc_from_pending; // strong beats weak
    return std::optional{quorum_certificate{ block_num, best_qc }};
 }

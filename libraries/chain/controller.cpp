@@ -3347,7 +3347,7 @@ struct controller_impl {
               ("p", bsp->producer())("id", bsp->id().str().substr(8, 16))("n", bsp->block_num())("t", bsp->timestamp())
               ("count", bsp->block->transactions.size())("lib", fork_db_root_block_num())
               ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
-              ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (fc::time_point::now() - bsp->timestamp()).count() / 1000));
+              ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (now - bsp->timestamp()).count() / 1000));
          const auto& hb_id = chain_head.id();
          const auto& hb = chain_head.block();
          if (read_mode != db_read_mode::IRREVERSIBLE && hb && hb_id != bsp->id() && hb != nullptr) { // not applied to head
@@ -3369,7 +3369,10 @@ struct controller_impl {
             auto start = fc::time_point::now();
 
             const bool already_valid = bsp->is_valid();
-            if (!already_valid) // has not been validated (applied) before, only in forkdb, see if we can vote now
+            // When bsp was created in create_block_state_i, bsp was considered for voting. At that time, bsp->final_on_strong_qc_block_ref may
+            // not have been validated and we could not vote. At this point bsp->final_on_strong_qc_block_ref has been validated and we can vote.
+            // Only need to consider voting if not already validated, if already validated then we have already voted.
+            if (!already_valid)
                consider_voting(bsp);
 
             const signed_block_ptr& b = bsp->block;
@@ -3974,7 +3977,9 @@ struct controller_impl {
             if (chain_head.id() != pending_head->id() && pending_head->id() != forkdb.head()->id()) {
                dlog("switching forks on controller->maybe_switch_forks call");
                controller::block_report br;
-               maybe_switch_forks(br, pending_head, pending_head->is_valid() ? controller::block_status::validated : controller::block_status::complete,
+               maybe_switch_forks(br, pending_head,
+                                  pending_head->is_valid() ? controller::block_status::validated
+                                                           : controller::block_status::complete,
                                   cb, trx_lookup);
             }
          }
@@ -4001,8 +4006,8 @@ struct controller_impl {
             bool switch_fork = !branches.second.empty();
             if( switch_fork ) {
                auto head_fork_comp_str = apply<std::string>(chain_head, [](auto& head) -> std::string { return log_fork_comparison(*head); });
-               ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
-                    ("current_head_id", chain_head.id())("current_head_num", chain_head.block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
+               ilog("switching forks from ${chid} (block number ${chn}) ${c} to ${nhid} (block number ${nhn}) ${n}",
+                    ("chid", chain_head.id())("chn}", chain_head.block_num())("nhid", new_head->id())("nhn", new_head->block_num())
                     ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
 
                // not possible to log transaction specific info when switching forks
@@ -5060,16 +5065,14 @@ bool controller::block_exists(const block_id_type& id) const {
    bool exists = my->fork_db_block_exists(id);
    if( exists ) return true;
    std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
-   if( sbh && sbh->calculate_id() == id ) return true;
-   return false;
+   return sbh && sbh->calculate_id() == id;
 }
 
 bool controller::validated_block_exists(const block_id_type& id) const {
    bool exists = my->fork_db_validated_block_exists(id);
    if( exists ) return true;
    std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
-   if( sbh && sbh->calculate_id() == id ) return true;
-   return false;
+   return sbh && sbh->calculate_id() == id;
 }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_id( const block_id_type& id )const {
