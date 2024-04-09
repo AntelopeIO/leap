@@ -3127,7 +3127,9 @@ struct controller_impl {
    /**
     * @post regardless of the success of commit block there is no active pending block
     */
-   void commit_block( controller::block_status s ) {
+   void commit_block( controller::block_report& br, controller::block_status s ) {
+      fc::time_point start = fc::time_point::now();
+
       auto reset_pending_on_exit = fc::make_scoped_exit([this]{
          pending.reset();
       });
@@ -3189,6 +3191,19 @@ struct controller_impl {
 
          if ( s == controller::block_status::incomplete || s == controller::block_status::complete || s == controller::block_status::validated ) {
             apply_s<void>(chain_head, [&](const auto& head) { create_and_send_vote_msg(head); });
+         }
+
+
+         if (s == controller::block_status::incomplete) {
+            const auto& id = chain_head.id();
+            const auto& new_b = chain_head.block();
+            br.total_time += fc::time_point::now() - start;
+
+            ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
+                 "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
+                 ("p", new_b->producer)("id", id.str().substr(8, 16))("n", new_b->block_num())("t", new_b->timestamp)
+                 ("count", new_b->transactions.size())("lib", fork_db_root_block_num())("net", br.total_net_usage)
+                 ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_b->confirmed));
          }
 
       } catch (...) {
@@ -3504,8 +3519,8 @@ struct controller_impl {
             pending->_block_stage = completed_block{ block_handle{bsp} };
 
             br = pending->_block_report; // copy before commit block destroys pending
-            commit_block(s);
-            br.total_time = fc::time_point::now() - start;
+            br.total_time += fc::time_point::now() - start;
+            commit_block(br, s);
 
             if (!already_valid)
                log_applied(br, bsp);
@@ -3807,6 +3822,7 @@ struct controller_impl {
       }
 
       // Don't save the QC from block extension if the claimed block has a better or same valid_qc.
+      // claimed->valid_qc_is_strong() acquires a mutex.
       if (received_qc.is_weak() || claimed->valid_qc_is_strong()) {
          dlog("qc not better, claimed->valid: ${qbn} ${qid}, strong=${s}, received: ${rqc}, for block ${bn} ${id}",
               ("qbn", claimed->block_num())("qid", claimed->id())("s", !received_qc.is_weak()) // use is_weak() to avoid mutex on valid_qc_is_strong()
@@ -4839,20 +4855,8 @@ void controller::assemble_and_complete_block( block_report& br, const signer_cal
 }
 
 void controller::commit_block(block_report& br) {
-   fc::time_point start = fc::time_point::now();
-
    validate_db_available_size();
-   my->commit_block(block_status::incomplete);
-
-   const auto& id = head_block_id();
-   const auto& new_b = head_block();
-   br.total_time += fc::time_point::now() - start;
-
-   ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
-        "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
-        ("p", new_b->producer)("id", id.str().substr(8, 16))("n", new_b->block_num())("t", new_b->timestamp)
-        ("count", new_b->transactions.size())("lib", last_irreversible_block_num())("net", br.total_net_usage)
-        ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_b->confirmed));
+   my->commit_block(br, block_status::incomplete);
 }
 
 void controller::maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup) {
