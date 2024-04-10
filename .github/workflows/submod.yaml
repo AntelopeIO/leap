@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Checkout
         run: |
-          git clone https://github.com/${GITHUB_REPOSITORY} .
+          git clone https://x-access-token:${{github.token}}@github.com/${GITHUB_REPOSITORY} .
           git fetch -v --prune origin +refs/pull/${PR_NUMBER}/merge:refs/remotes/pull/${PR_NUMBER}/merge
           git checkout --force --progress refs/remotes/pull/${PR_NUMBER}/merge
           git submodule sync --recursive
