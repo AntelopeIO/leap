@@ -140,7 +140,7 @@ try:
     assert prodD.getIrreversibleBlockNum() > max(libProdABeforeKill, libProdDBeforeKill)
 
     # instant finality does not drop late blocks, but can still get unlinkable when syncing and getting a produced block
-    allowedUnlinkableBlocks = afterBlockNum-beforeBlockNum if not activateIF else 5
+    allowedUnlinkableBlocks = afterBlockNum-beforeBlockNum
     logFile = Utils.getNodeDataDir(prodNode3.nodeId) + "/stderr.txt"
     f = open(logFile)
     contents = f.read()

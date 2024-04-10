@@ -33,16 +33,6 @@
 #include <new>
 #include <regex>
 
-// should be defined for c++17, but clang++16 still has not implemented it
-#ifdef __cpp_lib_hardware_interference_size
-   using std::hardware_constructive_interference_size;
-   using std::hardware_destructive_interference_size;
-#else
-   // 64 bytes on x86-64 │ L1_CACHE_BYTES │ L1_CACHE_SHIFT │ __cacheline_aligned │ ...
-   [[maybe_unused]] constexpr std::size_t hardware_constructive_interference_size = 64;
-   [[maybe_unused]] constexpr std::size_t hardware_destructive_interference_size = 64;
-#endif
-
 using namespace eosio::chain::plugin_interface;
 
 using namespace std::chrono_literals;
@@ -2540,7 +2530,11 @@ namespace eosio {
                if (sync_last_requested_num == 0) { // block was rejected
                   sync_next_expected_num = my_impl->get_chain_lib_num() + 1;
                } else {
-                  sync_next_expected_num = blk_num + 1;
+                  if (blk_num == sync_next_expected_num) {
+                     ++sync_next_expected_num;
+                  } else if (blk_num < sync_next_expected_num) {
+                     sync_next_expected_num = blk_num + 1;
+                  }
                }
             }
 
@@ -3140,7 +3134,6 @@ namespace eosio {
          }
       } else {
          block_sync_bytes_received += message_length;
-         my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
          uint32_t lib_num = my_impl->get_chain_lib_num();
          if( blk_num <= lib_num ) {
             cancel_wait();
@@ -3148,6 +3141,7 @@ namespace eosio {
             pending_message_buffer.advance_read_ptr( message_length );
             return true;
          }
+         my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
       }
 
       auto ds = pending_message_buffer.create_datastream();
@@ -3847,7 +3841,7 @@ namespace eosio {
 
       uint32_t lib = cc.last_irreversible_block_num();
       try {
-         if( blk_num <= lib || cc.block_exists(blk_id) ) {
+         if( blk_num <= lib || cc.validated_block_exists(blk_id) ) {
             c->strand.post( [sync_master = my_impl->sync_master.get(),
                              &dispatcher = my_impl->dispatcher, c, blk_id, blk_num]() {
                dispatcher.add_peer_block( blk_id, c->connection_id );
@@ -4001,7 +3995,7 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   // called from application thread
+   // called from other threads including net threads
    void net_plugin_impl::on_voted_block(const vote_message& msg) {
       fc_dlog(logger, "on voted signal: block #${bn} ${id}.., ${t}, key ${k}..",
                 ("bn", block_header::num_from_id(msg.block_id))("id", msg.block_id.str().substr(8,16))
@@ -4376,6 +4370,7 @@ namespace eosio {
       set_producer_accounts(producer_plug->producer_accounts());
 
       thread_pool.start( thread_pool_size, []( const fc::exception& e ) {
+         elog("Exception in net thread, exiting: ${e}", ("e", e.to_detail_string()));
          app().quit();
       } );
 

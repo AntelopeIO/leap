@@ -1,8 +1,10 @@
 #pragma once
-#include "eosio/chain/block_state.hpp"
+#include <eosio/chain/block_state.hpp>
 #include <fc/crypto/bls_utils.hpp>
 #include <fc/io/cfile.hpp>
 #include <compare>
+#include <mutex>
+#include <ranges>
 
 // -------------------------------------------------------------------------------------------
 // this file defines the classes:
@@ -45,6 +47,7 @@ namespace eosio::chain {
    };
 
    // ----------------------------------------------------------------------------------------
+   // Access is protected by my_finalizers_t mutex
    struct finalizer {
       enum class vote_decision { no_vote, strong_vote, weak_vote };
       struct vote_result {
@@ -58,7 +61,6 @@ namespace eosio::chain {
       finalizer_safety_information  fsi;
 
       vote_result  decide_vote(const block_state_ptr& bsp);
-
       std::optional<vote_message> maybe_vote(const bls_public_key& pub_key, const block_state_ptr& bsp,
                                              const digest_type& digest);
    };
@@ -68,21 +70,37 @@ namespace eosio::chain {
       using fsi_t   = finalizer_safety_information;
       using fsi_map = std::map<bls_public_key, fsi_t>;
 
+   private:
       const block_timestamp_type        t_startup;             // nodeos startup time, used for default safety_information
       const std::filesystem::path       persist_file_path;     // where we save the safety data
+      mutable std::mutex                mtx;
       mutable fc::datastream<fc::cfile> persist_file;          // we want to keep the file open for speed
-      std::map<bls_public_key, finalizer>  finalizers;         // the active finalizers for this node
+      std::map<bls_public_key, finalizer>  finalizers;         // the active finalizers for this node, loaded at startup, not mutated afterwards
       fsi_map                           inactive_safety_info;  // loaded at startup, not mutated afterwards
       fsi_t                             default_fsi = fsi_t::unset_fsi(); // default provided at leap startup
       mutable bool                      inactive_safety_info_written{false};
 
-      template<class F>
+   public:
+      my_finalizers_t(block_timestamp_type startup_time, const std::filesystem::path& persist_file_path)
+         : t_startup(startup_time)
+         , persist_file_path(persist_file_path)
+      {}
+
+      template<class F> // thread safe
       void maybe_vote(const finalizer_policy& fin_pol,
                       const block_state_ptr& bsp,
                       const digest_type& digest,
                       F&& process_vote) {
+
+         if (finalizers.empty())
+            return;
+
          std::vector<vote_message> votes;
          votes.reserve(finalizers.size());
+
+         // Possible improvement in the future, look at locking only individual finalizers and releasing the lock for writing the file.
+         // Would require making sure that only the latest is ever written to the file and that the file access was protected separately.
+         std::unique_lock g(mtx);
 
          // first accumulate all the votes
          for (const auto& f : fin_pol.finalizers) {
@@ -95,20 +113,28 @@ namespace eosio::chain {
          // then save the safety info and, if successful, gossip the votes
          if (!votes.empty()) {
             save_finalizer_safety_info();
+            g.unlock();
             for (const auto& vote : votes)
                std::forward<F>(process_vote)(vote);
          }
       }
 
-      size_t  size() const { return finalizers.size(); }
-      void    set_keys(const std::map<std::string, std::string>& finalizer_keys);
+      size_t  size() const { return finalizers.size(); }   // doesn't change, thread safe
+      bool    empty() const { return finalizers.empty(); } // doesn't change, thread safe
+
+      template<typename F>
+      bool all_of_public_keys(F&& f) const { // only access keys which do not change, thread safe
+         return std::ranges::all_of(std::views::keys(finalizers), std::forward<F>(f));
+      }
+
+      void    set_keys(const std::map<std::string, std::string>& finalizer_keys); // only call on startup
       void    set_default_safety_information(const fsi_t& fsi);
 
-      // following two member functions could be private, but are used in testing
+      // following two member functions could be private, but are used in testing, not thread safe
       void    save_finalizer_safety_info() const;
       fsi_map load_finalizer_safety_info();
 
-      // for testing purposes only
+      // for testing purposes only, not thread safe
       const fsi_t& get_fsi(const bls_public_key& k) { return finalizers[k].fsi; }
       void         set_fsi(const bls_public_key& k, const fsi_t& fsi) { finalizers[k].fsi = fsi; }
    };

@@ -5,6 +5,7 @@
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/action_receipt.hpp>
 #include <eosio/chain/incremental_merkle.hpp>
+#include <eosio/chain/thread_utils.hpp>
 
 namespace eosio::chain {
 
@@ -69,12 +70,11 @@ struct block_state : public block_header_state {     // block_header_state provi
    digest_type                strong_digest;         // finalizer_digest (strong, cached so we can quickly validate votes)
    weak_digest_t              weak_digest;           // finalizer_digest (weak, cached so we can quickly validate votes)
    pending_quorum_certificate pending_qc;            // where we accumulate votes we receive
-   std::optional<valid_quorum_certificate> valid_qc; // best qc received from the network inside block extension
    std::optional<valid_t>     valid;
 
    // ------ updated for votes, used for fork_db ordering ------------------------------
 private:
-   bool                       validated = false;     // We have executed the block's trxs and verified that action merkle root (block id) matches.
+   copyable_atomic<bool>      validated{false};     // We have executed the block's trxs and verified that action merkle root (block id) matches.
 
    // ------ data members caching information available elsewhere ----------------------
    bool                       pub_keys_recovered = false;
@@ -83,7 +83,7 @@ private:
    std::optional<digest_type> base_digest;  // For finality_data sent to SHiP, computed on demand in get_finality_data()
 
    // ------ private methods -----------------------------------------------------------
-   bool                                is_valid() const { return validated; }
+   bool                                is_valid() const { return validated.load(); }
    bool                                is_pub_keys_recovered() const { return pub_keys_recovered; }
    deque<transaction_metadata_ptr>     extract_trxs_metas();
    void                                set_trxs_metas(deque<transaction_metadata_ptr>&& trxs_metas, bool keys_recovered);
@@ -103,7 +103,9 @@ public:
    const extensions_type& header_extensions() const { return block_header_state::header.header_extensions; }
    uint32_t               irreversible_blocknum() const { return core.last_final_block_num(); } // backwards compatibility
    uint32_t               last_final_block_num() const { return core.last_final_block_num(); }
-   std::optional<quorum_certificate> get_best_qc() const;
+   std::optional<quorum_certificate> get_best_qc() const { return pending_qc.get_best_qc(block_num()); } // thread safe
+   bool valid_qc_is_strong() const { return pending_qc.valid_qc_is_strong(); } // thread safe
+   void set_valid_qc(const valid_quorum_certificate& qc) { pending_qc.set_valid_qc(qc); }
 
    protocol_feature_activation_set_ptr get_activated_protocol_features() const { return block_header_state::activated_protocol_features; }
    uint32_t               last_qc_block_num() const { return core.latest_qc_claim().block_num; }
@@ -164,4 +166,4 @@ using block_state_pair      = std::pair<std::shared_ptr<block_state_legacy>, blo
 FC_REFLECT( eosio::chain::valid_t::finality_leaf_node_t, (major_version)(minor_version)(block_num)(finality_digest)(action_mroot) )
 FC_REFLECT( eosio::chain::valid_t, (validation_tree)(validation_mroots))
 FC_REFLECT( eosio::chain::finality_data_t, (major_version)(minor_version)(active_finalizer_policy_generation)(action_mroot)(base_digest))
-FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid_qc)(valid)(validated) )
+FC_REFLECT_DERIVED( eosio::chain::block_state, (eosio::chain::block_header_state), (block)(strong_digest)(weak_digest)(pending_qc)(valid)(validated) )

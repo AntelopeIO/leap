@@ -186,6 +186,7 @@ try:
 
     if state == irreversibleState:
         Print(f"Transaction became irreversible before it could be found forked out: {json.dumps(retStatus, indent=1)}")
+        testSuccessful = True
         sys.exit(0)
 
     assert state == forkedOutState, \
@@ -204,12 +205,12 @@ try:
     state = getState(retStatus)
 
     # it is possible for another fork switch to cause the trx to be forked out again
-    if state == forkedOutState:
+    if state == forkedOutState or state == localState:
         while True:
             info = prodD.getInfo()
             retStatus = prodD.getTransactionStatus(transId)
             state = getState(retStatus)
-            blockNum = getBlockNum(retStatus)
+            blockNum = getBlockNum(retStatus) + 2 # Add 2 to give time to move from locally applied to in-block
             if (state == inBlockState or state == irreversibleState) or ( info['head_block_producer'] == 'defproducerd' and info['last_irreversible_block_num'] > blockNum ):
                 break
 

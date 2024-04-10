@@ -903,12 +903,13 @@ struct controller_impl {
 #endif
    controller&                     self;
    std::function<void()>           shutdown;
+   std::function<bool()>           check_shutdown;
    chainbase::database             db;
    block_log                       blog;
    std::optional<pending_state>    pending;
    block_handle                    chain_head;
    fork_database                   fork_db;
-   block_id_type                   if_irreversible_block_id;
+   large_atomic<block_id_type>     if_irreversible_block_id;
    resource_limits_manager         resource_limits;
    subjective_billing              subjective_bill;
    authorization_manager           authorization;
@@ -1079,6 +1080,12 @@ struct controller_impl {
       });
    }
 
+   bool fork_db_validated_block_exists( const block_id_type& id ) const {
+      return fork_db.apply<bool>([&](const auto& forkdb) {
+         return forkdb.validated_block_exists(id);
+      });
+   }
+
    signed_block_ptr fork_db_fetch_block_by_id( const block_id_type& id ) const {
       return fork_db.apply<signed_block_ptr>([&](const auto& forkdb) {
          auto bsp = forkdb.get_block(id);
@@ -1181,7 +1188,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    my_finalizers{ .t_startup = fc::time_point::now(), .persist_file_path = cfg.finalizers_dir / "safety.dat" },
+    my_finalizers(fc::time_point::now(), cfg.finalizers_dir / "safety.dat"),
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       thread_pool.start( cfg.thread_pool_size, [this]( const fc::exception& e ) {
@@ -1389,7 +1396,8 @@ struct controller_impl {
                      ("lib_num", lib_num)("bn", fork_db_root_block_num()) );
       }
 
-      uint32_t if_lib_num = block_header::num_from_id(if_irreversible_block_id);
+      block_id_type irreversible_block_id = if_irreversible_block_id.load();
+      uint32_t if_lib_num = block_header::num_from_id(irreversible_block_id);
       const uint32_t new_lib_num = if_lib_num > 0 ? if_lib_num : fork_db_head_irreversible_blocknum();
 
       if( new_lib_num <= lib_num )
@@ -1397,7 +1405,7 @@ struct controller_impl {
 
       bool savanna_transistion_required = false;
       auto mark_branch_irreversible = [&, this](auto& forkdb) {
-         auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( if_irreversible_block_id, new_lib_num)
+         auto branch = (if_lib_num > 0) ? forkdb.fetch_branch( irreversible_block_id, new_lib_num)
                                         : forkdb.fetch_branch( fork_db_head_or_pending(forkdb)->id(), new_lib_num );
          try {
             auto should_process = [&](auto& bsp) {
@@ -1494,7 +1502,7 @@ struct controller_impl {
 
    enum class startup_t { genesis, snapshot, existing_state };
 
-   std::exception_ptr replay_block_log(const std::function<bool()>& check_shutdown) {
+   std::exception_ptr replay_block_log() {
       auto blog_head = blog.head();
       if (!blog_head) {
          ilog( "no block log found" );
@@ -1584,7 +1592,7 @@ struct controller_impl {
       return except_ptr;
    }
 
-   void replay(const std::function<bool()>& check_shutdown, startup_t startup) {
+   void replay(startup_t startup) {
       replaying = true;
 
       auto blog_head = blog.head();
@@ -1592,7 +1600,7 @@ struct controller_impl {
       std::exception_ptr except_ptr;
 
       if (blog_head) {
-         except_ptr = replay_block_log(check_shutdown);
+         except_ptr = replay_block_log();
       } else {
          ilog( "no block log found" );
       }
@@ -1698,7 +1706,10 @@ struct controller_impl {
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot) {
       EOS_ASSERT( snapshot, snapshot_exception, "No snapshot reader provided" );
-      this->shutdown = shutdown;
+      this->shutdown = std::move(shutdown);
+      assert(this->shutdown);
+      this->check_shutdown = std::move(check_shutdown);
+      assert(this->check_shutdown);
       try {
          auto snapshot_load_start_time = fc::time_point::now();
          snapshot->validate();
@@ -1717,7 +1728,7 @@ struct controller_impl {
          }
          ilog( "Snapshot loaded, lib: ${lib}", ("lib", chain_head.block_num()) );
 
-         init(std::move(check_shutdown), startup_t::snapshot);
+         init(startup_t::snapshot);
          apply_l<void>(chain_head, [&](auto& head) {
             if (block_states.second && head->header.contains_header_extension(instant_finality_extension::extension_id())) {
                // snapshot generated in transition to savanna
@@ -1743,6 +1754,9 @@ struct controller_impl {
       );
 
       this->shutdown = std::move(shutdown);
+      assert(this->shutdown);
+      this->check_shutdown = std::move(check_shutdown);
+      assert(this->check_shutdown);
 
       initialize_blockchain_state(genesis); // sets chain_head to genesis state
 
@@ -1752,7 +1766,7 @@ struct controller_impl {
          blog.reset( genesis, chain_head.block() );
       }
 
-      init(std::move(check_shutdown), startup_t::genesis);
+      init(startup_t::genesis);
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
@@ -1765,6 +1779,9 @@ struct controller_impl {
                   "No existing fork database despite existing chain state. Replay required." );
 
       this->shutdown = std::move(shutdown);
+      assert(this->shutdown);
+      this->check_shutdown = std::move(check_shutdown);
+      assert(this->check_shutdown);
       uint32_t lib_num = fork_db_root_block_num();
       auto first_block_num = blog.first_block_num();
       if( auto blog_head = blog.head() ) {
@@ -1791,7 +1808,7 @@ struct controller_impl {
 
       fork_db.apply<void>(do_startup);
 
-      init(std::move(check_shutdown), startup_t::existing_state);
+      init(startup_t::existing_state);
    }
 
 
@@ -1808,7 +1825,7 @@ struct controller_impl {
       return header_itr;
    }
 
-   void init(std::function<bool()> check_shutdown, startup_t startup) {
+   void init(startup_t startup) {
       auto header_itr = validate_db_version( db );
 
       {
@@ -1851,7 +1868,7 @@ struct controller_impl {
          ilog( "chain database started with hash: ${hash}", ("hash", calculate_integrity_hash()) );
       okay_to_print_integrity_hash_on_stop = true;
 
-      replay( check_shutdown, startup ); // replay any irreversible and reversible blocks ahead of current head
+      replay( startup ); // replay any irreversible and reversible blocks ahead of current head
 
       if( check_shutdown() ) return;
 
@@ -1864,10 +1881,10 @@ struct controller_impl {
             auto pending_head = forkdb.pending_head();
             auto head         = forkdb.head();
             if ( head && pending_head && pending_head->id() != head->id() && head->id() == forkdb.root()->id() ) {
-               wlog( "read_mode has changed from irreversible: applying best branch from fork database" );
+               ilog( "read_mode has changed from irreversible: applying best branch from fork database" );
 
                for( ; pending_head->id() != forkdb.head()->id(); pending_head = forkdb.pending_head() ) {
-                  wlog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
+                  ilog( "applying branch from fork database ending with block: ${id}", ("id", pending_head->id()) );
                   controller::block_report br;
                   maybe_switch_forks( br, pending_head, controller::block_status::complete, {}, trx_meta_cache_lookup{} );
                }
@@ -3119,7 +3136,9 @@ struct controller_impl {
    /**
     * @post regardless of the success of commit block there is no active pending block
     */
-   void commit_block( controller::block_status s ) {
+   void commit_block( controller::block_report& br, controller::block_status s ) {
+      fc::time_point start = fc::time_point::now();
+
       auto reset_pending_on_exit = fc::make_scoped_exit([this]{
          pending.reset();
       });
@@ -3181,6 +3200,19 @@ struct controller_impl {
 
          if ( s == controller::block_status::incomplete || s == controller::block_status::complete || s == controller::block_status::validated ) {
             apply_s<void>(chain_head, [&](const auto& head) { create_and_send_vote_msg(head); });
+         }
+
+
+         if (s == controller::block_status::incomplete) {
+            const auto& id = chain_head.id();
+            const auto& new_b = chain_head.block();
+            br.total_time += fc::time_point::now() - start;
+
+            ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
+                 "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
+                 ("p", new_b->producer)("id", id.str().substr(8, 16))("n", new_b->block_num())("t", new_b->timestamp)
+                 ("count", new_b->transactions.size())("lib", fork_db_root_block_num())("net", br.total_net_usage)
+                 ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_b->confirmed));
          }
 
       } catch (...) {
@@ -3327,16 +3359,50 @@ struct controller_impl {
       return {};
    }
 
+
+   template<typename BSP>
+   void log_applied(controller::block_report& br, const BSP& bsp) const {
+      if (replaying) // fork_db_root_block_num not available during replay
+         return;
+      fc::time_point now = fc::time_point::now();
+      if (now - bsp->timestamp() < fc::minutes(5) || (bsp->block_num() % 1000 == 0)) {
+         ilog("Received block ${id}... #${n} @ ${t} signed by ${p} " // "Received" instead of "Applied" so it matches existing log output
+              "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
+              ("p", bsp->producer())("id", bsp->id().str().substr(8, 16))("n", bsp->block_num())("t", bsp->timestamp())
+              ("count", bsp->block->transactions.size())("lib", fork_db_root_block_num())
+              ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+              ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (now - bsp->timestamp()).count() / 1000));
+         const auto& hb_id = chain_head.id();
+         const auto& hb = chain_head.block();
+         if (read_mode != db_read_mode::IRREVERSIBLE && hb && hb_id != bsp->id() && hb != nullptr) { // not applied to head
+            ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
+                 "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
+                 ("p", hb->producer)("id", hb_id.str().substr(8, 16))("n", hb->block_num())("t", hb->timestamp)
+                 ("count", hb->transactions.size())("lib", fork_db_root_block_num())
+                 ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)
+                 ("latency", (now - hb->timestamp).count() / 1000));
+         }
+      }
+   }
+
    template<class BSP>
    void apply_block( controller::block_report& br, const BSP& bsp, controller::block_status s,
                      const trx_meta_cache_lookup& trx_lookup ) {
       try {
          try {
             auto start = fc::time_point::now();
+
+            const bool already_valid = bsp->is_valid();
+            // When bsp was created in create_block_state_i, bsp was considered for voting. At that time, bsp->final_on_strong_qc_block_ref may
+            // not have been validated and we could not vote. At this point bsp->final_on_strong_qc_block_ref has been validated and we can vote.
+            // Only need to consider voting if not already validated, if already validated then we have already voted.
+            if (!already_valid)
+               consider_voting(bsp);
+
             const signed_block_ptr& b = bsp->block;
             const auto& new_protocol_feature_activations = bsp->get_new_protocol_feature_activations();
+            const auto& producer_block_id = bsp->id();
 
-            auto producer_block_id = bsp->id();
             start_block( b->timestamp, b->confirmed, new_protocol_feature_activations, s, producer_block_id, fc::time_point::maximum() );
 
             // validated in create_block_handle()
@@ -3462,8 +3528,11 @@ struct controller_impl {
             pending->_block_stage = completed_block{ block_handle{bsp} };
 
             br = pending->_block_report; // copy before commit block destroys pending
-            commit_block(s);
-            br.total_time = fc::time_point::now() - start;
+            br.total_time += fc::time_point::now() - start;
+            commit_block(br, s);
+
+            if (!already_valid)
+               log_applied(br, bsp);
 
          } catch ( const std::bad_alloc& ) {
             throw;
@@ -3499,14 +3568,14 @@ struct controller_impl {
    }
 
    bool node_has_voted_if_finalizer(const block_id_type& id) const {
-      if (my_finalizers.finalizers.empty())
+      if (my_finalizers.empty())
          return true;
 
       std::optional<bool> voted = fork_db.apply_s<std::optional<bool>>([&](auto& forkdb) -> std::optional<bool> {
          auto bsp = forkdb.get_block(id);
          if (bsp) {
-            return std::ranges::all_of(my_finalizers.finalizers, [&bsp](auto& f) {
-               return bsp->has_voted(f.first);
+            return my_finalizers.all_of_public_keys([&bsp](const auto& k) {
+               return bsp->has_voted(k);
             });
          }
          return false;
@@ -3515,22 +3584,15 @@ struct controller_impl {
       return !voted || *voted;
    }
 
+   // thread safe
    void create_and_send_vote_msg(const block_state_ptr& bsp) {
       if (!bsp->block->is_proper_svnn_block())
          return;
 
-      auto finalizer_digest = bsp->compute_finality_digest();
-
-      // Each finalizer configured on the node which is present in the active finalizer policy
-      // may create and sign a vote
-      // TODO: as a future optimization, we could run maybe_vote on a thread (it would need a
-      // lock around the file access). We should document that the voted_block is emitted
-      // off the main thread. net_plugin is fine for this to be emitted from any thread.
-      // Just need to update the comment in net_plugin
+      // Each finalizer configured on the node which is present in the active finalizer policy may create and sign a vote.
       my_finalizers.maybe_vote(
-          *bsp->active_finalizer_policy, bsp, finalizer_digest, [&](const vote_message& vote) {
-              // net plugin subscribed to this signal. it will broadcast the vote message
-              // on receiving the signal
+          *bsp->active_finalizer_policy, bsp, bsp->strong_digest, [&](const vote_message& vote) {
+              // net plugin subscribed to this signal. it will broadcast the vote message on receiving the signal
               emit(voted_block, vote);
 
               // also aggregate our own vote into the pending_qc for this block.
@@ -3656,8 +3718,8 @@ struct controller_impl {
    }
 
    // thread safe, expected to be called from thread other than the main thread
-   template<class BS>
-   block_handle create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const BS& prev ) {
+   template<typename ForkDB, typename BS>
+   block_handle create_block_state_i( ForkDB& forkdb, const block_id_type& id, const signed_block_ptr& b, const BS& prev ) {
       constexpr bool savanna_mode = std::is_same_v<typename std::decay_t<BS>, block_state>;
       if constexpr (savanna_mode) {
          // Verify claim made by instant_finality_extension in block header extension and
@@ -3685,23 +3747,29 @@ struct controller_impl {
 
       EOS_ASSERT( id == bsp->id(), block_validate_exception,
                   "provided id ${id} does not match block id ${bid}", ("id", id)("bid", bsp->id()) );
+
+      if constexpr (savanna_mode) {
+         integrate_received_qc_to_block(bsp); // Save the received QC as soon as possible, no matter whether the block itself is valid or not
+         consider_voting(bsp);
+      }
+
+      if (conf.terminate_at_block == 0 || bsp->block_num() <= conf.terminate_at_block) {
+         forkdb.add(bsp, mark_valid_t::no, ignore_duplicate_t::yes);
+      }
+
       return block_handle{bsp};
    }
 
    std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
-      auto f = [&](const auto& forkdb) -> std::future<block_handle> {
+      auto f = [&](auto& forkdb) -> std::future<block_handle> {
          return post_async_task( thread_pool.get_executor(), [b, id, &forkdb, control=this]() {
-            // no reason for a block_state if fork_db already knows about block
-            auto existing = forkdb.get_block( id );
-            EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
-
             auto prev = forkdb.get_block( b->previous, include_root_t::yes );
             EOS_ASSERT( prev, unlinkable_block_exception,
                         "unlinkable block ${id} previous ${p}", ("id", id)("p", b->previous) );
 
-            return control->create_block_state_i( id, b, *prev );
+            return control->create_block_state_i( forkdb, id, b, *prev );
          } );
       };
 
@@ -3725,25 +3793,25 @@ struct controller_impl {
    std::optional<block_handle> create_block_handle( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
       
-      auto f = [&](const auto& forkdb) -> std::optional<block_handle> {
-         // no reason for a block_state if fork_db already knows about block
-         auto existing = forkdb.get_block( id );
-         EOS_ASSERT( !existing, fork_database_exception, "we already know about this block: ${id}", ("id", id) );
-
+      auto f = [&](auto& forkdb) -> std::optional<block_handle> {
          // previous not found could mean that previous block not applied yet
          auto prev = forkdb.get_block( b->previous, include_root_t::yes );
          if( !prev ) return {};
 
-         return create_block_state_i( id, b, *prev );
+         return create_block_state_i( forkdb, id, b, *prev );
+      };
+
+      auto unlinkable = [&](const auto&) -> std::optional<block_handle> {
+         return {};
       };
 
       if (!b->is_proper_svnn_block()) {
-         return fork_db.apply_l<std::optional<block_handle>>(f);
+         return fork_db.apply<std::optional<block_handle>>(f, unlinkable);
       }
-      return fork_db.apply_s<std::optional<block_handle>>(f);
+      return fork_db.apply<std::optional<block_handle>>(unlinkable, f);
    }
 
-   // expected to be called from application thread as it modifies bsp->valid_qc and if_irreversible_block_id
+   // thread safe
    void integrate_received_qc_to_block(const block_state_ptr& bsp_in) {
       // extract QC from block extension
       const auto& block_exts = bsp_in->block->validate_and_extract_extensions();
@@ -3762,17 +3830,18 @@ struct controller_impl {
          return;
       }
 
-      // Don't save the QC from block extension if the claimed block has a better valid_qc.
-      if (claimed->valid_qc && (claimed->valid_qc->is_strong() || received_qc.is_weak())) {
+      // Don't save the QC from block extension if the claimed block has a better or same valid_qc.
+      // claimed->valid_qc_is_strong() acquires a mutex.
+      if (received_qc.is_weak() || claimed->valid_qc_is_strong()) {
          dlog("qc not better, claimed->valid: ${qbn} ${qid}, strong=${s}, received: ${rqc}, for block ${bn} ${id}",
-              ("qbn", claimed->block_num())("qid", claimed->id())("s", claimed->valid_qc->is_strong())
+              ("qbn", claimed->block_num())("qid", claimed->id())("s", !received_qc.is_weak()) // use is_weak() to avoid mutex on valid_qc_is_strong()
               ("rqc", qc_ext.qc.to_qc_claim())("bn", bsp_in->block_num())("id", bsp_in->id()));
          return;
       }
 
-      // Save the QC. This is safe as the function is called by push_block & accept_block from application thread.
+      // Save the QC.
       dlog("setting valid qc: ${rqc} into claimed block ${bn} ${id}", ("rqc", qc_ext.qc.to_qc_claim())("bn", claimed->block_num())("id", claimed->id()));
-      claimed->valid_qc = received_qc;
+      claimed->set_valid_qc(received_qc);
 
       // advance LIB if QC is strong
       if( received_qc.is_strong() ) {
@@ -3786,6 +3855,9 @@ struct controller_impl {
       }
    }
 
+   void consider_voting(const block_state_legacy_ptr&) {}
+
+   // thread safe
    void consider_voting(const block_state_ptr& bsp) {
       // 1. Get the `core.final_on_strong_qc_block_num` for the block you are considering to vote on and use that to find the actual block ID
       //    of the ancestor block that has that block number.
@@ -3794,8 +3866,7 @@ struct controller_impl {
 
       if (bsp->core.final_on_strong_qc_block_num > 0) {
          const auto& final_on_strong_qc_block_ref = bsp->core.get_block_reference(bsp->core.final_on_strong_qc_block_num);
-         auto final = fetch_bsp(final_on_strong_qc_block_ref.block_id);
-         if (final && final->is_valid()) {
+         if (fork_db_validated_block_exists(final_on_strong_qc_block_ref.block_id)) {
             create_and_send_vote_msg(bsp);
          }
       }
@@ -3805,15 +3876,12 @@ struct controller_impl {
    void accept_block(const BSP& bsp) {
       assert(bsp && bsp->block);
 
-      // Save the received QC as soon as possible, no matter whether the block itself is valid or not
-      if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-         integrate_received_qc_to_block(bsp);
-         consider_voting(bsp);
-      }
+      // consider voting again as final_on_strong_qc_block may have been validated since the bsp was created in create_block_state_i
+      consider_voting(bsp);
 
       auto do_accept_block = [&](auto& forkdb) {
          if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.head())>>)
-            forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::no );
+            forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::yes );
 
          emit( accepted_block_header, std::tie(bsp->block, bsp->id()) );
       };
@@ -3828,12 +3896,6 @@ struct controller_impl {
                     const trx_meta_cache_lookup& trx_lookup )
    {
       assert(bsp && bsp->block);
-
-      // Save the received QC as soon as possible, no matter whether the block itself is valid or not
-      if constexpr (std::is_same_v<BSP, block_state_ptr>) {
-         integrate_received_qc_to_block(bsp);
-         consider_voting(bsp);
-      }
 
       controller::block_status s = controller::block_status::complete;
       EOS_ASSERT(!pending, block_validate_exception, "it is not valid to push a block when there is a pending block");
@@ -3852,7 +3914,7 @@ struct controller_impl {
          
          auto do_push = [&](auto& forkdb) {
             if constexpr (std::is_same_v<BSP, typename std::decay_t<decltype(forkdb.head())>>) {
-               forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::no );
+               forkdb.add( bsp, mark_valid_t::no, ignore_duplicate_t::yes );
             }
 
             if (is_trusted_producer(b->producer)) {
@@ -3940,7 +4002,9 @@ struct controller_impl {
             if (chain_head.id() != pending_head->id() && pending_head->id() != forkdb.head()->id()) {
                dlog("switching forks on controller->maybe_switch_forks call");
                controller::block_report br;
-               maybe_switch_forks(br, pending_head, pending_head->is_valid() ? controller::block_status::validated : controller::block_status::complete,
+               maybe_switch_forks(br, pending_head,
+                                  pending_head->is_valid() ? controller::block_status::validated
+                                                           : controller::block_status::complete,
                                   cb, trx_lookup);
             }
          }
@@ -3954,7 +4018,6 @@ struct controller_impl {
                             const forked_callback_t& forked_cb, const trx_meta_cache_lookup& trx_lookup )
    {
       auto do_maybe_switch_forks = [&](auto& forkdb) {
-         bool head_changed = true;
          if( new_head->header.previous == chain_head.id() ) {
             try {
                apply_block( br, new_head, s, trx_lookup );
@@ -3963,19 +4026,20 @@ struct controller_impl {
                throw;
             }
          } else if( new_head->id() != chain_head.id() ) {
-            auto head_fork_comp_str = apply<std::string>(chain_head, [](auto& head) -> std::string { return log_fork_comparison(*head); });
-            ilog("switching forks from ${current_head_id} (block number ${current_head_num}) ${c} to ${new_head_id} (block number ${new_head_num}) ${n}",
-                 ("current_head_id", chain_head.id())("current_head_num", chain_head.block_num())("new_head_id", new_head->id())("new_head_num", new_head->block_num())
-                 ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
-
-            // not possible to log transaction specific infor when switching forks
-            if (auto dm_logger = get_deep_mind_logger(false)) {
-               dm_logger->on_switch_forks(chain_head.id(), new_head->id());
-            }
-
             auto branches = forkdb.fetch_branch_from( new_head->id(), chain_head.id() );
 
-            if( branches.second.size() > 0 ) {
+            bool switch_fork = !branches.second.empty();
+            if( switch_fork ) {
+               auto head_fork_comp_str = apply<std::string>(chain_head, [](auto& head) -> std::string { return log_fork_comparison(*head); });
+               ilog("switching forks from ${chid} (block number ${chn}) ${c} to ${nhid} (block number ${nhn}) ${n}",
+                    ("chid", chain_head.id())("chn}", chain_head.block_num())("nhid", new_head->id())("nhn", new_head->block_num())
+                    ("c", head_fork_comp_str)("n", log_fork_comparison(*new_head)));
+
+               // not possible to log transaction specific info when switching forks
+               if (auto dm_logger = get_deep_mind_logger(false)) {
+                  dm_logger->on_switch_forks(chain_head.id(), new_head->id());
+               }
+
                for( auto itr = branches.second.begin(); itr != branches.second.end(); ++itr ) {
                   pop_block();
                }
@@ -3991,14 +4055,30 @@ struct controller_impl {
                      }
                   }
                }
+            } else if (!branches.first.empty()) {
+               ilog("applying ${n} fork db blocks from ${cbn}:${cbid} to ${nbn}:${nbid}",
+                    ("n", branches.first.size())("cbid", (*branches.first.rbegin())->id())("cbn", (*branches.first.rbegin())->block_num())
+                    ("nbid", new_head->id())("nbn", new_head->block_num()));
             }
 
             for( auto ritr = branches.first.rbegin(); ritr != branches.first.rend(); ++ritr ) {
                auto except = std::exception_ptr{};
                try {
+                  const auto& bsp = *ritr;
+
                   br = controller::block_report{};
-                  apply_block( br, *ritr, (*ritr)->is_valid() ? controller::block_status::validated
-                               : controller::block_status::complete, trx_lookup );
+                  apply_block( br, bsp, bsp->is_valid() ? controller::block_status::validated
+                                                        : controller::block_status::complete, trx_lookup );
+
+                  if( conf.terminate_at_block > 0 && conf.terminate_at_block <= chain_head.block_num()) {
+                     ilog("Reached configured maximum block ${num}; terminating", ("num", conf.terminate_at_block) );
+                     shutdown();
+                     break;
+                  }
+                  if (!switch_fork && check_shutdown()) {
+                     shutdown();
+                     break;
+                  }
                } catch ( const std::bad_alloc& ) {
                   throw;
                } catch ( const boost::interprocess::bad_alloc& ) {
@@ -4034,7 +4114,7 @@ struct controller_impl {
                } // end if exception
             } /// end for each block in branch
 
-            if (fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::info)) {
+            if (switch_fork && fc::logger::get(DEFAULT_LOGGER).is_enabled(fc::log_level::info)) {
                auto get_ids = [&](auto& container)->std::string {
                   std::string ids;
                   for(auto ritr = container.rbegin(), e = container.rend(); ritr != e; ++ritr) {
@@ -4046,12 +4126,10 @@ struct controller_impl {
                ilog("successfully switched fork to new head ${new_head_id}, removed {${rm_ids}}, applied {${new_ids}}",
                     ("new_head_id", new_head->id())("rm_ids", get_ids(branches.second))("new_ids", get_ids(branches.first)));
             }
-         } else {
-            head_changed = false;
          }
 
-         if( head_changed )
-            log_irreversible();
+         // irreversible can change even if block not applied to head, integrated qc can move LIB
+         log_irreversible();
       };
 
       fork_db.apply<void>(do_maybe_switch_forks);
@@ -4315,10 +4393,11 @@ struct controller_impl {
 
    void set_if_irreversible_block_id(const block_id_type& id) {
       const block_num_type id_num = block_header::num_from_id(id);
-      const block_num_type current_num = block_header::num_from_id(if_irreversible_block_id);
+      auto accessor = if_irreversible_block_id.make_accessor();
+      const block_num_type current_num = block_header::num_from_id(accessor.value());
       if( id_num > current_num ) {
-         dlog("set irreversible block ${bn}: ${id}, old ${obn}: ${oid}", ("bn", id_num)("id", id)("obn", current_num)("oid", if_irreversible_block_id));
-         if_irreversible_block_id = id;
+         dlog("set irreversible block ${bn}: ${id}, old ${obn}: ${oid}", ("bn", id_num)("id", id)("obn", current_num)("oid", accessor.value()));
+         accessor.value() = id;
       }
    }
 
@@ -4784,9 +4863,9 @@ void controller::assemble_and_complete_block( block_report& br, const signer_cal
    br = my->pending->_block_report;
 }
 
-void controller::commit_block() {
+void controller::commit_block(block_report& br) {
    validate_db_available_size();
-   my->commit_block(block_status::incomplete);
+   my->commit_block(br, block_status::incomplete);
 }
 
 void controller::maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup) {
@@ -4965,7 +5044,7 @@ void controller::set_if_irreversible_block_id(const block_id_type& id) {
 }
 
 uint32_t controller::if_irreversible_block_num() const {
-   return block_header::num_from_id(my->if_irreversible_block_id);
+   return block_header::num_from_id(my->if_irreversible_block_id.load());
 }
 
 uint32_t controller::last_irreversible_block_num() const {
@@ -4999,8 +5078,14 @@ bool controller::block_exists(const block_id_type& id) const {
    bool exists = my->fork_db_block_exists(id);
    if( exists ) return true;
    std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
-   if( sbh && sbh->calculate_id() == id ) return true;
-   return false;
+   return sbh && sbh->calculate_id() == id;
+}
+
+bool controller::validated_block_exists(const block_id_type& id) const {
+   bool exists = my->fork_db_validated_block_exists(id);
+   if( exists ) return true;
+   std::optional<signed_block_header> sbh = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
+   return sbh && sbh->calculate_id() == id;
 }
 
 std::optional<signed_block_header> controller::fetch_block_header_by_id( const block_id_type& id )const {

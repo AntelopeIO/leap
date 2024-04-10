@@ -177,7 +177,7 @@ namespace eosio::chain {
 
          void assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
-         void commit_block();
+         void commit_block(block_report& br);
          void maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup);
 
          // thread-safe
@@ -276,7 +276,8 @@ namespace eosio::chain {
          // thread-safe
          signed_block_ptr fetch_block_by_id( const block_id_type& id )const;
          // thread-safe
-         bool block_exists( const block_id_type& id)const;
+         bool block_exists(const block_id_type& id) const;
+         bool validated_block_exists(const block_id_type& id) const;
          // thread-safe
          std::optional<signed_block_header> fetch_block_header_by_number( uint32_t block_num )const;
          // thread-safe
@@ -372,6 +373,8 @@ namespace eosio::chain {
          signal<void(const block_signal_params&)>&  accepted_block();
          signal<void(const block_signal_params&)>&  irreversible_block();
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)>& applied_transaction();
+
+         // Unlike other signals, voted_block can be signaled from other threads than the main thread.
          signal<void(const vote_message&)>&         voted_block();
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;

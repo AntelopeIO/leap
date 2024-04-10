@@ -85,7 +85,6 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
    // TODO: https://github.com/AntelopeIO/leap/issues/2057
    // TODO: Do not aggregate votes on blocks created from block_state_legacy. This can be removed when #2057 complete.
    result.pending_qc = pending_quorum_certificate{result.active_finalizer_policy->finalizers.size(), result.active_finalizer_policy->threshold, result.active_finalizer_policy->max_weak_sum_before_weak_final()};
-   result.valid_qc = {}; // best qc received from the network inside block extension, empty until first savanna proper IF block
 
    // build leaf_node and validation_tree
    valid_t::finality_leaf_node_t leaf_node {
@@ -101,7 +100,7 @@ block_state_ptr block_state::create_if_genesis_block(const block_state_legacy& b
       .validation_mroots = { validation_tree.get_root() }
    };
 
-   result.validated = bsp.is_valid();
+   result.validated.store(bsp.is_valid());
    result.pub_keys_recovered = bsp._pub_keys_recovered;
    result.cached_trxs = bsp._cached_trxs;
    result.action_mroot = *bsp.action_mroot_savanna;
@@ -246,33 +245,6 @@ void block_state::verify_qc(const valid_quorum_certificate& qc) const {
    // validate aggregated signature
    EOS_ASSERT( bls12_381::aggregate_verify(pubkeys, digests, qc._sig.jacobian_montgomery_le()),
                invalid_qc_claim, "signature validation failed" );
-}
-
-std::optional<quorum_certificate> block_state::get_best_qc() const {
-   // if pending_qc does not have a valid QC, consider valid_qc only
-   if( !pending_qc.is_quorum_met() ) {
-      if( valid_qc ) {
-         return quorum_certificate{ block_num(), *valid_qc };
-      } else {
-         return std::nullopt;
-      }
-   }
-
-   // extract valid QC from pending_qc
-   valid_quorum_certificate valid_qc_from_pending = pending_qc.to_valid_quorum_certificate();
-
-   // if valid_qc does not have value, consider valid_qc_from_pending only
-   if( !valid_qc ) {
-      return quorum_certificate{ block_num(), valid_qc_from_pending };
-   }
-
-   // Both valid_qc and valid_qc_from_pending have value. Compare them and select a better one.
-   // Strong beats weak. Tie break by valid_qc.
-   const auto& best_qc =
-      valid_qc->is_strong() == valid_qc_from_pending.is_strong() ?
-      *valid_qc : // tie broke by valid_qc
-      valid_qc->is_strong() ? *valid_qc : valid_qc_from_pending; // strong beats weak
-   return quorum_certificate{ block_num(), best_qc };
 }
 
 valid_t block_state::new_valid(const block_header_state& next_bhs, const digest_type& action_mroot, const digest_type& strong_digest) const {
