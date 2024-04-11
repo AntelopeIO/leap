@@ -155,9 +155,9 @@ BOOST_FIXTURE_TEST_CASE(setabi_test, dry_run_trx_tester) { try {
 
    send_action(act, false); // should not throw
    send_action(act, true); // should not throw
-   const auto* accnt = control->db().template find<chain::account_object, chain::by_name>( "setabitest"_n );
-   BOOST_REQUIRE(accnt);
-   BOOST_TEST(accnt->abi.size() == 0u); // no abi actually set
+   const auto* accnt_metadata = control->db().template find<chain::account_metadata_object, chain::by_name>( "setabitest"_n );
+   BOOST_REQUIRE(accnt_metadata);
+   BOOST_TEST(accnt_metadata->abi.size() == 0u); // no abi actually set
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(updateauth_test, dry_run_trx_tester) { try {
@@ -300,33 +300,33 @@ BOOST_FIXTURE_TEST_CASE(sequence_numbers_test, dry_run_trx_tester) { try {
    set_up_test_contract();
 
    const auto& p = control->get_dynamic_global_properties();
-   auto receiver_account = control->db().find<account_metadata_object,by_name>("noauthtable"_n);
-   auto amo = control->db().find<account_metadata_object,by_name>("alice"_n);
+   auto receiver_account = control->db().find<account_object,by_name>("noauthtable"_n);
+   auto ao = control->db().find<account_object,by_name>("alice"_n);
 
    // verify sequence numbers in state increment for non-read-only transactions
    auto prev_global_action_sequence = p.global_action_sequence;
    auto prev_recv_sequence = receiver_account->recv_sequence;
-   auto prev_auth_sequence = amo->auth_sequence; 
+   auto prev_auth_sequence = ao->auth_sequence;
 
    auto res = send_db_api_transaction("insert"_n, insert_data);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
 
    BOOST_CHECK_EQUAL( prev_global_action_sequence + 1, p.global_action_sequence );
    BOOST_CHECK_EQUAL( prev_recv_sequence + 1, receiver_account->recv_sequence );
-   BOOST_CHECK_EQUAL( prev_auth_sequence + 1, amo->auth_sequence );
+   BOOST_CHECK_EQUAL( prev_auth_sequence + 1, ao->auth_sequence );
    
    produce_block();
 
    // verify sequence numbers in state do not change for dry-run transactions
    prev_global_action_sequence = p.global_action_sequence;
    prev_recv_sequence = receiver_account->recv_sequence;
-   prev_auth_sequence = amo->auth_sequence; 
+   prev_auth_sequence = ao->auth_sequence;
 
    send_db_api_transaction("getage"_n, getage_data, vector<permission_level>{{"alice"_n, config::active_name}}, transaction_metadata::trx_type::dry_run);
 
    BOOST_CHECK_EQUAL( prev_global_action_sequence, p.global_action_sequence );
    BOOST_CHECK_EQUAL( prev_recv_sequence, receiver_account->recv_sequence );
-   BOOST_CHECK_EQUAL( prev_auth_sequence, amo->auth_sequence );
+   BOOST_CHECK_EQUAL( prev_auth_sequence, ao->auth_sequence );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

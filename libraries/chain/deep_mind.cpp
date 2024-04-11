@@ -55,7 +55,7 @@ namespace eosio::chain {
          ("block_num", head_block_num)
          ("global_sequence_num", db.get<dynamic_global_property_object>().global_action_sequence)
       );
-      const auto& idx = db.get_index<account_index>();
+      const auto& idx = db.get_index<account_metadata_index>();
       for (auto& row : idx.indices()) {
          if (row.abi.size() != 0) {
             fc_dlog(_logger, "ABIDUMP ABI ${contract} ${abi}",
@@ -328,25 +328,25 @@ namespace eosio::chain {
          ("data", state)
       );
    }
-   void deep_mind_handler::on_newaccount_resource_limits(const resource_limits::resource_limits_object& limits, const resource_limits::resource_usage_object& usage)
+   void deep_mind_handler::on_newaccount_resource_limits(const resource_limits::resource_limits_object& limits)
    {
       fc_dlog(_logger, "RLIMIT_OP ACCOUNT_LIMITS INS ${data}",
          ("data", limits)
       );
-      fc_dlog(_logger, "RLIMIT_OP ACCOUNT_USAGE INS ${data}",
-         ("data", usage)
-      );
    }
-   void deep_mind_handler::on_update_account_usage(const resource_limits::resource_usage_object& usage)
-   {
-      fc_dlog(_logger, "RLIMIT_OP ACCOUNT_USAGE UPD ${data}",
-         ("data", usage)
-      );
-   }
-   void deep_mind_handler::on_set_account_limits(const resource_limits::resource_limits_object& limits)
+   void deep_mind_handler::on_update_account_usage(const resource_limits::resource_limits_object& limits)
    {
       fc_dlog(_logger, "RLIMIT_OP ACCOUNT_LIMITS UPD ${data}",
          ("data", limits)
+      );
+   }
+   void deep_mind_handler::on_set_account_limits(const resource_limits::resource_limits_object& limits, const resource_limits::resource_pending_object& pending)
+   {
+      fc_dlog(_logger, "RLIMIT_OP ACCOUNT_LIMITS UPD ${data}",
+         ("data", limits)
+      );
+      fc_dlog(_logger, "RLIMIT_OP ACCOUNT_PENDING UPD ${data}",
+         ("data", pending)
       );
    }
    void deep_mind_handler::on_ram_trace(std::string&& event_id, const char* family, const char* operation, const char* legacy_tag)

@@ -5,6 +5,7 @@
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/apply_context.hpp>
+#include <eosio/chain/authorization_manager.hpp>
 
 #include <fc/io/datastream.hpp>
 
@@ -213,7 +214,8 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    bool interface::is_privileged( account_name n ) const {
-      return context.db.get<account_metadata_object, by_name>( n ).is_privileged();
+      auto const*account_metadata = context.db.find<account_metadata_object, by_name>( n );
+      return account_metadata != nullptr && account_metadata->is_privileged();
    }
 
    void interface::set_privileged( account_name n, bool is_priv ) {
@@ -222,5 +224,73 @@ namespace eosio { namespace chain { namespace webassembly {
       context.db.modify( a, [&]( auto& ma ){
          ma.set_privileged( is_priv );
       });
+   }
+   void interface::create_slim_account(account_name creator, account_name name, legacy_span<const char> packed_authority){
+      EOS_ASSERT( !context.trx_context.is_read_only(), wasm_execution_error, "create_slim_account not allowed in read-only transaction" );
+      authority active_auth;
+      fc::datastream<const char*> pubds ( packed_authority.data(), packed_authority.size() );
+
+      fc::raw::unpack( pubds, active_auth );
+
+      auto& authorization = context.control.get_mutable_authorization_manager();
+
+      EOS_ASSERT( validate(active_auth), action_validate_exception, "Invalid active authority");
+
+      auto& db = context.db;
+
+      auto name_str = name.to_string();
+
+      EOS_ASSERT( !name.empty(), action_validate_exception, "account name cannot be empty" );
+      EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
+
+      // system account only can be created by newaccount
+      EOS_ASSERT( name_str.find( "eosio." ) != 0, action_validate_exception,
+                     "only newaccount action can create account with name start with 'eosio.'" );
+
+      auto existing_account = db.find<account_object, by_name>(name);
+      EOS_ASSERT(existing_account == nullptr, account_name_exists_exception,
+               "Cannot create account named ${name}, as that name is already taken",
+               ("name", name));
+
+      db.create<account_object>([&](auto& a) {
+         a.name = name;
+         a.creation_date = context.control.pending_block_time();
+      });
+
+      for (const auto& a : active_auth.accounts) {
+         auto* acct = context.db.find<account_object, by_name>(a.permission.actor);
+         EOS_ASSERT( acct != nullptr, action_validate_exception,
+                     "account '${account}' does not exist",
+                     ("account", a.permission.actor)
+                  );
+         if( a.permission.permission == config::active_name )
+            continue; // account was already checked to exist, so its active permissions should exist
+
+         if( a.permission.permission == config::eosio_code_name ) // virtual eosio.code permission does not really exist but is allowed
+            continue;
+
+         try {
+            context.control.get_authorization_manager().get_permission({a.permission.actor, a.permission.permission});
+         } catch( const permission_query_exception& ) {
+            EOS_THROW( action_validate_exception,
+                     "permission '${perm}' does not exist",
+                     ("perm", a.permission)
+                     );
+         }
+      }
+
+      const auto& active_permission = authorization.create_permission( name, config::active_name, 0,
+                                                                  std::move(active_auth), context.trx_context.is_transient() );
+      int64_t ram_delta = config::overhead_per_account_ram_bytes;
+      ram_delta -= config::billable_size_v<account_metadata_object>;
+      ram_delta += config::billable_size_v<permission_object>;
+      ram_delta += active_permission.auth.get_billable_size();
+      context.control.get_mutable_resource_limits_manager().initialize_account(name, context.trx_context.is_transient());
+
+      if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {
+         dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", name)), "account", "add", "newslimacc");
+      }
+
+      context.add_ram_usage(name, ram_delta);
    }
 }}} // ns eosio::chain::webassembly
