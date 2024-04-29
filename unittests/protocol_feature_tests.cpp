@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE( activate_preactivate_feature ) try {
 
    // Cannot set latest bios contract since it requires intrinsics that have not yet been whitelisted.
    BOOST_CHECK_EXCEPTION( c.set_code( config::system_account_name, contracts::eosio_bios_wasm() ),
-                          wasm_exception, fc_exception_message_is("env.set_proposed_producers_ex unresolveable")
+                          wasm_exception, fc_exception_message_is("env.bls_fp_mod unresolveable")
    );
 
    // But the old bios contract can still be set.
@@ -414,7 +414,7 @@ BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
    c.init( cfg );
 
    transaction_trace_ptr trace;
-   auto h = c.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+   auto h = c.control->applied_transaction().connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if( t && !eosio::chain::is_onblock(*t)) {
          trace = t;
@@ -558,7 +558,7 @@ BOOST_AUTO_TEST_CASE( no_duplicate_deferred_id_test ) try {
    c2.produce_empty_block( fc::minutes(10) );
 
    transaction_trace_ptr trace0;
-   auto h2 = c2.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+   auto h2 = c2.control->applied_transaction().connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if( t && t->receipt && t->receipt->status == transaction_receipt::expired) {
          trace0 = t;
@@ -576,7 +576,7 @@ BOOST_AUTO_TEST_CASE( no_duplicate_deferred_id_test ) try {
    const auto& index = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
 
    transaction_trace_ptr trace1;
-   auto h = c.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+   auto h = c.control->applied_transaction().connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
       auto& t = std::get<0>(x);
       if( t && t->receipt && t->receipt->status == transaction_receipt::executed) {
          trace1 = t;
@@ -1064,6 +1064,101 @@ BOOST_AUTO_TEST_CASE( get_sender_test ) { try {
       ("to", tester2_account.to_string())
       ("expected_sender", tester2_account.to_string())
       ("send_inline", true)
+   );
+
+   c.push_action( tester1_account, "assertsender"_n, tester1_account, mutable_variant_object()
+      ("expected_sender", account_name{})
+   );
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE( protocol_activatation_works_after_transition_to_savanna ) { try {
+   validating_tester c({}, {}, setup_policy::preactivate_feature_and_new_bios );
+
+   c.preactivate_savanna_protocol_features();
+   c.produce_block();
+
+   c.set_bios_contract();
+   c.produce_block();
+
+   uint32_t lib = 0;
+   c.control->irreversible_block().connect([&](const block_signal_params& t) {
+      const auto& [ block, id ] = t;
+      lib = block->block_num();
+   });
+
+   c.produce_block();
+
+   vector<account_name> accounts = {
+      "alice"_n, "bob"_n, "carol"_n
+   };
+
+   base_tester::finalizer_policy_input policy_input = {
+      .finalizers       = { {.name = "alice"_n, .weight = 1},
+                            {.name = "bob"_n,   .weight = 3},
+                            {.name = "carol"_n, .weight = 5} },
+      .threshold        = 5,
+      .local_finalizers = {"carol"_n}
+   };
+
+   // Create finalizer accounts
+   c.create_accounts(accounts);
+   c.produce_block();
+
+   // activate savanna
+   c.set_finalizers(policy_input);
+   auto block = c.produce_block(); // this block contains the header extension for the instant finality
+
+   std::optional<block_header_extension> ext = block->extract_header_extension(instant_finality_extension::extension_id());
+   BOOST_TEST(!!ext);
+   std::optional<finalizer_policy> fin_policy = std::get<instant_finality_extension>(*ext).new_finalizer_policy;
+   BOOST_TEST(!!fin_policy);
+   BOOST_TEST(fin_policy->finalizers.size() == accounts.size());
+
+   block = c.produce_block(); // savanna now active
+   auto fb = c.control->fetch_block_by_id(block->calculate_id());
+   BOOST_REQUIRE(!!fb);
+   BOOST_TEST(fb == block);
+   ext = fb->extract_header_extension(instant_finality_extension::extension_id());
+   BOOST_REQUIRE(ext);
+
+   auto lib_after_transition = lib;
+
+   c.produce_blocks(4);
+   BOOST_CHECK_GT(lib, lib_after_transition);
+
+   // verify protocol feature activation works under savanna
+
+   const auto& tester1_account = account_name("tester1");
+   const auto& tester2_account = account_name("tester2");
+   c.create_accounts( {tester1_account, tester2_account} );
+   c.produce_block();
+
+   BOOST_CHECK_EXCEPTION(  c.set_code( tester1_account, test_contracts::get_sender_test_wasm() ),
+                           wasm_exception,
+                           fc_exception_message_is( "env.get_sender unresolveable" ) );
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d2 = pfm.get_builtin_digest( builtin_protocol_feature_t::get_sender );
+   BOOST_REQUIRE( d2 );
+
+   c.preactivate_protocol_features( {*d2} );
+   c.produce_block();
+
+   c.set_code( tester1_account, test_contracts::get_sender_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::get_sender_test_abi() );
+   c.set_code( tester2_account, test_contracts::get_sender_test_wasm() );
+   c.set_abi( tester2_account, test_contracts::get_sender_test_abi() );
+   c.produce_block();
+
+   BOOST_CHECK_EXCEPTION(  c.push_action( tester1_account, "sendinline"_n, tester1_account, mutable_variant_object()
+                                             ("to", tester2_account.to_string())
+                                             ("expected_sender", account_name{}) ),
+                           eosio_assert_message_exception,
+                           eosio_assert_message_is( "sender did not match" ) );
+
+   c.push_action( tester1_account, "sendinline"_n, tester1_account, mutable_variant_object()
+      ("to", tester2_account.to_string())
+      ("expected_sender", tester1_account.to_string())
    );
 
    c.push_action( tester1_account, "assertsender"_n, tester1_account, mutable_variant_object()
@@ -1593,19 +1688,17 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
 
 
    { // ensure producer_schedule_change_extension is rejected
-      const auto& hbs = remote.control->head_block_state();
-
       // create a bad block that has the producer schedule change extension before the feature upgrade
       auto bad_block = std::make_shared<signed_block>(last_legacy_block->clone());
       emplace_extension(
               bad_block->header_extensions,
               producer_schedule_change_extension::extension_id(),
-              fc::raw::pack(std::make_pair(hbs->active_schedule.version + 1, std::vector<char>{}))
+              fc::raw::pack(std::make_pair(remote.control->active_producers().version + 1, std::vector<char>{}))
       );
 
       // re-sign the bad block
-      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
 
       // ensure it is rejected as an unknown extension
@@ -1616,21 +1709,19 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
    }
 
    { // ensure that non-null new_producers is accepted (and fails later in validation)
-      const auto& hbs = remote.control->head_block_state();
-
       // create a bad block that has the producer schedule change extension before the feature upgrade
       auto bad_block = std::make_shared<signed_block>(last_legacy_block->clone());
-      bad_block->new_producers = legacy::producer_schedule_type{hbs->active_schedule.version + 1, {}};
+      bad_block->new_producers = legacy::producer_schedule_type{remote.control->active_producers().version + 1, {}};
 
       // re-sign the bad block
-      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
 
       // ensure it is accepted (but rejected because it doesn't match expected state)
       BOOST_REQUIRE_EXCEPTION(
          remote.push_block(bad_block), wrong_signing_key,
-         fc_exception_message_is( "block signed by unexpected key" )
+         fc_exception_message_starts_with( "block signed by unexpected key" )
       );
    }
 
@@ -1640,38 +1731,34 @@ BOOST_AUTO_TEST_CASE( producer_schedule_change_extension_test ) { try {
    auto first_new_block = c.produce_block();
 
    {
-      const auto& hbs = remote.control->head_block_state();
-
       // create a bad block that has the producer schedule change extension that is valid but not warranted by actions in the block
       auto bad_block = std::make_shared<signed_block>(first_new_block->clone());
       emplace_extension(
               bad_block->header_extensions,
               producer_schedule_change_extension::extension_id(),
-              fc::raw::pack(std::make_pair(hbs->active_schedule.version + 1, std::vector<char>{}))
+              fc::raw::pack(std::make_pair(remote.control->active_producers().version + 1, std::vector<char>{}))
       );
 
       // re-sign the bad block
-      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
 
       // ensure it is rejected because it doesn't match expected state (but the extention was accepted)
       BOOST_REQUIRE_EXCEPTION(
          remote.push_block(bad_block), wrong_signing_key,
-         fc_exception_message_is( "block signed by unexpected key" )
+         fc_exception_message_starts_with( "block signed by unexpected key" )
       );
    }
 
    { // ensure that non-null new_producers is rejected
-      const auto& hbs = remote.control->head_block_state();
-
       // create a bad block that has the producer schedule change extension before the feature upgrade
       auto bad_block = std::make_shared<signed_block>(first_new_block->clone());
-      bad_block->new_producers = legacy::producer_schedule_type{hbs->active_schedule.version + 1, {}};
+      bad_block->new_producers = legacy::producer_schedule_type{remote.control->active_producers().version + 1, {}};
 
       // re-sign the bad block
-      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state()->blockroot_merkle ) );
-      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+      auto header_bmroot = digest_type::hash( std::make_pair( bad_block->digest(), remote.control->head_block_state_legacy()->blockroot_merkle ) );
+      auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
       bad_block->producer_signature = remote.get_private_key("eosio"_n, "active").sign(sig_digest);
 
       // ensure it is rejected because the new_producers field is not null
@@ -2243,11 +2330,11 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    const auto& trxs = copy_b->transactions;
    for( const auto& a : trxs )
       trx_digests.emplace_back( a.digest() );
-   copy_b->transaction_mroot = merkle( std::move(trx_digests) );
+   copy_b->transaction_mroot = calculate_merkle_legacy( std::move(trx_digests) );
 
    // Re-sign the block
-   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), tester1.control->head_block_state()->blockroot_merkle.get_root() ) );
-   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, tester1.control->head_block_state()->pending_schedule.schedule_hash) );
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), tester1.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, tester1.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
    copy_b->producer_signature = tester1.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
    // Create the second chain
@@ -2260,15 +2347,75 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    tester2.produce_block();
 
    // Push the block with delayed transaction to the second chain
-   auto bsf = tester2.control->create_block_state_future( copy_b->calculate_id(), copy_b );
+   auto btf = tester2.control->create_block_handle_future( copy_b->calculate_id(), copy_b );
    tester2.control->abort_block();
    controller::block_report br;
 
    // The block is invalidated
-   BOOST_REQUIRE_EXCEPTION(tester2.control->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ),
+   BOOST_REQUIRE_EXCEPTION(tester2.control->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} ),
       fc::exception,
       fc_exception_message_starts_with("transaction cannot be delayed")
    );
 } FC_LOG_AND_RETHROW() } /// block_validation_after_stage_1_test
+
+static const char import_set_finalizers_wast[] = R"=====(
+(module
+ (import "env" "set_finalizers" (func $set_finalizers (param i32 i32)))
+ (memory $0 1)
+ (export "apply" (func $apply))
+ (func $apply (param $0 i64) (param $1 i64) (param $2 i64)
+   (call $set_finalizers
+         (i32.const 0)
+         (i32.const 4)
+   )
+ )
+ (data (i32.const 0) "\00\00\00\00")
+)
+)=====";
+
+BOOST_AUTO_TEST_CASE( set_finalizers_test ) { try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto alice_account = account_name("alice");
+   c.create_accounts( {alice_account} );
+   c.produce_block();
+
+   BOOST_CHECK_EXCEPTION(  c.set_code( config::system_account_name, import_set_finalizers_wast ),
+                           wasm_exception,
+                           fc_exception_message_is( "env.set_finalizers unresolveable" ) );
+
+   c.preactivate_savanna_protocol_features();
+   c.produce_block();
+
+   // ensure it now resolves
+   c.set_code( config::system_account_name, import_set_finalizers_wast );
+
+   // ensure it can be called
+   auto action_priv = action( {//vector of permission_level
+                                 { config::system_account_name,
+                                    permission_name("active") }
+                              },
+                              config::system_account_name,
+                              action_name(),
+                              {} );
+   // if able to call then will get error on unpacking field `fthreshold`, top message of: 'read datastream of length 4 over by -3'
+   base_tester::action_result r = c.push_action(std::move(action_priv), config::system_account_name.to_uint64_t());
+   BOOST_CHECK(r.find("read datastream of length 4 over by -3") != std::string::npos);
+
+   c.produce_block();
+
+
+   c.set_code( alice_account, import_set_finalizers_wast );
+   auto action_non_priv = action( {//vector of permission_level
+                                    { alice_account,
+                                      permission_name("active") }
+                                  },
+                                  alice_account,
+                                  action_name(),
+                                  {} );
+   //ensure privileged host function cannot be called by regular account
+   BOOST_REQUIRE_EQUAL(c.push_action(std::move(action_non_priv), alice_account.to_uint64_t()),
+                       c.error("alice does not have permission to call this API"));
+} FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

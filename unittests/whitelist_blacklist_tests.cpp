@@ -492,7 +492,7 @@ BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
       }
    };
 
-   auto c1 = tester1.chain->control->applied_transaction.connect( log_trxs );
+   auto c1 = tester1.chain->control->applied_transaction().connect( log_trxs );
 
    // Disallow inline actions authorized by actor in blacklist
    BOOST_CHECK_EXCEPTION( tester1.chain->push_action( "alice"_n, "inlinecall"_n, "alice"_n, mvo()
@@ -537,7 +537,7 @@ BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
    tester1.actor_blacklist = {"bob"_n, "charlie"_n};
    tester1.init(false);
 
-   auto c2 = tester1.chain->control->applied_transaction.connect( log_trxs );
+   auto c2 = tester1.chain->control->applied_transaction().connect( log_trxs );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_REQUIRE_EQUAL(1u, num_deferred);

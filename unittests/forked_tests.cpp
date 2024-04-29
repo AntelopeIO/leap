@@ -1,5 +1,4 @@
 #include <eosio/chain/abi_serializer.hpp>
-#include <eosio/chain/abi_serializer.hpp>
 #include <eosio/testing/tester.hpp>
 
 #include <eosio/chain/fork_database.hpp>
@@ -30,8 +29,8 @@ BOOST_AUTO_TEST_CASE( irrblock ) try {
 } FC_LOG_AND_RETHROW()
 
 struct fork_tracker {
-   vector<signed_block_ptr> blocks;
-   incremental_merkle       block_merkle;
+   vector<signed_block_ptr>           blocks;
+   incremental_merkle_tree_legacy     block_merkle;
 };
 
 BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
@@ -53,7 +52,7 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
    // produce 6 blocks on bios
    for (int i = 0; i < 6; i ++) {
       bios.produce_block();
-      BOOST_REQUIRE_EQUAL( bios.control->head_block_state()->header.producer.to_string(), "a" );
+      BOOST_REQUIRE_EQUAL( bios.control->head_block()->producer.to_string(), "a" );
    }
 
    vector<fork_tracker> forks(7);
@@ -73,7 +72,7 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
             auto copy_b = std::make_shared<signed_block>(b->clone());
             if (j == i) {
                // corrupt this block
-               fork.block_merkle = remote.control->head_block_state()->blockroot_merkle;
+               fork.block_merkle = remote.control->head_block_state_legacy()->blockroot_merkle;
                copy_b->action_mroot._hash[0] ^= 0x1ULL;
             } else if (j < i) {
                // link to a corrupted chain
@@ -82,7 +81,7 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
 
             // re-sign the block
             auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), fork.block_merkle.get_root() ) );
-            auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state()->pending_schedule.schedule_hash) );
+            auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, remote.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
             copy_b->producer_signature = remote.get_private_key("b"_n, "active").sign(sig_digest);
 
             // add this new block to our corrupted block merkle
@@ -111,15 +110,15 @@ BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {
 
          // push the block which should attempt the corrupted fork and fail
          BOOST_REQUIRE_EXCEPTION( bios.push_block(fork.blocks.back()), fc::exception,
-                                  fc_exception_message_is( "Block ID does not match" )
+                                  fc_exception_message_starts_with( "Block ID does not match" )
          );
       }
    }
 
    // make sure we can still produce a blocks until irreversibility moves
-   auto lib = bios.control->head_block_state()->dpos_irreversible_blocknum;
+   auto lib = bios.control->head_block_state_legacy()->dpos_irreversible_blocknum;
    size_t tries = 0;
-   while (bios.control->head_block_state()->dpos_irreversible_blocknum == lib && ++tries < 10000) {
+   while (bios.control->head_block_state_legacy()->dpos_irreversible_blocknum == lib && ++tries < 10000) {
       bios.produce_block();
    }
 
@@ -266,10 +265,10 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    signed_block bad_block = std::move(*b);
    bad_block.action_mroot = bad_block.previous;
    auto bad_id = bad_block.calculate_id();
-   auto bad_block_bsf = c.control->create_block_state_future( bad_id, std::make_shared<signed_block>(std::move(bad_block)) );
+   auto bad_block_btf = c.control->create_block_handle_future( bad_id, std::make_shared<signed_block>(std::move(bad_block)) );
    c.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(c.control->push_block( br, bad_block_bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(c.control->push_block( br, bad_block_btf.get(), {}, trx_meta_cache_lookup{} ), fc::exception,
       [] (const fc::exception &ex)->bool {
          return ex.to_detail_string().find("block signed by unexpected key") != std::string::npos;
       });
@@ -303,7 +302,7 @@ BOOST_AUTO_TEST_CASE( prune_remove_branch ) try {
    auto nextproducer = [](tester &c, int skip_interval) ->account_name {
       auto head_time = c.control->head_block_time();
       auto next_time = head_time + fc::milliseconds(config::block_interval_ms * skip_interval);
-      return c.control->head_block_state()->get_scheduled_producer(next_time).producer_name;
+      return c.control->active_producers().get_scheduled_producer(next_time).producer_name;
    };
 
    // fork c: 2 producers: dan, sam
@@ -355,7 +354,7 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
    block_id_type first_id;
    signed_block_header first_header;
 
-   auto c = n2.control->accepted_block.connect( [&]( block_signal_params t ) {
+   auto c = n2.control->accepted_block().connect( [&]( block_signal_params t ) {
       const auto& [ block, id ] = t;
       first_block = block;
       first_id = id;
@@ -367,10 +366,9 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
    BOOST_CHECK_EQUAL( n2.control->head_block_id(), id );
 
    BOOST_REQUIRE( first_block );
-   const auto& first_bsp = n2.control->fetch_block_state_by_id(first_id);
-   first_bsp->verify_signee();
-   BOOST_CHECK_EQUAL( first_header.calculate_id(), first_block->calculate_id() );
-   BOOST_CHECK( first_header.producer_signature == first_block->producer_signature );
+   const auto& first_bp = n2.control->fetch_block_by_id(first_id);
+   BOOST_CHECK_EQUAL( first_bp->calculate_id(), first_block->calculate_id() );
+   BOOST_CHECK( first_bp->producer_signature == first_block->producer_signature );
 
    c.disconnect();
 
@@ -495,8 +493,9 @@ BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
    BOOST_CHECK_EQUAL( does_account_exist( irreversible, "alice"_n ), true );
 
    {
-      auto bs = irreversible.control->fetch_block_state_by_id( fork_first_block_id );
-      BOOST_REQUIRE( bs && bs->id == fork_first_block_id );
+      auto b = irreversible.control->fetch_block_by_id( fork_first_block_id );
+      BOOST_REQUIRE( b && b->calculate_id() == fork_first_block_id );
+      BOOST_TEST( irreversible.control->block_exists(fork_first_block_id) );
    }
 
    main.produce_block();
@@ -508,8 +507,9 @@ BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
    push_blocks( main, irreversible, hbn5 );
 
    {
-      auto bs = irreversible.control->fetch_block_state_by_id( fork_first_block_id );
-      BOOST_REQUIRE( !bs );
+      auto b = irreversible.control->fetch_block_by_id( fork_first_block_id );
+      BOOST_REQUIRE( !b );
+      BOOST_TEST( !irreversible.control->block_exists(fork_first_block_id) );
    }
 
 } FC_LOG_AND_RETHROW()
@@ -703,7 +703,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
 
    // test forked blocks signal accepted_block in order, required by trace_api_plugin
    std::vector<signed_block_ptr> accepted_blocks;
-   auto conn = c.control->accepted_block.connect( [&]( block_signal_params t ) {
+   auto conn = c.control->accepted_block().connect( [&]( block_signal_params t ) {
       const auto& [ block, id ] = t;
       accepted_blocks.emplace_back( block );
    } );

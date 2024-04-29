@@ -12,6 +12,74 @@
 
 namespace eosio { namespace chain {
 
+   // should be defined for c++17, but clang++16 still has not implemented it
+#ifdef __cpp_lib_hardware_interference_size
+   using std::hardware_constructive_interference_size;
+   using std::hardware_destructive_interference_size;
+#else
+   // 64 bytes on x86-64 │ L1_CACHE_BYTES │ L1_CACHE_SHIFT │ __cacheline_aligned │ ...
+   [[maybe_unused]] constexpr std::size_t hardware_constructive_interference_size = 64;
+   [[maybe_unused]] constexpr std::size_t hardware_destructive_interference_size  = 64;
+#endif
+
+   // Use instead of std::atomic when std::atomic does not support type
+   template <typename T>
+   class large_atomic {
+      alignas(hardware_destructive_interference_size)
+      mutable std::mutex mtx;
+      T value{};
+   public:
+      T load() const {
+         std::lock_guard g(mtx);
+         return value;
+      }
+      void store(const T& v) {
+         std::lock_guard g(mtx);
+         value = v;
+      }
+
+      class accessor {
+         std::lock_guard<std::mutex> g;
+         T& v;
+      public:
+         accessor(std::mutex& m, T& v)
+            : g(m), v(v) {}
+         T& value() { return v; }
+      };
+
+      auto make_accessor() { return accessor{mtx, value}; }
+   };
+
+   template <typename T>
+   class copyable_atomic {
+      std::atomic<T> value;
+   public:
+      copyable_atomic() = default;
+      copyable_atomic(T v) noexcept
+         : value(v) {}
+      copyable_atomic(const copyable_atomic& rhs)
+         : value(rhs.value.load(std::memory_order_relaxed)) {}
+      copyable_atomic(copyable_atomic&& rhs) noexcept
+         : value(rhs.value.load(std::memory_order_relaxed)) {}
+
+      T load(std::memory_order mo = std::memory_order_seq_cst) const noexcept { return value.load(mo); }
+      void store(T v, std::memory_order mo = std::memory_order_seq_cst) noexcept { value.store(v, mo); }
+
+      template<typename DS>
+      friend DS& operator<<(DS& ds, const copyable_atomic& ca) {
+         fc::raw::pack(ds, ca.load(std::memory_order_relaxed));
+         return ds;
+      }
+
+      template<typename DS>
+      friend DS& operator>>(DS& ds, copyable_atomic& ca) {
+         T v;
+         fc::raw::unpack(ds, v);
+         ca.store(v, std::memory_order_relaxed);
+         return ds;
+      }
+   };
+
    /**
     * Wrapper class for thread pool of boost asio io_context run.
     * Also names threads so that tools like htop can see thread name.

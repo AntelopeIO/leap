@@ -1,25 +1,36 @@
 #pragma once
 #include <eosio/chain/block_state_legacy.hpp>
+#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_handle.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/genesis_state.hpp>
-#include <chainbase/pinnable_mapped_file.hpp>
-#include <boost/signals2/signal.hpp>
-
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
+#include <eosio/chain/hotstuff/hotstuff.hpp>
+
+#include <chainbase/pinnable_mapped_file.hpp>
+
+#include <boost/signals2/signal.hpp>
+
 
 namespace chainbase {
    class database;
 }
-namespace boost { namespace asio {
+namespace boost::asio {
    class thread_pool;
-}}
+}
 
-namespace eosio { namespace vm { class wasm_allocator; }}
+namespace eosio::vm { class wasm_allocator; }
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
+
+   struct hs_message;
+   struct finalizer_state;
+   enum class hs_message_warning;
+   using bls_pub_priv_key_map_t = std::map<std::string, std::string>;
+   struct finalizer_policy;
 
    class authorization_manager;
 
@@ -40,13 +51,13 @@ namespace eosio { namespace chain {
    class subjective_billing;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
-   using forked_branch_callback = std::function<void(const branch_type&)>;
+
+   using forked_callback_t = std::function<void(const transaction_metadata_ptr&)>;
+
    // lookup transaction_metadata via supplied function to avoid re-creation
    using trx_meta_cache_lookup = std::function<transaction_metadata_ptr( const transaction_id_type&)>;
 
    using block_signal_params = std::tuple<const signed_block_ptr&, const block_id_type&>;
-
-   class fork_database;
 
    enum class db_read_mode {
       HEAD,
@@ -69,6 +80,7 @@ namespace eosio { namespace chain {
             flat_set<account_name>   contract_blacklist;
             flat_set< pair<account_name, action_name> > action_blacklist;
             flat_set<public_key_type> key_blacklist;
+            path                     finalizers_dir         =  chain::config::default_finalizers_dir_name;
             path                     blocks_dir             =  chain::config::default_blocks_dir_name;
             block_log_config         blog;
             path                     state_dir              =  chain::config::default_state_dir_name;
@@ -163,31 +175,34 @@ namespace eosio { namespace chain {
             fc::microseconds   total_time{};
          };
 
-         block_state_legacy_ptr finalize_block( block_report& br, const signer_callback_type& signer_callback );
+         void assemble_and_complete_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
-         void commit_block();
+         void commit_block(block_report& br);
+         void maybe_switch_forks(const forked_callback_t& cb, const trx_meta_cache_lookup& trx_lookup);
 
          // thread-safe
-         std::future<block_state_legacy_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
+         std::future<block_handle> create_block_handle_future( const block_id_type& id, const signed_block_ptr& b );
          // thread-safe
-         block_state_legacy_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) const;
+         // returns empty optional if block b is not immediately ready to be processed
+         std::optional<block_handle> create_block_handle( const block_id_type& id, const signed_block_ptr& b ) const;
 
          /**
           * @param br returns statistics for block
-          * @param bsp block to push
+          * @param b block to push, created by create_block_handle
           * @param cb calls cb with forked applied transactions for each forked block
           * @param trx_lookup user provided lookup function for externally cached transaction_metadata
           */
          void push_block( block_report& br,
-                          const block_state_legacy_ptr& bsp,
-                          const forked_branch_callback& cb,
+                          const block_handle& b,
+                          const forked_callback_t& cb,
                           const trx_meta_cache_lookup& trx_lookup );
+
+         /// Accept block into fork_database
+         void accept_block(const block_handle& b);
 
          boost::asio::io_context& get_thread_pool();
 
          const chainbase::database& db()const;
-
-         const fork_database& fork_db()const;
 
          const account_object&                 get_account( account_name n )const;
          const global_property_object&         get_global_properties()const;
@@ -218,10 +233,16 @@ namespace eosio { namespace chain {
 
          uint32_t             head_block_num()const;
          time_point           head_block_time()const;
+         block_timestamp_type head_block_timestamp()const;
          block_id_type        head_block_id()const;
          account_name         head_block_producer()const;
          const block_header&  head_block_header()const;
-         block_state_legacy_ptr head_block_state()const;
+         const signed_block_ptr& head_block()const;
+         // returns nullptr after instant finality enabled
+         block_state_legacy_ptr head_block_state_legacy()const;
+         // returns finality_data associated with chain head for SHiP when in Savanna,
+         // std::nullopt in Legacy
+         std::optional<finality_data_t> head_finality_data() const;
 
          uint32_t             fork_db_head_block_num()const;
          block_id_type        fork_db_head_block_id()const;
@@ -234,8 +255,17 @@ namespace eosio { namespace chain {
          uint32_t                       pending_block_num()const;
 
          const producer_authority_schedule&         active_producers()const;
-         const producer_authority_schedule&         pending_producers()const;
-         std::optional<producer_authority_schedule> proposed_producers()const;
+         const producer_authority_schedule&         head_active_producers()const;
+         // pending for pre-instant-finality, next proposed that will take affect, null if none are pending/proposed
+         const producer_authority_schedule*         next_producers()const;
+         // post-instant-finality this always returns empty std::optional
+         std::optional<producer_authority_schedule> proposed_producers_legacy()const;
+         // pre-instant-finality this always returns a valid producer_authority_schedule
+         // post-instant-finality this always returns nullptr
+         const producer_authority_schedule*         pending_producers_legacy()const;
+
+         void set_if_irreversible_block_id(const block_id_type& id);
+         uint32_t if_irreversible_block_num() const;
 
          uint32_t last_irreversible_block_num() const;
          block_id_type last_irreversible_block_id() const;
@@ -246,15 +276,16 @@ namespace eosio { namespace chain {
          // thread-safe
          signed_block_ptr fetch_block_by_id( const block_id_type& id )const;
          // thread-safe
+         bool block_exists(const block_id_type& id) const;
+         bool validated_block_exists(const block_id_type& id) const;
+         // thread-safe
          std::optional<signed_block_header> fetch_block_header_by_number( uint32_t block_num )const;
          // thread-safe
          std::optional<signed_block_header> fetch_block_header_by_id( const block_id_type& id )const;
-         // return block_state_legacy from forkdb, thread-safe
-         block_state_legacy_ptr fetch_block_state_by_number( uint32_t block_num )const;
-         // return block_state_legacy from forkdb, thread-safe
-         block_state_legacy_ptr fetch_block_state_by_id( block_id_type id )const;
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
+         // thread-safe
+         digest_type get_strong_digest_by_id( const block_id_type& id ) const; // used in unittests
 
          fc::sha256 calculate_integrity_hash();
          void write_snapshot( const snapshot_writer_ptr& snapshot );
@@ -291,6 +322,13 @@ namespace eosio { namespace chain {
          bool is_known_unexpired_transaction( const transaction_id_type& id) const;
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
+
+         // called by host function set_finalizers
+         void set_proposed_finalizers( finalizer_policy&& fin_pol );
+         // called from net threads
+         vote_status process_vote_message( const vote_message& msg );
+         // thread safe, for testing
+         bool node_has_voted_if_finalizer(const block_id_type& id) const;
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
@@ -330,11 +368,14 @@ namespace eosio { namespace chain {
 
          static std::optional<uint64_t> convert_exception_to_error_code( const fc::exception& e );
 
-         signal<void(uint32_t)>             block_start;
-         signal<void(const block_signal_params&)>  accepted_block_header;
-         signal<void(const block_signal_params&)>  accepted_block;
-         signal<void(const block_signal_params&)>  irreversible_block;
-         signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
+         signal<void(uint32_t)>&                    block_start();
+         signal<void(const block_signal_params&)>&  accepted_block_header();
+         signal<void(const block_signal_params&)>&  accepted_block();
+         signal<void(const block_signal_params&)>&  irreversible_block();
+         signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)>& applied_transaction();
+
+         // Unlike other signals, voted_block can be signaled from other threads than the main thread.
+         signal<void(const vote_message&)>&         voted_block();
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface& get_wasm_interface();
@@ -356,6 +397,7 @@ namespace eosio { namespace chain {
       void set_to_read_window();
       bool is_write_window() const;
       void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num);
+      void set_node_finalizer_keys(const bls_pub_priv_key_map_t& finalizer_keys);
 
       private:
          friend class apply_context;
@@ -364,7 +406,6 @@ namespace eosio { namespace chain {
          chainbase::database& mutable_db()const;
 
          std::unique_ptr<controller_impl> my;
-
    };
 
-} }  /// eosio::chain
+}  /// eosio::chain

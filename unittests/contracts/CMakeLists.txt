@@ -21,6 +21,7 @@ elseif( USE_EOSIO_CDT_1_8_X )
     add_definitions(-DUSE_EOSIO_CDT_1_8_X=true)
 endif()
 
+add_subdirectory(eosio.boot)
 add_subdirectory(eosio.msig)
 add_subdirectory(eosio.system)
 add_subdirectory(eosio.token)

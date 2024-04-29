@@ -28,13 +28,14 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"-n", "--dump-error-details","--keep-logs","-v","--leave-running","--unshared"})
+args = TestHelper.parse_args({"-n","--activate-if","--dump-error-details","--keep-logs","-v","--leave-running","--unshared"})
 Utils.Debug=args.v
 pnodes=3
 totalNodes=args.n
 if totalNodes<=pnodes+2:
     totalNodes=pnodes+2
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 prodCount=1
 walletPort=TestHelper.DEFAULT_WALLET_PORT
@@ -58,7 +59,7 @@ try:
     extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
                    f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
     extraNodeosArgs+=" --http-max-response-time-ms 990000"
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount, activateIF=activateIF,
                       topo="line", extraNodeosArgs=extraNodeosArgs) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -170,7 +171,7 @@ try:
 
     status.append(testNode.getTransactionStatus(transId))
     state = getState(status[1])
-    assert state == inBlockState, f"ERROR: getTransactionStatus never returned a \"{inBlockState}\" state"
+    assert state == inBlockState or state == irreversibleState, f"ERROR: getTransactionStatus never returned a \"{inBlockState}\" state or \"{irreversibleState}\""
 
     validateTrxState(status[1], present=True)
 

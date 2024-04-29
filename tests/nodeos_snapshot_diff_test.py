@@ -32,7 +32,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--wallet-port","--unshared"},
+args = TestHelper.parse_args({"--activate-if","--dump-error-details","--keep-logs","-v","--leave-running","--wallet-port","--unshared"},
                              applicationSpecificArgs=appArgs)
 
 relaunchTimeout = 30
@@ -42,6 +42,7 @@ testAccounts = 2
 trxGeneratorCnt=2
 startedNonProdNodes = 3
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
+activateIF=args.activate_if
 dumpErrorDetails=args.dump_error_details
 prodCount=2
 walletPort=args.wallet_port
@@ -77,7 +78,7 @@ try:
 
     Print("Stand up cluster")
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
-                      loadSystemContract=True, maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
+                      activateIF=activateIF, loadSystemContract=True, maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Create test wallet")
@@ -181,7 +182,7 @@ try:
     assert ret is not None, "Snapshot scheduling failed"
 
     Print("Wait for programmable node lib to advance")
-    waitForBlock(nodeProg, ret_head_block_num+1, blockType=BlockType.lib)
+    waitForBlock(nodeProg, ret_head_block_num, blockType=BlockType.lib)
 
     Print("Kill programmable node")
     nodeProg.kill(signal.SIGTERM)

@@ -10,6 +10,7 @@ import signal
 import sys
 from pathlib import Path
 from typing import List
+from dataclasses import InitVar, dataclass, field, is_dataclass, asdict
 
 from datetime import datetime
 from datetime import timedelta
@@ -20,6 +21,14 @@ from .accounts import Account
 from .testUtils import Utils
 from .testUtils import unhandledEnumType
 from .testUtils import ReturnType
+
+@dataclass
+class KeyStrings(object):
+    pubkey: str
+    privkey: str
+    blspubkey: str = None
+    blsprivkey: str = None
+    blspop: str = None
 
 # pylint: disable=too-many-public-methods
 class Node(Transactions):
@@ -66,6 +75,7 @@ class Node(Transactions):
         self.config_dir=config_dir
         self.launch_time=launch_time
         self.isProducer=False
+        self.keys: List[KeyStrings] = field(default_factory=list)
         self.configureVersion()
 
     def configureVersion(self):

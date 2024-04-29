@@ -1,0 +1,432 @@
+//notes : under this pseudo code, the hotstuff information is mapped to Antelope concepts :
+b_leaf (becomes) -> block_header_state.id //block_state pointer to head
+                    (`head->bhs.id`)
+                    
+b_lock (becomes) -> finalizer_safety_information.locked_block_ref
+                    (`block_id_type` of the proposal we voted on and are locked to)
+                    
+b_exec (becomes) -> block proposal refered to by block_header_state_core.last_final_block_height //head->last_final_block_height
+                    (`head->bhs.core.last_final_block_height`)
+                    
+v_height (becomes) -> finalizer_safety_information.last_vote_block_ref
+                    (`block_id_type` of the last proposal we voted on)
+                    
+high_qc (becomes) -> block proposal refered to by block_header_state_core.last_qc_block_height
+                    (fork_db.get_block_by_height(head->bhs.id, head->bhs.core.last_qc_block_height).get_best_qc())
+                    maybe add new index in fork_db?
+                    
+proposal_store is now fork_db
+
+
+
+//structures
+
+struct finalizer_authority {
+    bls_public_key      key;
+    weight              uint32_t;
+}
+
+struct finalizer_policy {
+    finalizer_authority[]  finalizers;
+    uint32_t               weight_quorum_threshold;
+}
+
+struct finalizer_safety_information{
+    uint32_t  last_vote_range_lower_bound;
+    uint32_t  last_vote_range_upper_bound;
+    sha256    last_vote_block_ref; //v_height under hotstuff
+    sha256    locked_block_ref; //b_lock under hotstuff
+    bool      is_last_vote_strong;
+    bool      recovery_mode; //todo : discuss
+}
+
+struct fork_db {
+    block_handle get_block_by_id(block_id_type id){ [...]            //get block by id}
+    block_handle get_block_by_finalizer_digest(sha256 digest){ [...] //get block by finalizer digest}
+    block_handle get_block_by_height(block_id_type branch, uint32_t last_qc_block_height){ [...] //on a given branch, get block by height}
+    block_handle get_head_block(){ [...]                            //get the head block on the branch I'm looking to extend }
+}
+
+struct block_header_state_core {
+   uint32_t                    last_final_block_height; //b_exec under hotstuff
+   std::optional<uint32_t>     final_on_strong_qc_block_height;
+   std::optional<uint32_t>     last_qc_block_height;   //high_qc under hotstuff
+   
+   block_header_state_core next(uint32_t last_qc_block_height, bool is_last_qc_strong){
+      // no state change if last_qc_block_height is the same
+      if( last_qc_block_height == this->last_qc_block_height ) {
+         return {*this};
+      }
+      EOS_ASSERT( last_qc_block_height > this->last_qc_block_height, block_validate_exception,
+                  "new last_qc_block_height must be greater than old last_qc_block_height" );
+      auto old_last_qc_block_height = this->last_qc_block_height;
+      auto old_final_on_strong_qc_block_height = this->final_on_strong_qc_block_height;
+      block_header_state_core result{*this};
+      if( is_last_qc_strong ) {
+         // last QC is strong. We can progress forward.
+         // block with old final_on_strong_qc_block_height becomes irreversible
+         if( old_final_on_strong_qc_block_height.has_value() ) {
+            //old commit / fork_db.log_irreversible()
+            result.last_final_block_height = *old_final_on_strong_qc_block_height;
+         }
+         // next block which can become irreversible is the block with
+         // old last_qc_block_height
+         if( old_last_qc_block_height.has_value() ) {
+            result.final_on_strong_qc_block_height = *old_last_qc_block_height;
+         }
+      } else {
+         // new final_on_strong_qc_block_height should not be present
+         result.final_on_strong_qc_block_height.reset();
+         // new last_final_block_height should be the same as the old last_final_block_height
+      }
+      // new last_qc_block_height is always the input last_qc_block_height.
+      result.last_qc_block_height = last_qc_block_height;
+      return result;
+   }
+}
+
+struct building_block_input {
+   block_id_type          previous;
+   block_timestamp_type   timestamp;
+   account_name           producer;
+   vector<digest_type>    new_protocol_feature_activations;
+};
+      
+// this struct can be extracted from a building block
+struct assembled_block_input : public building_block_input {
+   digest_type                       transaction_mroot;
+   digest_type                       action_mroot;
+   std::optional<proposer_policy>    new_proposer_policy;
+   std::optional<finalizer_policy>   new_finalizer_policy;
+   std::optional<quorum_certificate> qc;                 // assert(qc.block_height <= num_from_id(previous));
+};
+
+struct block_header_state {
+
+   //existing block_header_state members
+
+   sha256                                      id; //b_leaf under hotstuff
+
+   [...] //other existing block_header_state members
+
+   protocol_feature_activation_set_ptr         activated_protocol_features;
+
+   //new additions
+
+   block_header_state_core                     core;
+   incremental_block_mtree                     proposal_mtree;
+   incremental_block_mtree                     finality_mtree;
+        
+   finalizer_policy_ptr                        finalizer_policy; // finalizer set + threshold + generation, supports `digest()`
+   proposer_policy_ptr                         proposer_policy;  // producer authority schedule, supports `digest()`
+
+   flat_map<uint32_t, proposer_policy_ptr>     proposer_policies;
+   flat_map<uint32_t, finalizer_policy_ptr>    finalizer_policies;
+
+
+   block_header_state    next(const assembled_block_input& data) const {
+   }
+
+   sha256 compute_finalizer_digest() const {
+   }
+}
+
+//shared pointer to a block_state
+struct block_handle {
+    block_state_ptr     _handle;
+}
+
+struct block_state {
+    sha256                                       finalizer_digest;
+    block_header_state_ptr                       bhs;
+    finalizer_policy_ptr                         active_fp;    
+    std::optional<pending_quorum_certificate>    pending_qc; 
+    std::optional<valid_quorum_certificate>      valid_qc;
+   
+    block_id_type id() const          { return bhs->id;}
+    uint64_t get_height() const       { return block_header::num_from_id(bhs->id);}
+    quorum_certificate get_best_qc()  { [...] //return the best QC available }
+
+}
+
+//this structure holds the required information and methods for the Hotstuff algorithm. It is derived from a block and block_header content, notably extensions 
+struct hs_proposal {
+    //may not exist in final implementation, subject to change 
+    block_id_type                       block_id; //computed, to be replaced with proposal_digest eventually
+    uint32_t                            get_height(); //from block_id
+    block_timestamp_type                timestamp; //from block header
+    //qc specific information
+    uint32_t                            last_qc_block_height; //from block header extension
+    bool                                is_last_qc_strong; //from block header extension
+    valid_quorum_certificate            qc; //from block extension
+};
+
+struct valid_quorum_certificate {
+    hs_bitset                 strong_bitset;
+    optional<hs_bitset>       weak_bitset; //omitted if strong qc
+    bls_signature             signature;   //set to strong_signature if strong qc, set to strong_signature + weak_signature if weak qc
+    
+    //constructor used for strong qc
+    valid_quorum_certificate(hs_bitset b, bls_signature s) : 
+    strong_bitset(b),
+    signature(s) {}
+
+    //constructor used for weak qc
+    valid_quorum_certificate(hs_bitset sb, hs_bitset wb,  bls_signature s) :
+    strong_bitset(sb),
+    weak_bitset(wb),
+    signature(s) {}
+
+    bool is_strong() {if (weak_bitset.has_value()) return false; else return true; }
+}
+
+struct pending_quorum_certificate {
+    hs_bitset         strong_bitset;
+    bls_signature     strong_signature;
+    hs_bitset         weak_bitset;
+    bls_signature     weak_signature;
+   
+    bool strong_quorum_met() [...] //abstracted, returns true if a strong quorum is met, false otherwise
+    bool weak_quorum_met()[...]    //abstracted, returns true if a weak quorum is met, false otherwise
+}
+
+struct quorum_certificate {
+    uint32_t block_height;
+    valid_quorum_certificate qc;
+}
+
+struct hs_vote_message {
+    block_id_type   block_id; //temporary, probably not needed later
+    sha256          proposal_digest; //proposal digest
+    bls_public_key  finalizer_key;
+    bls_signature   sig;
+    bool            weak;    //indicate if vote is weak, strong otherwise
+};
+
+
+//added as a block_header extension before signing
+struct hotstuff_header_extension {
+    uint32_t                            last_qc_block_height;
+    bool                                is_last_qc_strong;
+
+    std::optional<finalizer_policy>     new_finalizer_policy;
+    std::optional<proposer_policy>      new_proposer_policy;
+}
+
+//added as a block extension before broadcast
+struct hotstuff_block_extension {
+    valid_quorum_certificate     qc;
+}
+
+struct signed_block {
+    [...] //existing signed_block members
+}
+
+//helper functions
+
+//not currently used
+sha256 get_proposal_digest(block_header_state bhs, signed_block p, bool weak){
+    //provide a proposal digest with sufficient commitments for a light client to construct proofs of finality and inclusion
+    //todo : determine require commitments and complete digest function
+    //note : interface is probably too wide, but serves to illustrate that the proposal digest is generated from elements from the state and elements from the signed block
+    //temporary implementation (insufficient for IBC but sufficient for internal Hotstuff)
+    sha256 digest = p.block_id;
+    if (weak) digest = hash(digest, "_WEAK"); //if weak is set to true, concatenate desambiguator
+    return digest;
+}
+
+//
+hotstuff_header_extension construct_hotstuff_header_extension(quorum_certificate qc, std::optional<finalizer_policy> new_finalizer_policy, std::optional<proposer_policy> new_proposer_policy){
+    return {qc.block_height, qc.is_strong(), new_finalizer_policy, new_proposer_policy};
+
+}
+
+hotstuff_block_extension construct_hotstuff_block_extension(quorum_certificate qc){
+    return {qc.qc};
+}
+
+//get finalizer info from storage, loaded on start, held in cache afterwards
+void get_finalizer_info(bls_public_key key){
+    [...] //abstracted, must get or create the finalizer safety info state for the given finalizer key
+}
+
+//write the finalizer info to disk to prevent accidental double-signing in case of crash + recovery 
+void save_finalizer_info(bls_public_key key, finalizer_safety_information fsi){
+    [...] //abstracted, must save the finalizer info associated to the key, and throw an exception / prevent additional signing if the write operation fails (?)
+}
+
+bool extends(hs_proposal descendant, hs_proposal ancestor){
+    [...] //abstracted, returns true if ancestor is a parent of descendant, false otherwise
+}
+
+void update_pending_qc(hs_vote_message v, block_handle& bc){
+    if (bc.valid_qc.has_value()) return; //can only update a pending qc
+    pending_quorum_certificate pqc = bc.pending_qc.value();
+    
+    //update the current pending_quorum_certificate with new vote information
+    [...] //abstracted
+
+}
+
+hs_proposal extract_proposal(signed_block sb, block_handle& bc){
+    hs_proposal p;    
+    [...] //abstracted, see hs_proposal for how to retrieve the values
+    return p;
+}
+
+enum VoteDecision {
+    StrongVote,
+    WeakVote,
+    NoVote
+}
+
+VoteDecision decide_vote(finalizer_safety_information& fsi, block_handle p){
+
+    bool monotony_check = false;
+    bool safety_check = false;
+    bool liveness_check = false;
+
+    b_phases = get_qc_chain(p);
+    b2 = b_phases[2] //first phase, prepare
+    b1 = b_phases[1] //second phase, precommit
+    b = b_phases[0] //third phase, commit
+
+    if (fsi.last_vote_block_ref != sha256.empty()){
+        if (p.timestamp > fork_db.get_block_by_id(fsi.last_vote_block_ref).timestamp){
+            monotony_check = true;
+        }
+    }
+    else monotony_check = true; //if I have never voted on a proposal, means the protocol feature just activated and we can proceed
+
+    if (fsi.locked_block_ref != sha256.empty()){
+        //Safety check : check if this proposal extends the proposal we're locked on
+        if (extends(p, fork_db.get_block_by_id(fsi.locked_block_ref)) safety_check = true;
+        //Liveness check : check if the height of this proposal's justification is higher than the height of the proposal I'm locked on. This allows restoration of liveness if a replica is locked on a stale proposal
+        if (fork_db.get_block_by_height(p.id(), p.last_qc_block_height).timestamp > fork_db.get_block_by_id(fsi.locked_block_ref).timestamp)) liveness_check = true;
+    }
+    else { 
+        //if we're not locked on anything, means the protocol feature just activated and we can proceed
+        liveness_check = true;
+        safety_check = true;
+    }
+
+    if (monotony_check && (liveness_check || safety_check)){
+        
+        uint32_t requested_vote_range_lower_bound = fork_db.get_block_by_height(p.block_id, p.last_qc_block_height).timestamp;
+        uint32_t requested_vote_range_upper_bound = p.timestamp;
+        
+        bool time_range_interference = fsi.last_vote_range_lower_bound < requested_vote_range_upper_bound && requested_vote_range_lower_bound < fsi.last_vote_range_upper_bound;
+        
+        //my last vote was on (t9, t10_1], I'm asked to vote on t10 : t9 < t10 && t9 < t10_1; //time_range_interference == true, correct
+        //my last vote was on (t9, t10_1], I'm asked to vote on t11 : t9 < t11 && t10 < t10_1; //time_range_interference == false, correct
+        //my last vote was on (t7, t9], I'm asked to vote on t10 : t7 < t10 && t9 < t9; //time_range_interference == false, correct
+        
+        bool enough_for_strong_vote = false;
+        
+        if (!time_range_interference || extends(p, fork_db.get_block_by_id(fsi.last_vote_block_ref)) enough_for_strong_vote = true;
+        
+        //fsi.is_last_vote_strong = enough_for_strong_vote;
+        fsi.last_vote_block_ref = p.block_id; //v_height
+        
+        if (b1.timestamp > fork_db.get_block_by_id(fsi.locked_block_ref).timestamp) fsi.locked_block_ref = b1.block_id; //commit phase on b1
+        
+        fsi.last_vote_range_lower_bound = requested_vote_range_lower_bound;
+        fsi.last_vote_range_upper_bound = requested_vote_range_upper_bound;
+
+        if (enough_for_strong_vote) return VoteDecision::StrongVote;
+        else return VoteDecision::WeakVote;
+
+    }
+    else  return VoteDecision::NoVote;
+}
+
+//handlers
+
+void on_signed_block_received(signed_block sb){
+    [...] //verify if block can be linked to our fork database, throw exception if unable to or if duplicate
+    block_handle previous = fork_db.get_block_by_id(sb.previous);
+    hs_proposal p = extract_proposal(sb, previous);
+    on_proposal_received(p, previous);
+}
+
+void on_proposal_received(signed_block_ptr new_block, block_handle& parent){
+
+    //relevant to all nodes
+    if (new_block.last_qc_block_height > parent.bhs.last_qc_block_height) {
+        block_handle found = fork_db.get_block_by_height(new_block.block_id, new_block.last_qc_block_height);
+        //verify qc is present and if the qc is valid with respect to the found block, throw exception otherwise
+
+        found->valid_qc = new_block.block_extension.qc;
+    }
+
+    [...] //abstracted, relay proposal to other nodes
+
+    assembled_block_input data = [...] //construct from new_block;
+
+    block_header_state new_block_header_state = parent.bhs.next(data); //f1 & f2
+
+    block_handle new_block_handle = add_to_fork_db(parent, new_block_header_state);
+
+    bls_public_key[] my_finalizers = [...] //abstracted, must return the public keys of my finalizers that are also active in the current finalizer policy
+    //only relevant if I have at least one finalizer
+    if (my_finalizers.size()>0) {
+        for (auto f : my_finalizers){
+            finalizer_safety_information& fsi = get_finalizer_info(f);
+            vote_decision vd = decide_vote(fsi, new_block_handle); //changes fsi unless NoVote
+            if (vd == VoteDecision::StrongVote || vd == VoteDecision::WeakVote){
+                save_finalizer_info(f, fsi); //save finalizer info to prevent double-voting
+                hs_vote_message msg = [...] //create + broadcast vote message
+            }
+        }
+    }
+}
+
+//when a node receives a vote on a proposal
+void on_vote_received(hs_vote_message v){
+
+    //[...] check for duplicate or invalid vote, return in either case
+
+    block_handle& bc = fork_db.get_block_by_id(v.block_id);
+
+    [...] //abstracted, relay vote to other nodes
+
+    am_i_leader = [...] //abstracted, must return true if I am the leader, false otherwise
+
+    if(!am_i_leader) return;
+
+    //only leader need to take further action on votes
+    update_pending_qc(v, bc); //update qc for this proposal
+
+}
+
+hs_proposal[] get_qc_chain(hs_proposal p){
+    b[];
+    b[2] = fork_db.get_block_by_height(p.block_id, p.last_qc_block_height); //first phase, prepare
+    b[1] = fork_db.get_block_by_height(p.block_id, b[2].last_qc_block_height); //second phase, precommit
+    b[0] = fork_db.get_block_by_height(p.block_id, b[1].last_qc_block_height); //third phase, commit
+    return b;
+}
+
+//main algorithm entry point. This replaces on_beat() / create_proposal(), and it is now unified with existing systems 
+{
+    block_handle head = fork_db.get_head_block();
+
+    [...] //if a new finalizer or proposer policy is needed, add it as new_finalizer_policy, new_proposer_policy
+
+    [...] //abstracted, create block header
+
+
+    auto found = fork_db.get_block_with_latest_qc(head);
+    if (head.bhs.is_needed(found.get_best_qc()) {
+        //insert block extension if a new qc was created
+        block_extensions.push(construct_hotstuff_block_extension(found.get_best_qc()));
+    }
+    header_extensions.push(construct_hotstuff_header_extension(found.get_best_qc(), new_finalizer_policy, new_proposer_policy));
+    [...] //abstracted, complete block
+
+
+    [...] //abstracted, sign block header
+    [...] //broadcast signed_block. The signed_block is processed by the on_signed_block_received handler by other nodes on the network
+}
+
+

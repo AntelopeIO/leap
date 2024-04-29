@@ -35,19 +35,19 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
    const auto& trxs = copy_b->transactions;
    for( const auto& a : trxs )
       trx_digests.emplace_back( a.digest() );
-   copy_b->transaction_mroot = merkle( std::move(trx_digests) );
+   copy_b->transaction_mroot = calculate_merkle_legacy( std::move(trx_digests) );
 
    // Re-sign the block
-   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );
-   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state()->pending_schedule.schedule_hash) );
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
    copy_b->producer_signature = main.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
    // Push block with invalid transaction to other chain
    tester validator;
-   auto bsf = validator.control->create_block_state_future( copy_b->calculate_id(), copy_b );
+   auto btf = validator.control->create_block_handle_future( copy_b->calculate_id(), copy_b );
    validator.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception ,
+   BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} ), fc::exception ,
    [] (const fc::exception &e)->bool {
       return e.code() == account_name_exists_exception::code_value ;
    }) ;
@@ -77,16 +77,16 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_mroot_test)
    copy_b->transactions.back().trx = std::move(invalid_packed_tx);
 
    // Re-sign the block
-   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );
-   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state()->pending_schedule.schedule_hash) );
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
    copy_b->producer_signature = main.get_private_key(config::system_account_name, "active").sign(sig_digest);
 
    // Push block with invalid transaction to other chain
    tester validator;
-   auto bsf = validator.control->create_block_state_future( copy_b->calculate_id(), copy_b );
+   auto btf = validator.control->create_block_handle_future( copy_b->calculate_id(), copy_b );
    validator.control->abort_block();
    controller::block_report br;
-   BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ), fc::exception,
+   BOOST_REQUIRE_EXCEPTION(validator.control->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} ), fc::exception,
                            [] (const fc::exception &e)->bool {
                               return e.code() == block_validate_exception::code_value &&
                                      e.to_detail_string().find("invalid block transaction merkle root") != std::string::npos;
@@ -115,11 +115,11 @@ std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_te
    const auto& trxs = copy_b->transactions;
    for( const auto& a : trxs )
       trx_digests.emplace_back( a.digest() );
-   copy_b->transaction_mroot = merkle( std::move(trx_digests) );
+   copy_b->transaction_mroot = calculate_merkle_legacy( std::move(trx_digests) );
 
    // Re-sign the block
-   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );
-   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state()->pending_schedule.schedule_hash) );
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state_legacy()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, main.control->head_block_state_legacy()->pending_schedule.schedule_hash) );
    copy_b->producer_signature = main.get_private_key(b->producer, "active").sign(sig_digest);
    return std::pair<signed_block_ptr, signed_block_ptr>(b, copy_b);
 }
@@ -217,11 +217,11 @@ BOOST_AUTO_TEST_CASE(broadcasted_block_test)
   signed_block_ptr bcasted_blk_by_prod_node;
   signed_block_ptr bcasted_blk_by_recv_node;
 
-  producer_node.control->accepted_block.connect( [&](block_signal_params t) {
+  producer_node.control->accepted_block().connect( [&](block_signal_params t) {
     const auto& [ block, id ] = t;
     bcasted_blk_by_prod_node = block;
   });
-  receiving_node.control->accepted_block.connect( [&](block_signal_params t) {
+  receiving_node.control->accepted_block().connect( [&](block_signal_params t) {
     const auto& [ block, id ] = t;
     bcasted_blk_by_recv_node = block;
   });

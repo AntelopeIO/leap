@@ -28,7 +28,7 @@ struct session_base {
    virtual void send_update(const chain::signed_block_ptr& block, const chain::block_id_type& id) = 0;
    virtual ~session_base()                                                    = default;
 
-   std::optional<state_history::get_blocks_request_v0> current_request;
+   std::optional<state_history::get_blocks_request> current_request;
    bool need_to_send_update = false;
 };
 
@@ -165,7 +165,12 @@ public:
    , req(std::move(r)) {}
 
    void send_entry() override {
-      session->current_request->max_messages_in_flight += req.num_messages;
+      assert(session->current_request);
+      assert(std::holds_alternative<state_history::get_blocks_request_v0>(*session->current_request) ||
+             std::holds_alternative<state_history::get_blocks_request_v1>(*session->current_request));
+
+      std::visit([&](auto& request) { request.max_messages_in_flight += req.num_messages; },
+                 *session->current_request);
       session->send_update(false);
    }
 };
@@ -173,10 +178,10 @@ public:
 template <typename Session>
 class blocks_request_send_queue_entry : public send_queue_entry_base {
    std::shared_ptr<Session> session;
-   eosio::state_history::get_blocks_request_v0 req;
+   eosio::state_history::get_blocks_request req;
 
 public:
-   blocks_request_send_queue_entry(std::shared_ptr<Session> s, state_history::get_blocks_request_v0&& r)
+   blocks_request_send_queue_entry(std::shared_ptr<Session> s, state_history::get_blocks_request&& r)
    : session(std::move(s))
    , req(std::move(r)) {}
 
@@ -189,7 +194,7 @@ public:
 template <typename Session>
 class blocks_result_send_queue_entry : public send_queue_entry_base, public std::enable_shared_from_this<blocks_result_send_queue_entry<Session>> {
    std::shared_ptr<Session>                                        session;
-   state_history::get_blocks_result_v0                             r;
+   state_history::get_blocks_result                                result;
    std::vector<char>                                               data;
    std::optional<locked_decompress_stream>                         stream;
 
@@ -237,7 +242,7 @@ class blocks_result_send_queue_entry : public send_queue_entry_base, public std:
    }
 
    template <typename Next>
-   void send_log(uint64_t entry_size, bool is_deltas, Next&& next) {
+   void send_log(uint64_t entry_size, bool fin, Next&& next) {
       if (entry_size) {
          data.resize(16); // should be at least for 1 byte (optional) + 10 bytes (variable sized uint64_t)
          fc::datastream<char*> ds(data.data(), data.size());
@@ -248,10 +253,10 @@ class blocks_result_send_queue_entry : public send_queue_entry_base, public std:
          data = {'\0'}; // optional false
       }
 
-      async_send(is_deltas && entry_size == 0, data,
-                [is_deltas, entry_size, next = std::forward<Next>(next), me=this->shared_from_this()]() mutable {
+      async_send(fin && entry_size == 0, data,
+                [fin, entry_size, next = std::forward<Next>(next), me=this->shared_from_this()]() mutable {
                    if (entry_size) {
-                      me->async_send_buf(is_deltas, [me, next = std::move(next)]() {
+                      me->async_send_buf(fin, [me, next = std::move(next)]() {
                          next();
                       });
                    } else
@@ -259,35 +264,72 @@ class blocks_result_send_queue_entry : public send_queue_entry_base, public std:
                 });
    }
 
-   void send_deltas() {
+   // last to be sent if result is get_blocks_result_v1
+   void send_finality_data() {
+      assert(std::holds_alternative<state_history::get_blocks_result_v1>(result));
       stream.reset();
-      send_log(session->get_delta_log_entry(r, stream), true, [me=this->shared_from_this()]() {
+      send_log(session->get_finality_data_log_entry(std::get<state_history::get_blocks_result_v1>(result), stream), true, [me=this->shared_from_this()]() {
          me->stream.reset();
          me->session->session_mgr.pop_entry();
       });
    }
 
+   // second to be sent if result is get_blocks_result_v1;
+   // last to be sent if result is get_blocks_result_v0
+   void send_deltas() {
+      stream.reset();
+      std::visit(chain::overloaded{
+                    [&](state_history::get_blocks_result_v0& r) {
+                        send_log(session->get_delta_log_entry(r, stream), true, [me=this->shared_from_this()]() {
+                           me->stream.reset();
+                           me->session->session_mgr.pop_entry();}); },
+                    [&](state_history::get_blocks_result_v1& r) {
+                        send_log(session->get_delta_log_entry(r, stream), false, [me=this->shared_from_this()]() {
+                           me->send_finality_data(); }); }},
+                 result);
+   }
+
+   // first to be sent
    void send_traces() {
       stream.reset();
-      send_log(session->get_trace_log_entry(r, stream), false, [me=this->shared_from_this()]() {
+      send_log(session->get_trace_log_entry(result, stream), false, [me=this->shared_from_this()]() {
          me->send_deltas();
       });
    }
 
-public:
-   blocks_result_send_queue_entry(std::shared_ptr<Session> s, state_history::get_blocks_result_v0&& r)
-       : session(std::move(s)),
-         r(std::move(r)) {}
-
-   void send_entry() override {
-      // pack the state_result{get_blocks_result} excluding the fields `traces` and `deltas`
+   template<typename T>
+   void pack_result_base(const T& result, uint32_t variant_index) {
+      // pack the state_result{get_blocks_result} excluding the fields `traces` and `deltas`,
+      // and `finality_data` if get_blocks_result_v1
       fc::datastream<size_t> ss;
-      fc::raw::pack(ss, fc::unsigned_int(1)); // pack the variant index of state_result{r}
-      fc::raw::pack(ss, static_cast<const state_history::get_blocks_result_base&>(r));
+
+      fc::raw::pack(ss, fc::unsigned_int(variant_index)); // pack the variant index of state_result{result}
+      fc::raw::pack(ss, static_cast<const state_history::get_blocks_result_base&>(result));
       data.resize(ss.tellp());
       fc::datastream<char*> ds(data.data(), data.size());
-      fc::raw::pack(ds, fc::unsigned_int(1)); // pack the variant index of state_result{r}
-      fc::raw::pack(ds, static_cast<const state_history::get_blocks_result_base&>(r));
+      fc::raw::pack(ds, fc::unsigned_int(variant_index)); // pack the variant index of state_result{result}
+      fc::raw::pack(ds, static_cast<const state_history::get_blocks_result_base&>(result));
+   }
+
+public:
+   blocks_result_send_queue_entry(std::shared_ptr<Session> s, state_history::get_blocks_result&& r)
+       : session(std::move(s)),
+         result(std::move(r)) {}
+
+   void send_entry() override {
+      std::visit(
+         chain::overloaded{
+            [&](state_history::get_blocks_result_v0& r) {
+               static_assert(std::is_same_v<state_history::get_blocks_result_v0, std::variant_alternative_t<1, state_history::state_result>>);
+               pack_result_base(r, 1); // 1 for variant index of get_blocks_result_v0 in state_result
+            },
+            [&](state_history::get_blocks_result_v1& r) {
+               static_assert(std::is_same_v<state_history::get_blocks_result_v1, std::variant_alternative_t<2, state_history::state_result>>);
+               pack_result_base(r, 2); // 2 for variant index of get_blocks_result_v1 in state_result
+            }
+         },
+         result
+      );
 
       async_send(false, data, [me=this->shared_from_this()]() {
          me->send_traces();
@@ -379,28 +421,32 @@ private:
       }
    }
 
-   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result_v0& result,
-                                std::optional<locked_decompress_stream>& buf) {
-      if (result.traces.has_value()) {
-         auto& optional_log = plugin.get_trace_log();
+   uint64_t get_log_entry_impl(const eosio::state_history::get_blocks_result& result,
+                               bool has_value,
+                               std::optional<state_history_log>& optional_log,
+                               std::optional<locked_decompress_stream>& buf) {
+      if (has_value) {
          if( optional_log ) {
             buf.emplace( optional_log->create_locked_decompress_stream() );
-            return optional_log->get_unpacked_entry( result.this_block->block_num, *buf );
+            return std::visit([&](auto& r) { return optional_log->get_unpacked_entry( r.this_block->block_num, *buf ); }, result);
          }
       }
       return 0;
    }
 
-   uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result_v0& result,
+   uint64_t get_trace_log_entry(const eosio::state_history::get_blocks_result& result,
                                 std::optional<locked_decompress_stream>& buf) {
-      if (result.deltas.has_value()) {
-         auto& optional_log = plugin.get_chain_state_log();
-         if( optional_log ) {
-            buf.emplace( optional_log->create_locked_decompress_stream() );
-            return optional_log->get_unpacked_entry( result.this_block->block_num, *buf );
-         }
-      }
-      return 0;
+      return std::visit([&](auto& r) { return get_log_entry_impl(r, r.traces.has_value(), plugin.get_trace_log(), buf); }, result);
+   }
+
+   uint64_t get_delta_log_entry(const eosio::state_history::get_blocks_result& result,
+                                std::optional<locked_decompress_stream>& buf) {
+      return std::visit([&](auto& r) { return get_log_entry_impl(r, r.deltas.has_value(), plugin.get_chain_state_log(), buf); }, result);
+   }
+
+   uint64_t get_finality_data_log_entry(const eosio::state_history::get_blocks_result_v1& result,
+                                        std::optional<locked_decompress_stream>& buf) {
+      return get_log_entry_impl(result, result.finality_data.has_value(), plugin.get_finality_data_log(), buf);
    }
 
    void process(state_history::get_status_request_v0&) {
@@ -413,6 +459,14 @@ private:
 
    void process(state_history::get_blocks_request_v0& req) {
       fc_dlog(plugin.get_logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
+
+      auto self = this->shared_from_this();
+      auto entry_ptr = std::make_unique<blocks_request_send_queue_entry<session>>(self, std::move(req));
+      session_mgr.add_send_queue(std::move(self), std::move(entry_ptr));
+   }
+
+   void process(state_history::get_blocks_request_v1& req) {
+      fc_dlog(plugin.get_logger(), "received get_blocks_request_v1 = ${req}", ("req", req));
 
       auto self = this->shared_from_this();
       auto entry_ptr = std::make_unique<blocks_request_send_queue_entry<session>>(self, std::move(req));
@@ -454,7 +508,7 @@ private:
       return result;
    }
 
-   void update_current_request(state_history::get_blocks_request_v0& req) {
+   void update_current_request_impl(state_history::get_blocks_request_v0& req) {
       fc_dlog(plugin.get_logger(), "replying get_blocks_request_v0 = ${req}", ("req", req));
       to_send_block_num = std::max(req.start_block_num, plugin.get_first_available_block_num());
       for (auto& cp : req.have_positions) {
@@ -478,24 +532,28 @@ private:
       if( !req.have_positions.empty() ) {
          position_it = req.have_positions.begin();
       }
+   }
 
+   void update_current_request(state_history::get_blocks_request& req) {
+      assert(std::holds_alternative<state_history::get_blocks_request_v0>(req) ||
+             std::holds_alternative<state_history::get_blocks_request_v1>(req));
+
+      std::visit( [&](auto& request) { update_current_request_impl(request); }, req );
       current_request = std::move(req);
    }
 
-   void send_update(state_history::get_blocks_result_v0 result, const chain::signed_block_ptr& block, const chain::block_id_type& id) {
+   template<typename T> // get_blocks_result_v0 or get_blocks_result_v1
+   void send_update(state_history::get_blocks_request_v0& request, bool fetch_finality_data, T&& result, const chain::signed_block_ptr& block, const chain::block_id_type& id) {
       need_to_send_update = true;
-      if (!current_request || !current_request->max_messages_in_flight) {
-         session_mgr.pop_entry(false);
-         return;
-      }
 
       result.last_irreversible = plugin.get_last_irreversible();
       uint32_t current =
-            current_request->irreversible_only ? result.last_irreversible.block_num : result.head.block_num;
+            request.irreversible_only ? result.last_irreversible.block_num : result.head.block_num;
 
-      if (to_send_block_num > current || to_send_block_num >= current_request->end_block_num) {
-         fc_dlog( plugin.get_logger(), "Not sending, to_send_block_num: ${s}, current: ${c} current_request.end_block_num: ${b}",
-                  ("s", to_send_block_num)("c", current)("b", current_request->end_block_num) );
+      fc_dlog( plugin.get_logger(), "irreversible_only: ${i}, last_irreversible: ${p}, head.block_num: ${h}", ("i", request.irreversible_only)("p", result.last_irreversible.block_num)("h", result.head.block_num));
+      if (to_send_block_num > current || to_send_block_num >= request.end_block_num) {
+         fc_dlog( plugin.get_logger(), "Not sending, to_send_block_num: ${s}, current: ${c} request.end_block_num: ${b}",
+                  ("s", to_send_block_num)("c", current)("b", request.end_block_num) );
          session_mgr.pop_entry(false);
          return;
       }
@@ -512,7 +570,7 @@ private:
          auto& itr = *position_it;
          auto block_id_seen_by_client = itr->block_id;
          ++itr;
-         if (itr == current_request->have_positions.end())
+         if (itr == request.have_positions.end())
             position_it.reset();
 
          if(block_id_seen_by_client == *block_id) {
@@ -527,14 +585,19 @@ private:
          auto prev_block_id = plugin.get_block_id(to_send_block_num - 1);
          if (prev_block_id)
             result.prev_block = state_history::block_position{to_send_block_num - 1, *prev_block_id};
-         if (current_request->fetch_block) {
+         if (request.fetch_block) {
             uint32_t block_num = block ? block->block_num() : 0; // block can be nullptr in testing
             plugin.get_block(to_send_block_num, block_num, block, result.block);
          }
-         if (current_request->fetch_traces && plugin.get_trace_log())
+         if (request.fetch_traces && plugin.get_trace_log())
             result.traces.emplace();
-         if (current_request->fetch_deltas && plugin.get_chain_state_log())
+         if (request.fetch_deltas && plugin.get_chain_state_log())
             result.deltas.emplace();
+         if constexpr (std::is_same_v<T, state_history::get_blocks_result_v1>) {
+            if (fetch_finality_data && plugin.get_finality_data_log()) {
+               result.finality_data.emplace();
+            }
+         }
       }
       ++to_send_block_num;
 
@@ -550,31 +613,60 @@ private:
                  ("this_id", result.this_block ? fc::variant{result.this_block->block_id} : fc::variant{}));
       }
 
-      --current_request->max_messages_in_flight;
+      --request.max_messages_in_flight;
       need_to_send_update = to_send_block_num <= current &&
-                            to_send_block_num < current_request->end_block_num;
+                            to_send_block_num < request.end_block_num;
 
       std::make_shared<blocks_result_send_queue_entry<session>>(this->shared_from_this(), std::move(result))->send_entry();
    }
 
+   bool no_request_or_not_max_messages_in_flight() {
+      if (!current_request)
+         return true;
+
+      uint32_t max_messages_in_flight = std::visit(
+         [&](auto& request) -> uint32_t { return request.max_messages_in_flight; },
+         *current_request);
+
+      return !max_messages_in_flight;
+   }
+
+   void send_update(const state_history::block_position& head, const chain::signed_block_ptr& block, const chain::block_id_type& id) {
+      if (no_request_or_not_max_messages_in_flight()) {
+         session_mgr.pop_entry(false);
+         return;
+      }
+
+      assert(current_request);
+      assert(std::holds_alternative<state_history::get_blocks_request_v0>(*current_request) ||
+             std::holds_alternative<state_history::get_blocks_request_v1>(*current_request));
+
+      std::visit(eosio::chain::overloaded{
+                    [&](eosio::state_history::get_blocks_request_v0& request) {
+                       state_history::get_blocks_result_v0 result;
+                       result.head = head;
+                       send_update(request, false, std::move(result), block, id); },
+                    [&](eosio::state_history::get_blocks_request_v1& request) {
+                       state_history::get_blocks_result_v1 result;
+                       result.head = head;
+                       send_update(request, request.fetch_finality_data, std::move(result), block, id); } },
+                 *current_request);
+   }
+
    void send_update(const chain::signed_block_ptr& block, const chain::block_id_type& id) override {
-      if (!current_request || !current_request->max_messages_in_flight) {
+      if (no_request_or_not_max_messages_in_flight()) {
          session_mgr.pop_entry(false);
          return;
       }
 
       auto block_num = block->block_num();
-      state_history::get_blocks_result_v0 result;
-      result.head = {block_num, id};
       to_send_block_num = std::min(block_num, to_send_block_num);
-      send_update(std::move(result), block, id);
+      send_update(state_history::block_position{block_num, id}, block, id);
    }
 
    void send_update(bool changed) override {
       if (changed || need_to_send_update) {
-         state_history::get_blocks_result_v0 result;
-         result.head = plugin.get_block_head();
-         send_update(std::move(result), nullptr, chain::block_id_type{});
+         send_update(plugin.get_block_head(), nullptr, chain::block_id_type{});
       } else {
          session_mgr.pop_entry(false);
       }

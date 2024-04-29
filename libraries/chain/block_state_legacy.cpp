@@ -1,34 +1,13 @@
 #include <eosio/chain/block_state_legacy.hpp>
+#include <eosio/chain/block_header_state_utils.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/snapshot_detail.hpp>
 
-namespace eosio { namespace chain {
+
+namespace eosio::chain {
 
    namespace {
       constexpr auto additional_sigs_eid = additional_block_signatures_extension::extension_id();
-
-      /**
-       * Given a complete signed block, extract the validated additional signatures if present;
-       *
-       * @param b complete signed block
-       * @param pfs protocol feature set for digest access
-       * @param pfa activated protocol feature set to determine if extensions are allowed
-       * @return the list of additional signatures
-       * @throws if additional signatures are present before being supported by protocol feature activations
-       */
-      vector<signature_type> extract_additional_signatures( const signed_block_ptr& b,
-                                                            const protocol_feature_set& pfs,
-                                                            const protocol_feature_activation_set_ptr& pfa )
-      {
-         auto exts = b->validate_and_extract_extensions();
-
-         if ( exts.count(additional_sigs_eid) > 0 ) {
-            auto& additional_sigs = std::get<additional_block_signatures_extension>(exts.lower_bound(additional_sigs_eid)->second);
-
-            return std::move(additional_sigs.signatures);
-         }
-
-         return {};
-      }
 
       /**
        * Given a pending block header state, wrap the promotion to a block header state such that additional signatures
@@ -77,28 +56,32 @@ namespace eosio { namespace chain {
    block_state_legacy::block_state_legacy( const block_header_state_legacy& prev,
                                            signed_block_ptr b,
                                            const protocol_feature_set& pfs,
-                                           const std::function<void( block_timestamp_type,
-                                                       const flat_set<digest_type>&,
-                                                       const vector<digest_type>& )>& validator,
-                             bool skip_validate_signee
+                                           const validator_t& validator,
+                                           bool skip_validate_signee
                            )
-   :block_header_state_legacy( prev.next( *b, extract_additional_signatures(b, pfs, prev.activated_protocol_features), pfs, validator, skip_validate_signee ) )
-   ,block( std::move(b) )
+      :block_header_state_legacy( prev.next( *b, detail::extract_additional_signatures(b), pfs, validator, skip_validate_signee ) )
+      ,block( std::move(b) )
    {}
 
    block_state_legacy::block_state_legacy( pending_block_header_state_legacy&& cur,
                                            signed_block_ptr&& b,
                                            deque<transaction_metadata_ptr>&& trx_metas,
+                                           const std::optional<digests_t>& action_receipt_digests_savanna,
                                            const protocol_feature_set& pfs,
-                                           const std::function<void( block_timestamp_type,
-                                                                     const flat_set<digest_type>&,
-                                                                     const vector<digest_type>& )>& validator,
+                                           const validator_t& validator,
                                            const signer_callback_type& signer
                            )
    :block_header_state_legacy( inject_additional_signatures( std::move(cur), *b, pfs, validator, signer ) )
    ,block( std::move(b) )
    ,_pub_keys_recovered( true ) // called by produce_block so signature recovery of trxs must have been done
    ,_cached_trxs( std::move(trx_metas) )
+   ,action_mroot_savanna( action_receipt_digests_savanna ? std::optional<digest_type>(calculate_merkle(*action_receipt_digests_savanna)) : std::nullopt )
    {}
 
-} } /// eosio::chain
+   block_state_legacy::block_state_legacy(snapshot_detail::snapshot_block_state_legacy_v7&& sbs)
+      : block_header_state_legacy(std::move(static_cast<snapshot_detail::snapshot_block_header_state_legacy_v3&>(sbs)))
+        // , valid(std::move(sbs.valid) // [snapshot todo]
+   {
+   }
+
+} /// eosio::chain

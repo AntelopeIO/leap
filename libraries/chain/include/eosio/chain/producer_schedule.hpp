@@ -1,11 +1,12 @@
 #pragma once
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/types.hpp>
+#include <eosio/chain/block_timestamp.hpp>
 #include <chainbase/chainbase.hpp>
 #include <eosio/chain/authority.hpp>
 #include <eosio/chain/snapshot.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    namespace legacy {
       /**
@@ -249,6 +250,12 @@ namespace eosio { namespace chain {
       uint32_t                                       version = 0; ///< sequentially incrementing version number
       vector<producer_authority>                     producers;
 
+      const producer_authority& get_scheduled_producer( block_timestamp_type t )const {
+         auto index = t.slot % (producers.size() * config::producer_repetitions);
+         index /= config::producer_repetitions;
+         return producers[index];
+      }
+
       friend bool operator == ( const producer_authority_schedule& a, const producer_authority_schedule& b )
       {
          if( a.version != b.version ) return false;
@@ -300,7 +307,7 @@ namespace eosio { namespace chain {
       return true;
    }
 
-} } /// eosio::chain
+} /// eosio::chain
 
 FC_REFLECT( eosio::chain::legacy::producer_key, (producer_name)(block_signing_key) )
 FC_REFLECT( eosio::chain::legacy::producer_schedule_type, (version)(producers) )

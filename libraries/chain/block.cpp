@@ -20,6 +20,11 @@ namespace eosio { namespace chain {
       }
    }
 
+   void quorum_certificate_extension::reflector_init() {
+      static_assert( fc::raw::has_feature_reflector_init_on_unpacked_reflected_types, "quorum_certificate_extension expects FC to support reflector_init" );
+      static_assert( extension_id() == 3, "extension id for quorum_certificate_extension must be 3" );
+   }
+
    flat_multimap<uint16_t, block_extension> signed_block::validate_and_extract_extensions()const {
       using decompose_t = block_extension_types::decompose_t;
 

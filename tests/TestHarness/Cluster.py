@@ -165,7 +165,9 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=21, topo="mesh", delay=2, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True,
+               activateIF=False, biosFinalizer=True,
+               nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count
@@ -187,6 +189,8 @@ class Cluster(object):
         alternateVersionLabelsFile: Supply an alternate version labels file to use with associatedNodeLabels.
         associatedNodeLabels: Supply a dictionary of node numbers to use an alternate label for a specific node.
         loadSystemContract: indicate whether the eosio.system contract should be loaded
+        activateIF: Activate/enable instant-finality by setting finalizers
+        biosFinalizer: True if the biosNode should act as a finalizer
         genesisPath: set the path to a specific genesis.json to use
         maximumP2pPerHost:  Maximum number of client nodes from any single IP address. Defaults to totalNodes if not set.
         maximumClients: Maximum number of clients from which connections are accepted, use 0 for no limit. Defaults to 25.
@@ -477,6 +481,8 @@ class Cluster(object):
             node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name),
                         Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start,
                         launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            node.keys = instance.keys
+            node.isProducer = len(instance.producers) > 0
             if nodeNum == Node.biosNodeId:
                 self.biosNode = node
             else:
@@ -517,7 +523,7 @@ class Cluster(object):
             return True
 
         Utils.Print("Bootstrap cluster.")
-        if not self.bootstrap(self.biosNode, self.startedNodesCount, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract):
+        if not self.bootstrap(launcher, self.biosNode, self.startedNodesCount, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract, activateIF, biosFinalizer):
             Utils.Print("ERROR: Bootstrap failed.")
             return False
 
@@ -989,7 +995,59 @@ class Cluster(object):
         Utils.Print(f'Found {len(producerKeys)} producer keys')
         return producerKeys
 
-    def bootstrap(self, biosNode, totalNodes, prodCount, totalProducers, pfSetupPolicy, onlyBios=False, onlySetProds=False, loadSystemContract=True):
+    def activateInstantFinality(self, biosFinalizer=True):
+        # call setfinalizer
+        numFins = 0
+        for n in (self.nodes + [self.biosNode]):
+            if not n or not n.keys or not n.keys[0].blspubkey:
+                continue
+            if not n.isProducer:
+                continue
+            if n.nodeId == 'bios' and not biosFinalizer:
+                continue
+            numFins = numFins + 1
+
+        threshold = int(numFins * 2 / 3 + 1)
+        if threshold > 2 and threshold == numFins:
+            # nodes are often stopped, so do not require all node votes
+            threshold = threshold - 1
+        if Utils.Debug: Utils.Print(f"threshold: {threshold}, numFins: {numFins}")
+        setFinStr =  f'{{"finalizer_policy": {{'
+        setFinStr += f'  "threshold": {threshold}, '
+        setFinStr += f'  "finalizers": ['
+        finNum = 1
+        for n in (self.nodes + [self.biosNode]):
+            if not n or not n.keys or not n.keys[0].blspubkey:
+                continue
+            if not n.isProducer:
+                continue
+            if n.nodeId == 'bios' and not biosFinalizer:
+                continue
+            setFinStr += f'    {{"description": "finalizer #{finNum}", '
+            setFinStr += f'     "weight":1, '
+            setFinStr += f'     "public_key": "{n.keys[0].blspubkey}", '
+            setFinStr += f'     "pop": "{n.keys[0].blspop}"'
+            setFinStr += f'    }}'
+            if finNum != numFins:
+                setFinStr += f', '
+            finNum = finNum + 1
+        setFinStr +=  f'  ]'
+        setFinStr +=  f'}}}}'
+        if Utils.Debug: Utils.Print("setfinalizers: %s" % (setFinStr))
+        Utils.Print("Setting finalizers")
+        opts = "--permission eosio@active"
+        trans = self.biosNode.pushMessage("eosio", "setfinalizer", setFinStr, opts)
+        if trans is None or not trans[0]:
+            Utils.Print("ERROR: Failed to set finalizers")
+            return None
+        Node.validateTransaction(trans[1])
+        transId = Node.getTransId(trans[1])
+        if not self.biosNode.waitForTransFinalization(transId, timeout=21*12*3):
+            Utils.Print("ERROR: Failed to validate transaction %s got rolled into a LIB block on server port %d." % (transId, biosNode.port))
+            return None
+        return True
+
+    def bootstrap(self, launcher,  biosNode, totalNodes, prodCount, totalProducers, pfSetupPolicy, onlyBios=False, onlySetProds=False, loadSystemContract=True, activateIF=False, biosFinalizer=True):
         """Create 'prodCount' init accounts and deposits 10000000000 SYS in each. If prodCount is -1 will initialize all possible producers.
         Ensure nodes are inter-connected prior to this call. One way to validate this will be to check if every node has block 1."""
 
@@ -1025,12 +1083,11 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to import %s account keys into ignition wallet." % (eosioName))
             return None
 
-        contract="eosio.bios"
-        contractDir= str(self.libTestingContractsPath / contract)
-        if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
-            contractDir=str(self.libTestingContractsPath / "old_versions" / "v1.7.0-develop-preactivate_feature" / contract)
-        else:
-            contractDir=str(self.libTestingContractsPath / "old_versions" / "v1.6.0-rc3" / contract)
+        if not PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
+            return True
+
+        contract="eosio.boot"
+        contractDir= str(self.unittestsContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
@@ -1041,8 +1098,22 @@ class Cluster(object):
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
             biosNode.preactivateAllBuiltinProtocolFeature()
-
         Node.validateTransaction(trans)
+
+        contract="eosio.bios"
+        contractDir= str(self.libTestingContractsPath / contract)
+        wasmFile="%s.wasm" % (contract)
+        abiFile="%s.abi" % (contract)
+        Utils.Print("Publish %s contract" % (contract))
+        trans=biosNode.publishContract(eosioAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+        if trans is None:
+            Utils.Print("ERROR: Failed to publish contract %s." % (contract))
+            return None
+
+        if activateIF:
+            if not self.activateInstantFinality(biosFinalizer=biosFinalizer):
+                Utils.Print("ERROR: Activate instant finality failed")
+                return None
 
         Utils.Print("Creating accounts: %s " % ", ".join(producerKeys.keys()))
         producerKeys.pop(eosioName)
@@ -1090,7 +1161,7 @@ class Cluster(object):
                     if counts[keys["node"]] >= prodCount:
                         Utils.Print(f'Count for this node exceeded: {counts[keys["node"]]}')
                         continue
-                    prodStanzas.append({ 'producer_name': keys['name'], 'block_signing_key': keys['public'] })
+                    prodStanzas.append({ 'producer_name': keys['name'], 'authority': ["block_signing_authority_v0", { 'threshold': 1, 'keys': [{ 'key': keys['public'], 'weight': 1 }]}]})
                     prodNames.append(keys["name"])
                     counts[keys["node"]] += 1
                 setProdsStr += json.dumps(prodStanzas)
@@ -1138,6 +1209,10 @@ class Cluster(object):
         if not biosNode.waitForTransactionsInBlock(transIds):
             Utils.Print('ERROR: Failed to validate creation of system accounts')
             return None
+        #
+        # Could activate instant finality here, but have to wait for finality which with all the producers takes a long time
+        #         if activateIF:
+        #             self.activateInstantFinality()
 
         eosioTokenAccount = copy.deepcopy(eosioAccount)
         eosioTokenAccount.name = 'eosio.token'
@@ -1384,6 +1459,31 @@ class Cluster(object):
 
         for f in self.filesToCleanup:
             os.remove(f)
+
+    def setProds(self, producers):
+        """Call setprods with list of producers"""
+        setProdsStr = '{"schedule": ['
+        firstTime = True
+        for name in producers:
+            if firstTime:
+                firstTime = False
+            else:
+                setProdsStr += ','
+            if not self.defProducerAccounts[name]:
+                Utils.Print(f"ERROR: no account key for {name}")
+                return None
+            key = self.defProducerAccounts[name].activePublicKey
+            setProdsStr += '{"producer_name":' + name + ',"authority": ["block_signing_authority_v0", {"threshold":1, "keys":[{"key":' + key + ', "weight":1}]}]}'
+
+        setProdsStr += ' ] }'
+        Utils.Print("setprods: %s" % (setProdsStr))
+        opts = "--permission eosio@active"
+        # pylint: disable=redefined-variable-type
+        trans = self.biosNode.pushMessage("eosio", "setprods", setProdsStr, opts)
+        if trans is None or not trans[0]:
+            Utils.Print("ERROR: Failed to set producer with cmd %s" % (setProdsStr))
+            return None
+        return True
 
     # Create accounts, if account does not already exist, and validates that the last transaction is received on root node
     def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=-1):

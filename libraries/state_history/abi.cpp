@@ -34,6 +34,19 @@ extern const char* const state_history_plugin_abi = R"({
             ]
         },
         {
+            "name": "get_blocks_request_v1", "fields": [
+                { "name": "start_block_num", "type": "uint32" },
+                { "name": "end_block_num", "type": "uint32" },
+                { "name": "max_messages_in_flight", "type": "uint32" },
+                { "name": "have_positions", "type": "block_position[]" },
+                { "name": "irreversible_only", "type": "bool" },
+                { "name": "fetch_block", "type": "bool" },
+                { "name": "fetch_traces", "type": "bool" },
+                { "name": "fetch_deltas", "type": "bool" },
+                { "name": "fetch_finality_data", "type": "bool" }
+            ]
+        },
+        {
             "name": "get_blocks_ack_request_v0", "fields": [
                 { "name": "num_messages", "type": "uint32" }
             ]
@@ -47,6 +60,18 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "block", "type": "bytes?" },
                 { "name": "traces", "type": "bytes?" },
                 { "name": "deltas", "type": "bytes?" }
+            ]
+        },
+        {
+            "name": "get_blocks_result_v1", "fields": [
+                { "name": "head", "type": "block_position" },
+                { "name": "last_irreversible", "type": "block_position" },
+                { "name": "this_block", "type": "block_position?" },
+                { "name": "prev_block", "type": "block_position?" },
+                { "name": "block", "type": "bytes?" },
+                { "name": "traces", "type": "bytes?" },
+                { "name": "deltas", "type": "bytes?" },
+                { "name": "finality_data", "type": "bytes?" }
             ]
         },
         {
@@ -546,14 +571,23 @@ extern const char* const state_history_plugin_abi = R"({
                 { "type": "uint32", "name": "account_cpu_usage_average_window" },
                 { "type": "uint32", "name": "account_net_usage_average_window" }
             ]
+        },
+        {
+            "name": "finality_data", "fields": [
+                { "name": "major_version", "type": "uint32" },
+                { "name": "minor_version", "type": "uint32" },
+                { "name": "active_finalizer_policy_generation", "type": "uint32" },
+                { "name": "action_mroot", "type": "checksum256" },
+                { "name": "base_digest", "type": "checksum256" }
+            ]
         }
     ],
     "types": [
         { "new_type_name": "transaction_id", "type": "checksum256" }
     ],
     "variants": [
-        { "name": "request", "types": ["get_status_request_v0", "get_blocks_request_v0", "get_blocks_ack_request_v0"] },
-        { "name": "result", "types": ["get_status_result_v0", "get_blocks_result_v0"] },
+        { "name": "request", "types": ["get_status_request_v0", "get_blocks_request_v0", "get_blocks_ack_request_v0", "get_blocks_request_v1"] },
+        { "name": "result", "types": ["get_status_result_v0", "get_blocks_result_v0", "get_blocks_result_v1"] },
 
         { "name": "action_receipt", "types": ["action_receipt_v0"] },
         { "name": "action_trace", "types": ["action_trace_v0", "action_trace_v1"] },

@@ -1,8 +1,9 @@
 #pragma once
 
 #include <eosio/chain/types.hpp>
+#include <eosio/chain/action.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    /**
     *  For each action dispatched this receipt is generated
@@ -15,20 +16,8 @@ namespace eosio { namespace chain {
       flat_map<account_name,uint64_t> auth_sequence;
       fc::unsigned_int                code_sequence = 0; ///< total number of setcodes
       fc::unsigned_int                abi_sequence  = 0; ///< total number of setabis
-
-      digest_type digest()const {
-         digest_type::encoder e;
-         fc::raw::pack(e, receiver);
-         fc::raw::pack(e, act_digest);
-         fc::raw::pack(e, global_sequence);
-         fc::raw::pack(e, recv_sequence);
-         fc::raw::pack(e, auth_sequence);
-         fc::raw::pack(e, code_sequence);
-         fc::raw::pack(e, abi_sequence);
-         return e.result();
-      }
    };
 
-} }  /// namespace eosio::chain
+}  /// namespace eosio::chain
 
 FC_REFLECT( eosio::chain::action_receipt, (receiver)(act_digest)(global_sequence)(recv_sequence)(auth_sequence)(code_sequence)(abi_sequence) )

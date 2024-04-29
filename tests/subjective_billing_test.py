@@ -58,7 +58,7 @@ try:
                     "3": "--subjective-account-decay-time-minutes=1" }
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay,
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, activateIF=True,
                       extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false ",
                       specificExtraNodeosArgs=specificArgs ) is False:
        errorExit("Failed to stand up eos cluster.")

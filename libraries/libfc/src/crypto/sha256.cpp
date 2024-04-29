@@ -86,17 +86,8 @@ namespace fc {
       result._hash[3] = h1._hash[3] ^ h2._hash[3];
       return result;
     }
-    bool operator >= ( const sha256& h1, const sha256& h2 ) {
-      return memcmp( h1._hash, h2._hash, sizeof(h1._hash) ) >= 0;
-    }
-    bool operator > ( const sha256& h1, const sha256& h2 ) {
-      return memcmp( h1._hash, h2._hash, sizeof(h1._hash) ) > 0;
-    }
-    bool operator < ( const sha256& h1, const sha256& h2 ) {
-      return memcmp( h1._hash, h2._hash, sizeof(h1._hash) ) < 0;
-    }
-    bool operator != ( const sha256& h1, const sha256& h2 ) {
-       return !(h1 == h2);
+    std::strong_ordering operator <=> ( const sha256& h1, const sha256& h2 ) {
+      return memcmp( h1._hash, h2._hash, sizeof(h1._hash) )  <=> 0;
     }
     bool operator == ( const sha256& h1, const sha256& h2 ) {
        // idea to not use memcmp, from:

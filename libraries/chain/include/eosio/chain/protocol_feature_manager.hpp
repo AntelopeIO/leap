@@ -3,7 +3,7 @@
 #include <eosio/chain/types.hpp>
 #include <iterator>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 class deep_mind_handler;
 
@@ -38,6 +38,7 @@ enum class builtin_protocol_feature_t : uint32_t {
    bls_primitives = 21,
    disable_deferred_trxs_stage_1 = 22,
    disable_deferred_trxs_stage_2 = 23,
+   instant_finality = 24,
    reserved_private_fork_protocol_features = 500000,
 };
 
@@ -402,7 +403,7 @@ private:
 std::optional<builtin_protocol_feature> read_builtin_protocol_feature( const std::filesystem::path& p  );
 protocol_feature_set initialize_protocol_features( const std::filesystem::path& p, bool populate_missing_builtins = true );
 
-} } // namespace eosio::chain
+} // namespace eosio::chain
 
 FC_REFLECT(eosio::chain::protocol_feature_subjective_restrictions,
                (earliest_allowed_activation_time)(preactivation_required)(enabled))

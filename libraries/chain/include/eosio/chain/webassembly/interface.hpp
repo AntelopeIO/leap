@@ -174,6 +174,26 @@ namespace webassembly {
          int64_t set_proposed_producers_ex(uint64_t packed_producer_format, legacy_span<const char> packed_producer_schedule);
 
          /**
+          * Submits a finalizer set change to Hotstuff.
+          *
+          *  // format for packed finalizer_policy
+          *  struct abi_finalizer_authority {
+          *     std::string              description;
+          *     uint64_t                 fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
+          *     std::array<uint8_t, 96>  public_key_g1_affine_le;
+          *  };
+          *  struct abi_finalizer_policy {
+          *     uint64_t                             fthreshold = 0;
+          *     std::vector<abi_finalizer_authority> finalizers;
+          *  };
+          *
+          * @ingroup privileged
+          *
+          * @param packed_finalizer_policy - a serialized finalizer_policy object.
+         */
+         void set_finalizers(span<const char> packed_finalizer_policy);
+
+         /**
           * Retrieve the blockchain config parameters.
           *
           * @ingroup privileged

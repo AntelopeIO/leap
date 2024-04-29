@@ -57,7 +57,7 @@ class TestHelper(object):
         if "--nodes-file" in includeArgs:
             thGrp.add_argument("--nodes-file", type=str, help=argparse.SUPPRESS if suppressHelp else "File containing nodes info in JSON format.")
         if "-s" in includeArgs:
-            thGrp.add_argument("-s", type=str, help=argparse.SUPPRESS if suppressHelp else "topology", choices=["mesh"], default="mesh")
+            thGrp.add_argument("-s", type=str, help=argparse.SUPPRESS if suppressHelp else "topology", choices=['star', 'mesh', 'ring', 'line'], default="mesh")
         if "-c" in includeArgs:
             thGrp.add_argument("-c", type=str, help=argparse.SUPPRESS if suppressHelp else "chain strategy",
                     choices=[Utils.SyncResyncTag, Utils.SyncReplayTag, Utils.SyncNoneTag, Utils.SyncHardReplayTag],
@@ -96,6 +96,9 @@ class TestHelper(object):
                                      action='store_true')
         if "--dont-launch" in includeArgs:
             thGrp.add_argument("--dont-launch", help=argparse.SUPPRESS if suppressHelp else "Don't launch own node. Assume node is already running.",
+                                     action='store_true')
+        if "--activate-if" in includeArgs:
+            thGrp.add_argument("--activate-if", help=argparse.SUPPRESS if suppressHelp else "Activate instant finality during bios boot.",
                                      action='store_true')
         if "--keep-logs" in includeArgs:
             thGrp.add_argument("--keep-logs", help=argparse.SUPPRESS if suppressHelp else "Don't delete <test_name><pid>/node_* folders, or other test specific log directories, upon test completion",

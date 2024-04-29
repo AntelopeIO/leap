@@ -2,6 +2,8 @@
 #include <eosio/chain/application.hpp>
 #include <eosio/http_client_plugin/http_client_plugin.hpp>
 #include <eosio/chain/types.hpp>
+#include <fc/crypto/bls_private_key.hpp>
+#include <fc/crypto/bls_public_key.hpp>
 
 namespace eosio {
 
@@ -23,8 +25,12 @@ public:
 
    using signature_provider_type = std::function<chain::signature_type(chain::digest_type)>;
 
-   std::pair<chain::public_key_type,signature_provider_type> signature_provider_for_specification(const std::string& spec) const;
-   signature_provider_type signature_provider_for_private_key(const chain::private_key_type priv) const;
+   // @return empty optional for BLS specs
+   std::optional<std::pair<chain::public_key_type,signature_provider_type>> signature_provider_for_specification(const std::string& spec) const;
+   signature_provider_type signature_provider_for_private_key(const chain::private_key_type& priv) const;
+
+   // @return empty optional for non-BLS specs
+   std::optional<std::pair<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>> bls_public_key_for_specification(const std::string& spec) const;
 
 private:
    std::unique_ptr<class signature_provider_plugin_impl> my;

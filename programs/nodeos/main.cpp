@@ -147,6 +147,9 @@ enum return_codes {
 
 int main(int argc, char** argv)
 {
+
+   ilog("nodeos started");
+
    try {
       appbase::scoped_app app;
       fc::scoped_exit<std::function<void()>> on_exit = [&]() {
@@ -158,6 +161,10 @@ int main(int argc, char** argv)
       uint32_t short_hash = 0;
       fc::from_hex(eosio::version::version_hash(), (char*)&short_hash, sizeof(short_hash));
 
+      app->set_stop_executor_cb([&app]() {
+         ilog("appbase quit called");
+         app->get_io_service().stop();
+      });
       app->set_version(htonl(short_hash));
       app->set_version_string(eosio::version::version_client());
       app->set_full_version_string(eosio::version::version_full());
@@ -200,6 +207,7 @@ int main(int argc, char** argv)
    } catch( const node_management_success& e ) {
       return NODE_MANAGEMENT_SUCCESS;
    } catch( const fc::exception& e ) {
+
       if( e.code() == fc::std_exception_code ) {
          if( e.top_message().find( "atabase dirty flag set" ) != std::string::npos ) {
             elog( "database dirty flag set (likely due to unclean shutdown): replay required" );

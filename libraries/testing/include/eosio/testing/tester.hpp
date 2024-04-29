@@ -253,6 +253,24 @@ namespace eosio { namespace testing {
          transaction_trace_ptr       set_producer_schedule(const vector<producer_authority>& schedule);
          transaction_trace_ptr       set_producers_legacy(const vector<account_name>& producer_names);
 
+         // libtester uses 1 as weight of each of the finalizer, sets (2/3 finalizers + 1)
+         // as threshold, and makes all finalizers vote QC
+         std::pair<transaction_trace_ptr, std::vector<fc::crypto::blslib::bls_private_key>> set_finalizers(const vector<account_name>& finalizer_names);
+
+         // Finalizer policy input to set up a test: weights, threshold and local finalizers
+         // which participate voting.
+         struct finalizer_policy_input {
+            struct finalizer_info {
+               account_name name;
+               uint64_t     weight;
+            };
+
+            std::vector<finalizer_info> finalizers;
+            uint64_t                    threshold {0};
+            std::vector<account_name>   local_finalizers;
+         };
+         std::pair<transaction_trace_ptr, std::vector<fc::crypto::blslib::bls_private_key>> set_finalizers(const finalizer_policy_input& input);
+
          void link_authority( account_name account, account_name code,  permission_name req, action_name type = {} );
          void unlink_authority( account_name account, account_name code, action_name type = {} );
          void set_authority( account_name account, permission_name perm, authority auth,
@@ -320,6 +338,7 @@ namespace eosio { namespace testing {
                                                              const account_name& account ) const;
 
          vector<char> get_row_by_account( name code, name scope, name table, const account_name& act ) const;
+         vector<char> get_row_by_id( name code, name scope, name table, uint64_t id ) const;
 
          map<account_name, block_id_type> get_last_produced_block_map()const { return last_produced_block; };
          void set_last_produced_block_map( const map<account_name, block_id_type>& lpb ) { last_produced_block = lpb; }
@@ -383,11 +402,12 @@ namespace eosio { namespace testing {
             return cfg;
          }
 
-         void schedule_protocol_features_wo_preactivation(const vector<digest_type> feature_digests);
-         void preactivate_protocol_features(const vector<digest_type> feature_digests);
+         void schedule_protocol_features_wo_preactivation(const vector<digest_type>& feature_digests);
+         void preactivate_protocol_features(const vector<digest_type>& feature_digests);
          void preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& features);
          void preactivate_all_builtin_protocol_features();
          void preactivate_all_but_disable_deferred_trx();
+         void preactivate_savanna_protocol_features();
 
          static genesis_state default_genesis() {
             genesis_state genesis;
@@ -399,7 +419,8 @@ namespace eosio { namespace testing {
 
          static std::pair<controller::config, genesis_state> default_config(const fc::temp_directory& tempdir, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}) {
             controller::config cfg;
-            cfg.blocks_dir      = tempdir.path() / config::default_blocks_dir_name;
+            cfg.finalizers_dir = tempdir.path() / config::default_finalizers_dir_name;
+            cfg.blocks_dir = tempdir.path() / config::default_blocks_dir_name;
             cfg.state_dir  = tempdir.path() / config::default_state_dir_name;
             cfg.state_size = 1024*1024*16;
             cfg.state_guard_size = 0;
@@ -438,6 +459,7 @@ namespace eosio { namespace testing {
 
          void             _start_block(fc::time_point block_time);
          signed_block_ptr _finish_block();
+         void             _wait_for_vote_if_needed(controller& c);
 
       // Fields:
       protected:
@@ -466,15 +488,15 @@ namespace eosio { namespace testing {
       }
 
       tester(controller::config config, const genesis_state& genesis) {
-         init(config, genesis);
+         init(std::move(config), genesis);
       }
 
       tester(controller::config config) {
-         init(config);
+         init(std::move(config));
       }
 
       tester(controller::config config, protocol_feature_set&& pfs, const genesis_state& genesis) {
-         init(config, std::move(pfs), genesis);
+         init(std::move(config), std::move(pfs), genesis);
       }
 
       tester(const fc::temp_directory& tempdir, bool use_genesis) {
@@ -565,27 +587,14 @@ namespace eosio { namespace testing {
          FC_ASSERT( vcfg.blocks_dir.filename().generic_string() != "."
                     && vcfg.state_dir.filename().generic_string() != ".", "invalid path names in controller::config" );
 
+         vcfg.finalizers_dir = vcfg.blocks_dir.parent_path() / std::string("v_").append( vcfg.finalizers_dir.filename().generic_string() );
          vcfg.blocks_dir = vcfg.blocks_dir.parent_path() / std::string("v_").append( vcfg.blocks_dir.filename().generic_string() );
          vcfg.state_dir  = vcfg.state_dir.parent_path() / std::string("v_").append( vcfg.state_dir.filename().generic_string() );
 
          vcfg.contracts_console = false;
       }
 
-      static unique_ptr<controller> create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, deep_mind_handler* dmlog = nullptr) {
-         unique_ptr<controller> validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), genesis.compute_chain_id());
-         validating_node->add_indices();
-         if(dmlog)
-         {
-            validating_node->enable_deep_mind(dmlog);
-         }
-         if (use_genesis) {
-            validating_node->startup( [](){}, []() { return false; }, genesis );
-         }
-         else {
-            validating_node->startup( [](){}, []() { return false; } );
-         }
-         return validating_node;
-      }
+      static unique_ptr<controller> create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, deep_mind_handler* dmlog = nullptr);
 
       validating_tester(const fc::temp_directory& tempdir, bool use_genesis) {
          auto def_conf = default_config(tempdir);
@@ -619,10 +628,7 @@ namespace eosio { namespace testing {
 
       signed_block_ptr produce_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          auto sb = _produce_block(skip_time, false);
-         auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
-         controller::block_report br;
-         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
-
+         validate_push_block(sb);
          return sb;
       }
 
@@ -631,18 +637,16 @@ namespace eosio { namespace testing {
       }
 
       void validate_push_block(const signed_block_ptr& sb) {
-         auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
+         auto btf = validating_node->create_block_handle_future( sb->calculate_id(), sb );
          controller::block_report br;
-         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
+         validating_node->push_block( br, btf.get(), {}, trx_meta_cache_lookup{} );
+         _wait_for_vote_if_needed(*validating_node);
       }
 
       signed_block_ptr produce_empty_block( fc::microseconds skip_time = fc::milliseconds(config::block_interval_ms) )override {
          unapplied_transactions.add_aborted( control->abort_block() );
          auto sb = _produce_block(skip_time, true);
-         auto bsf = validating_node->create_block_state_future( sb->calculate_id(), sb );
-         controller::block_report br;
-         validating_node->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} );
-
+         validate_push_block(sb);
          return sb;
       }
 
@@ -653,8 +657,8 @@ namespace eosio { namespace testing {
       bool validate() {
 
 
-        auto hbh = control->head_block_state()->header;
-        auto vn_hbh = validating_node->head_block_state()->header;
+        const auto& hbh = control->head_block_header();
+        const auto& vn_hbh = validating_node->head_block_header();
         bool ok = control->head_block_id() == validating_node->head_block_id() &&
                hbh.previous == vn_hbh.previous &&
                hbh.timestamp == vn_hbh.timestamp &&

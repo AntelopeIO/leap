@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
 
          // Check the last irreversible block number is set correctly, with one producer, irreversibility should only just 1 block before
          const auto expected_last_irreversible_block_number = test.control->head_block_num() - 1;
-         BOOST_TEST(test.control->head_block_state()->dpos_irreversible_blocknum == expected_last_irreversible_block_number);
+         BOOST_TEST(test.control->head_block_state_legacy()->dpos_irreversible_blocknum == expected_last_irreversible_block_number);
          // Ensure that future block doesn't exist
          const auto nonexisting_future_block_num = test.control->head_block_num() + 1;
          BOOST_TEST(test.control->fetch_block_by_number(nonexisting_future_block_num) == nullptr);
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_SUITE(database_tests)
 
          const auto next_expected_last_irreversible_block_number = test.control->head_block_num() - 1;
          // Check the last irreversible block number is updated correctly
-         BOOST_TEST(test.control->head_block_state()->dpos_irreversible_blocknum == next_expected_last_irreversible_block_number);
+         BOOST_TEST(test.control->head_block_state_legacy()->dpos_irreversible_blocknum == next_expected_last_irreversible_block_number);
          // Previous nonexisting future block should exist by now
          BOOST_CHECK_NO_THROW(test.control->fetch_block_by_number(nonexisting_future_block_num));
          // Check the latest head block match

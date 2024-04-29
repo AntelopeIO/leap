@@ -30,6 +30,8 @@ namespace net       = boost::asio;      // from <boost/asio.hpp>
 namespace bio       = boost::iostreams;
 using tcp           = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
+using namespace eosio::state_history;
+
 namespace eosio::state_history {
 
 template <typename ST>
@@ -75,19 +77,23 @@ fc::datastream<ST>& operator>>(fc::datastream<ST>& ds, eosio::state_history::get
    unpack_big_bytes(ds, obj.deltas);
    return ds;
 }
+
+template <typename ST>
+fc::datastream<ST>& operator>>(fc::datastream<ST>& ds, eosio::state_history::get_blocks_result_v1& obj) {
+   fc::raw::unpack(ds, obj.head);
+   fc::raw::unpack(ds, obj.last_irreversible);
+   fc::raw::unpack(ds, obj.this_block);
+   fc::raw::unpack(ds, obj.prev_block);
+   unpack_big_bytes(ds, obj.block);
+   unpack_big_bytes(ds, obj.traces);
+   unpack_big_bytes(ds, obj.deltas);
+   unpack_big_bytes(ds, obj.finality_data);
+   return ds;
+}
 } // namespace eosio::state_history
 
 //------------------------------------------------------------------------------
 
-std::unordered_map<uint32_t, eosio::chain::block_id_type> block_ids;
-fc::sha256 block_id_for(const uint32_t bnum, const std::string& nonce = {}) {
-   if (auto it = block_ids.find(bnum); it != block_ids.end())
-      return it->second;
-   fc::sha256 m = fc::sha256::hash(fc::sha256::hash(std::to_string(bnum)+nonce));
-   m._hash[0]   = fc::endian_reverse_u32(bnum);
-   block_ids[bnum] = m;
-   return m;
-}
 
 // Report a failure
 void fail(beast::error_code ec, char const* what) { std::cerr << what << ": " << ec.message() << "\n"; }
@@ -103,20 +109,26 @@ struct mock_state_history_plugin {
    fc::temp_directory                      log_dir;
    std::optional<eosio::state_history_log> trace_log;
    std::optional<eosio::state_history_log> state_log;
+   std::optional<eosio::state_history_log> finality_data_log;
    std::atomic<bool>                       stopping = false;
    eosio::session_manager                  session_mgr{ship_ioc};
+   std::unordered_map<uint32_t, eosio::chain::block_id_type> block_ids;
 
    constexpr static uint32_t default_frame_size = 1024;
 
    std::optional<eosio::state_history_log>& get_trace_log() { return trace_log; }
    std::optional<eosio::state_history_log>& get_chain_state_log() { return state_log; }
+   std::optional<eosio::state_history_log>& get_finality_data_log() { return finality_data_log; }
    fc::sha256                get_chain_id() const { return {}; }
 
    boost::asio::io_context& get_ship_executor() { return ship_ioc; }
 
-   void setup_state_history_log(eosio::state_history_log_config conf = {}) {
+   void setup_state_history_log(bool fetch_finality_data, eosio::state_history_log_config conf = {}) {
       trace_log.emplace("ship_trace", log_dir.path(), conf);
       state_log.emplace("ship_state", log_dir.path(), conf);
+      if( fetch_finality_data ) {
+         finality_data_log.emplace("ship_finality_data", log_dir.path(), conf);
+      }
    }
 
    fc::logger logger = fc::logger::get(DEFAULT_LOGGER);
@@ -132,6 +144,15 @@ struct mock_state_history_plugin {
       return fc::time_point{};
    }
 
+   fc::sha256 block_id_for(const uint32_t bnum, const std::string& nonce = {}) {
+      if (auto it = block_ids.find(bnum); it != block_ids.end())
+         return it->second;
+      fc::sha256 m = fc::sha256::hash(fc::sha256::hash(std::to_string(bnum)+nonce));
+      m._hash[0]   = fc::endian_reverse_u32(bnum);
+      block_ids[bnum] = m;
+      return m;
+   }
+
    std::optional<eosio::chain::block_id_type> get_block_id(uint32_t block_num) {
       std::optional<eosio::chain::block_id_type> id;
       if( trace_log ) {
@@ -141,6 +162,11 @@ struct mock_state_history_plugin {
       }
       if( state_log ) {
          id = state_log->get_block_id( block_num );
+         if( id )
+            return id;
+      }
+      if( finality_data_log ) {
+         id = finality_data_log->get_block_id( block_num );
          if( id )
             return id;
       }
@@ -287,36 +313,36 @@ struct state_history_test_fixture {
       BOOST_CHECK(fc::raw::pack(status) == fc::raw::pack(received_status));
    }
 
-   void add_to_log(uint32_t index, uint32_t type, std::vector<int32_t>&& decompressed_data) {
+   void add_to_log(uint32_t index, uint32_t type, std::vector<int32_t>&& decompressed_data, bool fetch_finality_data) {
       uint64_t decompressed_byte_count = decompressed_data.size() * sizeof(int32_t);
 
       auto compressed = zlib_compress((const char*)decompressed_data.data(), decompressed_byte_count);
 
       eosio::state_history_log_header header;
-      header.block_id     = block_id_for(index);
+      header.block_id     = server.block_id_for(index);
       header.payload_size = compressed.size() + sizeof(type);
       if (type == 1) {
          header.payload_size += sizeof(uint64_t);
       }
 
-      std::unique_lock gt(server.trace_log->_mx);
-      server.trace_log->write_entry(header, block_id_for(index - 1), [&](auto& f) {
-         f.write((const char*)&type, sizeof(type));
-         if (type == 1) {
-            f.write((const char*)&decompressed_byte_count, sizeof(decompressed_byte_count));
-         }
-         f.write(compressed.data(), compressed.size());
-      });
-      gt.unlock();
-      std::unique_lock gs(server.state_log->_mx);
-      server.state_log->write_entry(header, block_id_for(index - 1), [&](auto& f) {
-         f.write((const char*)&type, sizeof(type));
-         if (type == 1) {
-            f.write((const char*)&decompressed_byte_count, sizeof(decompressed_byte_count));
-         }
-         f.write(compressed.data(), compressed.size());
-      });
-      gs.unlock();
+      auto write_log = [&](std::optional<eosio::state_history_log>& log) {
+         assert(log);
+         std::unique_lock lk(log->_mx);
+         log->write_entry(header, server.block_id_for(index - 1), [&](auto& f) {
+            f.write((const char*)&type, sizeof(type));
+            if (type == 1) {
+               f.write((const char*)&decompressed_byte_count, sizeof(decompressed_byte_count));
+            }
+            f.write(compressed.data(), compressed.size());
+         });
+         lk.unlock();
+      };
+
+      write_log(server.trace_log);
+      write_log(server.state_log);
+      if( fetch_finality_data ) {
+         write_log(server.finality_data_log);
+      }
 
       if (written_data.size() < index)
          written_data.resize(index);
@@ -326,24 +352,22 @@ struct state_history_test_fixture {
    ~state_history_test_fixture() { ws.close(websocket::close_code::normal); }
 };
 
-void store_read_test_case(uint64_t data_size, eosio::state_history_log_config config) {
+void store_read_test_case(test_server& server, uint64_t data_size, eosio::state_history_log_config config) {
    fc::temp_directory       log_dir;
    eosio::state_history_log log("ship", log_dir.path(), config);
 
-
    eosio::state_history_log_header header;
-   header.block_id     = block_id_for(1);
+   header.block_id     = server.block_id_for(1);
    header.payload_size = 0;
    auto data           = generate_data(data_size);
 
-   log.pack_and_write_entry(header, block_id_for(0),
+   log.pack_and_write_entry(header, server.block_id_for(0),
       [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
 
    // make sure the current file position is at the end of file
    auto pos = log.get_log_file().tellp();
    log.get_log_file().seek_end(0);
    BOOST_REQUIRE_EQUAL(log.get_log_file().tellp(), pos);
-
 
    eosio::locked_decompress_stream buf = log.create_locked_decompress_stream();
    log.get_unpacked_entry(1, buf);
@@ -358,40 +382,40 @@ void store_read_test_case(uint64_t data_size, eosio::state_history_log_config co
    BOOST_CHECK(std::equal(decompressed.begin(), decompressed.end(), (const char*)data.data()));
 }
 
-BOOST_AUTO_TEST_CASE(store_read_entry_no_prune) {
-   store_read_test_case(1024, {});
+BOOST_FIXTURE_TEST_CASE(store_read_entry_no_prune, state_history_test_fixture) {
+   store_read_test_case(server, 1024, {});
 }
 
-BOOST_AUTO_TEST_CASE(store_read_big_entry_no_prune) {
+BOOST_FIXTURE_TEST_CASE(store_read_big_entry_no_prune, state_history_test_fixture) {
    // test the case where the uncompressed data size exceeds 4GB
-   store_read_test_case( (1ULL<< 32) + (1ULL << 20), {});
+   store_read_test_case(server, (1ULL<< 32) + (1ULL << 20), {});
 }
 
-BOOST_AUTO_TEST_CASE(store_read_entry_prune_enabled) {
-   store_read_test_case(1024, eosio::state_history::prune_config{.prune_blocks = 100});
+BOOST_FIXTURE_TEST_CASE(store_read_entry_prune_enabled, state_history_test_fixture) {
+   store_read_test_case(server, 1024, eosio::state_history::prune_config{.prune_blocks = 100});
 }
 
-BOOST_AUTO_TEST_CASE(store_with_existing) {
+BOOST_FIXTURE_TEST_CASE(store_with_existing, state_history_test_fixture) {
    uint64_t data_size = 512;
    fc::temp_directory       log_dir;
    eosio::state_history_log log("ship", log_dir.path(), {});
 
    eosio::state_history_log_header header;
-   header.block_id     = block_id_for(1);
+   header.block_id     = server.block_id_for(1);
    header.payload_size = 0;
    auto data           = generate_data(data_size);
 
-   log.pack_and_write_entry(header, block_id_for(0),
+   log.pack_and_write_entry(header, server.block_id_for(0),
                             [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
 
-   header.block_id     = block_id_for(2);
-   log.pack_and_write_entry(header, block_id_for(1),
+   header.block_id     = server.block_id_for(2);
+   log.pack_and_write_entry(header, server.block_id_for(1),
                             [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
 
    // Do not allow starting from scratch for existing
-   header.block_id     = block_id_for(1);
+   header.block_id     = server.block_id_for(1);
    BOOST_CHECK_EXCEPTION(
-         log.pack_and_write_entry(header, block_id_for(0), [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); }),
+         log.pack_and_write_entry(header, server.block_id_for(0), [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); }),
          eosio::chain::plugin_exception,
          []( const auto& e ) {
             return e.to_detail_string().find( "Existing ship log" ) != std::string::npos;
@@ -399,97 +423,144 @@ BOOST_AUTO_TEST_CASE(store_with_existing) {
    );
 }
 
-BOOST_FIXTURE_TEST_CASE(test_session_no_prune, state_history_test_fixture) {
-   try {
-      // setup block head for the server
-      server.setup_state_history_log();
-      uint32_t head_block_num = 3;
-      server.block_head       = {head_block_num, block_id_for(head_block_num)};
+void send_request(state_history_test_fixture& fixture, bool fetch_finality_data, uint32_t start_block_num, const std::vector<eosio::state_history::block_position>& have_positions) {
+   if( fetch_finality_data ) {
+      get_blocks_request_v1 req { .fetch_finality_data = true };
 
-      // generate the log data used for traces and deltas
-      uint32_t n = mock_state_history_plugin::default_frame_size;
-      add_to_log(1, n * sizeof(uint32_t), generate_data(n)); // original data format
-      add_to_log(2, 0, generate_data(n)); // format to accommodate the compressed size greater than 4GB
-      add_to_log(3, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
+      req.start_block_num        = start_block_num;
+      req.end_block_num          = UINT32_MAX;
+      req.max_messages_in_flight = UINT32_MAX;
+      req.have_positions         = have_positions;
+      req.irreversible_only      = false;
+      req.fetch_block            = true;
+      req.fetch_traces           = true;
+      req.fetch_deltas           = true;
 
-      // send a get_status_request and verify the result is what we expected
-      verify_status(eosio::state_history::get_status_result_v0{
-          .head                    = {head_block_num, block_id_for(head_block_num)},
-          .last_irreversible       = {head_block_num, block_id_for(head_block_num)},
-          .trace_begin_block       = 1,
-          .trace_end_block         = head_block_num + 1,
-          .chain_state_begin_block = 1,
-          .chain_state_end_block   = head_block_num + 1});
+      fixture.send_request(req);
+   } else {
+      fixture.send_request(eosio::state_history::get_blocks_request_v0{
+         .start_block_num        = start_block_num,
+         .end_block_num          = UINT32_MAX,
+         .max_messages_in_flight = UINT32_MAX,
+         .have_positions         = have_positions,
+         .irreversible_only      = false,
+         .fetch_block            = true,
+         .fetch_traces           = true,
+         .fetch_deltas           = true}
+      );
+   }
+}
 
-      // send a get_blocks_request to server
-      send_request(eosio::state_history::get_blocks_request_v0{.start_block_num        = 1,
-                                                               .end_block_num          = UINT32_MAX,
-                                                               .max_messages_in_flight = UINT32_MAX,
-                                                               .have_positions         = {},
-                                                               .irreversible_only      = false,
-                                                               .fetch_block            = true,
-                                                               .fetch_traces           = true,
-                                                               .fetch_deltas           = true});
+void test_session_no_prune_impl(state_history_test_fixture& fixture, bool fetch_finality_data) {
+   // setup block head for the server
+   fixture.server.setup_state_history_log(fetch_finality_data);
+   uint32_t head_block_num = 3;
+   fixture.server.block_head = {head_block_num, fixture.server.block_id_for(head_block_num)};
 
-      eosio::state_history::state_result result;
-      // we should get 3 consecutive block result
-      for (int i = 0; i < 3; ++i) {
-         receive_result(result);
+   // generate the log data used for traces, deltas, and finality_data if required
+   uint32_t n = mock_state_history_plugin::default_frame_size;
+   fixture.add_to_log(1, n * sizeof(uint32_t), generate_data(n), fetch_finality_data); // original data format
+   fixture.add_to_log(2, 0, generate_data(n), fetch_finality_data); // format to accommodate the compressed size greater than 4GB
+   fixture.add_to_log(3, 1, generate_data(n), fetch_finality_data); // format to encode decompressed size to avoid decompress entire data upfront.
+
+   // send a get_status_request and verify the result is what we expected
+   fixture.verify_status(eosio::state_history::get_status_result_v0{
+       .head                    = {head_block_num, fixture.server.block_id_for(head_block_num)},
+       .last_irreversible       = {head_block_num, fixture.server.block_id_for(head_block_num)},
+       .trace_begin_block       = 1,
+       .trace_end_block         = head_block_num + 1,
+       .chain_state_begin_block = 1,
+       .chain_state_end_block   = head_block_num + 1});
+
+   // send a get_blocks_request to server
+   send_request(fixture, fetch_finality_data, 1, {});
+
+   eosio::state_history::state_result result;
+   // we should get 3 consecutive block result
+   for (int i = 0; i < 3; ++i) {
+      fixture.receive_result(result);
+
+      if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         BOOST_REQUIRE(r.finality_data.has_value());
+         auto  traces    = r.traces.value();
+         auto  deltas    = r.deltas.value();
+         auto& data      = fixture.written_data[i];
+         auto  data_size = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
+         auto finality_data = r.finality_data.value();
+         BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
+         BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
          BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
          auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-         BOOST_REQUIRE_EQUAL(r.head.block_num, server.block_head.block_num);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
          BOOST_REQUIRE(r.traces.has_value());
          BOOST_REQUIRE(r.deltas.has_value());
          auto  traces    = r.traces.value();
          auto  deltas    = r.deltas.value();
-         auto& data      = written_data[i];
+         auto& data      = fixture.written_data[i];
          auto  data_size = data.size() * sizeof(int32_t);
          BOOST_REQUIRE_EQUAL(traces.size(), data_size);
          BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
-
          BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
          BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
    }
+}
+
+BOOST_FIXTURE_TEST_CASE(test_session_no_prune, state_history_test_fixture) {
+   try {
+      test_session_no_prune_impl(*this, false);
+   }
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(test_split_log, state_history_test_fixture) {
+BOOST_FIXTURE_TEST_CASE(test_session_no_prune_fetch_finality_data, state_history_test_fixture) {
    try {
-      // setup block head for the server
-      constexpr uint32_t head = 1023;
-      eosio::state_history::partition_config conf;
-      conf.stride = 25;
-      server.setup_state_history_log(conf);
-      uint32_t head_block_num = head;
-      server.block_head       = {head_block_num, block_id_for(head_block_num)};
+      test_session_no_prune_impl(*this, true);
+   }
+   FC_LOG_AND_RETHROW()
+}
 
-      // generate the log data used for traces and deltas
-      uint32_t n = mock_state_history_plugin::default_frame_size;
-      add_to_log(1, n * sizeof(uint32_t), generate_data(n)); // original data format
-      add_to_log(2, 0, generate_data(n)); // format to accommodate the compressed size greater than 4GB
-      add_to_log(3, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
-      for (size_t i = 4; i <= head; ++i) {
-         add_to_log(i, 1, generate_data(n));
-      }
+void test_split_log_impl(state_history_test_fixture& fixture, bool fetch_finality_data) {
+   // setup block head for the server
+   constexpr uint32_t head = 1023;
+   eosio::state_history::partition_config conf;
+   conf.stride = 25;
+   fixture.server.setup_state_history_log(fetch_finality_data, conf);
+   uint32_t head_block_num = head;
+   fixture.server.block_head  = {head_block_num, fixture.server.block_id_for(head_block_num)};
 
-      send_request(eosio::state_history::get_blocks_request_v0{.start_block_num        = 1,
-                                                               .end_block_num          = UINT32_MAX,
-                                                               .max_messages_in_flight = UINT32_MAX,
-                                                               .have_positions         = {},
-                                                               .irreversible_only      = false,
-                                                               .fetch_block            = true,
-                                                               .fetch_traces           = true,
-                                                               .fetch_deltas           = true});
+   // generate the log data used for traces, deltas and finality_data
+   uint32_t n = mock_state_history_plugin::default_frame_size;
+   fixture.add_to_log(1, n * sizeof(uint32_t), generate_data(n), fetch_finality_data); // original data format
+   fixture.add_to_log(2, 0, generate_data(n), fetch_finality_data); // format to accommodate the compressed size greater than 4GB
+   fixture.add_to_log(3, 1, generate_data(n), fetch_finality_data); // format to encode decompressed size to avoid decompress entire data upfront.
+   for (size_t i = 4; i <= head; ++i) {
+      fixture.add_to_log(i, 1, generate_data(n), fetch_finality_data);
+   }
 
-      eosio::state_history::state_result result;
-      // we should get 1023 consecutive block result
-      eosio::chain::block_id_type prev_id;
-      for (uint32_t i = 0; i < head; ++i) {
-         receive_result(result);
-         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-         BOOST_REQUIRE_EQUAL(r.head.block_num, server.block_head.block_num);
+   send_request(fixture, fetch_finality_data, 1, {});
+
+   eosio::state_history::state_result result;
+   // we should get 1023 consecutive block result
+   eosio::chain::block_id_type prev_id;
+   for (uint32_t i = 0; i < head; ++i) {
+      fixture.receive_result(result);
+
+      if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
          if (i > 0) {
             BOOST_TEST(prev_id.str() == r.prev_block->block_id.str());
          }
@@ -498,7 +569,31 @@ BOOST_FIXTURE_TEST_CASE(test_split_log, state_history_test_fixture) {
          BOOST_REQUIRE(r.deltas.has_value());
          auto  traces    = r.traces.value();
          auto  deltas    = r.deltas.value();
-         auto& data      = written_data[i];
+         auto& data      = fixture.written_data[i];
+         auto  data_size = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
+         auto  finality_data = r.finality_data.value();
+         BOOST_REQUIRE(r.finality_data.has_value());
+         BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
+         BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         if (i > 0) {
+            BOOST_TEST(prev_id.str() == r.prev_block->block_id.str());
+         }
+         prev_id = r.this_block->block_id;
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces    = r.traces.value();
+         auto  deltas    = r.deltas.value();
+         auto& data      = fixture.written_data[i];
          auto  data_size = data.size() * sizeof(int32_t);
          BOOST_REQUIRE_EQUAL(traces.size(), data_size);
          BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
@@ -507,122 +602,186 @@ BOOST_FIXTURE_TEST_CASE(test_split_log, state_history_test_fixture) {
          BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
    }
+}
+
+BOOST_FIXTURE_TEST_CASE(test_split_log, state_history_test_fixture) {
+   try {
+      test_split_log_impl(*this, false);
+   }
    FC_LOG_AND_RETHROW()
+}
+
+BOOST_FIXTURE_TEST_CASE(test_split_log_fetch_finality_data, state_history_test_fixture) {
+   try {
+      test_split_log_impl(*this, true);
+   }
+   FC_LOG_AND_RETHROW()
+}
+
+void test_session_with_prune_impl(state_history_test_fixture& fixture, bool fetch_finality_data) {
+   // setup block head for the server
+   fixture.server.setup_state_history_log(fetch_finality_data,
+       eosio::state_history::prune_config{.prune_blocks = 2, .prune_threshold = 4 * 1024});
+
+   uint32_t head_block_num = 3;
+   fixture.server.block_head = {head_block_num, fixture.server.block_id_for(head_block_num)};
+
+   // generate the log data used for traces, deltas and finality_data
+   uint32_t n = mock_state_history_plugin::default_frame_size;
+   fixture.add_to_log(1, n * sizeof(uint32_t), generate_data(n), fetch_finality_data); // original data format
+   fixture.add_to_log(2, 0, generate_data(n), fetch_finality_data); // format to accommodate the compressed size greater than 4GB
+   fixture.add_to_log(3, 1, generate_data(n), fetch_finality_data); // format to encode decompressed size to avoid decompress entire data upfront.
+
+   // send a get_status_request and verify the result is what we expected
+   fixture.verify_status(eosio::state_history::get_status_result_v0{
+       .head                    = {head_block_num, fixture.server.block_id_for(head_block_num)},
+       .last_irreversible       = {head_block_num, fixture.server.block_id_for(head_block_num)},
+       .trace_begin_block       = 2,
+       .trace_end_block         = head_block_num + 1,
+       .chain_state_begin_block = 2,
+       .chain_state_end_block   = head_block_num + 1});
+
+   // send a get_blocks_request to fixture.server
+   send_request(fixture, fetch_finality_data, 1, {});
+
+   eosio::state_history::state_result result;
+   // we should get 3 consecutive block result
+
+   fixture.receive_result(result);
+   if( fetch_finality_data ) {
+      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+      auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+      BOOST_REQUIRE(!r.traces.has_value());
+      BOOST_REQUIRE(!r.deltas.has_value());
+      BOOST_REQUIRE(!r.finality_data.has_value());
+   } else {
+      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+      auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+      BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+      BOOST_REQUIRE(!r.traces.has_value());
+      BOOST_REQUIRE(!r.deltas.has_value());
+   }
+
+   for (int i = 1; i < 3; ++i) {
+      fixture.receive_result(result);
+
+      if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
+         BOOST_REQUIRE(r.finality_data.has_value());
+         auto  finality_data = r.finality_data.value();
+         BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
+         BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+      }
+   }
 }
 
 BOOST_FIXTURE_TEST_CASE(test_session_with_prune, state_history_test_fixture) {
    try {
-      // setup block head for the server
-      server.setup_state_history_log(
-          eosio::state_history::prune_config{.prune_blocks = 2, .prune_threshold = 4 * 1024});
-
-      uint32_t head_block_num = 3;
-      server.block_head       = {head_block_num, block_id_for(head_block_num)};
-
-      // generate the log data used for traces and deltas
-      uint32_t n = mock_state_history_plugin::default_frame_size;
-      add_to_log(1, n * sizeof(uint32_t), generate_data(n)); // original data format
-      add_to_log(2, 0, generate_data(n)); // format to accommodate the compressed size greater than 4GB
-      add_to_log(3, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
-
-      // send a get_status_request and verify the result is what we expected
-      verify_status(eosio::state_history::get_status_result_v0{
-          .head                    = {head_block_num, block_id_for(head_block_num)},
-          .last_irreversible       = {head_block_num, block_id_for(head_block_num)},
-          .trace_begin_block       = 2,
-          .trace_end_block         = head_block_num + 1,
-          .chain_state_begin_block = 2,
-          .chain_state_end_block   = head_block_num + 1});
-
-      // send a get_blocks_request to server
-      send_request(eosio::state_history::get_blocks_request_v0{.start_block_num        = 1,
-                                                               .end_block_num          = UINT32_MAX,
-                                                               .max_messages_in_flight = UINT32_MAX,
-                                                               .have_positions         = {},
-                                                               .irreversible_only      = false,
-                                                               .fetch_block            = true,
-                                                               .fetch_traces           = true,
-                                                               .fetch_deltas           = true});
-
-      eosio::state_history::state_result result;
-      // we should get 3 consecutive block result
-
-      receive_result(result);
-      BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-      auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-      BOOST_REQUIRE_EQUAL(r.head.block_num, server.block_head.block_num);
-      BOOST_REQUIRE(!r.traces.has_value());
-      BOOST_REQUIRE(!r.deltas.has_value());
-
-      for (int i = 1; i < 3; ++i) {
-         receive_result(result);
-         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-         BOOST_REQUIRE_EQUAL(r.head.block_num, server.block_head.block_num);
-         BOOST_REQUIRE(r.traces.has_value());
-         BOOST_REQUIRE(r.deltas.has_value());
-         auto  traces    = r.traces.value();
-         auto  deltas    = r.deltas.value();
-         auto& data      = written_data[i];
-         auto  data_size = data.size() * sizeof(int32_t);
-         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
-         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
-
-         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
-         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
-      }
+      test_session_with_prune_impl(*this, false);
    }
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(test_session_fork, state_history_test_fixture) {
+BOOST_FIXTURE_TEST_CASE(test_session_with_prune_fetch_finality_data, state_history_test_fixture) {
    try {
-      // setup block head for the server
-      server.setup_state_history_log();
-      uint32_t head_block_num = 4;
-      server.block_head       = {head_block_num, block_id_for(head_block_num)};
+      test_session_with_prune_impl(*this, true);
+   }
+   FC_LOG_AND_RETHROW()
+}
 
-      // generate the log data used for traces and deltas
-      uint32_t n = mock_state_history_plugin::default_frame_size;
-      add_to_log(1, n * sizeof(uint32_t), generate_data(n)); // original data format
-      add_to_log(2, 0, generate_data(n)); // format to accommodate the compressed size greater than 4GB
-      add_to_log(3, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
-      add_to_log(4, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
+void test_session_fork_impl(state_history_test_fixture& fixture, bool fetch_finality_data) {
+   fixture.server.setup_state_history_log(fetch_finality_data);
+   uint32_t head_block_num = 4;
+   fixture.server.block_head = {head_block_num, fixture.server.block_id_for(head_block_num)};
 
-      // send a get_status_request and verify the result is what we expected
-      verify_status(eosio::state_history::get_status_result_v0{
-            .head                    = {head_block_num, block_id_for(head_block_num)},
-            .last_irreversible       = {head_block_num, block_id_for(head_block_num)},
-            .trace_begin_block       = 1,
-            .trace_end_block         = head_block_num + 1,
-            .chain_state_begin_block = 1,
-            .chain_state_end_block   = head_block_num + 1});
+   // generate the log data used for traces, deltas and finality_data
+   uint32_t n = mock_state_history_plugin::default_frame_size;
+   fixture.add_to_log(1, n * sizeof(uint32_t), generate_data(n), fetch_finality_data); // original data format
+   fixture.add_to_log(2, 0, generate_data(n), fetch_finality_data); // format to accommodate the compressed size greater than 4GB
+   fixture.add_to_log(3, 1, generate_data(n), fetch_finality_data); // format to encode decompressed size to avoid decompress entire data upfront.
+   fixture.add_to_log(4, 1, generate_data(n), fetch_finality_data); // format to encode decompressed size to avoid decompress entire data upfront.
 
-      // send a get_blocks_request to server
-      send_request(eosio::state_history::get_blocks_request_v0{
-            .start_block_num        = 1,
-            .end_block_num          = UINT32_MAX,
-            .max_messages_in_flight = UINT32_MAX,
-            .have_positions         = {},
-            .irreversible_only      = false,
-            .fetch_block            = true,
-            .fetch_traces           = true,
-            .fetch_deltas           = true});
+   // send a get_status_request and verify the result is what we expected
+   fixture.verify_status(eosio::state_history::get_status_result_v0{
+         .head                    = {head_block_num, fixture.server.block_id_for(head_block_num)},
+         .last_irreversible       = {head_block_num, fixture.server.block_id_for(head_block_num)},
+         .trace_begin_block       = 1,
+         .trace_end_block         = head_block_num + 1,
+         .chain_state_begin_block = 1,
+         .chain_state_end_block   = head_block_num + 1});
 
-      std::vector<eosio::state_history::block_position> have_positions;
-      eosio::state_history::state_result result;
-      // we should get 4 consecutive block result
-      for (uint32_t i = 0; i < 4; ++i) {
-         receive_result(result);
-         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
-         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
-         BOOST_REQUIRE_EQUAL(r.head.block_num, server.block_head.block_num);
+   // send a get_blocks_request to fixture.server
+   send_request(fixture, fetch_finality_data, 1, {});
+
+   std::vector<eosio::state_history::block_position> have_positions;
+   eosio::state_history::state_result result;
+   // we should get 4 consecutive block result
+   for (uint32_t i = 0; i < 4; ++i) {
+      fixture.receive_result(result);
+
+      if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
          BOOST_REQUIRE(r.traces.has_value());
          BOOST_REQUIRE(r.deltas.has_value());
-         auto  traces    = r.traces.value();
-         auto  deltas    = r.deltas.value();
-         auto& data      = written_data[i];
-         auto  data_size = data.size() * sizeof(int32_t);
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+         BOOST_REQUIRE(r.this_block.has_value());
+         BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
+         have_positions.push_back(*r.this_block);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
+         BOOST_REQUIRE(r.finality_data.has_value());
+         auto finality_data = r.finality_data.value();
+         BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
+         BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
          BOOST_REQUIRE_EQUAL(traces.size(), data_size);
          BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
          BOOST_REQUIRE(r.this_block.has_value());
@@ -632,55 +791,86 @@ BOOST_FIXTURE_TEST_CASE(test_session_fork, state_history_test_fixture) {
          BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
          BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
+   }
 
-      // generate a fork that includes blocks 3,4 and verify new data retrieved
-      block_ids.extract(3); block_id_for(3, "fork");
-      block_ids.extract(4); block_id_for(4, "fork");
-      server.block_head = {head_block_num, block_id_for(head_block_num)};
-      add_to_log(3, 0, generate_data(n));
-      add_to_log(4, 1, generate_data(n));
+   // generate a fork that includes blocks 3,4 and verify new data retrieved
+   // setup block head for the server
+   fixture.server.block_ids.extract(3); fixture.server.block_id_for(3, "fork");
+   fixture.server.block_ids.extract(4); fixture.server.block_id_for(4, "fork");
+   fixture.server.block_head = {head_block_num, fixture.server.block_id_for(head_block_num)};
+   fixture.add_to_log(3, 0, generate_data(n), fetch_finality_data);
+   fixture.add_to_log(4, 1, generate_data(n), fetch_finality_data);
 
-      // send a get_status_request and verify the result is what we expected
-      verify_status(eosio::state_history::get_status_result_v0{
-            .head                    = {head_block_num, block_id_for(head_block_num)},
-            .last_irreversible       = {head_block_num, block_id_for(head_block_num)},
-            .trace_begin_block       = 1,
-            .trace_end_block         = head_block_num + 1,
-            .chain_state_begin_block = 1,
-            .chain_state_end_block   = head_block_num + 1});
+   // send a get_status_request and verify the result is what we expected
+   fixture.verify_status(eosio::state_history::get_status_result_v0{
+         .head                    = {head_block_num, fixture.server.block_id_for(head_block_num)},
+         .last_irreversible       = {head_block_num, fixture.server.block_id_for(head_block_num)},
+         .trace_begin_block       = 1,
+         .trace_end_block         = head_block_num + 1,
+         .chain_state_begin_block = 1,
+         .chain_state_end_block   = head_block_num + 1});
 
-      // send a get_blocks_request to server starting at 5, will send 3,4 because of fork
-      send_request(eosio::state_history::get_blocks_request_v0{
-            .start_block_num        = 5,
-            .end_block_num          = UINT32_MAX,
-            .max_messages_in_flight = UINT32_MAX,
-            .have_positions         = std::move(have_positions),
-            .irreversible_only      = false,
-            .fetch_block            = true,
-            .fetch_traces           = true,
-            .fetch_deltas           = true});
+   // send a get_blocks_request to fixture.server starting at 5, will send 3,4 because of fork
+   send_request(fixture, fetch_finality_data, 5, std::move(have_positions));
 
-      eosio::state_history::state_result fork_result;
-      // we should now get data for fork 3,4
-      for (uint32_t i = 2; i < 4; ++i) {
-         receive_result(fork_result);
-         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(fork_result));
-         auto r = std::get<eosio::state_history::get_blocks_result_v0>(fork_result);
-         BOOST_REQUIRE_EQUAL(r.head.block_num, server.block_head.block_num);
+   eosio::state_history::state_result fork_result;
+   // we should now get data for fork 3,4
+   for (uint32_t i = 2; i < 4; ++i) {
+      fixture.receive_result(fork_result);
+
+      if( fetch_finality_data ) {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v1>(fork_result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v1>(fork_result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
          BOOST_REQUIRE(r.this_block.has_value());
          BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
          BOOST_REQUIRE(r.traces.has_value());
          BOOST_REQUIRE(r.deltas.has_value());
-         auto  traces    = r.traces.value();
-         auto  deltas    = r.deltas.value();
-         auto& data      = written_data[i];
-         auto  data_size = data.size() * sizeof(int32_t);
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+
+         BOOST_REQUIRE(r.finality_data.has_value());
+         auto finality_data = r.finality_data.value();
+         BOOST_REQUIRE_EQUAL(finality_data.size(), data_size);
+         BOOST_REQUIRE(std::equal(finality_data.begin(), finality_data.end(), (const char*)data.data()));
+      } else {
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(fork_result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(fork_result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, fixture.server.block_head.block_num);
+         BOOST_REQUIRE(r.this_block.has_value());
+         BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces        = r.traces.value();
+         auto  deltas        = r.deltas.value();
+         auto& data          = fixture.written_data[i];
+         auto  data_size     = data.size() * sizeof(int32_t);
          BOOST_REQUIRE_EQUAL(traces.size(), data_size);
          BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
 
          BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
          BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
       }
+   }
+}
+
+BOOST_FIXTURE_TEST_CASE(test_session_fork, state_history_test_fixture) {
+   try {
+      test_session_fork_impl(*this, false);
+   }
+   FC_LOG_AND_RETHROW()
+}
+
+BOOST_FIXTURE_TEST_CASE(test_session_fork_fetch_finality_data, state_history_test_fixture) {
+   try {
+      test_session_fork_impl(*this, true);
    }
    FC_LOG_AND_RETHROW()
 }
