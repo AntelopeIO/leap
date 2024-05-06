@@ -1,5 +1,3 @@
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-
 #include <eosio/testing/tester.hpp>
 #include <test_contracts.hpp>
 #include <boost/test/unit_test.hpp>
@@ -29,6 +27,7 @@ void limit_violated_test(const eosvmoc::config& eosvmoc_config) {
    chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
    chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    if (chain.control->is_eos_vm_oc_enabled()) {
       BOOST_CHECK_EXCEPTION(
          chain.push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
@@ -39,7 +38,9 @@ void limit_violated_test(const eosvmoc::config& eosvmoc_config) {
             return expect_assert_message(e, "failed to compile wasm");
          }
       );
-   } else {
+   } else
+#endif
+   {
       chain.push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
          ( "issuer", "eosio.token" )
          ( "maximum_supply", "1000000.00 TOK" )
@@ -140,5 +141,3 @@ BOOST_AUTO_TEST_CASE( generated_code_size_limit ) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()
-
-#endif
