@@ -210,6 +210,40 @@ BOOST_FIXTURE_TEST_CASE( delay_error_create_account, validating_tester_no_disabl
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE( delay_error_create_slim_account, validating_tester_no_disable_deferred_trx) { try {
+
+   produce_blocks(2);
+   signed_transaction trx;
+
+   account_name a = "newco"_n;
+   account_name creator = config::system_account_name;
+
+   trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
+                             newslimacc{
+                                .creator  = "bad"_n, /// a does not exist, this should error when execute
+                                .name     = a,
+                                .active   = authority( get_public_key( a, "active" ) )
+                             });
+   set_transaction_headers(trx);
+   trx.delay_sec = 3;
+   trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
+
+   ilog( fc::json::to_pretty_string(trx) );
+   auto trace = push_transaction( trx );
+   edump((*trace));
+
+   produce_blocks(6);
+
+   auto scheduled_trxs = get_scheduled_transactions();
+   BOOST_REQUIRE_EQUAL(scheduled_trxs.size(), 1u);
+
+   auto billed_cpu_time_us = control->get_global_properties().configuration.min_transaction_cpu_usage;
+   auto dtrace = control->push_scheduled_transaction(scheduled_trxs.front(), fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
+   BOOST_REQUIRE_EQUAL(dtrace->except.has_value(), true);
+   BOOST_REQUIRE_EQUAL(dtrace->except->code(), missing_auth_exception::code_value);
+
+} FC_LOG_AND_RETHROW() }
+
 // test link to permission with delay directly on it
 BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
    validating_tester chain;

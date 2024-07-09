@@ -213,7 +213,8 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    bool interface::is_privileged( account_name n ) const {
-      return context.db.get<account_metadata_object, by_name>( n ).is_privileged();
+      auto const*account_metadata = context.db.find<account_metadata_object, by_name>( n );
+      return account_metadata != nullptr && account_metadata->is_privileged();
    }
 
    void interface::set_privileged( account_name n, bool is_priv ) {

@@ -173,6 +173,39 @@ public:
       return push_transaction( trx );
     }
 
+    transaction_trace_ptr create_slim_account_with_resources( account_name a, account_name creator, asset ramfunds = core_from_string("10.0000"),
+                                                            asset net = core_from_string("10.0000"), asset cpu = core_from_string("10.0000") ) {
+        signed_transaction trx;
+        set_transaction_headers(trx);
+
+        trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
+                                  newslimacc{
+                                          .creator  = creator,
+                                          .name     = a,
+                                          .active   = authority( get_public_key( a, "active" ) )
+                                  });
+
+        trx.actions.emplace_back( get_action( config::system_account_name, "buyram"_n, vector<permission_level>{{creator,config::active_name}},
+                                            mvo()
+                                            ("payer", creator)
+                                            ("receiver", a)
+                                            ("quant", ramfunds) )
+                                    );
+        trx.actions.emplace_back( get_action( config::system_account_name, "delegatebw"_n, vector<permission_level>{{creator,config::active_name}},
+                                              mvo()
+                                                      ("from", creator)
+                                                      ("receiver", a)
+                                                      ("stake_net_quantity", net )
+                                                      ("stake_cpu_quantity", cpu )
+                                                      ("transfer", 0 )
+                                  )
+        );
+
+        set_transaction_headers(trx);
+        trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
+        return push_transaction( trx );
+    }
+
     void create_currency( name contract, name manager, asset maxsupply ) {
         auto act =  mutable_variant_object()
                 ("issuer",       manager )
@@ -196,9 +229,9 @@ public:
        set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
 
        {
-           const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
+           const auto& accnt_metadata = control->db().get<account_metadata_object,by_name>( "eosio.token"_n );
            abi_def abi;
-           BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
+           BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt_metadata.abi, abi), true);
            token_abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 
@@ -215,9 +248,9 @@ public:
                                         ("core", symbol(CORE_SYMBOL).to_string()));
 
        {
-           const auto& accnt = control->db().get<account_object,by_name>( config::system_account_name );
+           const auto& accnt_metadata = control->db().get<account_metadata_object,by_name>( config::system_account_name );
            abi_def abi;
-           BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);
+           BOOST_CHECK_EQUAL(abi_serializer::to_abi(accnt_metadata.abi, abi), true);
            abi_ser.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
        }
 
@@ -381,6 +414,23 @@ BOOST_FIXTURE_TEST_CASE(account_results_total_resources_test, chain_plugin_teste
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(slim_account_results_total_resources_test, chain_plugin_tester) { try {
+
+    produce_blocks(10);
+    setup_system_accounts();
+    produce_blocks();
+    create_slim_account_with_resources("alice1111111"_n, config::system_account_name);
+    //stake more than 15% of total EOS supply to activate chain
+    transfer( name("eosio"), name("alice1111111"), core_from_string("650000000.0000"), name("eosio") );
+
+    read_only::get_account_results results = get_account_info(name("alice1111111"));
+    BOOST_CHECK(results.total_resources.get_type() != fc::variant::type_id::null_type);
+    BOOST_CHECK_EQUAL(core_from_string("10.0000"), results.total_resources["net_weight"].as<asset>());
+    BOOST_CHECK_EQUAL(core_from_string("10.0000"), results.total_resources["cpu_weight"].as<asset>());
+    BOOST_CHECK_EQUAL(results.total_resources["ram_bytes"].as_int64() > 0, true);
+
+} FC_LOG_AND_RETHROW() }
+
 BOOST_FIXTURE_TEST_CASE(account_results_self_delegated_bandwidth_test, chain_plugin_tester) { try {
 
     produce_blocks(10);
@@ -389,6 +439,36 @@ BOOST_FIXTURE_TEST_CASE(account_results_self_delegated_bandwidth_test, chain_plu
     const asset nstake = core_from_string("1.0000");
     const asset cstake = core_from_string("2.0000");
     create_account_with_resources("alice1111111"_n, config::system_account_name, core_from_string("1.0000"), false);
+    BOOST_CHECK_EQUAL(success(), stake(config::system_account_name, name("alice1111111"), nstake, cstake));
+
+    read_only::get_account_results results = get_account_info(name("alice1111111"));
+    BOOST_CHECK(results.total_resources.get_type() != fc::variant::type_id::null_type);
+    BOOST_CHECK_EQUAL(core_from_string("11.0000"), results.total_resources["net_weight"].as<asset>());
+    BOOST_CHECK_EQUAL(core_from_string("12.0000"), results.total_resources["cpu_weight"].as<asset>());
+
+    //self delegate bandwidth
+    transfer( name("eosio"), name("alice1111111"), core_from_string("650000000.0000"), name("eosio") );
+    BOOST_CHECK_EQUAL(success(), stake(name("alice1111111"), name("alice1111111"), nstake, cstake));
+
+    results = get_account_info(name("alice1111111"));
+    BOOST_CHECK(results.self_delegated_bandwidth.get_type() != fc::variant::type_id::null_type);
+    BOOST_CHECK_EQUAL(core_from_string("1.0000"), results.self_delegated_bandwidth["net_weight"].as<asset>());
+    BOOST_CHECK_EQUAL(core_from_string("2.0000"), results.self_delegated_bandwidth["cpu_weight"].as<asset>());
+
+    BOOST_CHECK(results.total_resources.get_type() != fc::variant::type_id::null_type);
+    BOOST_CHECK_EQUAL(core_from_string("12.0000"), results.total_resources["net_weight"].as<asset>());
+    BOOST_CHECK_EQUAL(core_from_string("14.0000"), results.total_resources["cpu_weight"].as<asset>());
+
+} FC_LOG_AND_RETHROW() }
+
+BOOST_FIXTURE_TEST_CASE(slim_account_results_self_delegated_bandwidth_test, chain_plugin_tester) { try {
+
+    produce_blocks(10);
+    setup_system_accounts();
+    produce_blocks();
+    const asset nstake = core_from_string("1.0000");
+    const asset cstake = core_from_string("2.0000");
+    create_slim_account_with_resources("alice1111111"_n, config::system_account_name, core_from_string("1.0000"));
     BOOST_CHECK_EQUAL(success(), stake(config::system_account_name, name("alice1111111"), nstake, cstake));
 
     read_only::get_account_results results = get_account_info(name("alice1111111"));
@@ -482,12 +562,46 @@ BOOST_FIXTURE_TEST_CASE(account_results_voter_info_test, chain_plugin_tester) { 
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(slim_account_results_voter_info_test, chain_plugin_tester) { try {
+
+    produce_blocks(10);
+    setup_system_accounts();
+
+    create_slim_account_with_resources("alice1111111"_n, config::system_account_name, core_from_string("1.0000"));
+
+    active_and_vote_producers();
+    read_only::get_account_results results = get_account_info(name("alice1111111"));
+
+    BOOST_CHECK(results.voter_info.get_type() != fc::variant::type_id::null_type);
+    BOOST_CHECK_EQUAL(21u, results.voter_info["producers"].size());
+
+} FC_LOG_AND_RETHROW() }
+
 BOOST_FIXTURE_TEST_CASE(account_results_rex_info_test, chain_plugin_tester) { try {
 
     produce_blocks(10);
     setup_system_accounts();
 
     create_account_with_resources("alice1111111"_n, config::system_account_name, core_from_string("1.0000"), false);
+
+    //stake more than 15% of total EOS supply to activate chain
+    transfer( name("eosio"), name("alice1111111"), core_from_string("650000000.0000"), name("eosio") );
+    deposit(name("alice1111111"), core_from_string("1000.0000"));
+    BOOST_CHECK_EQUAL( success(), buyrex(name("alice1111111"), core_from_string("100.0000")) );
+
+    read_only::get_account_results results = get_account_info(name("alice1111111"));
+    BOOST_CHECK(results.rex_info.get_type() != fc::variant::type_id::null_type);
+    BOOST_CHECK_EQUAL(core_from_string("100.0000"), results.rex_info["vote_stake"].as<asset>());
+    //BOOST_CHECK_EQUAL(0, results.rex_info["matured_rex"]);
+
+} FC_LOG_AND_RETHROW() }
+
+BOOST_FIXTURE_TEST_CASE(slim_account_results_rex_info_test, chain_plugin_tester) { try {
+
+    produce_blocks(10);
+    setup_system_accounts();
+
+    create_slim_account_with_resources("alice1111111"_n, config::system_account_name, core_from_string("1.0000"));
 
     //stake more than 15% of total EOS supply to activate chain
     transfer( name("eosio"), name("alice1111111"), core_from_string("650000000.0000"), name("eosio") );
