@@ -1115,6 +1115,74 @@ BOOST_AUTO_TEST_CASE(newaccount_test)
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE(newslimacc_test)
+{ try {
+
+   abi_serializer abis(eosio_contract_abi(abi_def()), abi_serializer::create_yield_function( max_serialization_time ));
+
+   BOOST_CHECK(true);
+   const char* test_data = R"=====(
+   {
+     "creator" : "newacct.crtr",
+     "name" : "newacct.name",
+     "active" : {
+        "threshold" : 2146483145,
+        "keys" : [ {"key" : "EOS65rXebLhtk2aTTzP4e9x1AQZs7c5NNXJp89W8R3HyaA6Zyd4im", "weight" : 57005},
+                   {"key" : "EOS5eVr9TVnqwnUBNwf9kwMTbrHvX5aPyyEG97dz2b2TNeqWRzbJf", "weight" : 57605} ],
+        "accounts" : [ {"permission" : {"actor" : "prm.acct1", "permission" : "prm.prm1"}, "weight" : 53005 },
+                       {"permission" : {"actor" : "prm.acct2", "permission" : "prm.prm2"}, "weight" : 53405 }],
+        "waits" : []
+     }   }
+   )=====";
+
+   auto var = fc::json::from_string(test_data);
+
+   auto newslimacct = var.as<newslimacc>();
+   BOOST_TEST(name("newacct.crtr") == newslimacct.creator);
+   BOOST_TEST(name("newacct.name") == newslimacct.name);
+
+   BOOST_TEST(2146483145u == newslimacct.active.threshold);
+
+   BOOST_TEST_REQUIRE(2u == newslimacct.active.keys.size());
+   BOOST_TEST("EOS65rXebLhtk2aTTzP4e9x1AQZs7c5NNXJp89W8R3HyaA6Zyd4im" == newslimacct.active.keys[0].key.to_string({}));
+   BOOST_TEST(57005u == newslimacct.active.keys[0].weight);
+   BOOST_TEST("EOS5eVr9TVnqwnUBNwf9kwMTbrHvX5aPyyEG97dz2b2TNeqWRzbJf" == newslimacct.active.keys[1].key.to_string({}));
+   BOOST_TEST(57605u == newslimacct.active.keys[1].weight);
+
+   BOOST_TEST_REQUIRE(2u == newslimacct.active.accounts.size());
+   BOOST_TEST(name("prm.acct1") == newslimacct.active.accounts[0].permission.actor);
+   BOOST_TEST(name("prm.prm1") == newslimacct.active.accounts[0].permission.permission);
+   BOOST_TEST(53005u == newslimacct.active.accounts[0].weight);
+   BOOST_TEST(name("prm.acct2") == newslimacct.active.accounts[1].permission.actor);
+   BOOST_TEST(name("prm.prm2") == newslimacct.active.accounts[1].permission.permission);
+   BOOST_TEST(53405u == newslimacct.active.accounts[1].weight);
+
+
+   auto var2 = verify_byte_round_trip_conversion( abis, "newslimacc", var );
+   auto newslimacc2 = var2.as<newslimacc>();
+   BOOST_TEST(newslimacct.creator == newslimacc2.creator);
+   BOOST_TEST(newslimacct.name == newslimacc2.name);
+
+   BOOST_TEST(newslimacct.active.threshold == newslimacc2.active.threshold);
+
+   BOOST_TEST_REQUIRE(newslimacct.active.keys.size() == newslimacc2.active.keys.size());
+   BOOST_TEST(newslimacct.active.keys[0].key == newslimacc2.active.keys[0].key);
+   BOOST_TEST(newslimacct.active.keys[0].weight == newslimacc2.active.keys[0].weight);
+   BOOST_TEST(newslimacct.active.keys[1].key == newslimacc2.active.keys[1].key);
+   BOOST_TEST(newslimacct.active.keys[1].weight == newslimacc2.active.keys[1].weight);
+
+   BOOST_TEST_REQUIRE(newslimacct.active.accounts.size() == newslimacc2.active.accounts.size());
+   BOOST_TEST(newslimacct.active.accounts[0].permission.actor == newslimacc2.active.accounts[0].permission.actor);
+   BOOST_TEST(newslimacct.active.accounts[0].permission.permission == newslimacc2.active.accounts[0].permission.permission);
+   BOOST_TEST(newslimacct.active.accounts[0].weight == newslimacc2.active.accounts[0].weight);
+   BOOST_TEST(newslimacct.active.accounts[1].permission.actor == newslimacc2.active.accounts[1].permission.actor);
+   BOOST_TEST(newslimacct.active.accounts[1].permission.permission == newslimacc2.active.accounts[1].permission.permission);
+   BOOST_TEST(newslimacct.active.accounts[1].weight == newslimacc2.active.accounts[1].weight);
+
+
+   verify_type_round_trip_conversion<newslimacc>( abis, "newslimacc", var);
+
+} FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(setcode_test)
 { try {

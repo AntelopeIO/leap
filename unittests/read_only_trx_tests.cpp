@@ -88,6 +88,21 @@ BOOST_FIXTURE_TEST_CASE(newaccount_test, read_only_trx_tester) { try {
    BOOST_CHECK_THROW( send_action(act), action_validate_exception );
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(newslimacc_test, read_only_trx_tester) { try {
+   produce_blocks( 1 );
+
+   action act = {
+      {},
+      newslimacc{
+         .creator  = config::system_account_name,
+         .name     = "alice"_n,
+         .active   = authority( get_public_key( "alice"_n, "active" ) )
+      }
+   };
+
+   BOOST_CHECK_THROW( send_action(act), action_validate_exception );
+} FC_LOG_AND_RETHROW() }
+
 BOOST_FIXTURE_TEST_CASE(setcode_test, read_only_trx_tester) { try {
    produce_blocks( 1 );
 

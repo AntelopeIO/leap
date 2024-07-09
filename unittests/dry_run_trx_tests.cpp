@@ -119,6 +119,26 @@ BOOST_FIXTURE_TEST_CASE(newaccount_test, dry_run_trx_tester) { try {
    BOOST_CHECK_THROW(control->get_account("alice"_n), fc::exception); // not actually created
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(newslimacc_test, dry_run_trx_tester) { try {
+   produce_blocks( 1 );
+
+   action act = {
+      vector<permission_level>{{config::system_account_name,config::active_name}},
+      newslimacc{
+         .creator  = config::system_account_name,
+         .name     = "alice"_n,
+         .active   = authority( get_public_key( "alice"_n, "active" ) )
+      }
+   };
+
+   send_action(act, false); // should not throw
+   send_action(act, false); // should not throw
+   send_action(act, true); // should not throw
+   BOOST_CHECK_THROW(control->get_account("alice"_n), fc::exception); // not actually created
+   produce_blocks( 1 );
+   BOOST_CHECK_THROW(control->get_account("alice"_n), fc::exception); // not actually created
+} FC_LOG_AND_RETHROW() }
+
 BOOST_FIXTURE_TEST_CASE(setcode_test, dry_run_trx_tester) { try {
    produce_blocks( 1 );
 

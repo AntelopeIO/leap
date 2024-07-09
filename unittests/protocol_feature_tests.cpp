@@ -2277,36 +2277,16 @@ BOOST_AUTO_TEST_CASE( slim_account_test ) { try {
    const auto& pfm = c.control->get_protocol_feature_manager();
    const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::slim_account);
    BOOST_REQUIRE(d);
-
-   BOOST_CHECK_EXCEPTION(  c.set_code( config::system_account_name, test_contracts::create_slim_account_test_wasm() ),
-                           wasm_exception,
-                           fc_exception_message_is( "env.create_slim_account unresolveable" ) );
+   BOOST_CHECK( ! c.control->is_builtin_activated( builtin_protocol_feature_t::slim_account ) );
+   const auto alice_account = account_name("alice");
+   BOOST_CHECK_EXCEPTION(  c.create_slim_account( alice_account ),
+                           protocol_feature_validation_exception,
+                           fc_exception_message_is( "Unsupported protocol_feature_t: " + std::to_string(static_cast<uint32_t>(builtin_protocol_feature_t::slim_account))) );
 
    c.preactivate_protocol_features( {*d} );
-   const auto bob_account = account_name("bob");
-   c.create_accounts( {bob_account} );
    c.produce_block();
-
-   // ensure it now resolves
-   c.set_code( config::system_account_name, test_contracts::create_slim_account_test_wasm() );
-   c.set_abi( config::system_account_name, test_contracts::create_slim_account_test_abi().data());
-   c.push_action( config::system_account_name, "testcreate"_n, bob_account, fc::mutable_variant_object()
-         ("creator", bob_account.to_string())
-         ("account", "alice")
-         ("active_auth", authority(get_public_key(name("alice"), "active")))
-      );
-
-   const auto test_account = account_name("test");
-   c.create_accounts( {test_account} );
-   c.produce_block();
-   // shoudl throw
-   c.set_code( test_account, test_contracts::create_slim_account_test_wasm() );
-   c.set_abi( test_account, test_contracts::create_slim_account_test_abi().data());
-   BOOST_CHECK_THROW(c.push_action( test_account, "testcreate"_n, bob_account, fc::mutable_variant_object()
-                                 ("creator", bob_account.to_string())
-                                 ("account", "hello")
-                                 ("active_auth", authority(get_public_key(name("hello"), "active")))
-                              ), unaccessible_api);
+   BOOST_CHECK( c.control->is_builtin_activated( builtin_protocol_feature_t::slim_account ) );
+   BOOST_CHECK_NO_THROW(  c.create_slim_account( alice_account ) );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

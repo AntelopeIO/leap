@@ -347,7 +347,6 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
       set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
-      set_activation_handler<builtin_protocol_feature_t::slim_account>();
 
       self.irreversible_block.connect([this](const block_signal_params& t) {
          const auto& [ block, id] = t;
@@ -360,6 +359,7 @@ struct controller_impl {
                       &BOOST_PP_CAT(apply_, BOOST_PP_CAT(contract, BOOST_PP_CAT(_,action) ) ) )
 
    SET_APP_HANDLER( eosio, eosio, newaccount );
+   SET_APP_HANDLER( eosio, eosio, newslimacc );
    SET_APP_HANDLER( eosio, eosio, setcode );
    SET_APP_HANDLER( eosio, eosio, setabi );
    SET_APP_HANDLER( eosio, eosio, updateauth );
@@ -3933,13 +3933,6 @@ void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred
    for( auto itr = idx.begin(); itr != idx.end(); itr = idx.begin() ) {
       remove_scheduled_transaction(*itr);
    }
-}
-
-template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::slim_account>() {
-   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "create_slim_account" );
-   } );
 }
 
 /// End of protocol feature activation handlers

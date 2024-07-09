@@ -127,6 +127,61 @@ void apply_eosio_newaccount(apply_context& context) {
 
 } FC_CAPTURE_AND_RETHROW( (create) ) }
 
+/**
+ *  This method is called assuming precondition_system_newslimacc succeeds
+ */
+void apply_eosio_newslimacc(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newslimacc not allowed in read-only transaction" );
+   if(!context.control.is_builtin_activated( builtin_protocol_feature_t::slim_account )) {
+      EOS_THROW( protocol_feature_validation_exception,
+               "Unsupported protocol_feature_t: ${type}",
+               ("type", static_cast<uint32_t>(builtin_protocol_feature_t::slim_account))
+      );
+   }
+   auto create = context.get_action().data_as<newslimacc>();
+   try {
+   context.require_authorization(create.creator);
+   auto& authorization = context.control.get_mutable_authorization_manager();
+   EOS_ASSERT( validate(create.active), action_validate_exception, "Invalid active authority");
+   auto& db = context.db;
+
+   auto name_str = name(create.name).to_string();
+   EOS_ASSERT( !create.name.empty(), action_validate_exception, "account name cannot be empty" );
+   EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
+
+   // system account only can be created by newaccount
+   EOS_ASSERT( name_str.find( "eosio." ) != 0, action_validate_exception,
+                     "only newaccount action can create account with name start with 'eosio.'" );
+
+   auto existing_account = db.find<account_object, by_name>(create.name);
+   EOS_ASSERT(existing_account == nullptr, account_name_exists_exception,
+              "Cannot create account named ${name}, as that name is already taken",
+              ("name", create.name));
+
+   db.create<account_object>([&](auto& a) {
+      a.name = create.name;
+      a.creation_date = context.control.pending_block_time();
+   });
+
+   for (const auto& auth : { create.active }) {
+      validate_authority_precondition( context, auth );
+   }
+
+   const auto& active_permission = authorization.create_permission( create.name, config::active_name, 0,
+                                                                  std::move(create.active), context.trx_context.is_transient() );
+  int64_t ram_delta = config::overhead_per_account_ram_bytes;
+   ram_delta -= config::billable_size_v<account_metadata_object>;
+   ram_delta += config::billable_size_v<permission_object>;
+   ram_delta += active_permission.auth.get_billable_size();
+   context.control.get_mutable_resource_limits_manager().initialize_account(create.name, context.trx_context.is_transient());
+
+   if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {
+      dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newslimacc");
+   }
+
+   context.add_ram_usage(create.name, ram_delta);
+} FC_CAPTURE_AND_RETHROW( (create) ) }
+
 void apply_eosio_setcode(apply_context& context) {
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setcode not allowed in read-only transaction" );
    auto& db = context.db;

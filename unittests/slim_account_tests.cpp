@@ -18,49 +18,9 @@ using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
-class slim_account_tester : public validating_tester
-{
-public:
-   slim_account_tester() : validating_tester() {
-   }
-
-   void setup()
-   {
-      set_code( config::system_account_name, test_contracts::create_slim_account_test_wasm() );
-      set_abi( config::system_account_name, test_contracts::create_slim_account_test_abi().data());
-
-      produce_block();
-   }
-
-   transaction_trace_ptr create_slim_account(account_name a, name creator = config::system_account_name, bool include_code = true )
-   {
-      authority active_auth( get_public_key( a, "active" ) );
-
-      auto sort_permissions = []( authority& auth ) {
-         std::sort( auth.accounts.begin(), auth.accounts.end(),
-                    []( const permission_level_weight& lhs, const permission_level_weight& rhs ) {
-                        return lhs.permission < rhs.permission;
-                    }
-                  );
-      };
-
-      if( include_code ) {
-         FC_ASSERT( active_auth.threshold <= std::numeric_limits<weight_type>::max(), "threshold is too high" );
-         active_auth.accounts.push_back( permission_level_weight{ {a, config::eosio_code_name},
-                                          static_cast<weight_type>(active_auth.threshold) } );
-         sort_permissions(active_auth);
-      }
-      return push_action( config::system_account_name, "testcreate"_n, creator, fc::mutable_variant_object()
-         ("creator", creator.to_string())
-         ("account", a)
-         ("active_auth", active_auth)
-      );
-   }
-};
-
 BOOST_AUTO_TEST_SUITE(slim_account_tests)
 
-BOOST_FIXTURE_TEST_CASE(newslimacc_test, slim_account_tester)
+BOOST_FIXTURE_TEST_CASE(newslimacc_test, validating_tester)
 {
    try
    {
@@ -125,7 +85,7 @@ BOOST_FIXTURE_TEST_CASE(newslimacc_test, slim_account_tester)
    }
    FC_LOG_AND_RETHROW()
 }
-BOOST_FIXTURE_TEST_CASE(updateaut_test, slim_account_tester)
+BOOST_FIXTURE_TEST_CASE(updateaut_test, validating_tester)
 {
    try
    {
@@ -266,7 +226,7 @@ BOOST_FIXTURE_TEST_CASE(updateaut_test, slim_account_tester)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(deleteauth_test, slim_account_tester)
+BOOST_FIXTURE_TEST_CASE(deleteauth_test, validating_tester)
 {
    const auto& tester_account = "tester"_n;
 
@@ -379,7 +339,7 @@ BOOST_FIXTURE_TEST_CASE(deleteauth_test, slim_account_tester)
    BOOST_REQUIRE_EQUAL(asset::from_string("4.0000 CUR"), liquid_balance);
 }
 
-BOOST_FIXTURE_TEST_CASE(setcode_test, slim_account_tester)
+BOOST_FIXTURE_TEST_CASE(setcode_test, validating_tester)
 {
    try
    {
@@ -425,7 +385,7 @@ BOOST_FIXTURE_TEST_CASE(setcode_test, slim_account_tester)
    FC_LOG_AND_RETHROW()
 }
 
-BOOST_FIXTURE_TEST_CASE(setabi_test, slim_account_tester)
+BOOST_FIXTURE_TEST_CASE(setabi_test, validating_tester)
 {
    try
    {
