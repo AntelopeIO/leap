@@ -2552,7 +2552,7 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
 }
 
 void read_only::compute_transaction(compute_transaction_params params, next_function<compute_transaction_results> next) {
-   send_transaction_params_t gen_params { .return_failure_trace = false,
+   send_transaction_params_t gen_params { .return_failure_trace = true,
                                           .retry_trx            = false,
                                           .retry_trx_num_blocks = std::nullopt,
                                           .trx_type             = transaction_metadata::trx_type::dry_run,
