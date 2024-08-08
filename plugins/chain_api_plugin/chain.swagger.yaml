@@ -188,7 +188,7 @@ paths:
 
   /get_block_header_state:
     post:
-      description: Retrieves the glock header state
+      description: Retrieves the block header state
       operationId: get_block_header_state
       requestBody:
         content:
