@@ -1542,6 +1542,9 @@ producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_req
       .end_block_num   = srp.end_block_num ? *srp.end_block_num : std::numeric_limits<uint32_t>::max(),
       .snapshot_description = srp.snapshot_description ? *srp.snapshot_description : ""
    };
+   //treat a 0 end_block_num as max for compatibility with leap4 behavior
+   if(sri.end_block_num == 0)
+      sri.end_block_num = std::numeric_limits<uint32_t>::max();
 
    return my->_snapshot_scheduler.schedule_snapshot(sri);
 }

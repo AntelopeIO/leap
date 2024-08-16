@@ -105,7 +105,12 @@ void snapshot_scheduler::set_db_path(fs::path db_path) {
       _snapshot_db >> sr;
       // if db read succeeded, clear/load
       _snapshot_requests.get<by_snapshot_id>().clear();
-      _snapshot_requests.insert(sr.begin(), sr.end());
+      for(snapshot_schedule_information& ssi : sr) {
+         //fix up Leap v4's "forever" value of 0 to MAX
+         if(ssi.end_block_num == 0)
+            ssi.end_block_num = std::numeric_limits<uint32_t>::max();
+         _snapshot_requests.insert(ssi);
+      }
    }
 }
 
