@@ -177,7 +177,7 @@ namespace eosio { namespace chain {
       using value_type = std::array<uint128_t, N>;
 
       static value_type true_lowest() {
-         value_type arr;
+         value_type arr = {};
          return arr;
       }
 
