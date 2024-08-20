@@ -415,7 +415,7 @@ namespace eosio { namespace chain {
             fc::raw::unpack(stream, size);
          } EOS_RETHROW_EXCEPTIONS( unpack_exception, "Unable to unpack size of array '${p}'", ("p", ctx.get_path_string()) )
          vector<fc::variant> vars;
-         vars.reserve(size);
+         vars.reserve(std::min(size.value, 1024u)); // limit the maximum size that can be reserved before data is read
          auto h1 = ctx.push_to_path( impl::array_index_path_item{} );
          for( decltype(size.value) i = 0; i < size; ++i ) {
             ctx.set_array_index_of_path_back(i);
