@@ -4,6 +4,8 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/testing/tester.hpp>
 
+#include <regex>
+
 using namespace eosio;
 using namespace eosio::chain;
 
@@ -110,6 +112,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                      BOOST_REQUIRE(validate_snapshot_request(0, 9,  8));         // snapshot #0 should have pending snapshot at block #9 (8 + 1) and it never expires
                      BOOST_REQUIRE(validate_snapshot_request(4, 12, 10, true));  // snapshot #4 should have pending snapshot at block # at the moment of scheduling (2) plus 10 = 12
                      BOOST_REQUIRE(validate_snapshot_request(5, 10, 10));        // snapshot #5 should have pending snapshot at block #10, #20 etc
+                     BOOST_REQUIRE(validate_snapshot_request(6, 15, 15));        // snapshot #6 should have pending snapshot at block #15, #30 etc
                   }
                });
 
@@ -127,6 +130,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          snapshot_request_params sri4 = {.start_block_num = 1, .snapshot_description = "One time snapshot on first block"};
          snapshot_request_params sri5 = {.block_spacing = 10, .snapshot_description = "Recurring every 10 blocks snapshot starting now"};
          snapshot_request_params sri6 = {.block_spacing = 10, .start_block_num = 0, .snapshot_description = "Recurring every 10 blocks snapshot starting from 0"};
+         snapshot_request_params sri7 = {.block_spacing = 15, .start_block_num = 0, .end_block_num = 0, .snapshot_description = "similar to above but with end_block_num=0 to be treated as max"};
 
          app->post(appbase::priority::medium_low, [&]() {
             prod_plug->schedule_snapshot(sri1);
@@ -135,16 +139,17 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             prod_plug->schedule_snapshot(sri4);
             prod_plug->schedule_snapshot(sri5);
             prod_plug->schedule_snapshot(sri6);
+            prod_plug->schedule_snapshot(sri7);
 
             // all six snapshot requests should be present now
-            BOOST_CHECK_EQUAL(6u, prod_plug->get_snapshot_requests().snapshot_requests.size());
+            BOOST_CHECK_EQUAL(7u, prod_plug->get_snapshot_requests().snapshot_requests.size());
          });
 
          at_block_20_fut.get();
 
          app->post(appbase::priority::medium_low, [&]() {
             // two of the snapshots are done here and requests, corresponding to them should be deleted
-            BOOST_CHECK_EQUAL(4u, prod_plug->get_snapshot_requests().snapshot_requests.size());
+            BOOST_CHECK_EQUAL(5u, prod_plug->get_snapshot_requests().snapshot_requests.size());
 
             // check whether no pending snapshots present for a snapshot with id 0
             const auto& snapshot_requests = prod_plug->get_snapshot_requests().snapshot_requests;
@@ -164,12 +169,71 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          std::vector<snapshot_scheduler::snapshot_schedule_information> ssi;
          db.set_path(temp / "snapshots");
          db >> ssi;
-         BOOST_CHECK_EQUAL(4u, ssi.size());
+         BOOST_CHECK_EQUAL(5u, ssi.size());
          BOOST_CHECK_EQUAL(ssi.begin()->block_spacing, *sri1.block_spacing);
       } catch(...) {
          throw;
       }
    }
+}
+
+//created via a schedule_snapshot with {"block_spacing":5,"snapshot_description":"banana"} on leap4
+static const std::string old_schedule_json = R"===(
+{
+    "snapshot_requests": [
+        {
+            "snapshot_request_id": "0",
+            "snapshot_description": "banana",
+            "block_spacing": "5",
+            "start_block_num": "0",
+            "end_block_num": "0"
+        }
+    ]
+}
+)===";
+
+BOOST_AUTO_TEST_CASE(snapshot_scheduler_old_json) {
+   fc::temp_directory temp_dir;
+   const std::filesystem::path& temp = temp_dir.path();
+   appbase::scoped_app app;
+
+   {
+      std::filesystem::create_directory(temp / "snapshots");
+      std::ofstream ofs(temp / "snapshots" / "snapshot-schedule.json");
+      ofs << old_schedule_json;
+   }
+
+   std::promise<void> at_block_16;
+
+   std::thread app_thread([&]() {
+      try {
+         fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+         std::vector<const char*> argv =
+               {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
+                "-p", "eosio", "-e"};
+         app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
+         app->startup();
+
+         app->get_plugin<chain_plugin>().chain().block_start.connect([&](uint32_t bn) {
+            if(bn == 16u)
+               at_block_16.set_value();
+         });
+
+         app->exec();
+         return;
+      } FC_LOG_AND_DROP()
+      BOOST_CHECK(!"app threw exception see logged error");
+   });
+   auto stopit = fc::make_scoped_exit([&](){app->quit(); app_thread.join();});
+
+   at_block_16.get_future().get();
+
+   const std::regex snapshotfile_regex(".bin$");
+
+   unsigned found = 0;
+   for(const std::filesystem::directory_entry& dir_entry : std::filesystem::directory_iterator(temp / "snapshots"))
+      found += std::regex_search(dir_entry.path().filename().string(), snapshotfile_regex);
+   BOOST_REQUIRE_GE(found, 3);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

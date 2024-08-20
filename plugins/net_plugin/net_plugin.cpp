@@ -2400,7 +2400,7 @@ namespace eosio {
          if (msg.known_blocks.ids.empty()) {
             peer_wlog( c, "got a catch up with ids size = 0" );
          } else {
-            const block_id_type& id = msg.known_blocks.ids.back();
+            const block_id_type& id = msg.known_blocks.ids.front();
             peer_ilog( c, "notice_message, pending ${p}, blk_num ${n}, id ${id}...",
                      ("p", msg.known_blocks.pending)("n", block_header::num_from_id(id))("id",id.str().substr(8,16)) );
             if( !my_impl->dispatcher->have_block( id ) ) {
@@ -2690,12 +2690,7 @@ namespace eosio {
          return;
       }
       if (msg.known_blocks.mode == normal) {
-         // known_blocks.ids is never > 1
-         if( !msg.known_blocks.ids.empty() ) {
-            if( msg.known_blocks.pending == 1 ) { // block id notify of 2.0.0, ignore
-               return;
-            }
-         }
+         return;
       } else if (msg.known_blocks.mode != none) {
          peer_wlog( c, "passed a notice_message with something other than a normal on none known_blocks" );
          return;
@@ -3547,7 +3542,7 @@ namespace eosio {
       }
       if( msg.known_trx.mode != none ) {
          if( logger.is_enabled( fc::log_level::debug ) ) {
-            const block_id_type& blkid = msg.known_blocks.ids.empty() ? block_id_type{} : msg.known_blocks.ids.back();
+            const block_id_type& blkid = msg.known_blocks.ids.empty() ? block_id_type{} : msg.known_blocks.ids.front();
             peer_dlog( this, "this is a ${m} notice with ${n} pending blocks: ${num} ${id}...",
                        ("m", modes_str( msg.known_blocks.mode ))("n", msg.known_blocks.pending)
                        ("num", block_header::num_from_id( blkid ))("id", blkid.str().substr( 8, 16 )) );
