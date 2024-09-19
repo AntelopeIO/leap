@@ -139,10 +139,6 @@ executor::executor(const code_cache_base& cc) {
    //if we're the first executor created, go setup the signal handling. For now we'll just leave this attached forever
    static executor_signal_init the_executor_signal_init;
 
-   uint64_t current_gs;
-   if(arch_prctl(ARCH_GET_GS, &current_gs) || current_gs)
-      wlog("x86_64 GS register is not set as expected. EOS VM OC may not run correctly on this platform");
-
    struct stat s;
    FC_ASSERT(fstat(cc.fd(), &s) == 0, "executor failed to get code cache size");
    code_mapping = (uint8_t*)mmap(nullptr, s.st_size, PROT_EXEC|PROT_READ, MAP_SHARED, cc.fd(), 0);
