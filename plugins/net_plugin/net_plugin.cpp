@@ -4497,10 +4497,11 @@ namespace eosio {
          return "invalid peer address";
       }
 
-      std::unique_lock g( connections_mtx );
-      if( find_connection_i( peer_address ) )
-         return "already connected";
-      g.unlock();
+      {
+         std::lock_guard g(connections_mtx);
+         if (find_connection_i(peer_address))
+            return "already connected";
+      }
 
       auto [host, port, type] = split_host_port_type(peer_address);
 
@@ -4511,12 +4512,13 @@ namespace eosio {
             connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
             c->strand.post([this, resolver, c, err, results, host, port, peer_address]() {
                c->set_heartbeat_timeout( heartbeat_timeout );
-               std::unique_lock g( connections_mtx );
-               connections.emplace( connection_detail{
-                  .host = peer_address,
-                  .c = c,
-               });
-               g.unlock();
+               {
+                  std::lock_guard g( connections_mtx );
+                  connections.emplace( connection_detail{
+                     .host = peer_address,
+                     .c = c,
+                  });
+               }
                if( !err ) {
                   c->connect( results );
                } else {
@@ -4544,10 +4546,11 @@ namespace eosio {
    }
 
    void connections_manager::reconnect(const connection_ptr& c) {
-      std::unique_lock g( connections_mtx );
-      auto& index = connections.get<by_connection>();
-      index.erase(c);
-      g.unlock();
+      {
+         std::lock_guard g( connections_mtx );
+         auto& index = connections.get<by_connection>();
+         index.erase(c);
+      }
       resolve_and_connect(c->peer_address(), c->listen_address);
    }
 
