@@ -348,7 +348,6 @@ namespace eosio {
          std::string host;
          connection_ptr c;
          tcp::endpoint active_ip;
-         tcp::resolver::results_type ips;
       };
 
       using connection_details_index = multi_index_container<
@@ -418,7 +417,7 @@ namespace eosio {
       string connect(const string& host, const string& p2p_address);
       string resolve_and_connect(const string& host, const string& p2p_address);
       void update_connection_endpoint(connection_ptr c, const tcp::endpoint& endpoint);
-      void connect(const connection_ptr& c);
+      void reconnect(const connection_ptr& c);
       string disconnect(const string& host);
       void close_all();
 
@@ -912,7 +911,7 @@ namespace eosio {
 
       fc::sha256              conn_node_id;
       string                  short_conn_node_id;
-      string                  listen_address; // address sent to peer in handshake
+      const string            listen_address; // address sent to peer in handshake
       string                  log_p2p_address;
       string                  log_remote_endpoint_ip;
       string                  log_remote_endpoint_port;
@@ -2764,6 +2763,10 @@ namespace eosio {
             fc_dlog( logger, "Skipping connect due to go_away reason ${r}",("r", reason_str( no_retry )));
             return false;
       }
+
+      if (incoming())
+         return false;
+
       if( consecutive_immediate_connection_close > def_max_consecutive_immediate_connection_close || no_retry == benign_other ) {
          fc::microseconds connector_period = my_impl->connections.get_connector_period();
          fc::lock_guard g( conn_mtx );
@@ -2771,9 +2774,10 @@ namespace eosio {
             return true; // true so doesn't remove from valid connections
          }
       }
+
       connection_ptr c = shared_from_this();
       strand.post([c]() {
-         my_impl->connections.connect(c);
+         my_impl->connections.reconnect(c);
       });
       return true;
    }
@@ -4493,32 +4497,35 @@ namespace eosio {
          return "invalid peer address";
       }
 
-      std::lock_guard g( connections_mtx );
+      std::unique_lock g( connections_mtx );
       if( find_connection_i( peer_address ) )
          return "already connected";
+      g.unlock();
 
       auto [host, port, type] = split_host_port_type(peer_address);
 
       auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
 
       resolver->async_resolve(host, port, 
-         [resolver, host = host, port = port, peer_address = peer_address, listen_address = listen_address, this]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
+         [this, resolver, host, port, peer_address, listen_address]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
             connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
-            c->set_heartbeat_timeout( heartbeat_timeout );
-            std::lock_guard g( connections_mtx );
-            auto [it, inserted] = connections.emplace( connection_detail{
-               .host = peer_address,
-               .c = std::move(c),
-               .ips = results
+            c->strand.post([this, resolver, c, err, results, host, port, peer_address]() {
+               c->set_heartbeat_timeout( heartbeat_timeout );
+               std::unique_lock g( connections_mtx );
+               connections.emplace( connection_detail{
+                  .host = peer_address,
+                  .c = c,
+               });
+               g.unlock();
+               if( !err ) {
+                  c->connect( results );
+               } else {
+                  fc_wlog( logger, "Unable to resolve ${host}:${port} ${error}",
+                           ("host", host)("port", port)( "error", err.message() ) );
+                  c->set_state(connection::connection_state::closed);
+                  ++(c->consecutive_immediate_connection_close);
+               }
             });
-            if( !err ) {
-               it->c->connect( results );
-            } else {
-               fc_wlog( logger, "Unable to resolve ${host}:${port} ${error}",
-                        ("host", host)("port", port)( "error", err.message() ) );
-               it->c->set_state(connection::connection_state::closed);
-               ++(it->c->consecutive_immediate_connection_close);
-            }
       } );
 
       return "added connection";
@@ -4536,13 +4543,12 @@ namespace eosio {
       }
    }
 
-   void connections_manager::connect(const connection_ptr& c) {
-      std::lock_guard g( connections_mtx );
-      const auto& index = connections.get<by_connection>();
-      const auto& it = index.find(c);
-      if( it != index.end() ) {
-         it->c->connect( it->ips );
-      }
+   void connections_manager::reconnect(const connection_ptr& c) {
+      std::unique_lock g( connections_mtx );
+      auto& index = connections.get<by_connection>();
+      index.erase(c);
+      g.unlock();
+      resolve_and_connect(c->peer_address(), c->listen_address);
    }
 
    // called by API
