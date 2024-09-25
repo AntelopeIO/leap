@@ -415,7 +415,7 @@ namespace eosio {
 
       void add(connection_ptr c);
       string connect(const string& host, const string& p2p_address);
-      string resolve_and_connect(const string& host, const string& p2p_address);
+      string resolve_and_connect(const string& host, const string& p2p_address, const connection_ptr& c = {});
       void update_connection_endpoint(connection_ptr c, const tcp::endpoint& endpoint);
       void reconnect(const connection_ptr& c);
       string disconnect(const string& host);
@@ -4490,7 +4490,11 @@ namespace eosio {
       return resolve_and_connect( host, p2p_address );
    }
 
-   string connections_manager::resolve_and_connect( const string& peer_address, const string& listen_address ) {
+   string connections_manager::resolve_and_connect( const string& peer_address, const string& listen_address,
+                                                    const connection_ptr& c )
+   {
+      assert(!c || (c->peer_address() == peer_address && c->listen_address == listen_address));
+
       string::size_type colon = peer_address.find(':');
       if (colon == std::string::npos || colon == 0) {
          fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_address) );
@@ -4508,8 +4512,8 @@ namespace eosio {
       auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
 
       resolver->async_resolve(host, port, 
-         [this, resolver, host, port, peer_address, listen_address]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
-            connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
+         [this, resolver, c_org{c}, host, port, peer_address, listen_address]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
+            connection_ptr c = c_org ? c_org : std::make_shared<connection>( peer_address, listen_address );
             c->strand.post([this, resolver, c, err, results, host, port, peer_address]() {
                c->set_heartbeat_timeout( heartbeat_timeout );
                {
@@ -4551,7 +4555,7 @@ namespace eosio {
          auto& index = connections.get<by_connection>();
          index.erase(c);
       }
-      resolve_and_connect(c->peer_address(), c->listen_address);
+      resolve_and_connect(c->peer_address(), c->listen_address, c);
    }
 
    // called by API
