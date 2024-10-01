@@ -347,7 +347,6 @@ namespace eosio {
       struct connection_detail {
          std::string host;
          connection_ptr c;
-         tcp::endpoint active_ip;
          tcp::resolver::results_type ips;
       };
 
@@ -417,7 +416,6 @@ namespace eosio {
       void add(connection_ptr c);
       string connect(const string& host, const string& p2p_address);
       string resolve_and_connect(const string& host, const string& p2p_address);
-      void update_connection_endpoint(connection_ptr c, const tcp::endpoint& endpoint);
       void connect(const connection_ptr& c);
       string disconnect(const string& host);
       void close_all();
@@ -2787,7 +2785,6 @@ namespace eosio {
          boost::asio::bind_executor( strand,
                [c = shared_from_this(), socket=socket]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
             if( !err && socket->is_open() && socket == c->socket ) {
-               my_impl->connections.update_connection_endpoint(c, endpoint);
                c->update_endpoints(endpoint);
                if( c->start_session() ) {
                   c->send_handshake();
@@ -4470,12 +4467,9 @@ namespace eosio {
 
    void connections_manager::add( connection_ptr c ) {
       std::lock_guard g( connections_mtx );
-      boost::system::error_code ec;
-      auto endpoint = c->socket->remote_endpoint(ec);
       connections.insert( connection_detail{
          .host = c->peer_address(), 
-         .c = std::move(c),
-         .active_ip = endpoint} );
+         .c = std::move(c)} );
    }
 
    // called by API
@@ -4522,18 +4516,6 @@ namespace eosio {
       } );
 
       return "added connection";
-   }
-
-   void connections_manager::update_connection_endpoint(connection_ptr c,
-                                                        const tcp::endpoint& endpoint) {
-      std::unique_lock g( connections_mtx );
-      auto& index = connections.get<by_connection>();
-      const auto& it = index.find(c);
-      if( it != index.end() ) {
-         index.modify(it, [endpoint](connection_detail& cd) {
-            cd.active_ip = endpoint;
-         });
-      }
    }
 
    void connections_manager::connect(const connection_ptr& c) {
