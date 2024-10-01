@@ -415,8 +415,9 @@ namespace eosio {
 
       void add(connection_ptr c);
       string connect(const string& host, const string& p2p_address);
-      string resolve_and_connect(const string& host, const string& p2p_address);
+      string resolve_and_connect(const string& host, const string& p2p_address, uint16_t consecutive_immediate_connection_close = 0);
       void connect(const connection_ptr& c);
+      void remove(const connection_ptr& c);
       string disconnect(const string& host);
       void close_all();
 
@@ -819,7 +820,7 @@ namespace eosio {
    public:
       enum class connection_state { connecting, connected, closing, closed  };
 
-      explicit connection( const string& endpoint, const string& listen_address );
+      explicit connection( const string& endpoint, const string& listen_address, uint16_t consecutive_immediate_connection_close );
       /// @brief ctor
       /// @param socket created by boost::asio in fc::listener
       /// @param address identifier of listen socket which accepted this new connection
@@ -1250,7 +1251,7 @@ namespace eosio {
 
    //---------------------------------------------------------------------------
 
-   connection::connection( const string& endpoint, const string& listen_address )
+   connection::connection( const string& endpoint, const string& listen_address, uint16_t consecutive_immediate_connection_close )
       : peer_addr( endpoint ),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( my_impl->thread_pool.get_executor() ) ),
@@ -1258,6 +1259,7 @@ namespace eosio {
         log_p2p_address( endpoint ),
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
+        consecutive_immediate_connection_close( consecutive_immediate_connection_close ),
         last_handshake_recv(),
         last_handshake_sent(),
         p2p_address( endpoint )
@@ -2769,10 +2771,10 @@ namespace eosio {
             return true; // true so doesn't remove from valid connections
          }
       }
+
       connection_ptr c = shared_from_this();
-      strand.post([c]() {
-         my_impl->connections.connect(c);
-      });
+      my_impl->connections.remove(c);
+      my_impl->connections.resolve_and_connect(c->peer_address(), c->listen_address, c->consecutive_immediate_connection_close.load());
       return true;
    }
 
@@ -4480,7 +4482,7 @@ namespace eosio {
       return resolve_and_connect( host, p2p_address );
    }
 
-   string connections_manager::resolve_and_connect( const string& peer_address, const string& listen_address ) {
+   string connections_manager::resolve_and_connect( const string& peer_address, const string& listen_address, uint16_t consecutive_immediate_connection_close ) {
       string::size_type colon = peer_address.find(':');
       if (colon == std::string::npos || colon == 0) {
          fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_address) );
@@ -4496,8 +4498,9 @@ namespace eosio {
       auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
 
       resolver->async_resolve(host, port, 
-         [resolver, host = host, port = port, peer_address = peer_address, listen_address = listen_address, this]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
-            connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
+         [resolver, host, port, peer_address, listen_address, consecutive_immediate_connection_close, this]
+         ( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
+            connection_ptr c = std::make_shared<connection>( peer_address, listen_address, consecutive_immediate_connection_close );
             c->set_heartbeat_timeout( heartbeat_timeout );
             std::lock_guard g( connections_mtx );
             auto [it, inserted] = connections.emplace( connection_detail{
@@ -4511,7 +4514,7 @@ namespace eosio {
                fc_wlog( logger, "Unable to resolve ${host}:${port} ${error}",
                         ("host", host)("port", port)( "error", err.message() ) );
                it->c->set_state(connection::connection_state::closed);
-               ++(it->c->consecutive_immediate_connection_close);
+               ++it->c->consecutive_immediate_connection_close;
             }
       } );
 
@@ -4527,7 +4530,13 @@ namespace eosio {
       }
    }
 
-   // called by API
+   void connections_manager::remove(const connection_ptr& c) {
+      std::lock_guard g( connections_mtx );
+      auto& index = connections.get<by_connection>();
+      index.erase(c);
+   }
+
+// called by API
    string connections_manager::disconnect( const string& host ) {
       std::lock_guard g( connections_mtx );
       auto& index = connections.get<by_host>();
