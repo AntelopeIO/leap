@@ -4403,7 +4403,7 @@ namespace eosio {
    //----------------------------------------------------------------------------
 
    size_t connections_manager::number_connections() const {
-      std::lock_guard g(connections_mtx);
+      std::shared_lock g(connections_mtx);
       return connections.size();
    }
 
@@ -4434,7 +4434,7 @@ namespace eosio {
 
    // can be called from any thread
    void connections_manager::connect_supplied_peers(const string& p2p_address) {
-      std::unique_lock g(connections_mtx);
+      std::shared_lock g(connections_mtx);
       chain::flat_set<string> peers = supplied_peers;
       g.unlock();
       for (const auto& peer : peers) {
@@ -4465,7 +4465,7 @@ namespace eosio {
       }
 
       {
-         std::lock_guard g( connections_mtx );
+         std::shared_lock g( connections_mtx );
          if( find_connection_i( peer_address ) )
             return "already connected";
       }
@@ -4561,8 +4561,11 @@ namespace eosio {
    }
 
    std::optional<connection_status> connections_manager::status( const string& host )const {
-      std::shared_lock g( connections_mtx );
-      auto con = find_connection_i( host );
+      connection_ptr con;
+      {
+         std::shared_lock g( connections_mtx );
+         con = find_connection_i( host );
+      }
       if( con ) {
          return con->get_status();
       }
@@ -4570,12 +4573,19 @@ namespace eosio {
    }
 
    vector<connection_status> connections_manager::connection_statuses()const {
+      vector<connection_ptr> conns;
       vector<connection_status> result;
-      std::shared_lock g( connections_mtx );
-      auto& index = connections.get<by_connection>();
-      result.reserve( index.size() );
-      for( const connection_detail& cd : index ) {
-         result.emplace_back( cd.c->get_status() );
+      {
+         std::shared_lock g( connections_mtx );
+         auto& index = connections.get<by_connection>();
+         result.reserve( index.size() );
+         conns.reserve( index.size() );
+         for( const connection_detail& cd : index ) {
+            conns.emplace_back( cd.c );
+         }
+      }
+      for (const auto& c : conns) {
+         result.push_back( c->get_status() );
       }
       return result;
    }
@@ -4703,7 +4713,7 @@ namespace eosio {
       assert(update_p2p_connection_metrics);
       auto from = from_connection.lock();
       std::shared_lock g(connections_mtx);
-      auto& index = connections.get<by_connection>();
+      const auto& index = connections.get<by_connection>();
       size_t num_clients = 0, num_peers = 0, num_bp_peers = 0;
       net_plugin::p2p_per_connection_metrics per_connection(index.size());
       for (auto it = index.begin(); it != index.end(); ++it) {
