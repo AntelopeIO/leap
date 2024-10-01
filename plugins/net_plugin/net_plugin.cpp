@@ -4474,7 +4474,7 @@ namespace eosio {
 
       connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
       if (c->resolve_and_connect()) {
-         add(c);
+         add(std::move(c));
 
          return "added connection";
       }
