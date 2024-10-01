@@ -1176,16 +1176,21 @@ namespace eosio {
 
    
 
-   std::tuple<std::string, std::string, std::string> split_host_port_type(const std::string& peer_add) {
+   std::tuple<std::string, std::string, std::string> split_host_port_type(const std::string& peer_add, bool incoming) {
       // host:port:[<trx>|<blk>]
       if (peer_add.empty()) return {};
 
       string::size_type p = peer_add[0] == '[' ? peer_add.find(']') : 0;
-      if (p == string::npos) {
-         fc_wlog( logger, "Invalid peer address: ${peer}", ("peer", peer_add) );
+      string::size_type colon = p != string::npos ? peer_add.find(':', p) : string::npos;
+      if (colon == std::string::npos || colon == 0) {
+         // if incoming then not an error this peer can do anything about
+         if (incoming) {
+            fc_dlog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_add) );
+         } else {
+            fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_add) );
+         }
          return {};
       }
-      string::size_type colon = peer_add.find(':', p);
       string::size_type colon2 = peer_add.find(':', colon + 1);
       string::size_type end = colon2 == string::npos
             ? string::npos : peer_add.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 ); // future proof by including most symbols without using regex
@@ -1310,7 +1315,7 @@ namespace eosio {
 
    // called from connection strand
    void connection::set_connection_type( const std::string& peer_add ) {      
-      auto [host, port, type] = split_host_port_type(peer_add);
+      auto [host, port, type] = split_host_port_type(peer_add, false);
       if( type.empty() ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to both transactions and blocks", ("c", connection_id)("peer", peer_add) );
          connection_type = both;
@@ -2808,7 +2813,7 @@ namespace eosio {
             fc_ilog(logger, "Accepted new connection: " + paddr_str);
 
             connections.any_of_supplied_peers([&listen_address, &paddr_str, &limit](const string& peer_addr) {
-               auto [host, port, type] = split_host_port_type(peer_addr);
+               auto [host, port, type] = split_host_port_type(peer_addr, false);
                if (host == paddr_str) {
                   if (limit > 0) {
                      fc_dlog(logger, "Connection inbound to ${la} from ${a} is a configured p2p-peer-address and will not be throttled", ("la", listen_address)("a", paddr_str));
@@ -3275,9 +3280,9 @@ namespace eosio {
          }
 
          if( incoming() ) {
-            auto [host, port, type] = split_host_port_type(msg.p2p_address);
+            auto [host, port, type] = split_host_port_type(msg.p2p_address, true);
             if (host.size())
-               set_connection_type( msg.p2p_address );
+               set_connection_type( msg.p2p_address);
 
             peer_dlog( this, "checking for duplicate" );
             auto is_duplicate = [&](const connection_ptr& check) {
@@ -4458,9 +4463,8 @@ namespace eosio {
    }
 
    string connections_manager::resolve_and_connect( const string& peer_address, const string& listen_address ) {
-      string::size_type colon = peer_address.find(':');
-      if (colon == std::string::npos || colon == 0) {
-         fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_address) );
+      auto [host, port, type] = split_host_port_type(peer_address, false);
+      if (host.empty()) {
          return "invalid peer address";
       }
 
@@ -4469,8 +4473,6 @@ namespace eosio {
          if( find_connection_i( peer_address ) )
             return "already connected";
       }
-
-      auto [host, port, type] = split_host_port_type(peer_address);
 
       connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
       if (c->resolve_and_connect()) {
@@ -4495,11 +4497,9 @@ namespace eosio {
             return false;
       }
 
-      string::size_type colon = peer_address().find(':');
-      if (colon == std::string::npos || colon == 0) {
-         fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_address()) );
+      auto [host, port, type] = split_host_port_type(peer_address(), false);
+      if (host.empty())
          return false;
-      }
 
       connection_ptr c = shared_from_this();
 
@@ -4510,10 +4510,6 @@ namespace eosio {
             return true; // true so doesn't remove from valid connections
          }
       }
-
-      auto [host, port, type] = split_host_port_type(c->peer_address());
-      if (host.empty())
-         return false;
 
       strand.post([c, host, port]() {
          auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
