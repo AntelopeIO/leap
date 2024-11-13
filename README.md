@@ -1,5 +1,8 @@
 # Leap
 
+> [!IMPORTANT]
+> All versions of Leap are no longer supported by the EOS Network Foundation. To use a supported implementation of the Antelope protocol please consider using [Spring](https://github.com/AntelopeIO/spring).
+
 1. [Branches](#branches)
 2. [Supported Operating Systems](#supported-operating-systems)
 3. [Binary Installation](#binary-installation)
