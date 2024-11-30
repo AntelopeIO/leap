@@ -267,7 +267,11 @@ namespace eosio { namespace testing {
                                                bool multisig = false,
                                                bool include_code = true
                                              );
-
+         transaction_trace_ptr create_slim_account( account_name name,
+                                               account_name creator = config::system_account_name,
+                                               bool multisig = false,
+                                               bool include_code = true
+                                             );
          transaction_trace_ptr push_reqauth( account_name from, const vector<permission_level>& auths, const vector<private_key_type>& keys );
          transaction_trace_ptr push_reqauth(account_name from, string role, bool multi_sig = false);
          // use when just want any old non-context free action
@@ -343,8 +347,12 @@ namespace eosio { namespace testing {
          auto get_resolver() {
             return [this]( const account_name& name ) -> std::optional<abi_serializer> {
                try {
-                  const auto& accnt = control->db().get<account_object, by_name>( name );
-                  if( abi_def abi; abi_serializer::to_abi( accnt.abi, abi )) {
+                  const auto* accnt_metadata = control->db().find<account_metadata_object, by_name>( name );
+                  shared_blob account_abi;
+                  if( accnt_metadata != nullptr ){
+                     account_abi = accnt_metadata->abi;
+                  }
+                  if( abi_def abi; abi_serializer::to_abi( account_abi, abi )) {
                      return abi_serializer( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
                   }
                   return std::optional<abi_serializer>();

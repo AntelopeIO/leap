@@ -2271,4 +2271,22 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    );
 } FC_LOG_AND_RETHROW() } /// block_validation_after_stage_1_test
 
+BOOST_AUTO_TEST_CASE( slim_account_test ) { try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::slim_account);
+   BOOST_REQUIRE(d);
+   BOOST_CHECK( ! c.control->is_builtin_activated( builtin_protocol_feature_t::slim_account ) );
+   const auto alice_account = account_name("alice");
+   BOOST_CHECK_EXCEPTION(  c.create_slim_account( alice_account ),
+                           protocol_feature_validation_exception,
+                           fc_exception_message_is( "Unsupported protocol_feature_t: " + std::to_string(static_cast<uint32_t>(builtin_protocol_feature_t::slim_account))) );
+
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+   BOOST_CHECK( c.control->is_builtin_activated( builtin_protocol_feature_t::slim_account ) );
+   BOOST_CHECK_NO_THROW(  c.create_slim_account( alice_account ) );
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()

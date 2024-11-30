@@ -177,7 +177,7 @@ namespace config {
 
 struct shared_authority;
 
-struct authority {
+struct authority : fc::reflect_init{
    authority( public_key_type k, uint32_t delay_sec = 0 )
    :threshold(1),keys({{k,1}})
    {
@@ -210,7 +210,8 @@ struct authority {
    }
 
    friend bool operator == ( const authority& lhs, const shared_authority& rhs );
-
+   friend struct fc::reflector<authority>;
+   void reflector_init()const {}
    void sort_fields () {
       std::sort(std::begin(keys), std::end(keys));
       std::sort(std::begin(accounts), std::end(accounts));

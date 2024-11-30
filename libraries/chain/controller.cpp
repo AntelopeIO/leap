@@ -359,6 +359,7 @@ struct controller_impl {
                       &BOOST_PP_CAT(apply_, BOOST_PP_CAT(contract, BOOST_PP_CAT(_,action) ) ) )
 
    SET_APP_HANDLER( eosio, eosio, newaccount );
+   SET_APP_HANDLER( eosio, eosio, newslimacc );
    SET_APP_HANDLER( eosio, eosio, setcode );
    SET_APP_HANDLER( eosio, eosio, setabi );
    SET_APP_HANDLER( eosio, eosio, updateauth );
@@ -999,6 +1000,63 @@ struct controller_impl {
             }
          }
 
+         if (std::is_same<value_t, account_object>::value) {
+            using v6 = snapshot_account_object_v6;
+
+            if (std::clamp(header.version, v6::minimum_version, v6::maximum_version) == header.version ) {
+               snapshot->read_section<account_object>([&db = this->db](auto& section) {
+                  bool more = !section.empty();
+                  while (more) {
+                     v6 snapshot_account_object;
+                     more = section.read_row(snapshot_account_object, db);
+                     const auto *acct_itr = db.find<account_object, by_name>( snapshot_account_object.name );
+                     if(acct_itr == nullptr){
+                        db.create<account_object>([&snapshot_account_object](auto& value ){
+                           value.name = snapshot_account_object.name;
+                           value.creation_date = snapshot_account_object.creation_date;
+                        });
+                        db.create<account_metadata_object>([&](auto& value) {
+                           value.name = snapshot_account_object.name;
+                           value.abi = snapshot_account_object.abi;
+                        });
+                     }
+                  }
+               });
+               return;
+            }
+         }
+         if (std::is_same<value_t, account_metadata_object>::value) {
+            using v6 = snapshot_account_metadata_object_v6;
+
+            if (std::clamp(header.version, v6::minimum_version, v6::maximum_version) == header.version ) {
+               snapshot->read_section<account_metadata_object>([&db = this->db](auto& section) {
+                  bool more = !section.empty();
+                  while (more) {
+                     v6 snapshot_account_metadata_object;
+                     more = section.read_row(snapshot_account_metadata_object, db);
+                     const auto *acct_itr = db.find<account_object, by_name>( snapshot_account_metadata_object.name );
+                     EOS_ASSERT(acct_itr != nullptr, snapshot_exception, "Unexpected snapshot_account_metadata_object1");
+                     db.modify( *acct_itr, [&]( account_object& value ){
+                        value.recv_sequence = snapshot_account_metadata_object.recv_sequence;
+                        value.auth_sequence = snapshot_account_metadata_object.auth_sequence;
+                     });
+                     const auto *acct_metadata_itr = db.find<account_metadata_object, by_name>( snapshot_account_metadata_object.name );
+                     EOS_ASSERT(acct_metadata_itr != nullptr, snapshot_exception, "Unexpected snapshot_account_metadata_object2");
+                     db.modify( *acct_metadata_itr, [&](auto& value) {
+                        value.code_sequence = snapshot_account_metadata_object.code_sequence;
+                        value.abi_sequence = snapshot_account_metadata_object.abi_sequence;
+                        value.code_hash = snapshot_account_metadata_object.code_hash;
+                        value.last_code_update = snapshot_account_metadata_object.last_code_update;
+                        value.flags = snapshot_account_metadata_object.flags;
+                        value.vm_type = snapshot_account_metadata_object.vm_type;
+                        value.vm_version = snapshot_account_metadata_object.vm_version;
+                     });
+                  }
+               });
+               return;
+            }
+         }
+
          snapshot->read_section<value_t>([this]( auto& section ) {
             bool more = !section.empty();
             while(more) {
@@ -1039,16 +1097,15 @@ struct controller_impl {
       db.create<account_object>([&](auto& a) {
          a.name = name;
          a.creation_date = initial_timestamp;
-
+      });
+      db.create<account_metadata_object>([&](auto & a) {
+         a.name = name;
+         a.set_privileged( is_privileged );
          if( name == config::system_account_name ) {
             // The initial eosio ABI value affects consensus; see  https://github.com/EOSIO/eos/issues/7794
             // TODO: This doesn't charge RAM; a fix requires a consensus upgrade.
             a.abi.assign(eosio_abi_bin, sizeof(eosio_abi_bin));
          }
-      });
-      db.create<account_metadata_object>([&](auto & a) {
-         a.name = name;
-         a.set_privileged( is_privileged );
       });
 
       const auto& owner_permission  = authorization.create_permission(name, config::owner_name, 0,
@@ -1104,7 +1161,7 @@ struct controller_impl {
 
       db.create<dynamic_global_property_object>([](auto&){});
 
-      authorization.initialize_database();
+      authorization.initialize_database(genesis.initial_timestamp);
       resource_limits.initialize_database();
 
       authority system_auth(genesis.initial_key);

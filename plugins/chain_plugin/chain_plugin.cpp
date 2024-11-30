@@ -1506,10 +1506,10 @@ string convert_to_string(const float128_t& source, const string& key_type, const
 
 abi_def get_abi( const controller& db, const name& account ) {
    const auto &d = db.db();
-   const account_object *code_accnt = d.find<account_object, by_name>(account);
-   EOS_ASSERT(code_accnt != nullptr, chain::account_query_exception, "Fail to retrieve account for ${account}", ("account", account) );
+   const auto *code_accnt_metadata = d.find<account_metadata_object, by_name>(account);
+   EOS_ASSERT(code_accnt_metadata != nullptr, chain::account_query_exception, "Fail to retrieve account for ${account}", ("account", account) );
    abi_def abi;
-   abi_serializer::to_abi(code_accnt->abi, abi);
+   abi_serializer::to_abi(code_accnt_metadata->abi, abi);
    return abi;
 }
 
@@ -2261,9 +2261,9 @@ read_only::get_abi_results read_only::get_abi( const get_abi_params& params, con
    get_abi_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
-   const auto& accnt  = d.get<account_object,by_name>( params.account_name );
+   const auto& accnt_metadata  = d.get<account_metadata_object,by_name>( params.account_name );
 
-   if( abi_def abi; abi_serializer::to_abi(accnt.abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(accnt_metadata.abi, abi) ) {
       result.abi = std::move(abi);
    }
 
@@ -2276,7 +2276,6 @@ read_only::get_code_results read_only::get_code( const get_code_params& params, 
    get_code_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
-   const auto& accnt_obj          = d.get<account_object,by_name>( params.account_name );
    const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>( params.account_name );
 
    EOS_ASSERT( params.code_as_wasm, unsupported_feature, "Returning WAST from get_code is no longer supported" );
@@ -2287,7 +2286,7 @@ read_only::get_code_results read_only::get_code( const get_code_params& params, 
       result.code_hash = code_obj.code_hash;
    }
 
-   if( abi_def abi; abi_serializer::to_abi(accnt_obj.abi, abi) ) {
+   if( abi_def abi; abi_serializer::to_abi(accnt_metadata_obj.abi, abi) ) {
       result.abi = std::move(abi);
    }
 
@@ -2300,10 +2299,10 @@ read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_p
    get_code_hash_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
-   const auto& accnt  = d.get<account_metadata_object,by_name>( params.account_name );
+   const auto& accnt_metadata  = d.get<account_metadata_object,by_name>( params.account_name );
 
-   if( accnt.code_hash != digest_type() )
-      result.code_hash = accnt.code_hash;
+   if( accnt_metadata.code_hash != digest_type() )
+      result.code_hash = accnt_metadata.code_hash;
 
    return result;
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account code hash")
@@ -2315,13 +2314,12 @@ read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const g
    result.account_name = params.account_name;
 
    const auto& d = db.db();
-   const auto& accnt_obj          = d.get<account_object,by_name>(params.account_name);
    const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>(params.account_name);
    if( accnt_metadata_obj.code_hash != digest_type() ) {
       const auto& code_obj = d.get<code_object, by_code_hash>(accnt_metadata_obj.code_hash);
       result.wasm = blob{{code_obj.code.begin(), code_obj.code.end()}};
    }
-   result.abi = blob{{accnt_obj.abi.begin(), accnt_obj.abi.end()}};
+   result.abi = blob{{accnt_metadata_obj.abi.begin(), accnt_metadata_obj.abi.end()}};
 
    return result;
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account code/abi")
@@ -2333,13 +2331,12 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
    result.account_name = params.account_name;
 
    const auto& d = db.db();
-   const auto& accnt_obj          = d.get<account_object,by_name>(params.account_name);
    const auto& accnt_metadata_obj = d.get<account_metadata_object,by_name>(params.account_name);
-   result.abi_hash = fc::sha256::hash( accnt_obj.abi.data(), accnt_obj.abi.size() );
+   result.abi_hash = fc::sha256::hash( accnt_metadata_obj.abi.data(), accnt_metadata_obj.abi.size() );
    if( accnt_metadata_obj.code_hash != digest_type() )
       result.code_hash = accnt_metadata_obj.code_hash;
    if( !params.abi_hash || *params.abi_hash != result.abi_hash )
-      result.abi = blob{{accnt_obj.abi.begin(), accnt_obj.abi.end()}};
+      result.abi = blob{{accnt_metadata_obj.abi.begin(), accnt_metadata_obj.abi.end()}};
 
    return result;
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account abi")
@@ -2359,10 +2356,12 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    rm.get_account_limits( result.account_name, result.ram_quota, result.net_weight, result.cpu_weight );
 
    const auto& accnt_obj = db.get_account( result.account_name );
-   const auto& accnt_metadata_obj = db.db().get<account_metadata_object,by_name>( result.account_name );
+   const auto *accnt_metadata = db.db().find<account_metadata_object,by_name>( result.account_name );
 
-   result.privileged       = accnt_metadata_obj.is_privileged();
-   result.last_code_update = accnt_metadata_obj.last_code_update;
+   if(accnt_metadata != nullptr){
+      result.privileged       = accnt_metadata->is_privileged();
+      result.last_code_update = accnt_metadata->last_code_update;
+   }
    result.created          = accnt_obj.creation_date;
 
    uint32_t greylist_limit = db.is_resource_greylisted(result.account_name) ? 1 : config::maximum_elastic_resource_multiplier;
@@ -2429,7 +2428,7 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    // add eosio.any linked authorizations
    result.eosio_any_linked_actions = get_linked_actions(chain::config::eosio_any_name);
 
-   const auto& code_account = db.db().get<account_object,by_name>( config::system_account_name );
+   const auto* code_account_metadata = db.db().find<account_metadata_object,by_name>( config::system_account_name );
    struct http_params_t {
       std::optional<vector<char>> total_resources;
       std::optional<vector<char>> self_delegated_bandwidth;
@@ -2440,7 +2439,11 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
 
    http_params_t http_params;
    
-   if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
+   shared_blob account_abi;
+   if( code_account_metadata != nullptr ){
+      account_abi = code_account_metadata->abi;
+   }
+   if( abi_def abi; abi_serializer::to_abi(account_abi, abi) ) {
 
       const auto token_code = "eosio.token"_n;
 

@@ -38,8 +38,8 @@ void validate_authority_precondition( const apply_context& context, const author
                   ("account", a.permission.actor)
                 );
 
-      if( a.permission.permission == config::owner_name || a.permission.permission == config::active_name )
-         continue; // account was already checked to exist, so its owner and active permissions should exist
+      if( a.permission.permission == config::active_name )
+         continue; // account was already checked to exist, so its active permissions should exist
 
       if( a.permission.permission == config::eosio_code_name ) // virtual eosio.code permission does not really exist but is allowed
          continue;
@@ -83,8 +83,8 @@ void apply_eosio_newaccount(apply_context& context) {
    EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
 
    // Check if the creator is privileged
-   const auto &creator = db.get<account_metadata_object, by_name>(create.creator);
-   if( !creator.is_privileged() ) {
+   const auto *creator_metadata = db.find<account_metadata_object, by_name>(create.creator);
+   if( creator_metadata == nullptr || !creator_metadata->is_privileged() ){
       EOS_ASSERT( name_str.find( "eosio." ) != 0, action_validate_exception,
                   "only privileged accounts can have names that start with 'eosio.'" );
    }
@@ -127,6 +127,61 @@ void apply_eosio_newaccount(apply_context& context) {
 
 } FC_CAPTURE_AND_RETHROW( (create) ) }
 
+/**
+ *  This method is called assuming precondition_system_newslimacc succeeds
+ */
+void apply_eosio_newslimacc(apply_context& context) {
+   EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "newslimacc not allowed in read-only transaction" );
+   if(!context.control.is_builtin_activated( builtin_protocol_feature_t::slim_account )) {
+      EOS_THROW( protocol_feature_validation_exception,
+               "Unsupported protocol_feature_t: ${type}",
+               ("type", static_cast<uint32_t>(builtin_protocol_feature_t::slim_account))
+      );
+   }
+   auto create = context.get_action().data_as<newslimacc>();
+   try {
+   context.require_authorization(create.creator);
+   auto& authorization = context.control.get_mutable_authorization_manager();
+   EOS_ASSERT( validate(create.active), action_validate_exception, "Invalid active authority");
+   auto& db = context.db;
+
+   auto name_str = name(create.name).to_string();
+   EOS_ASSERT( !create.name.empty(), action_validate_exception, "account name cannot be empty" );
+   EOS_ASSERT( name_str.size() <= 12, action_validate_exception, "account names can only be 12 chars long" );
+
+   // system account only can be created by newaccount
+   EOS_ASSERT( name_str.find( "eosio." ) != 0, action_validate_exception,
+                     "only newaccount action can create account with name start with 'eosio.'" );
+
+   auto existing_account = db.find<account_object, by_name>(create.name);
+   EOS_ASSERT(existing_account == nullptr, account_name_exists_exception,
+              "Cannot create account named ${name}, as that name is already taken",
+              ("name", create.name));
+
+   db.create<account_object>([&](auto& a) {
+      a.name = create.name;
+      a.creation_date = context.control.pending_block_time();
+   });
+
+   for (const auto& auth : { create.active }) {
+      validate_authority_precondition( context, auth );
+   }
+
+   const auto& active_permission = authorization.create_permission( create.name, config::active_name, 0,
+                                                                  std::move(create.active), context.trx_context.is_transient() );
+  int64_t ram_delta = config::overhead_per_account_ram_bytes;
+   ram_delta -= config::billable_size_v<account_metadata_object>;
+   ram_delta += config::billable_size_v<permission_object>;
+   ram_delta += active_permission.auth.get_billable_size();
+   context.control.get_mutable_resource_limits_manager().initialize_account(create.name, context.trx_context.is_transient());
+
+   if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {
+      dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", create.name)), "account", "add", "newslimacc");
+   }
+
+   context.add_ram_usage(create.name, ram_delta);
+} FC_CAPTURE_AND_RETHROW( (create) ) }
+
 void apply_eosio_setcode(apply_context& context) {
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setcode not allowed in read-only transaction" );
    auto& db = context.db;
@@ -145,8 +200,15 @@ void apply_eosio_setcode(apply_context& context) {
      wasm_interface::validate(context.control, act.code);
    }
 
-   const auto& account = db.get<account_metadata_object,by_name>(act.account);
-   bool existing_code = (account.code_hash != digest_type());
+   const auto* account_metadata = db.find<account_metadata_object,by_name>(act.account);
+   int64_t metadata_ram_delta  = 0;
+   if(account_metadata == nullptr){
+      metadata_ram_delta -= config::billable_size_v<account_metadata_object>;
+      account_metadata = &db.create<account_metadata_object>([&](auto& a) {
+         a.name = act.account;
+      });
+   }
+   bool existing_code = (account_metadata->code_hash != digest_type());
 
    EOS_ASSERT( code_size > 0 || existing_code, set_exact_code, "contract is already cleared" );
 
@@ -154,13 +216,13 @@ void apply_eosio_setcode(apply_context& context) {
    int64_t new_size  = code_size * config::setcode_ram_bytes_multiplier;
 
    if( existing_code ) {
-      const code_object& old_code_entry = db.get<code_object, by_code_hash>(boost::make_tuple(account.code_hash, account.vm_type, account.vm_version));
+      const code_object& old_code_entry = db.get<code_object, by_code_hash>(boost::make_tuple(account_metadata->code_hash, account_metadata->vm_type, account_metadata->vm_version));
       EOS_ASSERT( old_code_entry.code_hash != code_hash, set_exact_code,
                   "contract is already running this version of code" );
       old_size  = (int64_t)old_code_entry.code.size() * config::setcode_ram_bytes_multiplier;
       if( old_code_entry.code_ref_count == 1 ) {
          db.remove(old_code_entry);
-         context.control.code_block_num_last_used(account.code_hash, account.vm_type, account.vm_version, context.control.head_block_num() + 1);
+         context.control.code_block_num_last_used(account_metadata->code_hash, account_metadata->vm_type, account_metadata->vm_version, context.control.head_block_num() + 1);
       } else {
          db.modify(old_code_entry, [](code_object& o) {
             --o.code_ref_count;
@@ -187,7 +249,7 @@ void apply_eosio_setcode(apply_context& context) {
       }
    }
 
-   db.modify( account, [&]( auto& a ) {
+   db.modify( *account_metadata, [&]( auto& a ) {
       a.code_sequence += 1;
       a.code_hash = code_hash;
       a.vm_type = act.vmtype;
@@ -207,7 +269,7 @@ void apply_eosio_setcode(apply_context& context) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "code", operation, "setcode");
       }
 
-      context.add_ram_usage( act.account, new_size - old_size );
+      context.add_ram_usage( act.account, new_size - old_size + metadata_ram_delta);
    }
 }
 
@@ -218,20 +280,23 @@ void apply_eosio_setabi(apply_context& context) {
 
    context.require_authorization(act.account);
 
-   const auto& account = db.get<account_object,by_name>(act.account);
+   const auto* account_metadata = db.find<account_metadata_object,by_name>(act.account);
+   int64_t metadata_ram_delta  = 0;
+   if(account_metadata == nullptr){
+      metadata_ram_delta -= config::billable_size_v<account_metadata_object>;
+      account_metadata = &db.create<account_metadata_object>([&](auto& a) {
+         a.name = act.account;
+      });
+   }
 
    int64_t abi_size = act.abi.size();
 
-   int64_t old_size = (int64_t)account.abi.size();
+   int64_t old_size = (int64_t)account_metadata->abi.size();
    int64_t new_size = abi_size;
 
-   db.modify( account, [&]( auto& a ) {
-      a.abi.assign(act.abi.data(), abi_size);
-   });
-
-   const auto& account_metadata = db.get<account_metadata_object, by_name>(act.account);
-   db.modify( account_metadata, [&]( auto& a ) {
+   db.modify( *account_metadata, [&]( auto& a ) {
       a.abi_sequence += 1;
+      a.abi.assign(act.abi.data(), abi_size);
    });
 
    if (new_size != old_size) {
@@ -246,7 +311,7 @@ void apply_eosio_setabi(apply_context& context) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${account}", ("account", act.account)), "abi", operation, "setabi");
       }
 
-      context.add_ram_usage( act.account, new_size - old_size );
+      context.add_ram_usage( act.account, new_size - old_size + metadata_ram_delta );
    }
 }
 
@@ -263,15 +328,20 @@ void apply_eosio_updateauth(apply_context& context) {
    EOS_ASSERT( update.permission.to_string().find( "eosio." ) != 0, action_validate_exception,
                "Permission names that start with 'eosio.' are reserved" );
    EOS_ASSERT(update.permission != update.parent, action_validate_exception, "Cannot set an authority as its own parent");
-   db.get<account_object, by_name>(update.account);
    EOS_ASSERT(validate(update.auth), action_validate_exception,
               "Invalid authority: ${auth}", ("auth", update.auth));
-   if( update.permission == config::active_name )
-      EOS_ASSERT(update.parent == config::owner_name, action_validate_exception, "Cannot change active authority's parent from owner", ("update.parent", update.parent) );
-   if (update.permission == config::owner_name)
+   if( update.permission == config::active_name ) {
+      try {
+         authorization.get_permission({update.account, config::owner_name});
+         EOS_ASSERT(update.parent == config::owner_name, action_validate_exception, "Cannot change active authority's parent from owner", ("update.parent", update.parent) );
+      } catch( const permission_query_exception& ) {
+         EOS_ASSERT(update.parent.empty(), action_validate_exception, "Cannot change active authority's parent of slim acocunt" );
+      }
+   } else if (update.permission == config::owner_name) {
       EOS_ASSERT(update.parent.empty(), action_validate_exception, "Cannot change owner authority's parent");
-   else
+   } else {
       EOS_ASSERT(!update.parent.empty(), action_validate_exception, "Only owner permission can have empty parent" );
+   }
 
    if( update.auth.waits.size() > 0 ) {
       auto max_delay = context.control.get_global_properties().configuration.max_transaction_delay;
@@ -289,7 +359,7 @@ void apply_eosio_updateauth(apply_context& context) {
    // If a parent_id of 0 is going to be used to indicate the absence of a parent, then we need to make sure that the chain
    // initializes permission_index with a dummy object that reserves the id of 0.
    authorization_manager::permission_id_type parent_id = 0;
-   if( update.permission != config::owner_name ) {
+   if( update.permission != config::owner_name && !update.parent.empty()) {
       auto& parent = authorization.get_permission({update.account, update.parent});
       parent_id = parent.id;
    }

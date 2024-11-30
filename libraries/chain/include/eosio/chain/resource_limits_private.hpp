@@ -3,6 +3,7 @@
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/chain_snapshot.hpp>
 
 #include "multi_index_includes.hpp"
 
@@ -190,22 +191,54 @@ namespace eosio { namespace chain { namespace resource_limits {
 
    using usage_accumulator = impl::exponential_moving_average_accumulator<>;
 
-   /**
-    * Every account that authorizes a transaction is billed for the full size of that transaction. This object
-    * tracks the average usage of that account.
-    */
-   struct resource_limits_object : public chainbase::object<resource_limits_object_type, resource_limits_object> {
+struct snapshot_resource_limits_object_v6 {
+      static constexpr char section_name[] = "eosio::chain::resource_limits::resource_limits_object";
+      static constexpr uint32_t minimum_version = 2;
+      static constexpr uint32_t maximum_version = 6;
+      static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_resource_limits_object_v6 is no longer needed");
 
-      OBJECT_CTOR(resource_limits_object)
-
-      id_type id;
       account_name owner; //< owner should not be changed within a chainbase modifier lambda
-      bool pending = false; //< pending should not be changed within a chainbase modifier lambda
+      // bool pending = false; //< pending should not be changed within a chainbase modifier lambda
 
       int64_t net_weight = -1;
       int64_t cpu_weight = -1;
       int64_t ram_bytes = -1;
 
+   };
+
+   struct snapshot_resource_usage_object_v6 {
+      static constexpr char section_name[] = "eosio::chain::resource_limits::resource_usage_object";
+      static constexpr uint32_t minimum_version = 2;
+      static constexpr uint32_t maximum_version = 6;
+      static_assert(chain_snapshot_header::minimum_compatible_version <= maximum_version, "snapshot_resource_usage_object_v6 is no longer needed");
+
+      account_name owner; //< owner should not be changed within a chainbase modifier lambda
+
+      usage_accumulator        net_usage;
+      usage_accumulator        cpu_usage;
+
+      uint64_t                 ram_usage = 0;
+   };
+
+   /**
+    * Every account that authorizes a transaction is billed for the full size of that transaction. This object
+    * tracks limits and the average usage of that account.
+    */
+   struct resource_limits_object : public chainbase::object<resource_limits_object_type, resource_limits_object> {
+
+      OBJECT_CTOR(resource_limits_object)
+
+      id_type                 id;
+      account_name            owner; //< owner should not be changed within a chainbase modifier lambda
+
+      // resource limits
+      int64_t                 net_weight = -1;
+      int64_t                 cpu_weight = -1;
+      int64_t                 ram_bytes = -1;
+      // resource usage
+      usage_accumulator       net_usage;
+      usage_accumulator       cpu_usage;
+      uint64_t                ram_usage = 0;
    };
 
    struct by_owner;
@@ -215,32 +248,30 @@ namespace eosio { namespace chain { namespace resource_limits {
       resource_limits_object,
       indexed_by<
          ordered_unique<tag<by_id>, member<resource_limits_object, resource_limits_object::id_type, &resource_limits_object::id>>,
-         ordered_unique<tag<by_owner>,
-            composite_key<resource_limits_object,
-               BOOST_MULTI_INDEX_MEMBER(resource_limits_object, bool, pending),
-               BOOST_MULTI_INDEX_MEMBER(resource_limits_object, account_name, owner)
-            >
-         >
+         ordered_unique<tag<by_owner>, member<resource_limits_object, account_name, &resource_limits_object::owner> >
       >
    >;
 
-   struct resource_usage_object : public chainbase::object<resource_usage_object_type, resource_usage_object> {
-      OBJECT_CTOR(resource_usage_object)
+      /**
+    * Every account that authorizes a transaction is billed for the full size of that transaction. This object
+    * tracks the average usage of that account.
+    */
+   class resource_pending_object : public chainbase::object<resource_pending_object_type, resource_pending_object> {
+
+      OBJECT_CTOR(resource_pending_object)
 
       id_type id;
-      account_name owner; //< owner should not be changed within a chainbase modifier lambda
-
-      usage_accumulator        net_usage;
-      usage_accumulator        cpu_usage;
-
-      uint64_t                 ram_usage = 0;
+      account_name owner;
+      int64_t net_weight = -1;
+      int64_t cpu_weight = -1;
+      int64_t ram_bytes = -1;
    };
 
-   using resource_usage_index = chainbase::shared_multi_index_container<
-      resource_usage_object,
+   using resource_pending_index = chainbase::shared_multi_index_container<
+      resource_pending_object,
       indexed_by<
-         ordered_unique<tag<by_id>, member<resource_usage_object, resource_usage_object::id_type, &resource_usage_object::id>>,
-         ordered_unique<tag<by_owner>, member<resource_usage_object, account_name, &resource_usage_object::owner> >
+         ordered_unique<tag<by_id>, member<resource_pending_object, resource_pending_object::id_type, &resource_pending_object::id>>,
+         ordered_unique<tag<by_owner>, member<resource_pending_object, account_name, &resource_pending_object::owner>>
       >
    >;
 
@@ -327,14 +358,16 @@ namespace eosio { namespace chain { namespace resource_limits {
 } } } /// eosio::chain::resource_limits
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_object,        eosio::chain::resource_limits::resource_limits_index)
-CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_usage_object,         eosio::chain::resource_limits::resource_usage_index)
+CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_pending_object,       eosio::chain::resource_limits::resource_pending_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_config_object, eosio::chain::resource_limits::resource_limits_config_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_state_object,  eosio::chain::resource_limits::resource_limits_state_index)
 
 FC_REFLECT(eosio::chain::resource_limits::usage_accumulator, (last_ordinal)(value_ex)(consumed))
 
 // @ignore pending
-FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(net_weight)(cpu_weight)(ram_bytes))
-FC_REFLECT(eosio::chain::resource_limits::resource_usage_object,  (owner)(net_usage)(cpu_usage)(ram_usage))
+FC_REFLECT(eosio::chain::resource_limits::snapshot_resource_limits_object_v6, (owner)(net_weight)(cpu_weight)(ram_bytes))
+FC_REFLECT(eosio::chain::resource_limits::snapshot_resource_usage_object_v6, (owner)(net_usage)(cpu_usage)(ram_usage))
+FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(net_weight)(cpu_weight)(ram_bytes)(net_usage)(cpu_usage)(ram_usage))
+FC_REFLECT(eosio::chain::resource_limits::resource_pending_object,  (owner)(net_weight)(cpu_weight)(ram_bytes))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_state_object, (average_block_net_usage)(average_block_cpu_usage)(pending_net_usage)(pending_cpu_usage)(total_net_weight)(total_cpu_weight)(total_ram_bytes)(virtual_net_limit)(virtual_cpu_limit))

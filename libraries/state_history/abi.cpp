@@ -233,11 +233,26 @@ extern const char* const state_history_plugin_abi = R"({
             ]
         },
         {
+            "name": "account_v1", "fields": [
+                { "type": "name", "name": "name" },
+                { "type": "block_timestamp_type", "name": "creation_date" }
+            ]
+        },
+        {
             "name": "account_metadata_v0", "fields": [
                 { "type": "name", "name": "name" },
                 { "type": "bool", "name": "privileged" },
                 { "type": "time_point", "name": "last_code_update" },
                 { "type": "code_id?", "name": "code" }
+            ]
+        },
+        {
+            "name": "account_metadata_v1", "fields": [
+                { "type": "name", "name": "name" },
+                { "type": "bool", "name": "privileged" },
+                { "type": "time_point", "name": "last_code_update" },
+                { "type": "code_id?", "name": "code" },
+                { "type": "bytes", "name": "abi" }
             ]
         },
         {
@@ -490,6 +505,13 @@ extern const char* const state_history_plugin_abi = R"({
             ]
         },
         {
+            "name": "usage_accumulator_v0", "fields": [
+                { "type": "uint32", "name": "last_ordinal" },
+                { "type": "uint64", "name": "value_ex" },
+                { "type": "uint64", "name": "consumed" }
+            ]
+        },
+        {
             "name": "resource_limits_v0", "fields": [
                 { "type": "name", "name": "owner" },
                 { "type": "int64", "name": "net_weight" },
@@ -498,20 +520,16 @@ extern const char* const state_history_plugin_abi = R"({
             ]
         },
         {
-            "name": "usage_accumulator_v0", "fields": [
-                { "type": "uint32", "name": "last_ordinal" },
-                { "type": "uint64", "name": "value_ex" },
-                { "type": "uint64", "name": "consumed" }
-            ]
-        },
-        {
-            "name": "resource_usage_v0", "fields": [
+            "name": "resource_limits_v1", "fields": [
                 { "type": "name", "name": "owner" },
+                { "type": "int64", "name": "net_weight" },
+                { "type": "int64", "name": "cpu_weight" },
+                { "type": "int64", "name": "ram_bytes" },
                 { "type": "usage_accumulator", "name": "net_usage" },
                 { "type": "usage_accumulator", "name": "cpu_usage" },
                 { "type": "uint64", "name": "ram_usage" }
             ]
-        },
+        }
         {
             "name": "resource_limits_state_v0", "fields": [
                 { "type": "usage_accumulator", "name": "average_block_net_usage" },
@@ -562,8 +580,8 @@ extern const char* const state_history_plugin_abi = R"({
         { "name": "transaction_variant", "types": ["transaction_id", "packed_transaction"] },
 
         { "name": "table_delta", "types": ["table_delta_v0"] },
-        { "name": "account", "types": ["account_v0"] },
-        { "name": "account_metadata", "types": ["account_metadata_v0"] },
+        { "name": "account", "types": ["account_v0", "account_v1"] },
+        { "name": "account_metadata", "types": ["account_metadata_v0", "account_metadata_v1"] },
         { "name": "code", "types": ["code_v0"] },
         { "name": "contract_table", "types": ["contract_table_v0"] },
         { "name": "contract_row", "types": ["contract_row_v0"] },
@@ -580,9 +598,8 @@ extern const char* const state_history_plugin_abi = R"({
         { "name": "protocol_state", "types": ["protocol_state_v0"] },
         { "name": "permission", "types": ["permission_v0"] },
         { "name": "permission_link", "types": ["permission_link_v0"] },
-        { "name": "resource_limits", "types": ["resource_limits_v0"] },
+        { "name": "resource_limits", "types": ["resource_limits_v0", "resource_limits_v1"] },
         { "name": "usage_accumulator", "types": ["usage_accumulator_v0"] },
-        { "name": "resource_usage", "types": ["resource_usage_v0"] },
         { "name": "resource_limits_state", "types": ["resource_limits_state_v0"] },
         { "name": "resource_limits_ratio", "types": ["resource_limits_ratio_v0"] },
         { "name": "elastic_limit_parameters", "types": ["elastic_limit_parameters_v0"] },
