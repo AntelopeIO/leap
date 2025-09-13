@@ -110,8 +110,8 @@ class datastream<Streambuf, typename std::enable_if_t<std::is_base_of_v<std::str
 
    size_t read(char* data, size_t n) { return buf.sgetn(data, n); }
    size_t write(const char* data, size_t n) { return buf.sputn(data, n); }
-   size_t tellp() { return this->pubseekoff(0, std::ios::cur); }
-   bool   skip(size_t p) { this->pubseekoff(p, std::ios::cur);  return true;  }
+   size_t tellp() { return buf.pubseekoff(0, std::ios::cur); }
+   bool   skip(size_t p) { buf.pubseekoff(p, std::ios::cur);  return true;  }
    bool   get(char& c) {
       c = buf.sbumpc();
       return true;
