@@ -13,6 +13,7 @@
 #include <boost/bimap/multiset_of.hpp>
 #include <boost/bimap/set_of.hpp>
 
+#include <algorithm>
 #include <shared_mutex>
 
 using namespace eosio;
@@ -423,6 +424,7 @@ namespace eosio::chain_apis {
 
          using result_t = account_query_db::get_accounts_by_authorizers_result;
          result_t result;
+         const auto limit = std::min(args.limit, account_query_db::max_results);
 
          // deduplicate inputs
          auto account_set = std::set<chain::permission_level>(args.accounts.begin(), args.accounts.end());
@@ -431,8 +433,9 @@ namespace eosio::chain_apis {
          /**
           * Add a range of results
           */
-         auto push_results = [&result](const auto& begin, const auto& end) {
-            for (auto itr = begin; itr != end; ++itr) {
+         auto push_results = [&result, limit](const auto& begin, const auto& end) {
+            auto itr = begin;
+            for (; itr != end && result.accounts.size() < limit; ++itr) {
                const auto& pi = itr->second.get();
                const auto& authorizer = itr->first.value;
                auto weight = itr->first.weight;
@@ -446,6 +449,11 @@ namespace eosio::chain_apis {
                      pi.threshold
                });
             }
+            if (itr != end) {
+               result.more = true;
+               return false;
+            }
+            return true;
          };
 
 
@@ -457,13 +465,15 @@ namespace eosio::chain_apis {
                const auto begin = name_bimap.left.lower_bound(weighted<chain::permission_level>::lower_bound_for({a.actor, a.permission}));
                const auto next_account_name = chain::name(a.actor.to_uint64_t() + 1);
                const auto end = name_bimap.left.lower_bound(weighted<chain::permission_level>::lower_bound_for({next_account_name, a.permission}));
-               push_results(begin, end);
+               if (!push_results(begin, end))
+                  return result;
             } else {
                // construct a range of all possible weights for an account/permission pair
                const auto p = chain::permission_level{a.actor, a.permission};
                const auto begin = name_bimap.left.lower_bound(weighted<chain::permission_level>::lower_bound_for(p));
                const auto end = name_bimap.left.upper_bound(weighted<chain::permission_level>::upper_bound_for(p));
-               push_results(begin, end);
+               if (!push_results(begin, end))
+                  return result;
             }
          }
 
@@ -471,7 +481,8 @@ namespace eosio::chain_apis {
             // construct a range of all possible weights for a key
             const auto begin = key_bimap.left.lower_bound(weighted<chain::public_key_type>::lower_bound_for(k));
             const auto end = key_bimap.left.upper_bound(weighted<chain::public_key_type>::upper_bound_for(k));
-            push_results(begin, end);
+            if (!push_results(begin, end))
+               return result;
          }
 
          return result;

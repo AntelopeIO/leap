@@ -92,6 +92,47 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test, validating_tester) { try {
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_FIXTURE_TEST_CASE(get_accounts_by_authorizers_limit_test, validating_tester) { try {
+
+   auto aq_db = account_query_db(*control);
+
+   auto c = control->accepted_block.connect([&](const block_signal_params& t) {
+      const auto& [ block, id ] = t;
+      aq_db.commit_block( block );
+   });
+
+   produce_blocks(10);
+
+   const auto tester_account = "tester"_n;
+   const auto shared_key = get_public_key(tester_account, "shared");
+   create_account(tester_account);
+
+   for (const auto permission : {"first"_n, "second"_n, "third"_n}) {
+      const auto trace_ptr = push_action(config::system_account_name, updateauth::get_name(), tester_account,
+                                         fc::mutable_variant_object()
+                                               ("account", tester_account)
+                                               ("permission", permission)
+                                               ("parent", "active")
+                                               ("auth", authority(shared_key, 1)));
+      aq_db.cache_transaction_trace(trace_ptr);
+      produce_block();
+   }
+
+   params pars;
+   pars.keys.emplace_back(shared_key);
+   pars.limit = 2;
+
+   const auto limited_results = aq_db.get_accounts_by_authorizers(pars);
+   BOOST_TEST_REQUIRE(limited_results.accounts.size() == 2u);
+   BOOST_TEST_REQUIRE(limited_results.more == true);
+
+   pars.limit = 3;
+   const auto complete_results = aq_db.get_accounts_by_authorizers(pars);
+   BOOST_TEST_REQUIRE(complete_results.accounts.size() == 3u);
+   BOOST_TEST_REQUIRE(complete_results.more == false);
+
+} FC_LOG_AND_RETHROW() }
+
 BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, validating_tester) { try {
 
    // instantiate an account_query_db
@@ -286,4 +327,3 @@ BOOST_AUTO_TEST_CASE(fork_test) { try {
    } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()
-

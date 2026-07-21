@@ -10,6 +10,8 @@ namespace eosio::chain_apis {
     */
    class account_query_db {
    public:
+      static constexpr uint32_t max_results = 1000;
+
 
       /**
        * Instantiate a new account query DB from the given chain controller
@@ -54,6 +56,7 @@ namespace eosio::chain_apis {
 
          std::vector<permission_level> accounts;
          std::vector<chain::public_key_type> keys;
+         uint32_t limit = max_results;
       };
 
       /**
@@ -70,6 +73,7 @@ namespace eosio::chain_apis {
          };
 
          std::vector<account_result> accounts;
+         bool more = false;
       };
       /**
        * Given a set of account names and public keys, find all account permission authorities that are, in part or whole,
@@ -130,6 +134,6 @@ namespace fc {
    }
 }
 
-FC_REFLECT( eosio::chain_apis::account_query_db::get_accounts_by_authorizers_params, (accounts)(keys))
+FC_REFLECT( eosio::chain_apis::account_query_db::get_accounts_by_authorizers_params, (accounts)(keys)(limit))
 FC_REFLECT( eosio::chain_apis::account_query_db::get_accounts_by_authorizers_result::account_result, (account_name)(permission_name)(authorizing_account)(authorizing_key)(weight)(threshold))
-FC_REFLECT( eosio::chain_apis::account_query_db::get_accounts_by_authorizers_result, (accounts))
+FC_REFLECT( eosio::chain_apis::account_query_db::get_accounts_by_authorizers_result, (accounts)(more))

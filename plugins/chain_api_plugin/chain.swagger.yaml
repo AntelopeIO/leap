@@ -675,6 +675,11 @@ paths:
                   description: List of authorizing keys
                   items:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/PublicKey.yaml"
+                limit:
+                  type: integer
+                  default: 1000
+                  maximum: 1000
+                  description: Maximum number of account permission authorities to return. The server enforces an upper bound of 1000.
       responses:
         "200":
           description: OK
@@ -685,6 +690,7 @@ paths:
                 description: Result containing a list of accounts which are authorized, in whole or part, by the provided accounts and keys
                 required:
                   - accounts
+                  - more
                 properties:
                   accounts:
                     type: array
@@ -713,6 +719,9 @@ paths:
                         threshold:
                           type: "integer"
                           description: the sum of weights that must be met or exceeded to satisfy the permission
+                  more:
+                    type: boolean
+                    description: True when additional matching account permission authorities were omitted because the result limit was reached.
   /get_transaction_status:
     post:
       description: Attempts to get current blockchain state and, if available, transaction information given the transaction id. For query to work, the transaction finality status feature must be enabled by configuring the chain plugin with the config option '--transaction-finality-status-max-storage-size-gb' in nodeos.
